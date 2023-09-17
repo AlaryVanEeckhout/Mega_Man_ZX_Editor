@@ -1,0 +1,7 @@
+#ROMs
+*.nds
+#pycache
+*.pyc
+#exported files
+*.bin
+*.txt
