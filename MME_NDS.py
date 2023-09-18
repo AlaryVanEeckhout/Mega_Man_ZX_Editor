@@ -12,7 +12,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.window_height = 720
         self.setWindowIcon(PyQt6.QtGui.QIcon('icon_biometals-creation.png'))
         self.setWindowTitle("Mega Man ZX Editor")
-        self.rom = None
+        self.rom = ndspy.rom.NintendoDSRom
         self.romToEdit_name = ''
         self.romToEdit_ext = ''
         self.resize(self.window_width, self.window_height)
@@ -56,31 +56,17 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         toolbar.addAction(button_save)
 
         #ROM-related
-        tree = PyQt6.QtWidgets.QTreeWidget(self)
-        tree.move(0, menuBar.rect().bottom() + 50)
-        tree.resize(450, 625)
-        tree.setColumnCount(2)
-        tree.setHeaderLabels(["Name", "Type"])
-        try:
-            data = {"Project A": [w.rom.filenames]}
-        except:
-            data = {"Project A": ["file_a.py", "file_a.txt", "something.xls"],
-            "Project B": ["file_b.csv", "photo.jpg"],
-            "Project C": []}
-        items = []
-        for key, values in data.items():
-            item = PyQt6.QtWidgets.QTreeWidgetItem([key])
-            for value in values:
-                ext = value.split(".")[-1].upper()
-                child = PyQt6.QtWidgets.QTreeWidgetItem([value, ext])
-                item.addChild(child)
-            items.append(item)
-        tree.insertTopLevelItems(0, items)
+        self.tree = PyQt6.QtWidgets.QTreeWidget(self)
+        self.tree.move(0, menuBar.rect().bottom() + 45)
+        self.tree.resize(450, 625)
+        self.tree.setColumnCount(3)
+        self.tree.setHeaderLabels(["File ID", "Name", "Type"])
+        self.treeUpdate()
 
-        button = PyQt6.QtWidgets.QPushButton("My simple app.\n nl\n nl", self)
-        button.setToolTip("tooltip")
-        button.setGeometry(650, 100, 100, 50)
-        button.pressed.connect(self.close)
+        #button = PyQt6.QtWidgets.QPushButton("My simple app.\n nl\n nl", self)
+        #button.setToolTip("tooltip")
+        #button.setGeometry(650, 100, 100, 50)
+        #button.pressed.connect(self.close)
 
         self.setStatusBar(PyQt6.QtWidgets.QStatusBar(self))
     
@@ -88,11 +74,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         fname = PyQt6.QtWidgets.QFileDialog.getOpenFileName(
             self,
             "Open File",
-            "${HOME}",
+            "",
             "NDS Files (*.nds *.srl);; All Files (*)",
         )
-        print(fname)
-        if not fname == ("", ""):
+        if not fname == ("", ""): # if file you're trying to open is not none
             openRom(fname)
 
     def exportCall(self):
@@ -107,6 +92,23 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
     def saveCall(self):
         print("save")
 
+    def treeUpdate(self):
+        tree_files = []
+        try: # convert NDS Py filenames to QTreeWidgetItems
+            tree_folder = PyQt6.QtWidgets.QTreeWidgetItem()
+            for f in str(self.rom.filenames).split("\n"):
+                if f.find("/") == -1: # if file
+                    if f.find("    ") != -1: # if contents of folder
+                        tree_folder.addChild(PyQt6.QtWidgets.QTreeWidgetItem([f.split(" ")[0], f.split(" ")[-1].split(".")[0], f.split(".")[-1]]))
+                    else:
+                        tree_files.append(PyQt6.QtWidgets.QTreeWidgetItem([f.split(" ")[0], f.split(" ")[-1].split(".")[0], f.split(".")[-1]]))
+                else: # if folder
+                    tree_folder = PyQt6.QtWidgets.QTreeWidgetItem([f.split(" ")[0], f.split(" ")[-1].removesuffix("/"), "Folder"])
+                    tree_files.append(tree_folder)
+        except: # if failed, empty list
+            tree_files = []
+        self.tree.addTopLevelItems(tree_files)
+
 app = PyQt6.QtWidgets.QApplication(sys.argv)
 w = MainWindow()
 # set game data as a variable
@@ -116,6 +118,7 @@ def openRom(name):
     w.rom = ndspy.rom.NintendoDSRom.fromFile(w.romToEdit_name + w.romToEdit_ext)
     w.setWindowTitle("Mega Man ZX Editor" + " (" + w.romToEdit_name + w.romToEdit_ext + ")")
     print(w.rom.filenames)
+    w.treeUpdate()
 #fileToEdit_name = "talk_m01_en1.bin"
 def extract(fileToEdit_name):
     fileToEdit = w.rom.getFileByName(fileToEdit_name)
