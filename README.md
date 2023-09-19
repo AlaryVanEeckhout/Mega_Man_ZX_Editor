@@ -8,6 +8,7 @@
 - Functional User Interface
 - Sprite Editor
 - Sound/Music Editor*
+- Movie Editor*
 - Level Editor*
 - Physics Editor*
 - Game Logic Editor*

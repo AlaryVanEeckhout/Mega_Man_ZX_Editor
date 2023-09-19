@@ -4,4 +4,7 @@
 *.pyc
 #exported files
 *.bin
+*.vx
+#converted exported files
 *.txt
+*.mov

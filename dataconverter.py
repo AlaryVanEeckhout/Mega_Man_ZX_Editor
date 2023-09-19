@@ -185,7 +185,6 @@ def convertfile_bin_to_text(bin):
                     chars.append(f"├0x{file_text[i]:02X}┤")
                 i+=1
             file_text = ''.join(chars)
-            print(file_text)
             return file_text
     else:
         print("The file you are trying to open doesn't exist!")
@@ -220,15 +219,33 @@ def convertfile_text_to_bin(text):
                     file_data.append(int.to_bytes(ord(file_text[c]) - 0x20 & 0xFF))
                 c+=1
             file_data = b''.join(file_data)
-            print(file_data)
             return file_data
     else:
         print("The file you are trying to open doesn't exist!")
+
+def convertdata_bin_to_text(data):
+    chars = []
+    i=0
+    while i < len(data):
+        if data[i] <= 0x5E:
+            chars.append(chr(data[i] + 0x20 & 0xFF))
+        elif type(special_character_list[data[i]]) == type([]):
+            special_character = special_character_list[data[i]]
+            params = []
+            for j in range(special_character[0]):
+                i+=1
+                params.append(data[i])
+            chars.append(special_character[1].format(*params))
+        else:
+            chars.append(f"├0x{data[i]:02X}┤")
+        i+=1
+    data = ''.join(chars)
+    return data
 
  #create readable text
 #with open("test.txt", "wb") as t:
 #    t.write(bytes(convertfile_bin_to_text("talk_m01_en1.bin"), "utf-8"))
  #create bin file
-with open("talk_m01_en1.bin", "wb") as t:
-    #convertfile_text_to_bin("test.txt")
-    t.write((convertfile_text_to_bin("test.txt")))
+#with open("talk_m01_en1.bin", "wb") as t:
+#    #convertfile_text_to_bin("test.txt")
+#    t.write((convertfile_text_to_bin("test.txt")))
