@@ -3,12 +3,14 @@
  This is an attempt at creating a tool that will make editing Mega Man ZX much easier.<br>
  If you need to know where specific assets, values, or code sections are in the game, please see the(unfinished) [wiki page](https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/wiki), as it contains documentation I accumulated on the game.
 ## Progress
-Currently, the editor cannot save data to the ROM, but that will soon be fixed.<br>
-For now, I'm working on the editor's GUI.
+Currently, the editor can edit english dialogue files and save them to the ROM. That's about it.<br>
+For now, I'm working on the editor's GUI and import/export features.
 ### Done
 - Dialogue text converter
-### Todo
 - Functional User Interface
+### Todo
+- Proper export/import with options for file formats
+- Insert file feature
 - Sprite Editor
 - Sound/Music Editor*
 - Movie Editor*
