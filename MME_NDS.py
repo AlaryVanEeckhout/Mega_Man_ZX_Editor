@@ -1,5 +1,5 @@
 import PyQt6
-import PyQt6.QtGui, PyQt6.QtWidgets
+import PyQt6.QtGui, PyQt6.QtWidgets, PyQt6.QtCore
 import sys, os
 import ndspy
 import ndspy.rom
@@ -17,10 +17,17 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.romToEdit_name = ''
         self.romToEdit_ext = ''
         self.fileToEdit_name = ''
-        self.displayConvertedFile = True # Whether or not fileToEdit should be shown in raw bin format or in readable format
+        self.fileDisplayRaw = False # Display file in 'raw'(bin) format. Else, diplayed in readable format
+        self.fileDisplayMode = "Adapt" # Modes: Adapt, Binary, English dialogue, Japanese dialogue, Sound, Movie, Code
         self.resize(self.window_width, self.window_height)
         self.UiComponents()
         self.show()
+
+    def toggle_widget_icon(self, widget, checkedicon, uncheckedicon):
+        if widget.isChecked():
+            widget.setIcon(checkedicon)
+        else:
+            widget.setIcon(uncheckedicon)
     
     def UiComponents(self):
         # Menus
@@ -35,11 +42,15 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.exportAction.triggered.connect(self.exportCall)
         self.exportAction.setDisabled(True)
 
-        self.importAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_blue-document-import.png'), '&Import...', self)        
-        self.importAction.setShortcut('Ctrl+I')
-        self.importAction.setStatusTip('import file in binary or converted format')
-        self.importAction.triggered.connect(self.importCall)
-        self.importAction.setDisabled(True)
+        self.replaceAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_blue-document-import.png'), '&Replace', self)        
+        self.replaceAction.setShortcut('Ctrl+I')
+        self.replaceAction.setStatusTip('replace file in binary or converted format')
+        self.replaceAction.triggered.connect(self.replaceCall)
+
+        self.insertfileAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_blue-document-import.png'), '&Insert', self)        
+        self.insertfileAction.setShortcut('Ctrl+I')
+        self.insertfileAction.setStatusTip('insert file in binary or converted format')
+        self.insertfileAction.triggered.connect(self.insertfileCall)
 
         self.settingsAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_gear.png'), '&Settings', self)
         self.settingsAction.setStatusTip('Settings')
@@ -51,11 +62,38 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
         self.menu_bar = self.menuBar()
         self.fileMenu = self.menu_bar.addMenu('&File')
-        self.fileMenu.addAction(self.openAction)
-        self.fileMenu.addAction(self.exportAction)
-        self.fileMenu.addAction(self.importAction)
-        self.fileMenu.addAction(self.settingsAction)
-        self.fileMenu.addAction(self.exitAction)
+        self.fileMenu.addActions([self.openAction, self.exportAction])
+        self.importSubmenu = self.fileMenu.addMenu('&Import...')
+        self.importSubmenu.setIcon(PyQt6.QtGui.QIcon('icon_blue-document-import.png'))
+        self.importSubmenu.addActions([self.replaceAction, self.insertfileAction])
+        self.importSubmenu.setDisabled(True)
+        self.fileMenu.addActions([self.settingsAction, self.exitAction])
+
+        self.displayRawAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_brain.png'), '&Converted formats', self)
+        self.displayRawAction.setStatusTip('Displays files in a readable format instead of raw format.')
+        self.displayRawAction.setCheckable(True)
+        self.displayRawAction.setChecked(True)
+        self.displayRawAction.triggered.connect(self.display_format_toggleCall)
+
+        self.viewAdaptAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_document-node.png'), '&Adapt', self)
+        self.viewAdaptAction.setStatusTip('Files will be decrypted on a case per case basis.')
+        self.viewAdaptAction.setCheckable(True)
+        self.viewAdaptAction.setChecked(True)
+        self.viewAdaptAction.triggered.connect(self.display_format_adapt_Call)
+
+        self.viewEntextAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_document-text.png'), '&English Text', self)
+        self.viewEntextAction.setStatusTip('Files will be decrypted as english dialogues.')
+        self.viewEntextAction.setCheckable(True)
+        self.viewEntextAction.triggered.connect(self.display_format_endialog_Call)
+
+        self.viewFormatsGroup = PyQt6.QtGui.QActionGroup(self) #group for mutually exclusive togglable items
+        self.viewFormatsGroup.addAction(self.viewAdaptAction)
+        self.viewFormatsGroup.addAction(self.viewEntextAction)
+
+        self.viewMenu = self.menu_bar.addMenu('&View')
+        self.viewMenu.addAction(self.displayRawAction)
+        self.displayFormatSubmenu = self.viewMenu.addMenu(PyQt6.QtGui.QIcon('icon_document-convert.png'), '&Set edit mode...')
+        self.displayFormatSubmenu.addActions([self.viewAdaptAction, self.viewEntextAction])
 
         #Toolbar
         self.toolbar = PyQt6.QtWidgets.QToolBar("Main Toolbar")
@@ -83,6 +121,11 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         #button.pressed.connect(self.close)
 
         self.setStatusBar(PyQt6.QtWidgets.QStatusBar(self))
+
+    def set_dialog_button_name(self, dialog, oldtext, newtext):
+        for btn in dialog.findChildren(PyQt6.QtWidgets.QPushButton):
+            if btn.text() == self.tr(oldtext):
+                PyQt6.QtCore.QTimer.singleShot(0, lambda btn=btn: btn.setText(newtext))
     
     def openCall(self):
         fname = PyQt6.QtWidgets.QFileDialog.getOpenFileName(
@@ -97,7 +140,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             w.rom = ndspy.rom.NintendoDSRom.fromFile(w.romToEdit_name + w.romToEdit_ext)
             w.setWindowTitle("Mega Man ZX Editor" + " (" + w.romToEdit_name + w.romToEdit_ext + ")")
             print(w.rom.filenames)
-            w.importAction.setDisabled(False)
+            w.importSubmenu.setDisabled(False)
             w.treeUpdate()
 
     def exportCall(self):
@@ -115,14 +158,38 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         else:
             print("no file to extract!")
 
-    def importCall(self):
+    def replaceCall(self):
         if hasattr(w.rom, "name"):
-            fname = PyQt6.QtWidgets.QFileDialog.getOpenFileName(
+            import_dialog = PyQt6.QtWidgets.QFileDialog(
                 self,
                 "Import File",
                 "",
                 "All Files (*)",
+                options=PyQt6.QtWidgets.QFileDialog.Option.DontUseNativeDialog,
+                )
+            self.set_dialog_button_name(import_dialog, "&Open", "Import")
+            import_dialog.findChild(PyQt6.QtWidgets.QTreeView).selectionModel().currentChanged.connect(
+            lambda: self.set_dialog_button_name(import_dialog, "&Open", "Import")
             )
+            #import_dialog.setAcceptMode(PyQt6.QtWidgets.QFileDialog.AcceptMode.AcceptSave)
+            fname = import_dialog.exec()
+            if not fname == ("", ""): # if file you're trying to open is not none
+                print("file imported")
+
+    def insertfileCall(self):
+        if hasattr(w.rom, "name"):
+            import_dialog = PyQt6.QtWidgets.QFileDialog(
+                self,
+                "Import File",
+                "",
+                "All Files (*)",
+                options=PyQt6.QtWidgets.QFileDialog.Option.DontUseNativeDialog,
+                )
+            self.set_dialog_button_name(import_dialog, "&Open", "Import")
+            import_dialog.findChild(PyQt6.QtWidgets.QTreeView).selectionModel().currentChanged.connect(
+            lambda: self.set_dialog_button_name(import_dialog, "&Open", "Import")
+            )
+            fname = import_dialog.exec()
             if not fname == ("", ""): # if file you're trying to open is not none
                 print("file imported")
 
@@ -131,6 +198,21 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
     
     def exitCall(self):
         self.close()
+    
+    def display_format_toggleCall(self):
+        if self.fileDisplayRaw == False:
+            self.fileDisplayRaw = True
+            self.displayFormatSubmenu.setDisabled(True)
+        else:
+            self.fileDisplayRaw = False
+            self.displayFormatSubmenu.setDisabled(False)
+        self.toggle_widget_icon(self.displayRawAction, PyQt6.QtGui.QIcon('icon_brain.png'), PyQt6.QtGui.QIcon('icon_document-binary.png'))
+
+    def display_format_adapt_Call(self):
+        self.fileDisplayMode = "Adapt"
+
+    def display_format_endialog_Call(self):
+        self.fileDisplayMode = "English dialogue"
     
     def saveCall(self):
         print("save")
@@ -161,8 +243,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
     def treeCall(self):
         self.fileToEdit_name = str(self.tree.currentItem().text(1) + "." + self.tree.currentItem().text(2))
         if self.fileToEdit_name.find(".Folder") == -1:
-            if self.displayConvertedFile == True:
-                if self.tree.currentItem().text(1).find("talk") != -1 and self.tree.currentItem().text(1).find("en") != -1: # if english text
+            if self.fileDisplayRaw == False:
+                if (self.fileDisplayMode == "English dialogue") or (self.fileDisplayMode == "Adapt" and self.tree.currentItem().text(1).find("talk") != -1 and self.tree.currentItem().text(1).find("en") != -1): # if english text
                     self.file_content.setText(dataconverter.convertdata_bin_to_text(self.rom.files[int(self.tree.currentItem().text(0))]))
                 else:
                     self.file_content.setText(str(self.rom.files[int(self.tree.currentItem().text(0))]))
