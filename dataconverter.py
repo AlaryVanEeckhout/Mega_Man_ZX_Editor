@@ -242,6 +242,36 @@ def convertdata_bin_to_text(data):
     data = ''.join(chars)
     return data
 
+def convertdata_text_to_bin(data):
+        file_text = data
+        file_data = []
+        c=0
+        while c < len(file_text):
+            if file_text[c] == "├": #extra special chars
+                if file_text[c+1].isdigit():
+                    file_data.append(int.to_bytes(int(file_text[c+3]+file_text[c+4], 16)))
+                    c+=len("├0xXX┤")-1
+                else:
+                    special_string = file_text[c:file_text.find("┤", c)+1]
+                    #print(special_string.split(' ')[0])
+                    for d in range(len(special_character_list)):
+                        if type(special_character_list[d]) == type([]) and special_character_list[d][1].split(' ')[0] == special_string.split(' ')[0]:
+                            file_data.append(int.to_bytes(d))
+                            for p in range(special_character_list[d][0]):
+                                #print(p)
+                                #print(file_text[c+len(special_string)+2-(5+p*5)]+file_text[c+len(special_string)+3-(5+p*5)])
+                                file_data.append(int.to_bytes(int(file_text[c+len(special_string)+2-(5+p*5)]+file_text[c+len(special_string)+3-(5+p*5)], 16)))
+                            c+=len(special_string)-1
+            elif any(file_text[c] in sublist for sublist in special_character_list if isinstance(sublist, list)): #game's extended char table
+                for d in range(len(special_character_list)):
+                    if type(special_character_list[d]) == type([]) and special_character_list[d][1] == file_text[c]:
+                        file_data.append(int.to_bytes(d))
+            else: #normal ASCII chars
+                file_data.append(int.to_bytes(ord(file_text[c]) - 0x20 & 0xFF))
+            c+=1
+        file_data = b''.join(file_data)
+        return file_data
+
  #create readable text
 #with open("test.txt", "wb") as t:
 #    t.write(bytes(convertfile_bin_to_text("talk_m01_en1.bin"), "utf-8"))

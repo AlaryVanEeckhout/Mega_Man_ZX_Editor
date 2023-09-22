@@ -43,7 +43,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.exportAction.setDisabled(True)
 
         self.replaceAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_blue-document-import.png'), '&Replace', self)        
-        self.replaceAction.setShortcut('Ctrl+I')
+        self.replaceAction.setShortcut('Ctrl+R')
         self.replaceAction.setStatusTip('replace file in binary or converted format')
         self.replaceAction.triggered.connect(self.replaceCall)
 
@@ -102,6 +102,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.button_save = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_disk.png'), "Save to ROM", self)
         self.button_save.setStatusTip("Save changes to the ROM")
         self.button_save.triggered.connect(self.saveCall)
+        self.button_save.setDisabled(True)
         self.toolbar.addAction(self.button_save)
 
         #ROM-related
@@ -113,12 +114,15 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.treeUpdate()
         self.tree.itemSelectionChanged.connect(self.treeCall)
 
+        self.button_file_save = PyQt6.QtWidgets.QPushButton("Save file", self)
+        self.button_file_save.setToolTip("save this file's changes")
+        self.button_file_save.setGeometry(500, 70, 100, 50)
+        self.button_file_save.pressed.connect(self.save_filetext)
+        self.button_file_save.setDisabled(True)
+
         self.file_content = PyQt6.QtWidgets.QTextEdit(self)
         self.file_content.setGeometry(475, self.menu_bar.rect().bottom() + 100, 500, 500)
-        #button = PyQt6.QtWidgets.QPushButton("My simple app.\n nl\n nl", self)
-        #button.setToolTip("tooltip")
-        #button.setGeometry(650, 100, 100, 50)
-        #button.pressed.connect(self.close)
+        self.file_content.textChanged.connect(lambda: self.button_file_save.setDisabled(False))
 
         self.setStatusBar(PyQt6.QtWidgets.QStatusBar(self))
 
@@ -135,13 +139,14 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             "NDS Files (*.nds *.srl);; All Files (*)",
         )
         if not fname == ("", ""): # if file you're trying to open is not none
-            w.romToEdit_name = fname[0].split("/")[len(fname[0].split("/")) - 1].split(".")[0]
-            w.romToEdit_ext = "." + fname[0].split("/")[len(fname[0].split("/")) - 1].split(".")[1]
-            w.rom = ndspy.rom.NintendoDSRom.fromFile(w.romToEdit_name + w.romToEdit_ext)
-            w.setWindowTitle("Mega Man ZX Editor" + " (" + w.romToEdit_name + w.romToEdit_ext + ")")
-            print(w.rom.filenames)
-            w.importSubmenu.setDisabled(False)
-            w.treeUpdate()
+            self.romToEdit_name = fname[0].split("/")[len(fname[0].split("/")) - 1].split(".")[0]
+            self.romToEdit_ext = "." + fname[0].split("/")[len(fname[0].split("/")) - 1].split(".")[1]
+            self.rom = ndspy.rom.NintendoDSRom.fromFile(self.romToEdit_name + self.romToEdit_ext)
+            self.setWindowTitle("Mega Man ZX Editor" + " (" + self.romToEdit_name + self.romToEdit_ext + ")")
+            print(self.rom.filenames)
+            self.importSubmenu.setDisabled(False)
+            self.button_save.setDisabled(False)
+            self.treeUpdate()
 
     def exportCall(self):
         if self.fileToEdit_name != '':
@@ -160,38 +165,42 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
     def replaceCall(self):
         if hasattr(w.rom, "name"):
-            import_dialog = PyQt6.QtWidgets.QFileDialog(
+            dialog = PyQt6.QtWidgets.QFileDialog(
                 self,
                 "Import File",
                 "",
                 "All Files (*)",
                 options=PyQt6.QtWidgets.QFileDialog.Option.DontUseNativeDialog,
                 )
-            self.set_dialog_button_name(import_dialog, "&Open", "Import")
-            import_dialog.findChild(PyQt6.QtWidgets.QTreeView).selectionModel().currentChanged.connect(
-            lambda: self.set_dialog_button_name(import_dialog, "&Open", "Import")
+            self.set_dialog_button_name(dialog, "&Open", "Import")
+            dialog.findChild(PyQt6.QtWidgets.QTreeView).selectionModel().currentChanged.connect(
+            lambda: self.set_dialog_button_name(dialog, "&Open", "Import")
             )
-            #import_dialog.setAcceptMode(PyQt6.QtWidgets.QFileDialog.AcceptMode.AcceptSave)
-            fname = import_dialog.exec()
-            if not fname == ("", ""): # if file you're trying to open is not none
-                print("file imported")
+            if dialog.exec() and str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']") in str(self.rom.filenames): # if file you're trying to open is not none
+                with open(*dialog.selectedFiles(), 'rb') as f:
+                    fileEdited = f.read()
+                    w.rom.setFileByName(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']"), fileEdited)
+                print(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']") + " imported")
+            elif not str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']") in str(self.rom.filenames):
+                print("no " + str(dialog.selectedFiles()[0]))
+            else:
+                print("nothing")
 
     def insertfileCall(self):
         if hasattr(w.rom, "name"):
-            import_dialog = PyQt6.QtWidgets.QFileDialog(
+            dialog = PyQt6.QtWidgets.QFileDialog(
                 self,
                 "Import File",
                 "",
                 "All Files (*)",
                 options=PyQt6.QtWidgets.QFileDialog.Option.DontUseNativeDialog,
                 )
-            self.set_dialog_button_name(import_dialog, "&Open", "Import")
-            import_dialog.findChild(PyQt6.QtWidgets.QTreeView).selectionModel().currentChanged.connect(
-            lambda: self.set_dialog_button_name(import_dialog, "&Open", "Import")
+            self.set_dialog_button_name(dialog, "&Open", "Import")
+            dialog.findChild(PyQt6.QtWidgets.QTreeView).selectionModel().currentChanged.connect(
+            lambda: self.set_dialog_button_name(dialog, "&Open", "Import")
             )
-            fname = import_dialog.exec()
-            if not fname == ("", ""): # if file you're trying to open is not none
-                print("file imported")
+            if dialog.exec(): # if file you're trying to open is not none
+                print(str(dialog.selectedFiles()).split("/")[-1][:-2] + " imported")
 
     def settingsCall(self):
         print("settings")
@@ -215,7 +224,22 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.fileDisplayMode = "English dialogue"
     
     def saveCall(self):
-        print("save")
+        dialog = PyQt6.QtWidgets.QFileDialog(
+                self,
+                "Save ROM",
+                "",
+                "All Files (*)",
+                options=PyQt6.QtWidgets.QFileDialog.Option.DontUseNativeDialog,
+                )
+        dialog.setAcceptMode(dialog.AcceptMode.AcceptSave)
+        self.set_dialog_button_name(dialog, "&Open", "Save")
+        dialog.findChild(PyQt6.QtWidgets.QTreeView).selectionModel().currentChanged.connect(
+        lambda: self.set_dialog_button_name(dialog, "&Open", "Save")
+        )
+        if dialog.exec(): # if you saved a file
+            print(*dialog.selectedFiles())
+            w.rom.saveToFile(*dialog.selectedFiles())
+            print("ROM modifs saved!")
 
     def treeUpdate(self):
         tree_files = []
@@ -253,6 +277,12 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         else:
             self.file_content.setText("")
         self.exportAction.setDisabled(False)
+        self.button_file_save.setDisabled(True)
+
+    def save_filetext(self):
+        w.rom.files[int(self.tree.currentItem().text(0))] = dataconverter.convertdata_text_to_bin(self.file_content.toPlainText())
+        print("file changes saved")
+        self.button_file_save.setDisabled(True)
 
 app = PyQt6.QtWidgets.QApplication(sys.argv)
 w = MainWindow()
@@ -268,12 +298,5 @@ def extract(fileToEdit_id, folder="", fileToEdit_name=""):
         f.write(fileToEdit)
         print(os.path.join(folder + fileToEdit_name))
         print("File extracted!")
-def savetorom(fileToEdit_name):
-    with open(fileToEdit_name, 'rb') as f:
-        fileEdited = f.read()
-
-    w.rom.setFileByName(fileToEdit_name, fileEdited)
-    w.rom.saveToFile(w.romToEdit_name + ' edited' + w.romToEdit_ext)
-    print("ROM modifs saved!")
 #run the app
 app.exec()
