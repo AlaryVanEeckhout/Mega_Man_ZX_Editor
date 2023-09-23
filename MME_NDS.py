@@ -1,6 +1,7 @@
 import PyQt6
-import PyQt6.QtGui, PyQt6.QtWidgets, PyQt6.QtCore
+import PyQt6.QtGui, PyQt6.QtWidgets, PyQt6.QtCore, PyQt6
 import sys, os
+import codecs
 import ndspy
 import ndspy.rom
 import dataconverter
@@ -120,9 +121,16 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.button_file_save.pressed.connect(self.save_filetext)
         self.button_file_save.setDisabled(True)
 
-        self.file_content = PyQt6.QtWidgets.QTextEdit(self)
+        self.file_content = PyQt6.QtWidgets.QPlainTextEdit(self)
         self.file_content.setGeometry(475, self.menu_bar.rect().bottom() + 100, 500, 500)
         self.file_content.textChanged.connect(lambda: self.button_file_save.setDisabled(False))
+        self.file_content.setDisabled(True)
+        self.button_longfile = PyQt6.QtWidgets.QPushButton("Press this button to view file,\nbut be warned that this file is very big.\nTherefore if you choose to view it,\nit will take some time to load\nand the program will be unresponsive.\n\nAlternatively, you could export the file and open it in a hex editor", self)
+        self.button_longfile.pressed.connect(lambda: self.button_longfile.hide())
+        self.button_longfile.pressed.connect(lambda: print("will take a while"))
+        self.button_longfile.pressed.connect(lambda: self.file_content.setDisabled(False))
+        self.button_longfile.pressed.connect(lambda: self.file_content.setPlainText((self.rom.files[int(self.tree.currentItem().text(0))]).hex()))
+        self.button_longfile.hide()
 
         self.setStatusBar(PyQt6.QtWidgets.QStatusBar(self))
 
@@ -130,6 +138,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         for btn in dialog.findChildren(PyQt6.QtWidgets.QPushButton):
             if btn.text() == self.tr(oldtext):
                 PyQt6.QtCore.QTimer.singleShot(0, lambda btn=btn: btn.setText(newtext))
+        dialog.findChild(PyQt6.QtWidgets.QTreeView).selectionModel().currentChanged.connect(
+            lambda: self.set_dialog_button_name(dialog, "&Open", "Import")
+            )
     
     def openCall(self):
         fname = PyQt6.QtWidgets.QFileDialog.getOpenFileName(
@@ -137,6 +148,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             "Open File",
             "",
             "NDS Files (*.nds *.srl);; All Files (*)",
+            options=PyQt6.QtWidgets.QFileDialog.Option.DontUseNativeDialog,
         )
         if not fname == ("", ""): # if file you're trying to open is not none
             self.romToEdit_name = fname[0].split("/")[len(fname[0].split("/")) - 1].split(".")[0]
@@ -146,20 +158,35 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             print(self.rom.filenames)
             self.importSubmenu.setDisabled(False)
             self.button_save.setDisabled(False)
+            self.tree.setCurrentItem(None)
             self.treeUpdate()
+            self.file_content.setDisabled(True)
 
     def exportCall(self):
-        if self.fileToEdit_name != '':
-            if self.fileToEdit_name.find(".Folder") == -1: # if file
-                extract(int(w.tree.currentItem().text(0)), fileToEdit_name=str(w.tree.currentItem().text(1) + "." + w.tree.currentItem().text(2)))
-            else: # if folder
-                if os.path.exists(w.fileToEdit_name.removesuffix(".Folder")) == False:
-                    os.makedirs(w.fileToEdit_name.removesuffix(".Folder"))
-                print(w.tree.currentItem().childCount() - 1)
-                for i in range(w.tree.currentItem().childCount()):
-                    print(w.tree.currentItem().child(i).text(0))
-                    extract(int(w.tree.currentItem().child(i).text(0)))#, w.fileToEdit_name.replace(".Folder", "/")
-                    #str(w.tree.currentItem().child(i).text(1) + "." + w.tree.currentItem().child(i).text(2)), 
+        dialog = PyQt6.QtWidgets.QFileDialog(
+                self,
+                "Save ROM",
+                "",
+                "All Files (*)",
+                options=PyQt6.QtWidgets.QFileDialog.Option.DontUseNativeDialog,
+                )
+        dialog.setAcceptMode(dialog.AcceptMode.AcceptSave)
+        dialog.setFileMode(dialog.FileMode.Directory)
+        self.set_dialog_button_name(dialog, "&Open", "Save")
+        if dialog.exec(): # if you saved a file
+            print(dialog.selectedFiles()[0])
+            if self.fileToEdit_name != '':
+                if self.fileToEdit_name.find(".Folder") == -1: # if file
+                    extract(int(w.tree.currentItem().text(0)), fileToEdit_name=str(w.tree.currentItem().text(1) + "." + w.tree.currentItem().text(2)), path=dialog.selectedFiles()[0])
+                else: # if folder
+                    print("Folder " + os.path.join(dialog.selectedFiles()[0] + "/" + w.fileToEdit_name.removesuffix(".Folder")) + " will be created")
+                    if os.path.exists(os.path.join(dialog.selectedFiles()[0] + "/" + w.fileToEdit_name.removesuffix(".Folder"))) == False:
+                        os.makedirs(os.path.join(dialog.selectedFiles()[0] + "/" + w.fileToEdit_name.removesuffix(".Folder")))
+                    print(w.tree.currentItem().childCount() - 1)
+                    for i in range(w.tree.currentItem().childCount()):
+                        print(w.tree.currentItem().child(i).text(0))
+                        extract(int(w.tree.currentItem().child(i).text(0)), path=dialog.selectedFiles()[0])#, w.fileToEdit_name.replace(".Folder", "/")
+                        #str(w.tree.currentItem().child(i).text(1) + "." + w.tree.currentItem().child(i).text(2)), 
         else:
             print("no file to extract!")
 
@@ -173,18 +200,14 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 options=PyQt6.QtWidgets.QFileDialog.Option.DontUseNativeDialog,
                 )
             self.set_dialog_button_name(dialog, "&Open", "Import")
-            dialog.findChild(PyQt6.QtWidgets.QTreeView).selectionModel().currentChanged.connect(
-            lambda: self.set_dialog_button_name(dialog, "&Open", "Import")
-            )
-            if dialog.exec() and str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']") in str(self.rom.filenames): # if file you're trying to open is not none
-                with open(*dialog.selectedFiles(), 'rb') as f:
-                    fileEdited = f.read()
-                    w.rom.setFileByName(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']"), fileEdited)
-                print(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']") + " imported")
-            elif not str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']") in str(self.rom.filenames):
-                print("no " + str(dialog.selectedFiles()[0]))
-            else:
-                print("nothing")
+            if dialog.exec():
+                if str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']") in str(self.rom.filenames): # if file you're trying to open is not none
+                    with open(*dialog.selectedFiles(), 'rb') as f:
+                        fileEdited = f.read()
+                        w.rom.setFileByName(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']"), fileEdited)
+                    print(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']") + " imported")
+                else:
+                    print("no " + str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']") + " in ROM")
 
     def insertfileCall(self):
         if hasattr(w.rom, "name"):
@@ -196,9 +219,6 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 options=PyQt6.QtWidgets.QFileDialog.Option.DontUseNativeDialog,
                 )
             self.set_dialog_button_name(dialog, "&Open", "Import")
-            dialog.findChild(PyQt6.QtWidgets.QTreeView).selectionModel().currentChanged.connect(
-            lambda: self.set_dialog_button_name(dialog, "&Open", "Import")
-            )
             if dialog.exec(): # if file you're trying to open is not none
                 print(str(dialog.selectedFiles()).split("/")[-1][:-2] + " imported")
 
@@ -216,12 +236,15 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.fileDisplayRaw = False
             self.displayFormatSubmenu.setDisabled(False)
         self.toggle_widget_icon(self.displayRawAction, PyQt6.QtGui.QIcon('icon_brain.png'), PyQt6.QtGui.QIcon('icon_document-binary.png'))
+        self.treeCall()
 
     def display_format_adapt_Call(self):
         self.fileDisplayMode = "Adapt"
+        self.treeCall()
 
     def display_format_endialog_Call(self):
         self.fileDisplayMode = "English dialogue"
+        self.treeCall()
     
     def saveCall(self):
         dialog = PyQt6.QtWidgets.QFileDialog(
@@ -233,9 +256,6 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 )
         dialog.setAcceptMode(dialog.AcceptMode.AcceptSave)
         self.set_dialog_button_name(dialog, "&Open", "Save")
-        dialog.findChild(PyQt6.QtWidgets.QTreeView).selectionModel().currentChanged.connect(
-        lambda: self.set_dialog_button_name(dialog, "&Open", "Save")
-        )
         if dialog.exec(): # if you saved a file
             print(*dialog.selectedFiles())
             w.rom.saveToFile(*dialog.selectedFiles())
@@ -262,31 +282,51 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         tree_folder[f.count("    ") - 1].addChild(tree_folder[f.count("    ")])
         except Exception as e: # if failed, empty list
             tree_files = []
+        self.tree.clear()
         self.tree.addTopLevelItems(tree_files)
 
     def treeCall(self):
-        self.fileToEdit_name = str(self.tree.currentItem().text(1) + "." + self.tree.currentItem().text(2))
-        if self.fileToEdit_name.find(".Folder") == -1:
-            if self.fileDisplayRaw == False:
-                if (self.fileDisplayMode == "English dialogue") or (self.fileDisplayMode == "Adapt" and self.tree.currentItem().text(1).find("talk") != -1 and self.tree.currentItem().text(1).find("en") != -1): # if english text
-                    self.file_content.setText(dataconverter.convertdata_bin_to_text(self.rom.files[int(self.tree.currentItem().text(0))]))
+        self.button_longfile.hide()
+        self.file_content.setReadOnly(False)
+        if self.tree.currentItem() != None:
+            self.fileToEdit_name = str(self.tree.currentItem().text(1) + "." + self.tree.currentItem().text(2))
+            if self.fileToEdit_name.find(".Folder") == -1:
+                if self.fileDisplayRaw == False:
+                    if (self.fileDisplayMode == "English dialogue") or (self.fileDisplayMode == "Adapt" and self.tree.currentItem().text(1).find("talk") != -1 and self.tree.currentItem().text(1).find("en") != -1): # if english text
+                        self.file_content.setPlainText(dataconverter.convertdata_bin_to_text(self.rom.files[int(self.tree.currentItem().text(0))]))
+                    else:
+                        self.file_content.setReadOnly(True)
+                        self.file_content.setPlainText("This file format is unknown/not supported at the moment.\n Go to View > Converted formats to disable file interpretation and view hex data.")
                 else:
-                    self.file_content.setText(str(self.rom.files[int(self.tree.currentItem().text(0))]))
+                    if len((self.rom.files[int(self.tree.currentItem().text(0))]).hex()) > 100000:
+                        self.button_longfile.setGeometry(self.file_content.geometry())
+                        self.button_longfile.show()
+                        self.file_content.setPlainText("")
+                        self.file_content.setDisabled(True)
+                    else:
+                        self.file_content.setPlainText((self.rom.files[int(self.tree.currentItem().text(0))]).hex())
             else:
-                self.file_content.setText(self.rom.files[int(self.tree.currentItem().text(0))].hex())
+                self.file_content.setPlainText("")
+                self.file_content.setDisabled(True)
+            self.exportAction.setDisabled(False)
+            self.button_file_save.setDisabled(True)
+            self.file_content.setDisabled(False)
         else:
-            self.file_content.setText("")
-        self.exportAction.setDisabled(False)
-        self.button_file_save.setDisabled(True)
+            self.file_content.setPlainText("")
+            self.button_file_save.setDisabled(True)
 
     def save_filetext(self):
-        w.rom.files[int(self.tree.currentItem().text(0))] = dataconverter.convertdata_text_to_bin(self.file_content.toPlainText())
+        if self.fileDisplayRaw == False:
+            if (self.fileDisplayMode == "English dialogue") or (self.fileDisplayMode == "Adapt" and self.tree.currentItem().text(1).find("talk") != -1 and self.tree.currentItem().text(1).find("en") != -1): # if english text
+                w.rom.files[int(self.tree.currentItem().text(0))] = dataconverter.convertdata_text_to_bin(self.file_content.toPlainText())
+        else:
+            w.rom.files[int(self.tree.currentItem().text(0))] = bytearray.fromhex(self.file_content.toPlainText())
         print("file changes saved")
         self.button_file_save.setDisabled(True)
 
 app = PyQt6.QtWidgets.QApplication(sys.argv)
 w = MainWindow()
-def extract(fileToEdit_id, folder="", fileToEdit_name=""):
+def extract(fileToEdit_id, folder="", fileToEdit_name="", path=""):
     fileToEdit = w.rom.files[fileToEdit_id]
     if fileToEdit_name == "":
         fileToEdit_name = w.rom.filenames[fileToEdit_id]
@@ -294,9 +334,9 @@ def extract(fileToEdit_id, folder="", fileToEdit_name=""):
     print(fileToEdit[0x65:0xc5])
 
     # create a copy of the file
-    with open(os.path.join(folder + fileToEdit_name), 'wb') as f:
+    with open(os.path.join(path + "/" + folder + fileToEdit_name), 'wb') as f:
         f.write(fileToEdit)
-        print(os.path.join(folder + fileToEdit_name))
+        print(os.path.join(path + "/" + folder + fileToEdit_name))
         print("File extracted!")
 #run the app
 app.exec()
