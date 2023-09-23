@@ -7,4 +7,5 @@
 *.vx
 #converted exported files
 *.txt
+#*.bmp
 *.mov

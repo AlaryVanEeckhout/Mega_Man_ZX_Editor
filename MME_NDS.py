@@ -42,19 +42,14 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.exportAction.triggered.connect(self.exportCall)
         self.exportAction.setDisabled(True)
 
-        self.replacebynameAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_blue-document-import.png'), '&Replace by name...', self)        
-        self.replacebynameAction.setStatusTip('replace with file of same name in binary or converted format')
-        self.replacebynameAction.triggered.connect(self.replacebynameCall)
-
         self.replaceAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_blue-document-import.png'), '&Replace...', self)
         self.replaceAction.setShortcut('Ctrl+R')
         self.replaceAction.setStatusTip('replace with file in binary or converted format')
         self.replaceAction.triggered.connect(self.replaceCall)
 
-        self.insertfileAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_blue-document-import.png'), '&Insert...', self)
-        self.insertfileAction.setShortcut('Ctrl+I')
-        self.insertfileAction.setStatusTip('insert file in binary or converted format')
-        self.insertfileAction.triggered.connect(self.insertfileCall)
+        self.replacebynameAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_blue-document-import.png'), '&Replace by name...', self)        
+        self.replacebynameAction.setStatusTip('replace with file of same name in binary or converted format')
+        self.replacebynameAction.triggered.connect(self.replacebynameCall)
 
         self.settingsAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_gear.png'), '&Settings', self)
         self.settingsAction.setStatusTip('Settings')
@@ -69,7 +64,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.fileMenu.addActions([self.openAction, self.exportAction])
         self.importSubmenu = self.fileMenu.addMenu('&Import...')
         self.importSubmenu.setIcon(PyQt6.QtGui.QIcon('icon_blue-document-import.png'))
-        self.importSubmenu.addActions([self.replacebynameAction, self.replaceAction, self.insertfileAction])
+        self.importSubmenu.addActions([self.replaceAction, self.replacebynameAction])
         self.importSubmenu.setDisabled(True)
         self.fileMenu.addActions([self.settingsAction, self.exitAction])
 
@@ -261,20 +256,6 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                                 print("raw data replaced")
                     print(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']") + " imported")
                     self.treeCall()
-
-    def insertfileCall(self):
-        if hasattr(w.rom, "name"):
-            dialog = PyQt6.QtWidgets.QFileDialog(
-                self,
-                "Import File",
-                "",
-                "All Files (*)",
-                options=PyQt6.QtWidgets.QFileDialog.Option.DontUseNativeDialog,
-                )
-            self.set_dialog_button_name(dialog, "&Open", "Import")
-            if dialog.exec(): # if file you're trying to open is not none
-                print(str(dialog.selectedFiles()).split("/")[-1][:-2] + " imported")
-                self.treeUpdate()
 
     def settingsCall(self):
         print("settings")
