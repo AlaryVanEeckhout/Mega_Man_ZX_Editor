@@ -20,6 +20,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.fileDisplayRaw = False # Display file in 'raw'(bin) format. Else, diplayed in readable format
         self.fileDisplayMode = "Adapt" # Modes: Adapt, Binary, English dialogue, Japanese dialogue, Sound, Movie, Code
         self.resize(self.window_width, self.window_height)
+        self.theme_switch = False
         self.UiComponents()
         self.show()
 
@@ -51,9 +52,16 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.replacebynameAction.setStatusTip('replace with file of same name in binary or converted format')
         self.replacebynameAction.triggered.connect(self.replacebynameCall)
 
+        self.dialog_settings = PyQt6.QtWidgets.QDialog(self)
+        self.dialog_settings.setWindowTitle("Settings")
+        self.dialog_settings.resize(100, 25)
+        self.checkbox_theme = PyQt6.QtWidgets.QCheckBox("Dark Theme", self.dialog_settings)
+        self.checkbox_theme.move(15, 0)
+        self.checkbox_theme.clicked.connect(self.switch_theme)
+
         self.settingsAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_gear.png'), '&Settings', self)
         self.settingsAction.setStatusTip('Settings')
-        self.settingsAction.triggered.connect(self.settingsCall)
+        self.settingsAction.triggered.connect(lambda: self.dialog_settings.exec())
 
         self.exitAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_door.png'), '&Exit', self)
         self.exitAction.setStatusTip('Exit application')
@@ -256,10 +264,16 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                                 print("raw data replaced")
                     print(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']") + " imported")
                     self.treeCall()
-
-    def settingsCall(self):
-        print("settings")
     
+    def switch_theme(self):
+        self.theme_switch = not self.theme_switch
+        if self.theme_switch:
+            app = PyQt6.QtCore.QCoreApplication.instance()
+            app.setStyleSheet(open('dark_theme.css').read())
+        else:
+            app = PyQt6.QtCore.QCoreApplication.instance()
+            app.setStyleSheet("")
+
     def exitCall(self):
         self.close()
     
@@ -361,6 +375,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
 app = PyQt6.QtWidgets.QApplication(sys.argv)
 w = MainWindow()
+
 def extract(fileToEdit_id, folder="", fileToEdit_name="", path="", format=""):
     fileToEdit = w.rom.files[fileToEdit_id]
     if fileToEdit_name == "":
