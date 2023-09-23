@@ -29,7 +29,8 @@ Currently, there are no releases and I'm not sure how to include the dependencie
 - Extract the contents of the .zip file to a folder wherever you want
 - That's it! Now you can run RunEditor.bat (or run MME_NDS.py, from command line)
 ## Credits
-- Rom extracting/saving : https://ndspy.readthedocs.io/en/latest/
-- GUI(PyQt6) : https://www.riverbankcomputing.com/software/pyqt/
-- Icons : https://p.yusukekamiyamane.com/
-- icon_biometals-creation.png : Mega Man ZX devs, taken from [here](https://www.spriters-resource.com/ds_dsi/megamanzx/sheet/180723/)
+- Rom extracting/saving: https://ndspy.readthedocs.io/en/latest/
+- GUI(PyQt6): https://www.riverbankcomputing.com/software/pyqt/
+- Icons: https://p.yusukekamiyamane.com/
+- icon_biometals-creation.png: Mega Man ZX devs, taken from [here](https://www.spriters-resource.com/ds_dsi/megamanzx/sheet/180723/)
+- Dark theme: https://raw.githubusercontent.com/NiklasWyld/Wydbid/main/Assets/stylesheet
