@@ -8,9 +8,10 @@ For now, I'm working on the editor's GUI and import/export features.
 ### Done
 - Dialogue text converter
 - Functional User Interface
+- File export with options for converted file formats
+- File import with support for converted file formats
 ### Todo
-- Proper export/import with options for file formats
-- Insert file feature
+- File insert
 - Sprite Editor
 - Sound/Music Editor*
 - Movie Editor*

@@ -42,12 +42,16 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.exportAction.triggered.connect(self.exportCall)
         self.exportAction.setDisabled(True)
 
-        self.replaceAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_blue-document-import.png'), '&Replace', self)        
+        self.replacebynameAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_blue-document-import.png'), '&Replace by name...', self)        
+        self.replacebynameAction.setStatusTip('replace with file of same name in binary or converted format')
+        self.replacebynameAction.triggered.connect(self.replacebynameCall)
+
+        self.replaceAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_blue-document-import.png'), '&Replace...', self)
         self.replaceAction.setShortcut('Ctrl+R')
-        self.replaceAction.setStatusTip('replace file in binary or converted format')
+        self.replaceAction.setStatusTip('replace with file in binary or converted format')
         self.replaceAction.triggered.connect(self.replaceCall)
 
-        self.insertfileAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_blue-document-import.png'), '&Insert', self)        
+        self.insertfileAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_blue-document-import.png'), '&Insert...', self)
         self.insertfileAction.setShortcut('Ctrl+I')
         self.insertfileAction.setStatusTip('insert file in binary or converted format')
         self.insertfileAction.triggered.connect(self.insertfileCall)
@@ -65,7 +69,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.fileMenu.addActions([self.openAction, self.exportAction])
         self.importSubmenu = self.fileMenu.addMenu('&Import...')
         self.importSubmenu.setIcon(PyQt6.QtGui.QIcon('icon_blue-document-import.png'))
-        self.importSubmenu.addActions([self.replaceAction, self.insertfileAction])
+        self.importSubmenu.addActions([self.replacebynameAction, self.replaceAction, self.insertfileAction])
         self.importSubmenu.setDisabled(True)
         self.fileMenu.addActions([self.settingsAction, self.exitAction])
 
@@ -200,7 +204,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                             extract(int(w.tree.currentItem().child(i).text(0)), path=dialog.selectedFiles()[0], format=dropdown_formatselect.currentText())#, w.fileToEdit_name.replace(".Folder", "/")
                             #str(w.tree.currentItem().child(i).text(1) + "." + w.tree.currentItem().child(i).text(2)), 
 
-    def replaceCall(self):
+    def replacebynameCall(self):
         if hasattr(w.rom, "name"):
             dialog = PyQt6.QtWidgets.QFileDialog(
                 self,
@@ -211,13 +215,52 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 )
             self.set_dialog_button_name(dialog, "&Open", "Import")
             if dialog.exec():
-                if str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']") in str(self.rom.filenames): # if file you're trying to open is not none
+                if str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']") in str(self.rom.filenames): # if file you're trying to replace is in ROM
                     with open(*dialog.selectedFiles(), 'rb') as f:
                         fileEdited = f.read()
                         w.rom.setFileByName(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']"), fileEdited)
                     print(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']") + " imported")
+                elif str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']").split(".")[0] in str(self.rom.filenames): # if filename of file(without extension) you're trying to replace is in ROM
+                    with open(*dialog.selectedFiles(), 'rb') as f:
+                        fileEdited = f.read()
+                        match str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']").split(".")[1]:
+                            case "txt":
+                                try:
+                                    print(w.rom.filenames.idOf(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']").replace(".txt", ".bin")))
+                                    w.rom.files[w.rom.filenames.idOf(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']").replace(".txt", ".bin"))] = dataconverter.convertdata_text_to_bin(fileEdited.decode("utf-8"))
+                                except Exception as e:
+                                    print(e)
+                            case _:
+                                print("format not recognized")
                 else:
                     print("no " + str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']") + " in ROM")
+                self.treeCall()
+
+    def replaceCall(self):
+        if hasattr(w.rom, "name"):
+            dialog = PyQt6.QtWidgets.QFileDialog(
+                self,
+                "Import File",
+                "",
+                "All Files (*)",
+                options=PyQt6.QtWidgets.QFileDialog.Option.DontUseNativeDialog,
+                )
+            self.set_dialog_button_name(dialog, "&Open", "Import")
+            if dialog.exec(): # if file you're trying to replace is in ROM
+                    with open(*dialog.selectedFiles(), 'rb') as f:
+                        fileEdited = f.read()
+                        match str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']").split(".")[1]:
+                            case "txt":
+                                try:
+                                    print(w.tree.currentItem().text(0))
+                                    w.rom.files[int(w.tree.currentItem().text(0))] = dataconverter.convertdata_text_to_bin(fileEdited.decode("utf-8"))
+                                except Exception as e:
+                                    print(e)
+                            case _:
+                                w.rom.files[int(w.tree.currentItem().text(0))] = fileEdited
+                                print("raw data replaced")
+                    print(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']") + " imported")
+                    self.treeCall()
 
     def insertfileCall(self):
         if hasattr(w.rom, "name"):
@@ -231,6 +274,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.set_dialog_button_name(dialog, "&Open", "Import")
             if dialog.exec(): # if file you're trying to open is not none
                 print(str(dialog.selectedFiles()).split("/")[-1][:-2] + " imported")
+                self.treeUpdate()
 
     def settingsCall(self):
         print("settings")
