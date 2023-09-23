@@ -1,7 +1,6 @@
 import PyQt6
 import PyQt6.QtGui, PyQt6.QtWidgets, PyQt6.QtCore, PyQt6
 import sys, os
-import codecs
 import ndspy
 import ndspy.rom
 import dataconverter
@@ -167,7 +166,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 self,
                 "Save ROM",
                 "",
-                "All Files (*)",
+                "Folders Only",
                 options=PyQt6.QtWidgets.QFileDialog.Option.DontUseNativeDialog,
                 )
         dialog.setAcceptMode(dialog.AcceptMode.AcceptSave)
@@ -175,20 +174,31 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.set_dialog_button_name(dialog, "&Open", "Save")
         if dialog.exec(): # if you saved a file
             print(dialog.selectedFiles()[0])
-            if self.fileToEdit_name != '':
-                if self.fileToEdit_name.find(".Folder") == -1: # if file
-                    extract(int(w.tree.currentItem().text(0)), fileToEdit_name=str(w.tree.currentItem().text(1) + "." + w.tree.currentItem().text(2)), path=dialog.selectedFiles()[0])
-                else: # if folder
-                    print("Folder " + os.path.join(dialog.selectedFiles()[0] + "/" + w.fileToEdit_name.removesuffix(".Folder")) + " will be created")
-                    if os.path.exists(os.path.join(dialog.selectedFiles()[0] + "/" + w.fileToEdit_name.removesuffix(".Folder"))) == False:
-                        os.makedirs(os.path.join(dialog.selectedFiles()[0] + "/" + w.fileToEdit_name.removesuffix(".Folder")))
-                    print(w.tree.currentItem().childCount() - 1)
-                    for i in range(w.tree.currentItem().childCount()):
-                        print(w.tree.currentItem().child(i).text(0))
-                        extract(int(w.tree.currentItem().child(i).text(0)), path=dialog.selectedFiles()[0])#, w.fileToEdit_name.replace(".Folder", "/")
-                        #str(w.tree.currentItem().child(i).text(1) + "." + w.tree.currentItem().child(i).text(2)), 
-        else:
-            print("no file to extract!")
+            dialog_formatselect = PyQt6.QtWidgets.QDialog(self)
+            dialog_formatselect.setWindowTitle("Choose format")
+            dropdown_formatselect = PyQt6.QtWidgets.QComboBox(dialog_formatselect)
+            dropdown_formatselect.setGeometry(25, 75, 200, 25)
+            dropdown_formatselect.addItems(["Raw", "English dialogue"])
+            button_formatselectOK = PyQt6.QtWidgets.QPushButton("OK", dialog_formatselect)
+            button_formatselectOK.setGeometry(175, 150, 50, 25)
+            button_formatselectOK.pressed.connect(lambda: dialog_formatselect.close())
+            button_formatselectOK.pressed.connect(lambda: dialog_formatselect.setResult(1))
+            dialog_formatselect.resize(250, 200)
+            dialog_formatselect.exec()
+            if dialog_formatselect.result():
+                print("Selected: " + dropdown_formatselect.currentText())
+                if self.fileToEdit_name != '':
+                    if self.fileToEdit_name.find(".Folder") == -1: # if file
+                        extract(int(w.tree.currentItem().text(0)), fileToEdit_name=str(w.tree.currentItem().text(1) + "." + w.tree.currentItem().text(2)), path=dialog.selectedFiles()[0], format=dropdown_formatselect.currentText())
+                    else: # if folder
+                        print("Folder " + os.path.join(dialog.selectedFiles()[0] + "/" + w.fileToEdit_name.removesuffix(".Folder")) + " will be created")
+                        if os.path.exists(os.path.join(dialog.selectedFiles()[0] + "/" + w.fileToEdit_name.removesuffix(".Folder"))) == False:
+                            os.makedirs(os.path.join(dialog.selectedFiles()[0] + "/" + w.fileToEdit_name.removesuffix(".Folder")))
+                        print(w.tree.currentItem().childCount() - 1)
+                        for i in range(w.tree.currentItem().childCount()):
+                            print(w.tree.currentItem().child(i).text(0))
+                            extract(int(w.tree.currentItem().child(i).text(0)), path=dialog.selectedFiles()[0], format=dropdown_formatselect.currentText())#, w.fileToEdit_name.replace(".Folder", "/")
+                            #str(w.tree.currentItem().child(i).text(1) + "." + w.tree.currentItem().child(i).text(2)), 
 
     def replaceCall(self):
         if hasattr(w.rom, "name"):
@@ -326,17 +336,27 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
 app = PyQt6.QtWidgets.QApplication(sys.argv)
 w = MainWindow()
-def extract(fileToEdit_id, folder="", fileToEdit_name="", path=""):
+def extract(fileToEdit_id, folder="", fileToEdit_name="", path="", format=""):
     fileToEdit = w.rom.files[fileToEdit_id]
     if fileToEdit_name == "":
         fileToEdit_name = w.rom.filenames[fileToEdit_id]
     print("file " + str(fileToEdit_id) + ": " + fileToEdit_name)
     print(fileToEdit[0x65:0xc5])
 
-    # create a copy of the file
-    with open(os.path.join(path + "/" + folder + fileToEdit_name), 'wb') as f:
-        f.write(fileToEdit)
-        print(os.path.join(path + "/" + folder + fileToEdit_name))
-        print("File extracted!")
+    # create a copy of the file outside ROM
+    if format == "" or format == "Raw":
+        with open(os.path.join(path + "/" + folder + fileToEdit_name), 'wb') as f:
+            f.write(fileToEdit)
+            print(os.path.join(path + "/" + folder + fileToEdit_name))
+            print("File extracted!")
+    else:
+        match format:
+            case "English dialogue":
+                with open(os.path.join(path + "/" + folder + fileToEdit_name.split(".")[0] + ".txt"), 'wb') as f:
+                    f.write(bytes(dataconverter.convertdata_bin_to_text(fileToEdit), "utf-8"))
+                    print(os.path.join(path + "/" + folder + fileToEdit_name.split(".")[0] + ".txt"))
+                    print("File extracted!")
+            case _:
+                print("could not find method for converting to specified format.")
 #run the app
 app.exec()
