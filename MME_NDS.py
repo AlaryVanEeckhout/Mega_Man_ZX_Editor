@@ -15,10 +15,11 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
         self._scene.addItem(self._graphic)
         self.setScene(self._scene)
         self.setResizeAnchor(
-            PyQt6.QtWidgets.QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+            PyQt6.QtWidgets.QGraphicsView.ViewportAnchor.AnchorUnderMouse
+        )
 
         self.pen = PyQt6.QtGui.QPen()
-        self.pen.setColor(PyQt6.QtCore.Qt.GlobalColor.red)
+        self.pen.setColor(PyQt6.QtCore.Qt.GlobalColor.black)
         self.start = PyQt6.QtCore.QPoint()
         self.end = PyQt6.QtCore.QPoint()
         self.end_previous = PyQt6.QtCore.QPoint()
@@ -138,7 +139,9 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
                 self.scale(factor, factor)
         if self._zoom <= 0:
             self.fitInView()
-
+            # make zoom properly reset
+            PyQt6.QtWidgets.QApplication.processEvents()
+            self.fitInView()
 
     def mouseMoveEvent(self, event):
         #print("QGraphicsView mouseMove")
@@ -279,7 +282,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.button_file_save = PyQt6.QtWidgets.QPushButton("Save file", self)
         self.button_file_save.setToolTip("save this file's changes")
         self.button_file_save.setGeometry(500, 70, 100, 50)
-        self.button_file_save.pressed.connect(self.save_filetext)
+        self.button_file_save.pressed.connect(self.save_filecontent)
         self.button_file_save.setDisabled(True)
 
         self.file_content = PyQt6.QtWidgets.QFrame(self)
@@ -534,7 +537,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.file_content_text.setPlainText("")
             self.button_file_save.setDisabled(True)
 
-    def save_filetext(self):
+    def save_filecontent(self):
         if self.fileDisplayRaw == False:
             if (self.fileDisplayMode == "English dialogue") or (self.fileDisplayMode == "Adapt" and self.tree.currentItem().text(1).find("talk") != -1 and self.tree.currentItem().text(1).find("en") != -1): # if english text
                 w.rom.files[int(self.tree.currentItem().text(0))] = dataconverter.convertdata_text_to_bin(self.file_content_text.toPlainText())
