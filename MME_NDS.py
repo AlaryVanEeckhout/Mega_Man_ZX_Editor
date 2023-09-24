@@ -1,9 +1,83 @@
 import PyQt6
-import PyQt6.QtGui, PyQt6.QtWidgets, PyQt6.QtCore, PyQt6
+import PyQt6.QtGui, PyQt6.QtWidgets, PyQt6.QtCore
 import sys, os
 import ndspy
 import ndspy.rom
 import dataconverter
+
+class GFXView(PyQt6.QtWidgets.QGraphicsView):
+    def __init__(self):
+        super().__init__()
+        self.pen = PyQt6.QtGui.QPen()
+        self.pen.setColor(PyQt6.QtCore.Qt.GlobalColor.red)
+        self.start = PyQt6.QtCore.QPoint()
+        self.end = PyQt6.QtCore.QPoint()
+        self.end_previous = PyQt6.QtCore.QPoint()
+        self.setMouseTracking(True)
+        self.mousePressed = False
+        self.draw_mode = "line"
+        self.smoothness = 10
+        self.rect, self.line = None, None
+
+    def drawShape(self):
+        match self.draw_mode:
+            case "line":
+                if (abs(self.end.x() - self.end_previous.x()) or abs(self.end.y() - self.end_previous.y())) > self.smoothness:
+                    self.end_previous = self.end
+                self.scene().addLine(PyQt6.QtCore.QLineF(PyQt6.QtCore.QPointF(self.end.x(), self.end.y()), PyQt6.QtCore.QPointF(self.end_previous.x(), self.end_previous.y())), self.pen)
+                self.end_previous = self.end
+            case "rectangle":
+                if self.start.isNull() or self.end.isNull():
+                    return
+                if self.start.x() == self.end.x() and self.start.y() == self.end.y():
+                    return
+                elif abs(self.end.x() - self.start.x()) < 20 or abs(self.end.y() - self.start.y()) < 20:
+                    if self.rect != None:
+                        self.scene().removeItem(self.rect)
+                        self.rect = None
+                    if abs(self.end.y() - self.start.y()) < 20:
+                        # draw vertical line
+                        if self.line != None:
+                            self.line.setLine(self.start.x(), self.start.y(), self.end.x(), self.start.y())
+                        else:
+                            self.line = self.scene().addLine(self.start.x(), self.start.y(), self.end.x(), self.start.y(), self.pen)
+                    else:
+                        # draw horizontal line
+                        if self.line != None:
+                            self.line.setLine(self.start.x(), self.start.y(), self.start.x(), self.end.y())
+                        else:
+                            self.line = self.scene().addLine(self.start.x(), self.start.y(), self.start.x(), self.end.y(), self.pen)                    
+                else:
+                    if self.line != None:
+                        self.scene().removeItem(self.line)
+                        self.line = None
+
+                    width = abs(self.start.x() - self.end.x())
+                    height = abs(self.start.y() - self.end.y())
+                    if self.rect == None:
+                        self.rect = self.scene().addRect(min(self.start.x(), self.end.x()), min(self.start.y(), self.end.y()), width, height, self.pen)
+                    else:
+                        self.rect.setRect(min(self.start.x(), self.end.x()), min(self.start.y(), self.end.y()), width, height)
+
+    def mousePressEvent(self, event):
+        #print("QGraphicsView mousePress")
+        if event.button() == PyQt6.QtCore.Qt.MouseButton.LeftButton:
+            self.mousePressed = True
+            self.start = self.mapToScene(event.pos())
+
+    def mouseMoveEvent(self, event):
+        #print("QGraphicsView mouseMove")
+        if event.buttons() and PyQt6.QtCore.Qt.MouseButton.LeftButton and self.mousePressed:
+            self.end = self.mapToScene(event.pos())
+            self.drawShape()
+
+    def mouseReleaseEvent(self, event):
+        #print("QGraphicsView mouseRelease")
+        if event.button() == PyQt6.QtCore.Qt.MouseButton.LeftButton and self.mousePressed:
+            self.mousePressed = False
+            self.drawShape()
+            self.start, self.end = PyQt6.QtCore.QPoint(), PyQt6.QtCore.QPoint()
+            self.rect, self.line = None, None
 
 class MainWindow(PyQt6.QtWidgets.QMainWindow):
     def __init__(self):
@@ -18,7 +92,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.romToEdit_ext = ''
         self.fileToEdit_name = ''
         self.fileDisplayRaw = False # Display file in 'raw'(bin) format. Else, diplayed in readable format
-        self.fileDisplayMode = "Adapt" # Modes: Adapt, Binary, English dialogue, Japanese dialogue, Sound, Movie, Code
+        self.fileDisplayMode = "Adapt" # Modes: Adapt, Binary, English dialogue, Japanese dialogue, Graphics, Sound, Movie, Code
         self.resize(self.window_width, self.window_height)
         self.theme_switch = False
         self.UiComponents()
@@ -127,16 +201,35 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.button_file_save.pressed.connect(self.save_filetext)
         self.button_file_save.setDisabled(True)
 
-        self.file_content = PyQt6.QtWidgets.QPlainTextEdit(self)
+        self.file_content = PyQt6.QtWidgets.QFrame(self)
         self.file_content.setGeometry(475, self.menu_bar.rect().bottom() + 100, 500, 500)
-        self.file_content.textChanged.connect(lambda: self.button_file_save.setDisabled(False))
-        self.file_content.setDisabled(True)
+        self.file_content_text = PyQt6.QtWidgets.QPlainTextEdit(self.file_content)
+        self.file_content_text.resize(self.file_content.size())
+        self.file_content_text.textChanged.connect(lambda: self.button_file_save.setDisabled(False))
+        self.file_content_text.setDisabled(True)
         self.button_longfile = PyQt6.QtWidgets.QPushButton("Press this button to view file,\nbut be warned that this file is very big.\nTherefore if you choose to view it,\nit will take some time to load\nand the program will be unresponsive.\n\nAlternatively, you could export the file and open it in a hex editor", self)
         self.button_longfile.pressed.connect(lambda: self.button_longfile.hide())
         self.button_longfile.pressed.connect(lambda: print("will take a while"))
-        self.button_longfile.pressed.connect(lambda: self.file_content.setDisabled(False))
-        self.button_longfile.pressed.connect(lambda: self.file_content.setPlainText((self.rom.files[int(self.tree.currentItem().text(0))]).hex()))
+        self.button_longfile.pressed.connect(lambda: self.file_content_text.setDisabled(False))
+        self.button_longfile.pressed.connect(lambda: self.file_content_text.setPlainText((self.rom.files[int(self.tree.currentItem().text(0))]).hex()))
         self.button_longfile.hide()
+
+        self.gfxscene_filecontent = PyQt6.QtWidgets.QGraphicsScene()
+        self.gfxscene_filecontent.installEventFilter(self)
+        self.file_content_gfx = GFXView()#self.file_content
+        self.file_content_gfx.resize(self.file_content.size())
+        self.file_content_gfx.setScene(self.gfxscene_filecontent)
+        self.file_content_gfx.setMouseTracking(False)
+        self.file_content_gfx.hide()
+
+        self.brush = PyQt6.QtGui.QPen(0x3142a0)
+
+        self.brush_side = 20
+
+        for i in range(16):
+            for j in range(16):
+                r = PyQt6.QtCore.QRectF(PyQt6.QtCore.QPointF(i*self.brush_side, j*self.brush_side), PyQt6.QtCore.QSizeF(self.brush_side, self.brush_side))
+                self.gfxscene_filecontent.addRect(r, self.brush)
 
         self.setStatusBar(PyQt6.QtWidgets.QStatusBar(self))
 
@@ -166,7 +259,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.button_save.setDisabled(False)
             self.tree.setCurrentItem(None)
             self.treeUpdate()
-            self.file_content.setDisabled(True)
+            self.file_content_text.setDisabled(True)
 
     def exportCall(self):
         dialog = PyQt6.QtWidgets.QFileDialog(
@@ -269,7 +362,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.theme_switch = not self.theme_switch
         if self.theme_switch:
             app = PyQt6.QtCore.QCoreApplication.instance()
-            app.setStyleSheet(open('dark_theme.css').read())
+            app.setStyleSheet(open('dark_theme.qss').read())
         else:
             app = PyQt6.QtCore.QCoreApplication.instance()
             app.setStyleSheet("")
@@ -336,40 +429,52 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
     def treeCall(self):
         self.button_longfile.hide()
-        self.file_content.setReadOnly(False)
+        self.file_content_text.show()
+        self.file_content_text.setReadOnly(False)
+        self.file_content_gfx.setMouseTracking(False)
+        self.file_content_gfx.hide()
         if self.tree.currentItem() != None:
             self.fileToEdit_name = str(self.tree.currentItem().text(1) + "." + self.tree.currentItem().text(2))
             if self.fileToEdit_name.find(".Folder") == -1:
                 if self.fileDisplayRaw == False:
                     if (self.fileDisplayMode == "English dialogue") or (self.fileDisplayMode == "Adapt" and self.tree.currentItem().text(1).find("talk") != -1 and self.tree.currentItem().text(1).find("en") != -1): # if english text
-                        self.file_content.setPlainText(dataconverter.convertdata_bin_to_text(self.rom.files[int(self.tree.currentItem().text(0))]))
+                        self.file_content_text.setPlainText(dataconverter.convertdata_bin_to_text(self.rom.files[int(self.tree.currentItem().text(0))]))
+                    elif (self.fileDisplayMode == "Graphics") or (self.fileDisplayMode == "Adapt" and (self.tree.currentItem().text(1).find("obj_fnt") != -1 or self.tree.currentItem().text(1).find("font") != -1)):
+                        print("graphics")
+                        self.file_content_text.hide()
+                        self.file_content_gfx.show()
+                        self.file_content_gfx.setMouseTracking(True)
+                        self.gfxscene_filecontent.clear()
+                        gfx = PyQt6.QtWidgets.QGraphicsPixmapItem()
+                        gfx.setPixmap(PyQt6.QtGui.QPixmap.fromImage(PyQt6.QtGui.QImage('icon_biometals-creation.png')))
+                        self.gfxscene_filecontent.addItem(gfx)
                     else:
-                        self.file_content.setReadOnly(True)
-                        self.file_content.setPlainText("This file format is unknown/not supported at the moment.\n Go to View > Converted formats to disable file interpretation and view hex data.")
+                        self.file_content_text.setReadOnly(True)
+                        self.file_content_text.setPlainText("This file format is unknown/not supported at the moment.\n Go to View > Converted formats to disable file interpretation and view hex data.")
                 else:
                     if len((self.rom.files[int(self.tree.currentItem().text(0))]).hex()) > 100000:
-                        self.button_longfile.setGeometry(self.file_content.geometry())
+                        self.button_longfile.setGeometry(self.file_content_text.geometry())
                         self.button_longfile.show()
-                        self.file_content.setPlainText("")
-                        self.file_content.setDisabled(True)
+                        self.file_content_text.setPlainText("")
+                        self.file_content_text.setDisabled(True)
                     else:
-                        self.file_content.setPlainText((self.rom.files[int(self.tree.currentItem().text(0))]).hex())
+                        self.file_content_text.setPlainText((self.rom.files[int(self.tree.currentItem().text(0))]).hex())
             else:
-                self.file_content.setPlainText("")
-                self.file_content.setDisabled(True)
+                self.file_content_text.setPlainText("")
+                self.file_content_text.setDisabled(True)
             self.exportAction.setDisabled(False)
             self.button_file_save.setDisabled(True)
-            self.file_content.setDisabled(False)
+            self.file_content_text.setDisabled(False)
         else:
-            self.file_content.setPlainText("")
+            self.file_content_text.setPlainText("")
             self.button_file_save.setDisabled(True)
 
     def save_filetext(self):
         if self.fileDisplayRaw == False:
             if (self.fileDisplayMode == "English dialogue") or (self.fileDisplayMode == "Adapt" and self.tree.currentItem().text(1).find("talk") != -1 and self.tree.currentItem().text(1).find("en") != -1): # if english text
-                w.rom.files[int(self.tree.currentItem().text(0))] = dataconverter.convertdata_text_to_bin(self.file_content.toPlainText())
+                w.rom.files[int(self.tree.currentItem().text(0))] = dataconverter.convertdata_text_to_bin(self.file_content_text.toPlainText())
         else:
-            w.rom.files[int(self.tree.currentItem().text(0))] = bytearray.fromhex(self.file_content.toPlainText())
+            w.rom.files[int(self.tree.currentItem().text(0))] = bytearray.fromhex(self.file_content_text.toPlainText())
         print("file changes saved")
         self.button_file_save.setDisabled(True)
 

@@ -32,5 +32,7 @@ Currently, there are no releases and I'm not sure how to include the dependencie
 - Rom extracting/saving: https://ndspy.readthedocs.io/en/latest/
 - GUI(PyQt6): https://www.riverbankcomputing.com/software/pyqt/
 - Icons: https://p.yusukekamiyamane.com/
-- icon_biometals-creation.png: Mega Man ZX devs, taken from [here](https://www.spriters-resource.com/ds_dsi/megamanzx/sheet/180723/)
-- Dark theme: https://raw.githubusercontent.com/NiklasWyld/Wydbid/main/Assets/stylesheet
+- icon_biometals-creation.png: Mega Man ZX devs, taken from [here](https://www.spriters-resource.com/ds_dsi/megamanzx/sheet/180723/) and truncated by me using GIMP
+- Dark theme: https://raw.githubusercontent.com/NiklasWyld/Wydbid/main/Assets/stylesheet (modified by me)
+
+Some parts of code I copied(and modified) from other people who asked for help(for example: on stack overflow) on topics I myself needed help on.

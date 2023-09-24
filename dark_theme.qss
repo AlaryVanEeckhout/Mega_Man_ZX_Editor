@@ -102,8 +102,8 @@ https://doc.qt.io/qt-5/stylesheet-examples.html#customizing-qtooltip
 
 --------------------------------------------------------------------------- */
 QToolTip {
-    background-color: #346792;
-    color: #E0E1E3;
+    background-color: #001018;
+    color: none;
     /* If you remove the border property, background stops working on Windows */
     border: none;
     /* Remove padding, for fix combo box tooltip */
@@ -606,12 +606,12 @@ QToolBar {
     }
 
     QToolBar::handle:horizontal {
-        width: 16px;
+        width: 8px;
         image: url(":/qss_icons/dark/rc/toolbar_move_horizontal.png");
     }
 
     QToolBar::handle:vertical {
-        height: 16px;
+        height: 8px;
         image: url(":/qss_icons/dark/rc/toolbar_move_vertical.png");
     }
 
@@ -843,10 +843,10 @@ https://doc.qt.io/qt-5/stylesheet-examples.html#customizing-qpushbutton
 
 --------------------------------------------------------------------------- */
 QPushButton {
-    background-color: #455364;
+    background-color: #0e1222;
     color: #E0E1E3;
     border-radius: 2px;
-    border: 1px solid black;
+    border: 1px #344057;
     padding: 4px;
     padding-left: 6px;
     padding-right: 6px;
@@ -881,7 +881,7 @@ QPushButton {
         }
 
     QPushButton:hover {
-        background-color: #54687A;
+        background-color: #182561;
         color: #E0E1E3;
     }
 
@@ -1619,7 +1619,7 @@ https://doc.qt.io/qt-5/stylesheet-examples.html#customizing-qtableview
 
 --------------------------------------------------------------------------- */
 QTreeView:branch:selected, QTreeView:branch:hover {
-    background: url(":/qss_icons/dark/rc/transparent.png");
+    background: none/*url(":/qss_icons/dark/rc/transparent.png")*/;
 }
 
 QTreeView:branch:has-siblings:!adjoins-item {
@@ -2058,3 +2058,8 @@ PlotWidget {
 QMenu::item {
     padding: 4px 24px 4px 6px;
 }
+
+    QMenu::item:checked {
+        color: #0cf;
+        background: #3142a0;
+    }
