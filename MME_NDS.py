@@ -6,8 +6,17 @@ import ndspy.rom
 import dataconverter
 
 class GFXView(PyQt6.QtWidgets.QGraphicsView):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._zoom = 0
+        self._empty = True
+        self._scene = PyQt6.QtWidgets.QGraphicsScene(self)
+        self._graphic = PyQt6.QtWidgets.QGraphicsPixmapItem()
+        self._scene.addItem(self._graphic)
+        self.setScene(self._scene)
+        self.setResizeAnchor(
+            PyQt6.QtWidgets.QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+
         self.pen = PyQt6.QtGui.QPen()
         self.pen.setColor(PyQt6.QtCore.Qt.GlobalColor.red)
         self.start = PyQt6.QtCore.QPoint()
@@ -15,17 +24,63 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
         self.end_previous = PyQt6.QtCore.QPoint()
         self.setMouseTracking(True)
         self.mousePressed = False
-        self.draw_mode = "line"
-        self.smoothness = 10
-        self.rect, self.line = None, None
+        self.draw_mode = "pixel"
+        self.rect, self.line = None, None # used for drawing rectangles
+
+    def resetScene(self):
+        self._scene.clear()
+        self._graphic = PyQt6.QtWidgets.QGraphicsPixmapItem()
+        self._scene.addItem(self._graphic)
+
+    def hasGraphic(self):
+        return not self._empty
+
+    def fitInView(self, scale=True):
+        rect = PyQt6.QtCore.QRectF(self._graphic.pixmap().rect())
+        if not rect.isNull():
+            self.setSceneRect(rect)
+            if self.hasGraphic():
+                unity = self.transform().mapRect(PyQt6.QtCore.QRectF(0, 0, 1, 1))
+                self.scale(1 / unity.width(), 1 / unity.height())
+                viewrect = self.viewport().rect()
+                scenerect = self.transform().mapRect(rect)
+                factor = min(viewrect.width() / scenerect.width(),
+                             viewrect.height() / scenerect.height())
+                self.scale(factor, factor)
+            self._zoom = 0
+
+    def setGraphic(self, pixmap=None):
+        self._zoom = 0
+        if pixmap and not pixmap.isNull():
+            self._empty = False
+            self._graphic.setPixmap(pixmap)
+        else:
+            self._empty = True
+            self._graphic.setPixmap(PyQt6.QtGui.QPixmap())
+        self.fitInView()
+
 
     def drawShape(self):
         match self.draw_mode:
-            case "line":
-                if (abs(self.end.x() - self.end_previous.x()) or abs(self.end.y() - self.end_previous.y())) > self.smoothness:
-                    self.end_previous = self.end
-                self.scene().addLine(PyQt6.QtCore.QLineF(PyQt6.QtCore.QPointF(self.end.x(), self.end.y()), PyQt6.QtCore.QPointF(self.end_previous.x(), self.end_previous.y())), self.pen)
-                self.end_previous = self.end
+            case "pixel":
+                pixel_map = PyQt6.QtGui.QPixmap(1, 1)
+                pixel_map.fill(self.pen.color())
+
+                pixel_container = PyQt6.QtWidgets.QGraphicsPixmapItem()
+                pixel_container.setPixmap(pixel_map)
+                pixel_container.moveBy(int(self.end.x()),int(self.end.y()))
+                self._scene.addItem(pixel_container)
+
+                pixel_container = PyQt6.QtWidgets.QGraphicsPixmapItem()
+                pixel_container.setPixmap(pixel_map)
+                pixel_container.moveBy(int(self.end_previous.x()),int(self.end_previous.y()))
+                self._scene.addItem(pixel_container)
+
+                pixel_container = PyQt6.QtWidgets.QGraphicsPixmapItem()
+                pixel_container.setPixmap(pixel_map)
+                pixel_container.moveBy(int(self.end_previous.x()),int(self.end_previous.y()))
+                pixel_container.moveBy(int(self.end_previous.x() - self.end.x()),int(self.end_previous.y() - self.end.y()))
+                self._scene.addItem(pixel_container)
             case "rectangle":
                 if self.start.isNull() or self.end.isNull():
                     return
@@ -61,15 +116,41 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
 
     def mousePressEvent(self, event):
         #print("QGraphicsView mousePress")
+        self.draw_mode = "pixel"
         if event.button() == PyQt6.QtCore.Qt.MouseButton.LeftButton:
             self.mousePressed = True
             self.start = self.mapToScene(event.pos())
+            self.drawShape()
+        elif event.button() == PyQt6.QtCore.Qt.MouseButton.RightButton:
+            self.draw_mode = "rectangle"
+            self.mousePressed = True
+            self.start = self.mapToScene(event.pos())
+
+    def wheelEvent(self, event):
+        if event.modifiers() == PyQt6.QtCore.Qt.KeyboardModifier.ControlModifier:
+            if event.angleDelta().y() > 0:
+                factor = 1.25
+                self._zoom += 1
+            else:
+                factor = 0.80
+                self._zoom -= 1
+            if self._zoom > 0:
+                self.scale(factor, factor)
+        if self._zoom <= 0:
+            self.fitInView()
+
 
     def mouseMoveEvent(self, event):
         #print("QGraphicsView mouseMove")
-        if event.buttons() and PyQt6.QtCore.Qt.MouseButton.LeftButton and self.mousePressed:
+        if self.draw_mode == "rectangle":
+            if event.buttons() and PyQt6.QtCore.Qt.MouseButton.LeftButton and self.mousePressed:
+                self.end = self.mapToScene(event.pos())
+                self.drawShape()
+        else:
             self.end = self.mapToScene(event.pos())
-            self.drawShape()
+            if event.buttons() and PyQt6.QtCore.Qt.MouseButton.LeftButton and self.mousePressed:
+                self.drawShape()
+            self.end_previous = self.end
 
     def mouseReleaseEvent(self, event):
         #print("QGraphicsView mouseRelease")
@@ -214,22 +295,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.button_longfile.pressed.connect(lambda: self.file_content_text.setPlainText((self.rom.files[int(self.tree.currentItem().text(0))]).hex()))
         self.button_longfile.hide()
 
-        self.gfxscene_filecontent = PyQt6.QtWidgets.QGraphicsScene()
-        self.gfxscene_filecontent.installEventFilter(self)
-        self.file_content_gfx = GFXView()#self.file_content
+        self.file_content_gfx = GFXView(self.file_content)
         self.file_content_gfx.resize(self.file_content.size())
-        self.file_content_gfx.setScene(self.gfxscene_filecontent)
-        self.file_content_gfx.setMouseTracking(False)
         self.file_content_gfx.hide()
-
-        self.brush = PyQt6.QtGui.QPen(0x3142a0)
-
-        self.brush_side = 20
-
-        for i in range(16):
-            for j in range(16):
-                r = PyQt6.QtCore.QRectF(PyQt6.QtCore.QPointF(i*self.brush_side, j*self.brush_side), PyQt6.QtCore.QSizeF(self.brush_side, self.brush_side))
-                self.gfxscene_filecontent.addRect(r, self.brush)
 
         self.setStatusBar(PyQt6.QtWidgets.QStatusBar(self))
 
@@ -431,7 +499,6 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.button_longfile.hide()
         self.file_content_text.show()
         self.file_content_text.setReadOnly(False)
-        self.file_content_gfx.setMouseTracking(False)
         self.file_content_gfx.hide()
         if self.tree.currentItem() != None:
             self.fileToEdit_name = str(self.tree.currentItem().text(1) + "." + self.tree.currentItem().text(2))
@@ -442,12 +509,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                     elif (self.fileDisplayMode == "Graphics") or (self.fileDisplayMode == "Adapt" and (self.tree.currentItem().text(1).find("obj_fnt") != -1 or self.tree.currentItem().text(1).find("font") != -1)):
                         print("graphics")
                         self.file_content_text.hide()
+                        self.file_content_gfx.resetScene()
                         self.file_content_gfx.show()
-                        self.file_content_gfx.setMouseTracking(True)
-                        self.gfxscene_filecontent.clear()
-                        gfx = PyQt6.QtWidgets.QGraphicsPixmapItem()
-                        gfx.setPixmap(PyQt6.QtGui.QPixmap.fromImage(PyQt6.QtGui.QImage('icon_biometals-creation.png')))
-                        self.gfxscene_filecontent.addItem(gfx)
+                        gfx = PyQt6.QtGui.QPixmap.fromImage(PyQt6.QtGui.QImage('icon_biometals-creation.png'))
+                        self.file_content_gfx.setGraphic(gfx)
                     else:
                         self.file_content_text.setReadOnly(True)
                         self.file_content_text.setPlainText("This file format is unknown/not supported at the moment.\n Go to View > Converted formats to disable file interpretation and view hex data.")
