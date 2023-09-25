@@ -11,7 +11,7 @@ For now, I'm working on the editor's GUI and graphics editor.
 - File export with options for converted file formats
 - File import with support for converted file formats
 ### Todo
-- (Dialogue text converter)Find use of special values 0xF4, 0xF5, 0xF7, 0xF9, 0xFA, and FF
+- (Dialogue text converter)Find use of special values 0xF4, 0xF5, 0xF7, 0xF9, 0xFA, and 0xFF
 - Graphics converter
 - Graphics Editor
 - Sound/Music Editor*
@@ -23,7 +23,7 @@ For now, I'm working on the editor's GUI and graphics editor.
 *This feature may not be implemented/is not currently prioritized since I haven't looked into it and it looks hard to do at first glance. 
 ## Setup for usage
 Currently, there are no releases and I'm not sure how to include the dependencies in my project, so:
-- [Download&Install Python](https://www.python.org/downloads/)
+- [Download&Install Python v3.10 or higher](https://www.python.org/downloads/)
 - Now that you have Python, you can use pip(Package Installer for Python) to install the two following modules:
 - [Download&Install NDS Py](https://pypi.org/project/ndspy/)
 - [Download&Install PyQt6](https://pypi.org/project/PyQt6/)
