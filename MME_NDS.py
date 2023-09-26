@@ -289,8 +289,15 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.file_content.setGeometry(475, self.menu_bar.rect().bottom() + 100, 500, 500)
         self.file_content_text = PyQt6.QtWidgets.QPlainTextEdit(self.file_content)
         self.file_content_text.resize(self.file_content.size())
+        font = PyQt6.QtGui.QFont("Monospace")
+        font.setStyleHint(PyQt6.QtGui.QFont.StyleHint.TypeWriter)
+        self.file_content_text.setFont(font)
         self.file_content_text.textChanged.connect(lambda: self.button_file_save.setDisabled(False))
         self.file_content_text.setDisabled(True)
+        self.checkbox_textoverwite = PyQt6.QtWidgets.QCheckBox("Overwite\n existing text", self)
+        self.checkbox_textoverwite.setGeometry(625, 70, 100, 50)
+        self.checkbox_textoverwite.setStatusTip("With this enabled, writing text won't change filesize")
+        self.checkbox_textoverwite.clicked.connect(lambda: self.file_content_text.setOverwriteMode(not self.file_content_text.overwriteMode()))
         self.button_longfile = PyQt6.QtWidgets.QPushButton("Press this button to view file,\nbut be warned that this file is very big.\nTherefore if you choose to view it,\nit will take some time to load\nand the program will be unresponsive.\n\nAlternatively, you could export the file and open it in a hex editor", self)
         self.button_longfile.pressed.connect(lambda: self.button_longfile.hide())
         self.button_longfile.pressed.connect(lambda: print("will take a while"))
@@ -501,6 +508,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
     def treeCall(self):
         self.button_longfile.hide()
         self.file_content_text.show()
+        self.checkbox_textoverwite.show()
         self.file_content_text.setReadOnly(False)
         self.file_content_gfx.hide()
         if self.tree.currentItem() != None:
@@ -512,6 +520,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                     elif (self.fileDisplayMode == "Graphics") or (self.fileDisplayMode == "Adapt" and (self.tree.currentItem().text(1).find("obj_fnt") != -1 or self.tree.currentItem().text(1).find("font") != -1)):
                         print("graphics")
                         self.file_content_text.hide()
+                        self.checkbox_textoverwite.hide()
                         self.file_content_gfx.resetScene()
                         self.file_content_gfx.show()
                         gfx = PyQt6.QtGui.QPixmap.fromImage(PyQt6.QtGui.QImage('icon_biometals-creation.png'))
