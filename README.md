@@ -4,7 +4,7 @@
  If you need to know where specific assets, values, or code sections are in the game, please see the(unfinished) [wiki page](https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/wiki), as it contains documentation I accumulated on the game.
 ## Progress
 Currently, the editor can edit, export and import english dialogue files and save them to the ROM. Other files can be viewed but I have not yet implemented the code to view them in their converted format.<br>
-For now, I'm working on the editor's GUI and graphics editor.
+For now, I'm trying to find and understand data in the game to add it to my wiki page and to have a better idea of how my editor should handle each of the game's files.
 ### Done
 - Dialogue text converter
 - Functional User Interface
@@ -14,6 +14,7 @@ For now, I'm working on the editor's GUI and graphics editor.
 - (Dialogue text converter)Find use of special values 0xF4, 0xF5, 0xF7, 0xF9, 0xFA, and 0xFF
 - Graphics converter
 - Graphics Editor
+- OAM Editor*
 - Sound/Music Editor*
 - Movie Editor*
 - Physics Editor*
