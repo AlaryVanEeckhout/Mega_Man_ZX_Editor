@@ -536,7 +536,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.checkbox_textoverwite.hide()
                         self.file_content_gfx.resetScene()
                         self.file_content_gfx.show()
-                        gfx = PyQt6.QtGui.QPixmap.fromImage(dataconverter.convertfile_bin_to_qt("talk_m01_en1.bin", 1))
+                        gfx = PyQt6.QtGui.QPixmap.fromImage(dataconverter.convertdata_bin_to_qt(self.rom.files[int(self.tree.currentItem().text(0))][:64], 1))
                         self.file_content_gfx.setGraphic(gfx)
                     else:
                         self.file_content_text.setReadOnly(True)
@@ -548,7 +548,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.file_content_text.setPlainText("")
                         self.file_content_text.setDisabled(True)
                     else:
-                        self.file_content_text.setPlainText((self.rom.files[int(self.tree.currentItem().text(0))]).hex())
+                        self.file_content_text.setPlainText(self.rom.files[int(self.tree.currentItem().text(0))].hex())
             else:
                 self.file_content_text.setPlainText("")
                 self.file_content_text.setDisabled(True)
