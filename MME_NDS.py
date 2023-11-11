@@ -2,7 +2,7 @@ import PyQt6
 import PyQt6.QtGui, PyQt6.QtWidgets, PyQt6.QtCore
 import sys, os
 import ndspy
-import ndspy.rom
+import ndspy.rom, ndspy.code
 import dataconverter
 
 class GFXView(PyQt6.QtWidgets.QGraphicsView):
@@ -172,6 +172,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.setWindowIcon(PyQt6.QtGui.QIcon('icon_biometals-creation.png'))
         self.setWindowTitle("Mega Man ZX Editor")
         self.rom = ndspy.rom.NintendoDSRom
+        self.arm9 = ndspy.code.MainCodeFile
+        self.arm7 = ndspy.code.MainCodeFile
         self.romToEdit_name = ''
         self.romToEdit_ext = ''
         self.fileToEdit_name = ''
@@ -268,7 +270,11 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.button_save.setStatusTip("Save changes to the ROM")
         self.button_save.triggered.connect(self.saveCall)
         self.button_save.setDisabled(True)
-        self.toolbar.addAction(self.button_save)
+        #self.button_codeedit = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_document-text.png'), "Open code", self)
+        #self.button_codeedit.setStatusTip("Edit the ROM's code")
+        #self.button_codeedit.triggered.connect(self.codeeditCall)
+        #self.button_codeedit.setDisabled(True)
+        self.toolbar.addActions([self.button_save])
 
         #ROM-related
         self.tree = PyQt6.QtWidgets.QTreeWidget(self)
@@ -335,6 +341,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             print(self.rom.filenames)
             self.importSubmenu.setDisabled(False)
             self.button_save.setDisabled(False)
+            #self.button_codeedit.setDisabled(False)
             self.tree.setCurrentItem(None)
             self.treeUpdate()
             self.file_content_text.setDisabled(True)
@@ -481,6 +488,12 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             w.rom.saveToFile(*dialog.selectedFiles())
             print("ROM modifs saved!")
 
+    #def codeeditCall(self):
+        #self.tree.clearSelection()
+        #self.arm9 = ndspy.code.MainCodeFile(w.rom.files[0], 0x00000000)
+        #self.file_content_text.setPlainText(str(self.arm9))
+        #print("code")
+
     def treeUpdate(self):
         tree_files = []
         try: # convert NDS Py filenames to QTreeWidgetItems
@@ -523,7 +536,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.checkbox_textoverwite.hide()
                         self.file_content_gfx.resetScene()
                         self.file_content_gfx.show()
-                        gfx = PyQt6.QtGui.QPixmap.fromImage(PyQt6.QtGui.QImage('icon_biometals-creation.png'))
+                        gfx = PyQt6.QtGui.QPixmap.fromImage(dataconverter.convertfile_bin_to_qt("talk_m01_en1.bin", 1))
                         self.file_content_gfx.setGraphic(gfx)
                     else:
                         self.file_content_text.setReadOnly(True)

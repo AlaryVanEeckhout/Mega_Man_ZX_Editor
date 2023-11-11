@@ -1,4 +1,8 @@
 import os.path
+#import numpy
+#import PIL, PIL.Image
+import PyQt6.QtGui
+#import io
 
 #https://www.rapidtables.com/code/text/ascii-table.html
 special_character_list = ([0])*256
@@ -151,23 +155,25 @@ special_character_list[0xf0] = [1, "├CHAR_F 0x{0:02X}┤"] #sets char to 0xF0 
 special_character_list[0xf1] = [1, "├COLOR 0x{0:02X}┤"]
 special_character_list[0xf2] = [1, "├PLACEMENT 0x{0:02X}┤"]
 special_character_list[0xf3] = [1, "├MUGSHOT 0x{0:02X}┤"]
-#special_character_list[0xf4] = [0, ""]
-#special_character_list[0xf5] = [0, ""]
+#special_character_list[0xf4] = [1, ""] #does nothing, might be used with F9 only
+#special_character_list[0xf5] = [1, ""] #does nothing, might be used with F9 only
 special_character_list[0xf6] = [1, "├TWOCHOICES 0x{0:02X}┤"]
-#special_character_list[0xf7] = [0, ""]
+#special_character_list[0xf7] = [1, ""] #???
 special_character_list[0xf8] = [1, "├NAME 0x{0:02X}┤"]
-#special_character_list[0xf9] = [2, "├0xF9 0x{0:02X} 0x{1:02X}┤"]
-#special_character_list[0xfa] = [0, ""]
+#special_character_list[0xf9] = [2, "├0xF9 0x{0:02X} 0x{1:02X}┤"] #???
+special_character_list[0xfa] = [0, "├PLAYERNAME┤"] # writes player name
 special_character_list[0xfb] = [0, "├THREECHOICES┤"]
 special_character_list[0xfc] = [0, "├NEWLINE┤"]
 special_character_list[0xfd] = [0, "├NEWPAGE┤"]
 special_character_list[0xfe] = [0, "├END┤"]
-#special_character_list[0xff] = [0, ""]
+#special_character_list[0xff] = [0, ""] #ends scene, FE FF FE FF skips dialogue until next FE
 
+def str_subgroups(s, n):
+    return [s[i:i+n] for i in range(0, len(s), n)]
 
-def convertfile_bin_to_text(bin):
-    if os.path.exists(bin):
-        with open(bin, "rb") as file:
+def convertfile_bin_to_text(binary_name):
+    if os.path.exists(binary_name):
+        with open(binary_name, "rb") as file:
             file_text = file.read()
             chars = []
             i=0
@@ -272,6 +278,32 @@ def convertdata_text_to_bin(data):
         file_data = b''.join(file_data)
         return file_data
 
+def convertfile_bin_to_qt(binary_name, depth=4): # GBA 4bpp = 4bpp linear reverse order
+    if os.path.exists(binary_name):
+        with open(binary_name, "rb") as file:
+            file_data = file.read()
+            #file_bits = bin(int.from_bytes(file_data))[2:]
+            file_bits = "".join([bit for byte in file_data for bit in ("00000000"+(bin(byte)[2:]))[-8:]])
+            image_widget = PyQt6.QtGui.QImage(8, 8, PyQt6.QtGui.QImage.Format.Format_Indexed8)
+            image_widget.setColorTable([0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)]) # 32bit ARGB color format
+            image_widget.fill(15)
+            
+            if depth == 1:
+                for pixel_index in range(len(str_subgroups(file_bits, depth))):
+                    if pixel_index < 64:
+                        x = 7 - (pixel_index % 8)
+                        y = int(pixel_index / 8)
+                        image_widget.setPixel(x, y, int(str_subgroups(file_bits, depth)[pixel_index], 2))
+            if depth == 4:
+                for pixel_index in range(0, len(str_subgroups(file_bits, depth)), 2):
+                    #print(str_subgroups(file_bits, 4)[pixel_index])
+                    if pixel_index < 8:
+                        x = pixel_index % 8
+                        y = int(pixel_index / 8)
+                        image_widget.setPixel(x, y, int(str_subgroups(file_bits, depth)[pixel_index+1], 2))
+                        image_widget.setPixel(x+1, y, int(str_subgroups(file_bits, depth)[pixel_index], 2))
+            return image_widget
+
  #create readable text
 #with open("test.txt", "wb") as t:
 #    t.write(bytes(convertfile_bin_to_text("talk_m01_en1.bin"), "utf-8"))
@@ -279,3 +311,5 @@ def convertdata_text_to_bin(data):
 #with open("talk_m01_en1.bin", "wb") as t:
 #    #convertfile_text_to_bin("test.txt")
 #    t.write((convertfile_text_to_bin("test.txt")))
+
+#create readable graphics

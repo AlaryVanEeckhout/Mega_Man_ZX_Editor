@@ -28,6 +28,8 @@ Currently, there are no releases and I'm not sure how to include the dependencie
 - Now that you have Python, you can use pip(Package Installer for Python) to install the two following modules:
 - [Download&Install NDS Py](https://pypi.org/project/ndspy/)
 - [Download&Install PyQt6](https://pypi.org/project/PyQt6/)
+[//]: # (- [Download&Install NumPy](https://pypi.org/project/numpy/))
+[//]: # (- [Download&Install Pillow v9.3.0 or higher](https://pypi.org/project/Pillow/))
 - This project > Code > Download ZIP
 - Extract the contents of the .zip file to a folder wherever you want
 - That's it! Now you can run RunEditor.bat (or run MME_NDS.py, from command line)
