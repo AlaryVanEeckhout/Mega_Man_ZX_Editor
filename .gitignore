@@ -5,7 +5,7 @@
 #exported files
 *.bin
 *.vx
-#converted exported files
+#converted exported files(txt also used for preferences)
 *.txt
 *.bmp
 *.mov

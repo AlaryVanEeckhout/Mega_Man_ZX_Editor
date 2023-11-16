@@ -278,25 +278,25 @@ def convertdata_text_to_bin(data):
         file_data = b''.join(file_data)
         return file_data
 
-def convertdata_bin_to_qt(binary_data, depth=4): # GBA 4bpp = 4bpp linear reverse order
+def convertdata_bin_to_qt(binary_data: bytearray, palette=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], depth=1, tileWidth=8, tileHeight=8): # GBA 4bpp = 4bpp linear reverse order
     #file_bits = bin(int.from_bytes(binary_data))[2:]
     file_bits = "".join([bit for byte in binary_data for bit in ("00000000"+(bin(byte)[2:]))[-8:]])
     image_widget = PyQt6.QtGui.QImage(8, 8, PyQt6.QtGui.QImage.Format.Format_Indexed8)
-    image_widget.setColorTable([0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)]) # 32bit ARGB color format
+    image_widget.setColorTable(palette) # 32bit ARGB color format
     image_widget.fill(15)
     
     if depth == 1:
         for pixel_index in range(len(str_subgroups(file_bits, depth))):
-            if pixel_index < 64:
-                x = 7 - (pixel_index % 8)
-                y = int(pixel_index / 8)
+            if pixel_index < tileWidth*tileHeight:
+                x = (tileWidth-1) - (pixel_index % tileWidth)
+                y = int(pixel_index / tileWidth)
                 image_widget.setPixel(x, y, int(str_subgroups(file_bits, depth)[pixel_index], 2))
     if depth == 4:
         for pixel_index in range(0, len(str_subgroups(file_bits, depth)), 2):
             #print(str_subgroups(file_bits, 4)[pixel_index])
-            if pixel_index < 8:
-                x = pixel_index % 8
-                y = int(pixel_index / 8)
+            if pixel_index < tileWidth*tileHeight:
+                x = pixel_index % tileWidth
+                y = int(pixel_index / tileWidth)
                 image_widget.setPixel(x, y, int(str_subgroups(file_bits, depth)[pixel_index+1], 2))
                 image_widget.setPixel(x+1, y, int(str_subgroups(file_bits, depth)[pixel_index], 2))
     return image_widget

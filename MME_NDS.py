@@ -3,7 +3,7 @@ import PyQt6.QtGui, PyQt6.QtWidgets, PyQt6.QtCore
 import sys, os
 import ndspy
 import ndspy.rom, ndspy.code
-import dataconverter
+import dataconverter, init_readwrite
 
 class GFXView(PyQt6.QtWidgets.QGraphicsView):
     def __init__(self, *args, **kwargs):
@@ -183,6 +183,13 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.theme_switch = False
         self.UiComponents()
         self.show()
+        self.load_preferences()
+
+    def load_preferences(self):
+        #SETTINGS
+        init_readwrite.load_preferences(self, "SETTINGS", struct="bool")
+        self.checkbox_theme.setChecked(self.theme_switch)# Update checkbox with current option
+        self.switch_theme(True)# Update theme with current option
 
     def toggle_widget_icon(self, widget, checkedicon, uncheckedicon):
         if widget.isChecked():
@@ -212,12 +219,20 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.replacebynameAction.setStatusTip('replace with file of same name in binary or converted format')
         self.replacebynameAction.triggered.connect(self.replacebynameCall)
 
+        self.menu_bar = self.menuBar()
+        self.fileMenu = self.menu_bar.addMenu('&File')
+        self.fileMenu.addActions([self.openAction, self.exportAction])
+        self.importSubmenu = self.fileMenu.addMenu('&Import...')
+        self.importSubmenu.setIcon(PyQt6.QtGui.QIcon('icon_blue-document-import.png'))
+        self.importSubmenu.addActions([self.replaceAction, self.replacebynameAction])
+        self.importSubmenu.setDisabled(True)
+
         self.dialog_settings = PyQt6.QtWidgets.QDialog(self)
         self.dialog_settings.setWindowTitle("Settings")
         self.dialog_settings.resize(100, 25)
         self.checkbox_theme = PyQt6.QtWidgets.QCheckBox("Dark Theme", self.dialog_settings)
         self.checkbox_theme.move(15, 0)
-        self.checkbox_theme.clicked.connect(self.switch_theme)
+        self.checkbox_theme.clicked.connect(lambda: self.switch_theme())
 
         self.settingsAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_gear.png'), '&Settings', self)
         self.settingsAction.setStatusTip('Settings')
@@ -227,14 +242,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.exitAction.setStatusTip('Exit application')
         self.exitAction.triggered.connect(self.exitCall)
 
-        self.menu_bar = self.menuBar()
-        self.fileMenu = self.menu_bar.addMenu('&File')
-        self.fileMenu.addActions([self.openAction, self.exportAction])
-        self.importSubmenu = self.fileMenu.addMenu('&Import...')
-        self.importSubmenu.setIcon(PyQt6.QtGui.QIcon('icon_blue-document-import.png'))
-        self.importSubmenu.addActions([self.replaceAction, self.replacebynameAction])
-        self.importSubmenu.setDisabled(True)
-        self.fileMenu.addActions([self.settingsAction, self.exitAction])
+        self.appMenu = self.menu_bar.addMenu('&Application')
+        self.appMenu.addActions([self.settingsAction, self.exitAction])
 
         self.displayRawAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_brain.png'), '&Converted formats', self)
         self.displayRawAction.setStatusTip('Displays files in a readable format instead of raw format.')
@@ -314,6 +323,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.file_content_gfx = GFXView(self.file_content)
         self.file_content_gfx.resize(self.file_content.size())
         self.file_content_gfx.hide()
+        self.dropdown_gfx_depth = PyQt6.QtWidgets.QComboBox(self)
+        self.dropdown_gfx_depth.move(725, 60)
+        self.dropdown_gfx_depth.addItems(["1bpp", "4bpp", "8bpp(WIP)"])
+        self.dropdown_gfx_depth.currentTextChanged.connect(self.treeCall)# Update gfx with current depth
 
         self.setStatusBar(PyQt6.QtWidgets.QStatusBar(self))
 
@@ -443,8 +456,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                     print(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']") + " imported")
                     self.treeCall()
     
-    def switch_theme(self):
-        self.theme_switch = not self.theme_switch
+    def switch_theme(self, isupdate=False):
+        if isupdate == False:
+            self.theme_switch = not self.theme_switch
+            init_readwrite.write_preferences(self)
         if self.theme_switch:
             app = PyQt6.QtCore.QCoreApplication.instance()
             app.setStyleSheet(open('dark_theme.qss').read())
@@ -531,13 +546,15 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                     if (self.fileDisplayMode == "English dialogue") or (self.fileDisplayMode == "Adapt" and self.tree.currentItem().text(1).find("talk") != -1 and self.tree.currentItem().text(1).find("en") != -1): # if english text
                         self.file_content_text.setPlainText(dataconverter.convertdata_bin_to_text(self.rom.files[int(self.tree.currentItem().text(0))]))
                     elif (self.fileDisplayMode == "Graphics") or (self.fileDisplayMode == "Adapt" and (self.tree.currentItem().text(1).find("obj_fnt") != -1 or self.tree.currentItem().text(1).find("font") != -1)):
-                        print("graphics")
+                        print(self.dropdown_gfx_depth.currentText()[:1] + " bpp graphics")
                         self.file_content_text.hide()
                         self.checkbox_textoverwite.hide()
                         self.file_content_gfx.resetScene()
                         self.file_content_gfx.show()
-                        gfx = PyQt6.QtGui.QPixmap.fromImage(dataconverter.convertdata_bin_to_qt(self.rom.files[int(self.tree.currentItem().text(0))][:64], 1))
+                        gfx = PyQt6.QtGui.QPixmap.fromImage(dataconverter.convertdata_bin_to_qt(self.rom.files[int(self.tree.currentItem().text(0))][:64], depth=int(self.dropdown_gfx_depth.currentText()[:1])))
+                        #gfx = PyQt6.QtGui.QPixmap.fromImage(tilesQImage_frombytes(self.rom.files[int(self.tree.currentItem().text(0))], 1))
                         self.file_content_gfx.setGraphic(gfx)
+                        #addPixmap_tilesQImage_frombytes(self.file_content_gfx, self.rom.files[int(self.tree.currentItem().text(0))])
                     else:
                         self.file_content_text.setReadOnly(True)
                         self.file_content_text.setPlainText("This file format is unknown/not supported at the moment.\n Go to View > Converted formats to disable file interpretation and view hex data.")
@@ -555,7 +572,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.exportAction.setDisabled(False)
             self.button_file_save.setDisabled(True)
             self.file_content_text.setDisabled(False)
-        else:
+        else:# Nothing is selected, reset edit space
             self.file_content_text.setPlainText("")
             self.button_file_save.setDisabled(True)
 
@@ -570,6 +587,20 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
 app = PyQt6.QtWidgets.QApplication(sys.argv)
 w = MainWindow()
+
+# Draw contents of tile viewer (WIP, currently unused)
+def addPixmap_tilesQImage_frombytes(scene, data, palette=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], depth=1, tilesPerRow=4, tilesPerColumn=10, tileWidth=8, tileHeight=8):
+    #image_widget = PyQt6.QtGui.QImage(tileWidth*tilesPerRow, tileHeight*tilesPerColumn, PyQt6.QtGui.QImage.Format.Format_Indexed8)
+    #image_widget.setColorTable([0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)])
+    
+    #tile_assembler = PyQt6.QtGui.QPainter(image_widget)
+    for tile in range(tilesPerRow*tilesPerColumn):
+        gfx = PyQt6.QtGui.QPixmap.fromImage(dataconverter.convertdata_bin_to_qt(data[tile*(tileWidth*tileHeight):tile*(tileWidth*tileHeight)+(tileWidth*tileHeight)], depth, tileWidth, tileHeight))
+        gfx.scroll(tileWidth*(tile % tilesPerRow), tileHeight*int(tile / tilesPerColumn), gfx.rect())
+        scene._scene.addPixmap(gfx)
+        #tile_assembler.drawImage(tile % tilesPerRow, int(tile / tilesPerColumn), dataconverter.convertdata_bin_to_qt(data[tile*(tileWidth*tileHeight):tile*(tileWidth*tileHeight)+(tileWidth*tileHeight)], depth, tileWidth, tileHeight))
+    #del tile_assembler
+    return #image_widget
 
 def extract(fileToEdit_id, folder="", fileToEdit_name="", path="", format=""):
     fileToEdit = w.rom.files[fileToEdit_id]
