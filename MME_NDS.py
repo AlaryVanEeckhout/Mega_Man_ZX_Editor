@@ -163,6 +163,18 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
             self.start, self.end = PyQt6.QtCore.QPoint(), PyQt6.QtCore.QPoint()
             self.rect, self.line = None, None
 
+class EditorTree(PyQt6.QtWidgets.QTreeWidget):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+    
+    def mousePressEvent(self, event):
+        if event.type() == PyQt6.QtCore.QEvent.Type.MouseButtonPress:
+            if event.button() == PyQt6.QtCore.Qt.MouseButton.RightButton: # execute different code if right click
+                super(EditorTree, self).mousePressEvent(event)
+                w.treeContextMenu()
+            else: # do normal code if not right click
+                super(EditorTree, self).mousePressEvent(event)
+
 class MainWindow(PyQt6.QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
@@ -286,14 +298,14 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.toolbar.addActions([self.button_save])
 
         #ROM-related
-        self.tree = PyQt6.QtWidgets.QTreeWidget(self)
+        self.tree = EditorTree(self)
         self.tree.move(0, self.menu_bar.rect().bottom() + 45)
         self.tree.resize(450, 625)
         self.tree.setColumnCount(3)
         self.tree.setHeaderLabels(["File ID", "Name", "Type"])
+        self.tree.setContextMenuPolicy(PyQt6.QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
         self.treeUpdate()
         self.tree.itemSelectionChanged.connect(self.treeCall)
-        #self.tree.itemClicked.
 
         self.button_file_save = PyQt6.QtWidgets.QPushButton("Save file", self)
         self.button_file_save.setToolTip("save this file's changes")
@@ -567,16 +579,24 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.file_content_text.setDisabled(True)
                     else:
                         self.file_content_text.setPlainText(self.rom.files[int(self.tree.currentItem().text(0))].hex())
+                self.file_content_text.setDisabled(False)
             else:
                 self.file_content_text.setPlainText("")
-                self.file_content_text.setReadOnly(True)
                 self.file_content_text.setDisabled(True)
             self.exportAction.setDisabled(False)
             self.button_file_save.setDisabled(True)
-            self.file_content_text.setDisabled(False)
         else:# Nothing is selected, reset edit space
             self.file_content_text.setPlainText("")
             self.button_file_save.setDisabled(True)
+
+    def treeContextMenu(self):
+        self.tree_context_menu = PyQt6.QtWidgets.QMenu(self.tree)
+        self.tree_context_menu.setGeometry(self.tree.cursor().pos().x(), self.tree.cursor().pos().y(), 50, 50)
+        exportAction = self.tree_context_menu.addAction("Export")
+        action2 = self.tree_context_menu.exec()
+        if action2 is not None:
+            if action2 == exportAction:
+                self.exportCall()
 
     def save_filecontent(self):
         if self.fileDisplayRaw == False:

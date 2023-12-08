@@ -1,16 +1,17 @@
-# Mega_Man_ZX_Editor
+# Mega Man ZX Editor
 ## What this is
  This is an attempt at creating a tool that will make editing Mega Man ZX much easier.<br>
  If you need to know where specific assets, values, or code sections are in the game, please see the(unfinished) [wiki page](https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/wiki), as it contains documentation I accumulated on the game.
 ## Progress
-Currently, the editor can edit, export and import english dialogue files and save them to the ROM. Other files can be viewed but I have not yet implemented the code to view them in their converted format.<br>
-For now, I'm making the graphics viewer
+Currently, I am focusing on the USA version of Mega Man ZX. This means that the editor's (full) compatibility with other versions of the game is not guarenteed at the moment.<br>
+The editor can edit, export and import english dialogue files and save them to the ROM. Other files can be viewed but I have not yet implemented the code to view or edit them in their converted format.<br>
+For now, I'm making the graphics viewer.
 ### Done
 - Dialogue text converter
 - Functional User Interface
 - File export with options for converted file formats
 - File import with support for converted file formats
-- Converter for binary to pyqt widget
+- Converter for binary to pyqt widget(image)
 - Graphics Viewer(first "tile" of file, can draw on it)
 ### Todo
 - (Dialogue text converter)Find use of special values 0xF4, 0xF5, 0xF7, 0xF9, and 0xFF
@@ -35,7 +36,7 @@ Currently, there are no releases and I'm not sure how to include the dependencie
 - [Download&Install Pillow v9.3.0 or higher](https://pypi.org/project/Pillow/)
 -->
 - This project > Code > Download ZIP
-- Extract the contents of the .zip file to a folder wherever you want
+- Extract the contents of the .zip file wherever you want
 - That's it! Now you can run RunEditor.bat (or run MME_NDS.py, from command line)
 ## Credits
 - Rom extracting/saving: https://ndspy.readthedocs.io/en/latest/
