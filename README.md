@@ -4,14 +4,16 @@
  If you need to know where specific assets, values, or code sections are in the game, please see the(unfinished) [wiki page](https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/wiki), as it contains documentation I accumulated on the game.
 ## Progress
 Currently, the editor can edit, export and import english dialogue files and save them to the ROM. Other files can be viewed but I have not yet implemented the code to view them in their converted format.<br>
-For now, I'm trying to find and understand data in the game to add it to my wiki page and to have a better idea of how my editor should handle each of the game's files.
+For now, I'm making the graphics viewer
 ### Done
 - Dialogue text converter
 - Functional User Interface
 - File export with options for converted file formats
 - File import with support for converted file formats
+- Converter for binary to pyqt widget
+- Graphics Viewer(first "tile" of file, can draw on it)
 ### Todo
-- (Dialogue text converter)Find use of special values 0xF4, 0xF5, 0xF7, 0xF9, 0xFA, and 0xFF
+- (Dialogue text converter)Find use of special values 0xF4, 0xF5, 0xF7, 0xF9, and 0xFF
 - Graphics converter
 - Graphics Editor
 - OAM Editor*
@@ -42,4 +44,4 @@ Currently, there are no releases and I'm not sure how to include the dependencie
 - icon_biometals-creation.png: Mega Man ZX devs, taken from [here](https://www.spriters-resource.com/ds_dsi/megamanzx/sheet/180723/) and truncated by me using GIMP
 - Dark theme: https://raw.githubusercontent.com/NiklasWyld/Wydbid/main/Assets/stylesheet (modified by me)
 
-Some parts of code I copied(and modified) from other people who asked for help(for example: on stack overflow) on topics I myself needed help on.
+Some parts of code I copied(and modified) from answers to other people who asked for help(for example, on stack overflow) on topics I myself needed help on.

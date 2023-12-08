@@ -293,6 +293,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.tree.setHeaderLabels(["File ID", "Name", "Type"])
         self.treeUpdate()
         self.tree.itemSelectionChanged.connect(self.treeCall)
+        #self.tree.itemClicked.
 
         self.button_file_save = PyQt6.QtWidgets.QPushButton("Save file", self)
         self.button_file_save.setToolTip("save this file's changes")
@@ -313,7 +314,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.checkbox_textoverwite.setGeometry(625, 70, 100, 50)
         self.checkbox_textoverwite.setStatusTip("With this enabled, writing text won't change filesize")
         self.checkbox_textoverwite.clicked.connect(lambda: self.file_content_text.setOverwriteMode(not self.file_content_text.overwriteMode()))
-        self.button_longfile = PyQt6.QtWidgets.QPushButton("Press this button to view file,\nbut be warned that this file is very big.\nTherefore if you choose to view it,\nit will take some time to load\nand the program will be unresponsive.\n\nAlternatively, you could export the file and open it in a hex editor", self)
+        self.button_longfile = PyQt6.QtWidgets.QPushButton("Press this button to view file,\nbut be warned that this file is very big.\nTherefore if you choose to view it,\nit will take some time to load\nand the program will be unresponsive.\n\nAlternatively, you could export the file and open it in a hex editor", self.file_content_text)
         self.button_longfile.pressed.connect(lambda: self.button_longfile.hide())
         self.button_longfile.pressed.connect(lambda: print("will take a while"))
         self.button_longfile.pressed.connect(lambda: self.file_content_text.setDisabled(False))
@@ -557,7 +558,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         #addPixmap_tilesQImage_frombytes(self.file_content_gfx, self.rom.files[int(self.tree.currentItem().text(0))])
                     else:
                         self.file_content_text.setReadOnly(True)
-                        self.file_content_text.setPlainText("This file format is unknown/not supported at the moment.\n Go to View > Converted formats to disable file interpretation and view hex data.")
+                        self.file_content_text.setPlainText("This file format is unknown/not supported at the moment.\n Go to [View > Converted formats] to disable file interpretation and view hex data.")
                 else:
                     if len((self.rom.files[int(self.tree.currentItem().text(0))]).hex()) > 100000:
                         self.button_longfile.setGeometry(self.file_content_text.geometry())
@@ -568,6 +569,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.file_content_text.setPlainText(self.rom.files[int(self.tree.currentItem().text(0))].hex())
             else:
                 self.file_content_text.setPlainText("")
+                self.file_content_text.setReadOnly(True)
                 self.file_content_text.setDisabled(True)
             self.exportAction.setDisabled(False)
             self.button_file_save.setDisabled(True)
