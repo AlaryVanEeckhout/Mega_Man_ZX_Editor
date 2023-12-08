@@ -171,7 +171,8 @@ class EditorTree(PyQt6.QtWidgets.QTreeWidget):
         if event.type() == PyQt6.QtCore.QEvent.Type.MouseButtonPress:
             if event.button() == PyQt6.QtCore.Qt.MouseButton.RightButton: # execute different code if right click
                 super(EditorTree, self).mousePressEvent(event)
-                w.treeContextMenu()
+                if w.tree.currentItem() != None:
+                    w.treeContextMenu()
             else: # do normal code if not right click
                 super(EditorTree, self).mousePressEvent(event)
 
@@ -564,10 +565,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.checkbox_textoverwite.hide()
                         self.file_content_gfx.resetScene()
                         self.file_content_gfx.show()
-                        gfx = PyQt6.QtGui.QPixmap.fromImage(dataconverter.convertdata_bin_to_qt(self.rom.files[int(self.tree.currentItem().text(0))][:64], depth=int(self.dropdown_gfx_depth.currentText()[:1])))
+                        #gfx = PyQt6.QtGui.QPixmap.fromImage(dataconverter.convertdata_bin_to_qt(self.rom.files[int(self.tree.currentItem().text(0))][:64], depth=int(self.dropdown_gfx_depth.currentText()[:1])))
                         #gfx = PyQt6.QtGui.QPixmap.fromImage(tilesQImage_frombytes(self.rom.files[int(self.tree.currentItem().text(0))], 1))
-                        self.file_content_gfx.setGraphic(gfx)
-                        #addPixmap_tilesQImage_frombytes(self.file_content_gfx, self.rom.files[int(self.tree.currentItem().text(0))])
+                        #self.file_content_gfx.setGraphic(gfx)
+                        addPixmap_tilesQImage_frombytes(self.file_content_gfx, self.rom.files[int(self.tree.currentItem().text(0))])
                     else:
                         self.file_content_text.setReadOnly(True)
                         self.file_content_text.setPlainText("This file format is unknown/not supported at the moment.\n Go to [View > Converted formats] to disable file interpretation and view hex data.")
@@ -592,8 +593,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
     def treeContextMenu(self):
         self.tree_context_menu = PyQt6.QtWidgets.QMenu(self.tree)
         self.tree_context_menu.setGeometry(self.tree.cursor().pos().x(), self.tree.cursor().pos().y(), 50, 50)
-        exportAction = self.tree_context_menu.addAction("Export")
-        importAction = self.tree_context_menu.addAction("Replace")
+        exportAction = self.tree_context_menu.addAction("Export " + self.tree.currentItem().text(1) + ("." + self.tree.currentItem().text(2)).replace(".Folder", " and contents"))
+        importAction = self.tree_context_menu.addAction("Replace " + self.tree.currentItem().text(1) + ("." + self.tree.currentItem().text(2)).replace(".Folder", " and contents"))
         action2 = self.tree_context_menu.exec()
         if action2 is not None:
             if action2 == exportAction:

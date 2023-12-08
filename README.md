@@ -1,5 +1,5 @@
 # Mega Man ZX Editor
-<img src="https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/blob/main/GitHub-page-content/Showcase-GUI.png" /><br>
+<img src="https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/blob/main/GitHub-page-content/Showcase-GUI.png" /><br>Graphic User Interface of the editor
 <img src="https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/blob/main/GitHub-page-content/Showcase-Dialogue.gif" /><br>Edited dialogue file(talk_m01_en1.bin) in-game
 ## What this is
 This is an attempt at creating a tool that will make editing Mega Man ZX much easier.<br>
@@ -15,9 +15,9 @@ For now, I'm making the graphics viewer.
 - File import with support for converted file formats
 - Converter for binary to pyqt widget(image)
 - Graphics Viewer(first "tile" of file, can draw on it)
-### Todo
+### To do
 - (Dialogue text converter)Find use of special values 0xF4, 0xF5, 0xF7, 0xF9, and 0xFF
-- Graphics converter
+- Graphics converter(feature complete)
 - Graphics Editor
 - OAM Editor*
 - Sound/Music Editor*
