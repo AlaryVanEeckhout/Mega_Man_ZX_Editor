@@ -593,10 +593,13 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.tree_context_menu = PyQt6.QtWidgets.QMenu(self.tree)
         self.tree_context_menu.setGeometry(self.tree.cursor().pos().x(), self.tree.cursor().pos().y(), 50, 50)
         exportAction = self.tree_context_menu.addAction("Export")
+        importAction = self.tree_context_menu.addAction("Replace")
         action2 = self.tree_context_menu.exec()
         if action2 is not None:
             if action2 == exportAction:
                 self.exportCall()
+            elif action2 == importAction:
+                self.replaceCall()
 
     def save_filecontent(self):
         if self.fileDisplayRaw == False:
