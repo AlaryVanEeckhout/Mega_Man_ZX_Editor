@@ -87,11 +87,11 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
                     return
                 if self.start.x() == self.end.x() and self.start.y() == self.end.y():
                     return
-                elif abs(self.end.x() - self.start.x()) < 20 or abs(self.end.y() - self.start.y()) < 20:
+                elif abs(self.end.x() - self.start.x()) < 1 or abs(self.end.y() - self.start.y()) < 1:
                     if self.rect != None:
                         self.scene().removeItem(self.rect)
                         self.rect = None
-                    if abs(self.end.y() - self.start.y()) < 20:
+                    if abs(self.end.y() - self.start.y()) < 1:
                         # draw vertical line
                         if self.line != None:
                             self.line.setLine(self.start.x(), self.start.y(), self.end.x(), self.start.y())
@@ -568,7 +568,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         #gfx = PyQt6.QtGui.QPixmap.fromImage(dataconverter.convertdata_bin_to_qt(self.rom.files[int(self.tree.currentItem().text(0))][:64], depth=int(self.dropdown_gfx_depth.currentText()[:1])))
                         #gfx = PyQt6.QtGui.QPixmap.fromImage(tilesQImage_frombytes(self.rom.files[int(self.tree.currentItem().text(0))], 1))
                         #self.file_content_gfx.setGraphic(gfx)
-                        addPixmap_tilesQImage_frombytes(self.file_content_gfx, self.rom.files[int(self.tree.currentItem().text(0))])
+                        addItem_tilesQImage_frombytes(self.file_content_gfx, self.rom.files[int(self.tree.currentItem().text(0))], depth=int(self.dropdown_gfx_depth.currentText()[:1]))
                     else:
                         self.file_content_text.setReadOnly(True)
                         self.file_content_text.setPlainText("This file format is unknown/not supported at the moment.\n Go to [View > Converted formats] to disable file interpretation and view hex data.")
@@ -614,19 +614,18 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 app = PyQt6.QtWidgets.QApplication(sys.argv)
 w = MainWindow()
 
-# Draw contents of tile viewer (WIP, currently unused)
-def addPixmap_tilesQImage_frombytes(scene, data, palette=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], depth=1, tilesPerRow=4, tilesPerColumn=10, tileWidth=8, tileHeight=8):
-    #image_widget = PyQt6.QtGui.QImage(tileWidth*tilesPerRow, tileHeight*tilesPerColumn, PyQt6.QtGui.QImage.Format.Format_Indexed8)
-    #image_widget.setColorTable([0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)])
-    
-    #tile_assembler = PyQt6.QtGui.QPainter(image_widget)
+# Draw contents of tile viewer
+def addItem_tilesQImage_frombytes(scene, data, palette=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], depth=1, tilesPerRow=1, tilesPerColumn=56, tileWidth=8, tileHeight=8):
     for tile in range(tilesPerRow*tilesPerColumn):
-        gfx = PyQt6.QtGui.QPixmap.fromImage(dataconverter.convertdata_bin_to_qt(data[tile*(tileWidth*tileHeight):tile*(tileWidth*tileHeight)+(tileWidth*tileHeight)], depth, tileWidth, tileHeight))
-        gfx.scroll(tileWidth*(tile % tilesPerRow), tileHeight*int(tile / tilesPerColumn), gfx.rect())
-        scene._scene.addPixmap(gfx)
-        #tile_assembler.drawImage(tile % tilesPerRow, int(tile / tilesPerColumn), dataconverter.convertdata_bin_to_qt(data[tile*(tileWidth*tileHeight):tile*(tileWidth*tileHeight)+(tileWidth*tileHeight)], depth, tileWidth, tileHeight))
-    #del tile_assembler
-    return #image_widget
+        gfx = PyQt6.QtGui.QPixmap.fromImage(dataconverter.convertdata_bin_to_qt(data[int(tile*(tileWidth*tileHeight)*depth/8):int(tile*(tileWidth*tileHeight)*depth/8+(tileWidth*tileHeight)*depth/8)], palette, depth, tileWidth, tileHeight))
+        gfx_container = PyQt6.QtWidgets.QGraphicsPixmapItem()
+        gfx_container.setPixmap(gfx)
+        #print(tile)
+        #print(str(gfx_container.pos().x()) + " " + str(gfx_container.pos().y()))
+        gfx_container.setPos(tileWidth*(tile % tilesPerRow), tileHeight*int(tile / tilesPerRow))
+        #print(str(gfx_container.pos().x()) + " " + str(gfx_container.pos().y()))
+        scene._scene.addItem(gfx_container)
+    return
 
 def extract(fileToEdit_id, folder="", fileToEdit_name="", path="", format=""):
     fileToEdit = w.rom.files[fileToEdit_id]
