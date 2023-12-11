@@ -285,20 +285,35 @@ def convertdata_bin_to_qt(binary_data: bytearray, palette=[0xff000000+((0x0b7421
     image_widget.setColorTable(palette) # 32bit ARGB color format
     image_widget.fill(15)
     
-    if depth == 1:
-        for pixel_index in range(len(str_subgroups(file_bits, depth))):
-            if pixel_index < tileWidth*tileHeight:
-                x = (tileWidth-1) - (pixel_index % tileWidth)
-                y = int(pixel_index / tileWidth)
-                image_widget.setPixel(x, y, int(str_subgroups(file_bits, depth)[pixel_index], 2))
-    if depth == 4:
-        for pixel_index in range(0, len(str_subgroups(file_bits, depth)), 2):
-            #print(str_subgroups(file_bits, 4)[pixel_index])
-            if pixel_index < tileWidth*tileHeight:
-                x = pixel_index % tileWidth
-                y = int(pixel_index / tileWidth)
-                image_widget.setPixel(x, y, int(str_subgroups(file_bits, depth)[pixel_index+1], 2))
-                image_widget.setPixel(x+1, y, int(str_subgroups(file_bits, depth)[pixel_index], 2))
+    match depth:
+        case 1: # NDS 1bpp
+            for pixel_index in range(len(str_subgroups(file_bits, depth))):
+                if pixel_index < tileWidth*tileHeight:
+                    x = (tileWidth-1) - (pixel_index % tileWidth)
+                    y = int(pixel_index / tileWidth)
+                    image_widget.setPixel(x, y, int(str_subgroups(file_bits, depth)[pixel_index], 2))
+        case 2:# For japanese font
+            for pixel_index in range(len(str_subgroups(file_bits, depth))):
+                if pixel_index < tileWidth*tileHeight:
+                    x = (tileWidth-1) - (pixel_index % tileWidth)
+                    y = int(pixel_index / tileWidth)
+                    image_widget.setPixel(x, y, int(str_subgroups(file_bits, depth)[pixel_index], 2))
+        case 4: # GBA 4bpp
+            for pixel_index in range(0, len(str_subgroups(file_bits, depth)), 2):
+                #print(str_subgroups(file_bits, 4)[pixel_index])
+                if pixel_index < tileWidth*tileHeight:
+                    x = pixel_index % tileWidth
+                    y = int(pixel_index / tileWidth)
+                    image_widget.setPixel(x, y, int(str_subgroups(file_bits, depth)[pixel_index+1], 2))
+                    image_widget.setPixel(x+1, y, int(str_subgroups(file_bits, depth)[pixel_index], 2))
+        case 8: # GBA 8bpp
+            for pixel_index in range(0, len(str_subgroups(file_bits, depth)), 2):
+                #print(str_subgroups(file_bits, 4)[pixel_index])
+                if pixel_index < tileWidth*tileHeight:
+                    x = pixel_index % tileWidth
+                    y = int(pixel_index / tileWidth)
+                    image_widget.setPixel(x, y, int(str_subgroups(file_bits, depth)[pixel_index+1], 2))
+                    image_widget.setPixel(x+1, y, int(str_subgroups(file_bits, depth)[pixel_index], 2))
     return image_widget
 
  #create readable text

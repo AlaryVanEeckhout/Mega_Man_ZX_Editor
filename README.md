@@ -6,7 +6,7 @@ This is an attempt at creating a tool that will make editing Mega Man ZX much ea
 If you need to know where specific assets, values, or code sections are in the game, please see the(unfinished) [wiki page](https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/wiki), as it contains documentation I accumulated on the game.
 ## Progress
 Currently, I am focusing on the USA version of Mega Man ZX. This means that the editor's (full) compatibility with other versions of the game is not guarenteed at the moment.<br>
-The editor can edit, export and import english dialogue files and save them to the ROM. Other files can be viewed but I have not yet implemented the code to view or edit them in their converted format.<br>
+The editor can edit, export and import english dialogue files and save them to the ROM. Other files can be viewed but I have not yet implemented the code to view and/or edit them in their converted format.<br>
 For now, I'm making the graphics viewer.
 ### Done
 - Dialogue text converter
@@ -14,7 +14,7 @@ For now, I'm making the graphics viewer.
 - File export with options for converted file formats
 - File import with support for converted file formats
 - Converter for binary to pyqt widget(image)
-- Graphics Viewer(first "tile" of file, can draw on it)
+- Graphics Viewer(WIP)
 ### To do
 - (Dialogue text converter)Find use of special values 0xF4, 0xF5, 0xF7, 0xF9, and 0xFF
 - Graphics converter(feature complete)

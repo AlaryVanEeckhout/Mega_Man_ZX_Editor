@@ -176,6 +176,38 @@ class EditorTree(PyQt6.QtWidgets.QTreeWidget):
             else: # do normal code if not right click
                 super(EditorTree, self).mousePressEvent(event)
 
+class HoldButton(PyQt6.QtWidgets.QPushButton):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.counter = 0
+        self.rate = 100
+        self.allow_press = False
+        self.timer = PyQt6.QtCore.QTimer(self)
+        self.timer.timeout.connect(self.on_timeout)
+        self.pressed.connect(self.on_press)
+        self.released.connect(self.on_release)
+        self.timeout_func = None
+
+    def on_timeout(self):
+        self.counter += 1
+        #print("hold " + str(self.counter))
+        if self.timeout_func != None:
+            for f in self.timeout_func:
+                f()
+
+    def on_press(self):
+        #print("pressed")
+        self.counter = 0
+        if self.allow_press == True and self.timeout_func != None:
+            for f in self.timeout_func:
+                f()
+        self.timer.start(self.rate)
+
+    def on_release(self):
+        #print("released")
+        self.timer.stop()
+        self.counter = -1
+
 class MainWindow(PyQt6.QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
@@ -187,6 +219,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.rom = ndspy.rom.NintendoDSRom
         self.arm9 = ndspy.code.MainCodeFile
         self.arm7 = ndspy.code.MainCodeFile
+        self.base_address = 0x00000000
         self.romToEdit_name = ''
         self.romToEdit_ext = ''
         self.fileToEdit_name = ''
@@ -268,21 +301,27 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.viewAdaptAction.setStatusTip('Files will be decrypted on a case per case basis.')
         self.viewAdaptAction.setCheckable(True)
         self.viewAdaptAction.setChecked(True)
-        self.viewAdaptAction.triggered.connect(self.display_format_adapt_Call)
+        self.viewAdaptAction.triggered.connect(lambda: self.value_update_Call("fileDisplayMode", "Adapt"))
 
-        self.viewEntextAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_document-text.png'), '&English Text', self)
-        self.viewEntextAction.setStatusTip('Files will be decrypted as english dialogues.')
-        self.viewEntextAction.setCheckable(True)
-        self.viewEntextAction.triggered.connect(self.display_format_endialog_Call)
+        self.viewEndialogAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_document-text.png'), '&English Dialogue', self)
+        self.viewEndialogAction.setStatusTip('Files will be decrypted as in-game english dialogues.')
+        self.viewEndialogAction.setCheckable(True)
+        self.viewEndialogAction.triggered.connect(lambda: self.value_update_Call("fileDisplayMode", "English dialogue"))
+
+        self.viewGraphicAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_biometals-creation.png'), '&Graphics', self)
+        self.viewGraphicAction.setStatusTip('Files will be decrypted as graphics.')
+        self.viewGraphicAction.setCheckable(True)
+        self.viewGraphicAction.triggered.connect(lambda: self.value_update_Call("fileDisplayMode", "Graphics"))
 
         self.viewFormatsGroup = PyQt6.QtGui.QActionGroup(self) #group for mutually exclusive togglable items
         self.viewFormatsGroup.addAction(self.viewAdaptAction)
-        self.viewFormatsGroup.addAction(self.viewEntextAction)
+        self.viewFormatsGroup.addAction(self.viewEndialogAction)
+        self.viewFormatsGroup.addAction(self.viewGraphicAction)
 
         self.viewMenu = self.menu_bar.addMenu('&View')
         self.viewMenu.addAction(self.displayRawAction)
         self.displayFormatSubmenu = self.viewMenu.addMenu(PyQt6.QtGui.QIcon('icon_document-convert.png'), '&Set edit mode...')
-        self.displayFormatSubmenu.addActions([self.viewAdaptAction, self.viewEntextAction])
+        self.displayFormatSubmenu.addActions([self.viewAdaptAction, self.viewEndialogAction, self.viewGraphicAction])
 
         #Toolbar
         self.toolbar = PyQt6.QtWidgets.QToolBar("Main Toolbar")
@@ -327,6 +366,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.checkbox_textoverwite.setGeometry(625, 70, 100, 50)
         self.checkbox_textoverwite.setStatusTip("With this enabled, writing text won't change filesize")
         self.checkbox_textoverwite.clicked.connect(lambda: self.file_content_text.setOverwriteMode(not self.file_content_text.overwriteMode()))
+        self.checkbox_textoverwite.hide()
         self.button_longfile = PyQt6.QtWidgets.QPushButton("Press this button to view file,\nbut be warned that this file is very big.\nTherefore if you choose to view it,\nit will take some time to load\nand the program will be unresponsive.\n\nAlternatively, you could export the file and open it in a hex editor", self.file_content_text)
         self.button_longfile.pressed.connect(lambda: self.button_longfile.hide())
         self.button_longfile.pressed.connect(lambda: print("will take a while"))
@@ -339,8 +379,27 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.file_content_gfx.hide()
         self.dropdown_gfx_depth = PyQt6.QtWidgets.QComboBox(self)
         self.dropdown_gfx_depth.move(725, 60)
-        self.dropdown_gfx_depth.addItems(["1bpp", "4bpp", "8bpp(WIP)"])
+        self.dropdown_gfx_depth.addItems(["1bpp", "2bpp(WIP)", "4bpp", "8bpp(WIP)"])
         self.dropdown_gfx_depth.currentTextChanged.connect(self.treeCall)# Update gfx with current depth
+        self.dropdown_gfx_depth.hide()
+
+        # Make a line edit widget that can change value when you click on the arrows
+        self.relative_adress = 0x00000000
+        self.field_address = PyQt6.QtWidgets.QLineEdit(self)
+        self.field_address.setGeometry(850, 60, 100, 25)
+        self.field_address.textChanged.connect(lambda: self.treeCall(True))
+        self.field_address.hide()
+        self.button_address_inc = HoldButton("⯅", self)
+        self.button_address_inc.timeout_func = [lambda: self.value_update_Call("relative_adress", min(self.relative_adress + 1, len(self.rom.files[int(self.tree.currentItem().text(0))])), False), lambda: self.field_address.setText(f"{self.base_address+self.relative_adress:08X}")]
+        self.button_address_inc.allow_press = True
+        self.button_address_inc.setGeometry(950, 55, 25, 20)
+        self.button_address_inc.hide()
+        self.button_address_dec = HoldButton("⯆", self)
+        self.button_address_dec.timeout_func = [lambda: self.value_update_Call("relative_adress", max(self.relative_adress - 1, 0), False), lambda: self.field_address.setText(f"{self.base_address+self.relative_adress:08X}")]
+        self.button_address_dec.allow_press = True
+        self.button_address_dec.setGeometry(950, 75, 25, 20)
+        self.button_address_dec.hide()
+        #PyQt6.QtWidgets.QKeySequenceEdit()
 
         self.setStatusBar(PyQt6.QtWidgets.QStatusBar(self))
 
@@ -364,6 +423,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.romToEdit_name = fname[0].split("/")[len(fname[0].split("/")) - 1].split(".")[0]
             self.romToEdit_ext = "." + fname[0].split("/")[len(fname[0].split("/")) - 1].split(".")[1]
             self.rom = ndspy.rom.NintendoDSRom.fromFile(self.romToEdit_name + self.romToEdit_ext)
+            self.arm9 = self.rom.loadArm9()
+            self.arm7 = self.rom.loadArm7()
             self.setWindowTitle("Mega Man ZX Editor" + " (" + self.romToEdit_name + self.romToEdit_ext + ")")
             print(self.rom.filenames)
             self.importSubmenu.setDisabled(False)
@@ -485,22 +546,15 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.close()
     
     def display_format_toggleCall(self):
-        if self.fileDisplayRaw == False:
-            self.fileDisplayRaw = True
-            self.displayFormatSubmenu.setDisabled(True)
-        else:
-            self.fileDisplayRaw = False
-            self.displayFormatSubmenu.setDisabled(False)
+        self.fileDisplayRaw = not self.fileDisplayRaw
+        self.displayFormatSubmenu.setDisabled(self.displayFormatSubmenu.isEnabled())
         self.toggle_widget_icon(self.displayRawAction, PyQt6.QtGui.QIcon('icon_brain.png'), PyQt6.QtGui.QIcon('icon_document-binary.png'))
         self.treeCall()
 
-    def display_format_adapt_Call(self):
-        self.fileDisplayMode = "Adapt"
-        self.treeCall()
-
-    def display_format_endialog_Call(self):
-        self.fileDisplayMode = "English dialogue"
-        self.treeCall()
+    def value_update_Call(self, var, val, istreecall=True):
+        setattr(self, var, val)
+        if istreecall:
+            self.treeCall(True)
     
     def saveCall(self):
         dialog = PyQt6.QtWidgets.QFileDialog(
@@ -547,32 +601,32 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.tree.clear()
         self.tree.addTopLevelItems(tree_files)
 
-    def treeCall(self):
+    def treeCall(self, isValueUpdate=False):
         self.button_longfile.hide()
-        self.file_content_text.show()
-        self.checkbox_textoverwite.show()
         self.file_content_text.setReadOnly(False)
-        self.file_content_gfx.hide()
         if self.tree.currentItem() != None:
             self.fileToEdit_name = str(self.tree.currentItem().text(1) + "." + self.tree.currentItem().text(2))
             if self.fileToEdit_name.find(".Folder") == -1:
                 if self.fileDisplayRaw == False:
                     if (self.fileDisplayMode == "English dialogue") or (self.fileDisplayMode == "Adapt" and self.tree.currentItem().text(1).find("talk") != -1 and self.tree.currentItem().text(1).find("en") != -1): # if english text
+                        self.file_editor_show("Text")
                         self.file_content_text.setPlainText(dataconverter.convertdata_bin_to_text(self.rom.files[int(self.tree.currentItem().text(0))]))
-                    elif (self.fileDisplayMode == "Graphics") or (self.fileDisplayMode == "Adapt" and (self.tree.currentItem().text(1).find("obj_fnt") != -1 or self.tree.currentItem().text(1).find("font") != -1)):
+                    elif (self.fileDisplayMode == "Graphics") or (self.fileDisplayMode == "Adapt" and (self.tree.currentItem().text(1).find("obj_fnt") != -1 or self.tree.currentItem().text(1).find("font") != -1 or self.tree.currentItem().text(1).find("face") != -1)):
                         print(self.dropdown_gfx_depth.currentText()[:1] + " bpp graphics")
-                        self.file_content_text.hide()
-                        self.checkbox_textoverwite.hide()
                         self.file_content_gfx.resetScene()
-                        self.file_content_gfx.show()
-                        #gfx = PyQt6.QtGui.QPixmap.fromImage(dataconverter.convertdata_bin_to_qt(self.rom.files[int(self.tree.currentItem().text(0))][:64], depth=int(self.dropdown_gfx_depth.currentText()[:1])))
-                        #gfx = PyQt6.QtGui.QPixmap.fromImage(tilesQImage_frombytes(self.rom.files[int(self.tree.currentItem().text(0))], 1))
-                        #self.file_content_gfx.setGraphic(gfx)
-                        addItem_tilesQImage_frombytes(self.file_content_gfx, self.rom.files[int(self.tree.currentItem().text(0))], depth=int(self.dropdown_gfx_depth.currentText()[:1]))
+                        if not isValueUpdate:
+                            self.file_editor_show("Graphics")
+                        self.base_address = 0x00179400
+                        # set text to current ROM address
+                        # first viewable file has address 0x00179400 and id 0117
+                        self.field_address.setText(f"{self.base_address+self.relative_adress:08X}")
+                        addItem_tilesQImage_frombytes(self.file_content_gfx, self.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:], depth=int(self.dropdown_gfx_depth.currentText()[:1]))
                     else:
+                        self.file_editor_show("Text")
                         self.file_content_text.setReadOnly(True)
                         self.file_content_text.setPlainText("This file format is unknown/not supported at the moment.\n Go to [View > Converted formats] to disable file interpretation and view hex data.")
                 else:
+                    self.file_editor_show("Text")
                     if len((self.rom.files[int(self.tree.currentItem().text(0))]).hex()) > 100000:
                         self.button_longfile.setGeometry(self.file_content_text.geometry())
                         self.button_longfile.show()
@@ -589,6 +643,35 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         else:# Nothing is selected, reset edit space
             self.file_content_text.setPlainText("")
             self.button_file_save.setDisabled(True)
+
+    def file_editor_show(self, mode):
+        match mode:
+            case "Text":
+                # Hide unwanted widgets
+                self.file_content_gfx.hide()
+                self.dropdown_gfx_depth.hide()
+                self.field_address.hide()
+                self.button_address_inc.hide()
+                self.button_address_dec.hide()
+
+                # Show wanted widgets
+                self.file_content_text.show()
+                self.checkbox_textoverwite.show()
+            case "Graphics":
+                # Hide unwanted widgets
+                self.file_content_text.hide()
+                self.checkbox_textoverwite.hide()
+
+                # Reset Values
+                self.relative_adress = 0x00000000
+                print(f"{len(self.rom.save()):08X}")
+
+                # Show wanted widgets
+                self.file_content_gfx.show()
+                self.dropdown_gfx_depth.show()
+                self.field_address.show()
+                self.button_address_inc.show()
+                self.button_address_dec.show()
 
     def treeContextMenu(self):
         self.tree_context_menu = PyQt6.QtWidgets.QMenu(self.tree)
@@ -615,8 +698,10 @@ app = PyQt6.QtWidgets.QApplication(sys.argv)
 w = MainWindow()
 
 # Draw contents of tile viewer
-def addItem_tilesQImage_frombytes(scene, data, palette=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], depth=1, tilesPerRow=1, tilesPerColumn=56, tileWidth=8, tileHeight=8):
+def addItem_tilesQImage_frombytes(view, data, palette=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], depth=1, tilesPerRow=4, tilesPerColumn=56, tileWidth=8, tileHeight=8):
     for tile in range(tilesPerRow*tilesPerColumn):
+        # get data of current tile from bytearray, multiplying tile index by amount of pixels in a tile and by amount of bits per pixel, then dividing by amount of bits per byte
+        # that data is then converted into a QImage that is used to create the QPixmap of the tile
         gfx = PyQt6.QtGui.QPixmap.fromImage(dataconverter.convertdata_bin_to_qt(data[int(tile*(tileWidth*tileHeight)*depth/8):int(tile*(tileWidth*tileHeight)*depth/8+(tileWidth*tileHeight)*depth/8)], palette, depth, tileWidth, tileHeight))
         gfx_container = PyQt6.QtWidgets.QGraphicsPixmapItem()
         gfx_container.setPixmap(gfx)
@@ -624,7 +709,7 @@ def addItem_tilesQImage_frombytes(scene, data, palette=[0xff000000+((0x0b7421*i)
         #print(str(gfx_container.pos().x()) + " " + str(gfx_container.pos().y()))
         gfx_container.setPos(tileWidth*(tile % tilesPerRow), tileHeight*int(tile / tilesPerRow))
         #print(str(gfx_container.pos().x()) + " " + str(gfx_container.pos().y()))
-        scene._scene.addItem(gfx_container)
+        view._scene.addItem(gfx_container)
     return
 
 def extract(fileToEdit_id, folder="", fileToEdit_name="", path="", format=""):
