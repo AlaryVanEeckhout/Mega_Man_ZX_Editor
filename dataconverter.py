@@ -3,6 +3,7 @@ import os.path
 #import PIL, PIL.Image
 import PyQt6.QtGui
 #import io
+import enum
 
 #https://www.rapidtables.com/code/text/ascii-table.html
 special_character_list = ([0])*256
@@ -278,42 +279,55 @@ def convertdata_text_to_bin(data):
         file_data = b''.join(file_data)
         return file_data
 
-def convertdata_bin_to_qt(binary_data: bytearray, palette=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], depth=1, tileWidth=8, tileHeight=8): # GBA 4bpp = 4bpp linear reverse order
+class CompressionAlgorithmEnum(enum.Enum):
+
+  def __init__(self, id, depth):
+      self.id = id
+      self.depth = depth
+
+  ONEBPP = enum.auto(), 1
+  ONEBPP_JP = enum.auto(), 1
+  FOURBPP = enum.auto(), 4
+  EIGHTBPP = enum.auto(), 8
+
+def convertdata_bin_to_qt(binary_data: bytearray, palette=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], algorithm=CompressionAlgorithmEnum.ONEBPP, tileWidth=8, tileHeight=8): # GBA 4bpp = 4bpp linear reverse order
     #file_bits = bin(int.from_bytes(binary_data))[2:]
     file_bits = "".join([bit for byte in binary_data for bit in ("00000000"+(bin(byte)[2:]))[-8:]])
     image_widget = PyQt6.QtGui.QImage(8, 8, PyQt6.QtGui.QImage.Format.Format_Indexed8)
     image_widget.setColorTable(palette) # 32bit ARGB color format
     image_widget.fill(15)
     
-    match depth:
-        case 1: # NDS 1bpp
-            for pixel_index in range(len(str_subgroups(file_bits, depth))):
+    match algorithm:
+        case CompressionAlgorithmEnum.ONEBPP: # For english 8x16 font
+            for pixel_index in range(len(str_subgroups(file_bits, algorithm.depth))):
                 if pixel_index < tileWidth*tileHeight:
-                    x = (tileWidth-1) - (pixel_index % tileWidth)
+                    x = int((tileWidth-1) - (pixel_index % tileWidth)) # x is reverse-order
                     y = int(pixel_index / tileWidth)
-                    image_widget.setPixel(x, y, int(str_subgroups(file_bits, depth)[pixel_index], 2))
-        case 2:# For japanese font
-            for pixel_index in range(len(str_subgroups(file_bits, depth))):
+                    image_widget.setPixel(x, y, int(str_subgroups(file_bits, algorithm.depth)[pixel_index], 2))
+        case CompressionAlgorithmEnum.ONEBPP_JP:# For japanese 16x16 font
+            for pixel_index in range(len(str_subgroups(file_bits, algorithm.depth))):
                 if pixel_index < tileWidth*tileHeight:
-                    x = (tileWidth-1) - (pixel_index % tileWidth)
+                    x = int((tileWidth/2-1) - (pixel_index % tileWidth)) # x is reverse-order and starts mid-tile
+                    if x < 0:
+                        x = int(tileWidth - abs(x))
                     y = int(pixel_index / tileWidth)
-                    image_widget.setPixel(x, y, int(str_subgroups(file_bits, depth)[pixel_index], 2))
-        case 4: # GBA 4bpp
-            for pixel_index in range(0, len(str_subgroups(file_bits, depth)), 2):
+                    image_widget.setPixel(x, y, int(str_subgroups(file_bits, algorithm.depth)[pixel_index], 2))
+        case CompressionAlgorithmEnum.FOURBPP: # GBA 4bpp
+            for pixel_index in range(0, len(str_subgroups(file_bits, algorithm.depth)), 2):
                 #print(str_subgroups(file_bits, 4)[pixel_index])
                 if pixel_index < tileWidth*tileHeight:
-                    x = pixel_index % tileWidth
+                    x = int(pixel_index % tileWidth)
                     y = int(pixel_index / tileWidth)
-                    image_widget.setPixel(x, y, int(str_subgroups(file_bits, depth)[pixel_index+1], 2))
-                    image_widget.setPixel(x+1, y, int(str_subgroups(file_bits, depth)[pixel_index], 2))
-        case 8: # GBA 8bpp
-            for pixel_index in range(0, len(str_subgroups(file_bits, depth)), 2):
+                    image_widget.setPixel(x, y, int(str_subgroups(file_bits, algorithm.depth)[pixel_index+1], 2))
+                    image_widget.setPixel(x+1, y, int(str_subgroups(file_bits, algorithm.depth)[pixel_index], 2))
+        case CompressionAlgorithmEnum.EIGHTBPP: # GBA 8bpp
+            for pixel_index in range(0, len(str_subgroups(file_bits, algorithm.depth)), 2):
                 #print(str_subgroups(file_bits, 4)[pixel_index])
                 if pixel_index < tileWidth*tileHeight:
-                    x = pixel_index % tileWidth
+                    x = int(pixel_index % tileWidth)
                     y = int(pixel_index / tileWidth)
-                    image_widget.setPixel(x, y, int(str_subgroups(file_bits, depth)[pixel_index+1], 2))
-                    image_widget.setPixel(x+1, y, int(str_subgroups(file_bits, depth)[pixel_index], 2))
+                    image_widget.setPixel(x, y, int(str_subgroups(file_bits, algorithm.depth)[pixel_index+1], 2))
+                    image_widget.setPixel(x+1, y, int(str_subgroups(file_bits, algorithm.depth)[pixel_index], 2))
     return image_widget
 
  #create readable text

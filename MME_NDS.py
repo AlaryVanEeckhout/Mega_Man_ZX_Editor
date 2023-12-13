@@ -208,6 +208,14 @@ class HoldButton(PyQt6.QtWidgets.QPushButton):
         self.timer.stop()
         self.counter = -1
 
+class AddressSpinBox(PyQt6.QtWidgets.QSpinBox):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setRange(0, 0x03000000)
+
+    def textFromValue(self, value):
+        return "%08X" % value
+
 class MainWindow(PyQt6.QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
@@ -220,6 +228,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.arm9 = ndspy.code.MainCodeFile
         self.arm7 = ndspy.code.MainCodeFile
         self.base_address = 0x00000000
+        self.relative_adress = 0x00000000
         self.romToEdit_name = ''
         self.romToEdit_ext = ''
         self.fileToEdit_name = ''
@@ -354,7 +363,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.button_file_save.setDisabled(True)
 
         self.file_content = PyQt6.QtWidgets.QFrame(self)
-        self.file_content.setGeometry(475, self.menu_bar.rect().bottom() + 100, 500, 500)
+        self.file_content.setGeometry(475, self.menu_bar.rect().bottom() + 110, 500, 500)
         self.file_content_text = PyQt6.QtWidgets.QPlainTextEdit(self.file_content)
         self.file_content_text.resize(self.file_content.size())
         font = PyQt6.QtGui.QFont("Monospace")
@@ -379,14 +388,27 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.file_content_gfx.hide()
         self.dropdown_gfx_depth = PyQt6.QtWidgets.QComboBox(self)
         self.dropdown_gfx_depth.move(725, 60)
-        self.dropdown_gfx_depth.addItems(["1bpp", "2bpp(WIP)", "4bpp", "8bpp(WIP)"])
+        self.dropdown_gfx_depth.addItems(["1bpp", "1bpp(JP 16x16)", "4bpp", "8bpp(WIP)"])
+        #self.dropdown_gfx_depth.item
         self.dropdown_gfx_depth.currentTextChanged.connect(self.treeCall)# Update gfx with current depth
         self.dropdown_gfx_depth.hide()
 
-        # Make a line edit widget that can change value when you click on the arrows
-        self.relative_adress = 0x00000000
-        self.field_address = PyQt6.QtWidgets.QLineEdit(self)
+        self.font_caps = PyQt6.QtGui.QFont()
+        self.font_caps.setCapitalization(PyQt6.QtGui.QFont.Capitalization.AllUppercase)
+        
+        # Address bar
+        self.field_address = AddressSpinBox(self)
         self.field_address.setGeometry(850, 60, 100, 25)
+        self.field_address.setFont(self.font_caps)
+        self.field_address.setValue(self.base_address+self.relative_adress)
+        self.field_address.setPrefix("0x")
+        self.field_address.setDisplayIntegerBase(16)
+        self.field_address.valueChanged.connect(lambda: self.value_update_Call("relative_adress", self.field_address.value() - self.base_address, True))
+        self.field_address.hide()
+        '''self.field_address = PyQt6.QtWidgets.QLineEdit(self)
+        self.field_address.setGeometry(850, 60, 100, 25)
+        self.field_address.setValidator(PyQt6.QtGui.QIntValidator())
+        self.field_address.textEdited.connect(lambda: self.value_update_Call("relative_adress", int(self.field_address.text(), 16) - self.base_address, False))
         self.field_address.textChanged.connect(lambda: self.treeCall(True))
         self.field_address.hide()
         self.button_address_inc = HoldButton("⯅", self)
@@ -398,7 +420,26 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.button_address_dec.timeout_func = [lambda: self.value_update_Call("relative_adress", max(self.relative_adress - 1, 0), False), lambda: self.field_address.setText(f"{self.base_address+self.relative_adress:08X}")]
         self.button_address_dec.allow_press = True
         self.button_address_dec.setGeometry(950, 75, 25, 20)
-        self.button_address_dec.hide()
+        self.button_address_dec.hide()'''
+        # Tiles Per row
+        self.tiles_per_row = 4
+        self.field_tiles_per_row = PyQt6.QtWidgets.QSpinBox(self)
+        self.field_tiles_per_row.setGeometry(850, 100, 50, 25)
+        self.field_tiles_per_row.setFont(self.font_caps)
+        self.field_tiles_per_row.setValue(self.tiles_per_row)
+        self.field_tiles_per_row.setDisplayIntegerBase(10)
+        self.field_tiles_per_row.valueChanged.connect(lambda: self.value_update_Call("tiles_per_row", int(f"{self.field_tiles_per_row.text():01}"), True))
+        self.field_tiles_per_row.hide()
+        # Tiles Per Column
+        self.tiles_per_column = 4
+        self.field_tiles_per_column = PyQt6.QtWidgets.QSpinBox(self)
+        self.field_tiles_per_column.setGeometry(900, 100, 50, 25)
+        self.field_tiles_per_column.setFont(self.font_caps)
+        self.field_tiles_per_column.setValue(self.tiles_per_column)
+        self.field_tiles_per_column.setDisplayIntegerBase(10)
+        self.field_tiles_per_column.valueChanged.connect(lambda: self.value_update_Call("tiles_per_column", int(f"{self.field_tiles_per_column.text():01}"), True))
+        self.field_tiles_per_column.hide()
+        # Shortcuts
         #PyQt6.QtWidgets.QKeySequenceEdit()
 
         self.setStatusBar(PyQt6.QtWidgets.QStatusBar(self))
@@ -619,8 +660,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.base_address = 0x00179400
                         # set text to current ROM address
                         # first viewable file has address 0x00179400 and id 0117
-                        self.field_address.setText(f"{self.base_address+self.relative_adress:08X}")
-                        addItem_tilesQImage_frombytes(self.file_content_gfx, self.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:], depth=int(self.dropdown_gfx_depth.currentText()[:1]))
+                        self.field_address.setMinimum(self.base_address)
+                        self.field_address.setMaximum(self.base_address+len(self.rom.files[int(self.tree.currentItem().text(0))]))
+                        self.field_address.setValue(self.base_address+self.relative_adress)
+                        addItem_tilesQImage_frombytes(self.file_content_gfx, self.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:], algorithm=list(dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column)
                     else:
                         self.file_editor_show("Text")
                         self.file_content_text.setReadOnly(True)
@@ -645,33 +688,33 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.button_file_save.setDisabled(True)
 
     def file_editor_show(self, mode):
+        modes = ["Text", "Graphics"]
+        mode_index = modes.index(mode)
+        # Contents of widget sets
+        text_widgets = [self.file_content_text, self.checkbox_textoverwite]
+        graphics_widgets = [
+            self.file_content_gfx,
+            self.dropdown_gfx_depth,
+            self.field_address,
+            self.field_tiles_per_row,
+            self.field_tiles_per_column,
+            ]
+        # Associates each mode with a set of widgets to show or hide 
+        widget_sets = [text_widgets, graphics_widgets]
+        # Hide all widgets from other modes
+        for s in widget_sets:
+            if s != widget_sets[mode_index]:
+                for w in s:
+                    w.hide()
+        # Show widgets specific to this mode
+        for w in widget_sets[mode_index]:
+            w.show()
+        # case-specific code
         match mode:
-            case "Text":
-                # Hide unwanted widgets
-                self.file_content_gfx.hide()
-                self.dropdown_gfx_depth.hide()
-                self.field_address.hide()
-                self.button_address_inc.hide()
-                self.button_address_dec.hide()
-
-                # Show wanted widgets
-                self.file_content_text.show()
-                self.checkbox_textoverwite.show()
             case "Graphics":
-                # Hide unwanted widgets
-                self.file_content_text.hide()
-                self.checkbox_textoverwite.hide()
-
                 # Reset Values
                 self.relative_adress = 0x00000000
                 print(f"{len(self.rom.save()):08X}")
-
-                # Show wanted widgets
-                self.file_content_gfx.show()
-                self.dropdown_gfx_depth.show()
-                self.field_address.show()
-                self.button_address_inc.show()
-                self.button_address_dec.show()
 
     def treeContextMenu(self):
         self.tree_context_menu = PyQt6.QtWidgets.QMenu(self.tree)
@@ -698,11 +741,11 @@ app = PyQt6.QtWidgets.QApplication(sys.argv)
 w = MainWindow()
 
 # Draw contents of tile viewer
-def addItem_tilesQImage_frombytes(view, data, palette=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], depth=1, tilesPerRow=4, tilesPerColumn=56, tileWidth=8, tileHeight=8):
+def addItem_tilesQImage_frombytes(view, data, palette=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], algorithm=dataconverter.CompressionAlgorithmEnum.ONEBPP, tilesPerRow=4, tilesPerColumn=8, tileWidth=8, tileHeight=8):
     for tile in range(tilesPerRow*tilesPerColumn):
         # get data of current tile from bytearray, multiplying tile index by amount of pixels in a tile and by amount of bits per pixel, then dividing by amount of bits per byte
         # that data is then converted into a QImage that is used to create the QPixmap of the tile
-        gfx = PyQt6.QtGui.QPixmap.fromImage(dataconverter.convertdata_bin_to_qt(data[int(tile*(tileWidth*tileHeight)*depth/8):int(tile*(tileWidth*tileHeight)*depth/8+(tileWidth*tileHeight)*depth/8)], palette, depth, tileWidth, tileHeight))
+        gfx = PyQt6.QtGui.QPixmap.fromImage(dataconverter.convertdata_bin_to_qt(data[int(tile*(tileWidth*tileHeight)*algorithm.depth/8):int(tile*(tileWidth*tileHeight)*algorithm.depth/8+(tileWidth*tileHeight)*algorithm.depth/8)], palette, algorithm, tileWidth, tileHeight))
         gfx_container = PyQt6.QtWidgets.QGraphicsPixmapItem()
         gfx_container.setPixmap(gfx)
         #print(tile)

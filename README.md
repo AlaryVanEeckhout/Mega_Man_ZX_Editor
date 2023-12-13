@@ -11,14 +11,14 @@ For now, I'm making the graphics viewer.
 ### Done
 - Dialogue text converter
 - Functional User Interface
-- File export with options for converted file formats
-- File import with support for converted file formats
+- File export with options for converted file formats(except graphics)
+- File import with support for converted file formats(except graphics)
 - Converter for binary to pyqt widget(image)
 - Graphics Viewer(WIP)
 ### To do
 - (Dialogue text converter)Find use of special values 0xF4, 0xF5, 0xF7, 0xF9, and 0xFF
 - Graphics converter(feature complete)
-- Graphics Editor
+- Graphics Editor(saving, exporting, and importing)
 - OAM Editor*
 - Sound/Music Editor*
 - Movie Editor*
