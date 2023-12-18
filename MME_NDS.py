@@ -388,7 +388,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.file_content_gfx.hide()
         self.dropdown_gfx_depth = PyQt6.QtWidgets.QComboBox(self)
         self.dropdown_gfx_depth.setGeometry(725, 60, 125, 25)
-        self.dropdown_gfx_depth.addItems(["1bpp", "1bpp(WIP JP 16x16)", "4bpp", "8bpp(WIP)"])
+        self.dropdown_gfx_depth.addItems(["1bpp", "1bpp(WIP JP 16x16)", "4bpp", "8bpp"])
         #self.dropdown_gfx_depth.item
         self.dropdown_gfx_depth.currentTextChanged.connect(self.treeCall)# Update gfx with current depth
         self.dropdown_gfx_depth.hide()
@@ -406,7 +406,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.field_address.valueChanged.connect(lambda: self.value_update_Call("relative_adress", self.field_address.value() - self.base_address, True))
         self.field_address.hide()
         # Tiles Per row
-        self.tiles_per_row = 4
+        self.tiles_per_row = 8
         self.field_tiles_per_row = PyQt6.QtWidgets.QSpinBox(self)
         self.field_tiles_per_row.setGeometry(850, 100, 50, 25)
         self.field_tiles_per_row.setFont(self.font_caps)
@@ -415,7 +415,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.field_tiles_per_row.valueChanged.connect(lambda: self.value_update_Call("tiles_per_row", int(f"{self.field_tiles_per_row.text():01}"), True))
         self.field_tiles_per_row.hide()
         # Tiles Per Column
-        self.tiles_per_column = 4
+        self.tiles_per_column = 8
         self.field_tiles_per_column = PyQt6.QtWidgets.QSpinBox(self)
         self.field_tiles_per_column.setGeometry(900, 100, 50, 25)
         self.field_tiles_per_column.setFont(self.font_caps)

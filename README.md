@@ -7,7 +7,7 @@ If you need to know where specific assets, values, or code sections are in the g
 ## Progress
 Currently, I am focusing on the USA version of Mega Man ZX. This means that the editor's (full) compatibility with other versions of the game is not guarenteed at the moment.<br>
 The editor can edit, export and import english dialogue files and save them to the ROM. Other files can be viewed but I have not yet implemented the code to view and/or edit them in their converted format.<br>
-For now, I'm making the graphics viewer.
+For now, I'm making the graphics viewer(and eventually editor).
 ### Done
 - Dialogue text converter
 - Functional User Interface
@@ -39,7 +39,7 @@ Currently, there are no releases and I'm not sure how to include the dependencie
 -->
 - This project > Code > Download ZIP
 - Extract the contents of the .zip file wherever you want
-- That's it! Now you can run RunEditor.bat (or run MME_NDS.py, from command line)
+- That's it! Now you can run RunEditor.bat (or run MME_NDS.py directly, from command line)
 ## Credits
 - Rom extracting/saving: https://ndspy.readthedocs.io/en/latest/
 - GUI(PyQt6): https://www.riverbankcomputing.com/software/pyqt/
