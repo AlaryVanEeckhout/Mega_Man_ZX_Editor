@@ -387,8 +387,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.file_content_gfx.resize(self.file_content.size())
         self.file_content_gfx.hide()
         self.dropdown_gfx_depth = PyQt6.QtWidgets.QComboBox(self)
-        self.dropdown_gfx_depth.move(725, 60)
-        self.dropdown_gfx_depth.addItems(["1bpp", "1bpp(JP 16x16)", "4bpp", "8bpp(WIP)"])
+        self.dropdown_gfx_depth.setGeometry(725, 60, 125, 25)
+        self.dropdown_gfx_depth.addItems(["1bpp", "1bpp(WIP JP 16x16)", "4bpp", "8bpp(WIP)"])
         #self.dropdown_gfx_depth.item
         self.dropdown_gfx_depth.currentTextChanged.connect(self.treeCall)# Update gfx with current depth
         self.dropdown_gfx_depth.hide()
@@ -405,22 +405,6 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.field_address.setDisplayIntegerBase(16)
         self.field_address.valueChanged.connect(lambda: self.value_update_Call("relative_adress", self.field_address.value() - self.base_address, True))
         self.field_address.hide()
-        '''self.field_address = PyQt6.QtWidgets.QLineEdit(self)
-        self.field_address.setGeometry(850, 60, 100, 25)
-        self.field_address.setValidator(PyQt6.QtGui.QIntValidator())
-        self.field_address.textEdited.connect(lambda: self.value_update_Call("relative_adress", int(self.field_address.text(), 16) - self.base_address, False))
-        self.field_address.textChanged.connect(lambda: self.treeCall(True))
-        self.field_address.hide()
-        self.button_address_inc = HoldButton("⯅", self)
-        self.button_address_inc.timeout_func = [lambda: self.value_update_Call("relative_adress", min(self.relative_adress + 1, len(self.rom.files[int(self.tree.currentItem().text(0))])), False), lambda: self.field_address.setText(f"{self.base_address+self.relative_adress:08X}")]
-        self.button_address_inc.allow_press = True
-        self.button_address_inc.setGeometry(950, 55, 25, 20)
-        self.button_address_inc.hide()
-        self.button_address_dec = HoldButton("⯆", self)
-        self.button_address_dec.timeout_func = [lambda: self.value_update_Call("relative_adress", max(self.relative_adress - 1, 0), False), lambda: self.field_address.setText(f"{self.base_address+self.relative_adress:08X}")]
-        self.button_address_dec.allow_press = True
-        self.button_address_dec.setGeometry(950, 75, 25, 20)
-        self.button_address_dec.hide()'''
         # Tiles Per row
         self.tiles_per_row = 4
         self.field_tiles_per_row = PyQt6.QtWidgets.QSpinBox(self)
@@ -593,6 +577,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.treeCall()
 
     def value_update_Call(self, var, val, istreecall=True):
+        #print(f"{self.field_address.value():08X}" + " - " + f"{self.base_address:08X}")
         setattr(self, var, val)
         if istreecall:
             self.treeCall(True)
@@ -657,12 +642,11 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.file_content_gfx.resetScene()
                         if not isValueUpdate:
                             self.file_editor_show("Graphics")
-                        self.base_address = 0x00179400
+                        self.base_address = self.rom.save().index(self.rom.files[int(self.tree.currentItem().text(0))])
                         # set text to current ROM address
-                        # first viewable file has address 0x00179400 and id 0117
                         self.field_address.setMinimum(self.base_address)
-                        self.field_address.setMaximum(self.base_address+len(self.rom.files[int(self.tree.currentItem().text(0))]))
                         self.field_address.setValue(self.base_address+self.relative_adress)
+                        self.field_address.setMaximum(self.base_address+len(self.rom.files[int(self.tree.currentItem().text(0))]))
                         addItem_tilesQImage_frombytes(self.file_content_gfx, self.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:], algorithm=list(dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column)
                     else:
                         self.file_editor_show("Text")
@@ -714,7 +698,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             case "Graphics":
                 # Reset Values
                 self.relative_adress = 0x00000000
-                print(f"{len(self.rom.save()):08X}")
+                #print(f"{len(self.rom.save()):08X}")
 
     def treeContextMenu(self):
         self.tree_context_menu = PyQt6.QtWidgets.QMenu(self.tree)

@@ -307,10 +307,11 @@ def convertdata_bin_to_qt(binary_data: bytearray, palette=[0xff000000+((0x0b7421
         case CompressionAlgorithmEnum.ONEBPP_JP:# For japanese 16x16 font
             for pixel_index in range(len(str_subgroups(file_bits, algorithm.depth))):
                 if pixel_index < tileWidth*tileHeight:
-                    x = int((tileWidth/2-1) - (pixel_index % tileWidth)) # x is reverse-order and starts mid-tile
+                    x = int((tileWidth-1)-1 - (pixel_index % tileWidth)) # x is reverse-order and starts one pixel off
+                    y = int(pixel_index / tileWidth)#(tileWidth*2))
                     if x < 0:
-                        x = int(tileWidth - abs(x))
-                    y = int(pixel_index / tileWidth)
+                        x = int(tileWidth-1)
+                        y = max(0, y - 1)
                     image_widget.setPixel(x, y, int(str_subgroups(file_bits, algorithm.depth)[pixel_index], 2))
         case CompressionAlgorithmEnum.FOURBPP: # GBA 4bpp
             for pixel_index in range(0, len(str_subgroups(file_bits, algorithm.depth)), 2):
