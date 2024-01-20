@@ -1,11 +1,12 @@
 # Mega Man ZX Editor
 <img src="https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/blob/main/GitHub-page-content/Showcase-GUI.png" /><br>Graphic User Interface of the editor<br>
 <img src="https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/blob/main/GitHub-page-content/Showcase-Dialogue.gif" /><br>Edited dialogue file(talk_m01_en1.bin) in-game<br>
+<img src="https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/blob/main/GitHub-page-content/Showcase-Dialogue-ZXA.png" /><br>Edited dialogue file(talk_m01_en1.bin) in ZXA<br>
 ## What this is
 This is an attempt at creating a tool that will make editing Mega Man ZX much easier.<br>
 If you need to know where specific assets, values, or code sections are in the game, please see the(unfinished) [wiki page](https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/wiki), as it contains documentation I accumulated on the game.
 ## Progress
-Currently, I am focusing on the USA version of Mega Man ZX. This means that the editor's (full) compatibility with other versions of the game is not guarenteed at the moment.<br>
+Currently, I am focusing on the USA version of Mega Man ZX. This means that the editor's (full) compatibility with other versions of the game is not guarenteed at the moment(although, it's worth noting that MMZXA has a similar font to MMZX, and as such, the dialogue editor works for both games).<br>
 The editor can edit, export and import english dialogue files and save them to the ROM. Other files can be viewed but I have not yet implemented the code to view and/or edit them in their converted format.<br>
 For now, I'm making the graphics viewer(and eventually editor).
 ### Done
