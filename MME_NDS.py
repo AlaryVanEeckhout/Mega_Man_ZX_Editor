@@ -3,7 +3,7 @@ import PyQt6.QtGui, PyQt6.QtWidgets, PyQt6.QtCore
 import sys, os
 import ndspy
 import ndspy.rom, ndspy.code
-import dataconverter, init_readwrite
+import dataconverter, patchdata, init_readwrite
 
 class GFXView(PyQt6.QtWidgets.QGraphicsView):
     def __init__(self, *args, **kwargs):
@@ -334,6 +334,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
         #Toolbar
         self.toolbar = PyQt6.QtWidgets.QToolBar("Main Toolbar")
+        self.toolbar.setMaximumHeight(30)
         self.addToolBar(self.toolbar)
 
         self.button_save = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_disk.png'), "Save to ROM", self)
@@ -346,24 +347,45 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         #self.button_codeedit.setDisabled(True)
         self.toolbar.addActions([self.button_save])
 
+        #Tabs
+        self.tabs = PyQt6.QtWidgets.QTabWidget(self)
+        self.tabs.setGeometry(0, 55, self.width(), self.height() - 55)
+
+        self.page_explorer = PyQt6.QtWidgets.QWidget(self.tabs)
+        self.page_explorer.setLayout(PyQt6.QtWidgets.QGridLayout())
+
+        self.page_leveleditor = PyQt6.QtWidgets.QWidget(self.tabs)
+        self.page_leveleditor.setLayout(PyQt6.QtWidgets.QGridLayout())
+
+        self.page_tweaks = PyQt6.QtWidgets.QWidget(self.tabs)
+        self.page_tweaks.setLayout(PyQt6.QtWidgets.QGridLayout())
+
+        self.page_patches = PyQt6.QtWidgets.QWidget(self.tabs)
+        self.page_patches.setLayout(PyQt6.QtWidgets.QGridLayout())
+
+        self.tabs.addTab(self.page_explorer, "File Explorer")
+        self.tabs.addTab(self.page_leveleditor, "Level Editor") # Coming Soon™
+        self.tabs.addTab(self.page_tweaks, "Tweaks") # Coming Soon™
+        self.tabs.addTab(self.page_patches, "Patches") # Coming Soon™
+
         #ROM-related
-        self.tree = EditorTree(self)
-        self.tree.move(0, self.menu_bar.rect().bottom() + 45)
-        self.tree.resize(450, 625)
+        #File explorer
+        self.tree = EditorTree(self.page_explorer)
+        self.tree.setGeometry(10, self.menu_bar.rect().bottom() - 20, 450, 625)
         self.tree.setColumnCount(3)
         self.tree.setHeaderLabels(["File ID", "Name", "Type"])
         self.tree.setContextMenuPolicy(PyQt6.QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
         self.treeUpdate()
         self.tree.itemSelectionChanged.connect(self.treeCall)
 
-        self.button_file_save = PyQt6.QtWidgets.QPushButton("Save file", self)
+        self.button_file_save = PyQt6.QtWidgets.QPushButton("Save file", self.page_explorer)
         self.button_file_save.setToolTip("save this file's changes")
-        self.button_file_save.setGeometry(500, 70, 100, 50)
+        self.button_file_save.setGeometry(500, 20, 100, 50)
         self.button_file_save.pressed.connect(self.save_filecontent)
         self.button_file_save.setDisabled(True)
 
-        self.file_content = PyQt6.QtWidgets.QFrame(self)
-        self.file_content.setGeometry(475, self.menu_bar.rect().bottom() + 110, 500, 500)
+        self.file_content = PyQt6.QtWidgets.QFrame(self.page_explorer)
+        self.file_content.setGeometry(490, self.menu_bar.rect().bottom() + 60, 500, 500)
         self.file_content_text = PyQt6.QtWidgets.QPlainTextEdit(self.file_content)
         self.file_content_text.resize(self.file_content.size())
         font = PyQt6.QtGui.QFont("Monospace")
@@ -371,8 +393,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.file_content_text.setFont(font)
         self.file_content_text.textChanged.connect(lambda: self.button_file_save.setDisabled(False))
         self.file_content_text.setDisabled(True)
-        self.checkbox_textoverwite = PyQt6.QtWidgets.QCheckBox("Overwite\n existing text", self)
-        self.checkbox_textoverwite.setGeometry(625, 70, 100, 50)
+        self.checkbox_textoverwite = PyQt6.QtWidgets.QCheckBox("Overwite\n existing text", self.page_explorer)
+        self.checkbox_textoverwite.setGeometry(625, 20, 100, 50)
         self.checkbox_textoverwite.setStatusTip("With this enabled, writing text won't change filesize")
         self.checkbox_textoverwite.clicked.connect(lambda: self.file_content_text.setOverwriteMode(not self.file_content_text.overwriteMode()))
         self.checkbox_textoverwite.hide()
@@ -386,10 +408,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.file_content_gfx = GFXView(self.file_content)
         self.file_content_gfx.resize(self.file_content.size())
         self.file_content_gfx.hide()
-        self.dropdown_gfx_depth = PyQt6.QtWidgets.QComboBox(self)
-        self.dropdown_gfx_depth.setGeometry(725, 60, 125, 25)
-        self.dropdown_gfx_depth.addItems(["1bpp", "1bpp(WIP JP 16x16)", "4bpp", "8bpp"])
-        #self.dropdown_gfx_depth.item
+        self.dropdown_gfx_depth = PyQt6.QtWidgets.QComboBox(self.page_explorer)
+        self.dropdown_gfx_depth.setGeometry(725, 10, 125, 25)
+        self.dropdown_gfx_depth.addItems(["1bpp", "1bpp(WIP JP 16x16)", "4bpp", "8bpp"])# order of names is determined by the enum in dataconverter
         self.dropdown_gfx_depth.currentTextChanged.connect(self.treeCall)# Update gfx with current depth
         self.dropdown_gfx_depth.hide()
 
@@ -397,8 +418,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.font_caps.setCapitalization(PyQt6.QtGui.QFont.Capitalization.AllUppercase)
         
         # Address bar
-        self.field_address = AddressSpinBox(self)
-        self.field_address.setGeometry(850, 60, 100, 25)
+        self.field_address = AddressSpinBox(self.page_explorer)
+        self.field_address.setGeometry(850, 10, 100, 25)
         self.field_address.setFont(self.font_caps)
         self.field_address.setValue(self.base_address+self.relative_adress)
         self.field_address.setPrefix("0x")
@@ -407,23 +428,53 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.field_address.hide()
         # Tiles Per row
         self.tiles_per_row = 8
-        self.field_tiles_per_row = PyQt6.QtWidgets.QSpinBox(self)
-        self.field_tiles_per_row.setGeometry(850, 100, 50, 25)
+        self.field_tiles_per_row = PyQt6.QtWidgets.QSpinBox(self.page_explorer)
+        self.field_tiles_per_row.setGeometry(850, 50, 50, 25)
         self.field_tiles_per_row.setFont(self.font_caps)
         self.field_tiles_per_row.setValue(self.tiles_per_row)
         self.field_tiles_per_row.setDisplayIntegerBase(10)
         self.field_tiles_per_row.valueChanged.connect(lambda: self.value_update_Call("tiles_per_row", int(f"{self.field_tiles_per_row.text():01}"), True))
         self.field_tiles_per_row.hide()
         # Tiles Per Column
-        self.tiles_per_column = 8
-        self.field_tiles_per_column = PyQt6.QtWidgets.QSpinBox(self)
-        self.field_tiles_per_column.setGeometry(900, 100, 50, 25)
+        self.tiles_per_column = 16
+        self.field_tiles_per_column = PyQt6.QtWidgets.QSpinBox(self.page_explorer)
+        self.field_tiles_per_column.setGeometry(900, 50, 50, 25)
         self.field_tiles_per_column.setFont(self.font_caps)
         self.field_tiles_per_column.setValue(self.tiles_per_column)
         self.field_tiles_per_column.setDisplayIntegerBase(10)
         self.field_tiles_per_column.valueChanged.connect(lambda: self.value_update_Call("tiles_per_column", int(f"{self.field_tiles_per_column.text():01}"), True))
         self.field_tiles_per_column.hide()
-        # Shortcuts
+
+        #Level Editor(Coming Soon™)
+        #Tweaks(Coming Soon™)
+        self.tabs_tweaks = PyQt6.QtWidgets.QTabWidget(self.page_tweaks)
+
+        self.tabs_tweaks.setGeometry(0, 0, self.width(), self.height() - 55)
+
+        self.page_tweaks_stats = PyQt6.QtWidgets.QWidget(self.tabs_tweaks)
+        self.page_tweaks_stats.setLayout(PyQt6.QtWidgets.QGridLayout())
+
+        self.page_tweaks_physics = PyQt6.QtWidgets.QWidget(self.tabs_tweaks)
+        self.page_tweaks_physics.setLayout(PyQt6.QtWidgets.QGridLayout())
+
+        self.page_tweaks_animations = PyQt6.QtWidgets.QWidget(self.tabs_tweaks)
+        self.page_tweaks_animations.setLayout(PyQt6.QtWidgets.QGridLayout())
+
+        self.page_tweaks_misc = PyQt6.QtWidgets.QWidget(self.tabs_tweaks)
+        self.page_tweaks_misc.setLayout(PyQt6.QtWidgets.QGridLayout())
+
+        self.tabs_tweaks.addTab(self.page_tweaks_stats, "Stats")
+        self.tabs_tweaks.addTab(self.page_tweaks_physics, "Physics")
+        self.tabs_tweaks.addTab(self.page_tweaks_animations, "Animations")
+        self.tabs_tweaks.addTab(self.page_tweaks_misc, "Misc.")
+
+        #Patches(Coming Soon™)
+        self.tree_patches = EditorTree(self.page_patches)
+        self.tree_patches.setGeometry(10, self.menu_bar.rect().bottom() - 20, self.width() - 25, 625)
+        self.tree_patches.setColumnCount(4)
+        self.tree_patches.setHeaderLabels(["Enabed", "Address", "Name", "Type", "Size"])
+        self.tree_patches.itemChanged.connect(self.patch_game)
+        #Shortcuts
         #PyQt6.QtWidgets.QKeySequenceEdit()
 
         self.setStatusBar(PyQt6.QtWidgets.QStatusBar(self))
@@ -445,13 +496,29 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             options=PyQt6.QtWidgets.QFileDialog.Option.DontUseNativeDialog,
         )
         if not fname == ("", ""): # if file you're trying to open is not none
-            self.romToEdit_name = fname[0].split("/")[len(fname[0].split("/")) - 1].split(".")[0]
-            self.romToEdit_ext = "." + fname[0].split("/")[len(fname[0].split("/")) - 1].split(".")[1]
-            self.rom = ndspy.rom.NintendoDSRom.fromFile(self.romToEdit_name + self.romToEdit_ext)
+            self.romToEdit_name = fname[0].split("/")[len(fname[0].split("/")) - 1].rsplit(".", 1)[0]
+            self.romToEdit_ext = "." + fname[0].split("/")[len(fname[0].split("/")) - 1].rsplit(".", 1)[1]
+            self.rom = ndspy.rom.NintendoDSRom.fromFile(fname[0])
             self.arm9 = self.rom.loadArm9()
             self.arm7 = self.rom.loadArm7()
-            self.setWindowTitle("Mega Man ZX Editor" + " (" + self.romToEdit_name + self.romToEdit_ext + ")")
+            self.setWindowTitle("Mega Man ZX Editor" + " [ " + self.romToEdit_name + self.romToEdit_ext + " ( " + self.rom.name.decode() + " ) " + " ]")
             print(self.rom.filenames)
+            self.tree_patches.clear()
+            patches = []
+            if self.rom.name.decode().replace(" ", "_") in patchdata.GameEnum.__members__:
+                for patch in patchdata.GameEnum[self.rom.name.decode().replace(" ", "_")].value[1]:
+                    #PyQt6.QtWidgets.QTreeWidgetItem(None, ["", "<address>", "<patch name>", "<patch type>", "<size>"])
+                    patch_item = PyQt6.QtWidgets.QTreeWidgetItem(None, ["", "0x" + f"{patch[0]:08X}", patch[1], patch[2], "0x" + f"{len(patch[4]):01X}"])
+                    patches.append(patch_item)
+                    patch_item.setFlags(patch_item.flags() | PyQt6.QtCore.Qt.ItemFlag.ItemIsUserCheckable)
+                    patch_item.setCheckState(0, PyQt6.QtCore.Qt.CheckState.Unchecked)
+                self.tree_patches.addTopLevelItems(patches)
+            else:
+                print("ROM is NOT supported! Continue at your own risk!")
+                dialog = PyQt6.QtWidgets.QMessageBox(self)
+                dialog.setWindowTitle("Warning!")
+                dialog.setText("Game \"" + self.rom.name.decode() + "\" is NOT supported! Continue at your own risk!")
+                dialog.exec()
             self.importSubmenu.setDisabled(False)
             self.button_save.setDisabled(False)
             #self.button_codeedit.setDisabled(False)
@@ -638,7 +705,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.file_editor_show("Text")
                         self.file_content_text.setPlainText(dataconverter.convertdata_bin_to_text(self.rom.files[int(self.tree.currentItem().text(0))]))
                     elif (self.fileDisplayMode == "Graphics") or (self.fileDisplayMode == "Adapt" and (self.tree.currentItem().text(1).find("obj_fnt") != -1 or self.tree.currentItem().text(1).find("font") != -1 or self.tree.currentItem().text(1).find("face") != -1)):
-                        print(self.dropdown_gfx_depth.currentText()[:1] + " bpp graphics")
+                        #print(self.dropdown_gfx_depth.currentText()[:1] + " bpp graphics")
                         self.file_content_gfx.resetScene()
                         if not isValueUpdate:
                             self.file_editor_show("Graphics")
@@ -720,6 +787,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             w.rom.files[int(self.tree.currentItem().text(0))] = bytearray.fromhex(self.file_content_text.toPlainText())
         print("file changes saved")
         self.button_file_save.setDisabled(True)
+
+    def patch_game(self):
+        print("patch")
 
 app = PyQt6.QtWidgets.QApplication(sys.argv)
 w = MainWindow()

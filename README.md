@@ -22,7 +22,8 @@ For now, I'm making the graphics viewer(and eventually editor).
 - OAM Editor*
 - Sound/Music Editor*
 - Movie Editor*
-- Physics Editor*
+- List of togglable patches
+- Tweaks/Physics Editor*
 - Level Editor*
 - Game Logic Editor*
 

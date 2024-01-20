@@ -299,21 +299,18 @@ def convertdata_bin_to_qt(binary_data: bytearray, palette=[0xff000000+((0x0b7421
     
     match algorithm:
         case CompressionAlgorithmEnum.ONEBPP: # For english 8x16 font
-            for pixel_index in range(len(str_subgroups(file_bits, algorithm.depth))):
+            for pixel_index in range(0, len(str_subgroups(file_bits, algorithm.depth))):
                 if pixel_index < tileWidth*tileHeight:
                     x = int((tileWidth-1) - (pixel_index % tileWidth)) # x is reverse-order
                     y = int(pixel_index / tileWidth)
                     image_widget.setPixel(x, y, int(str_subgroups(file_bits, algorithm.depth)[pixel_index], 2))
-        case CompressionAlgorithmEnum.ONEBPP_JP:# For japanese 16x16 font
-            for pixel_index in range(len(str_subgroups(file_bits, algorithm.depth))):
+        case CompressionAlgorithmEnum.ONEBPP_JP:# For japanese 16x16 font (WIP)
+            for pixel_index in range(0, len(str_subgroups(file_bits, algorithm.depth))):
                 if pixel_index < tileWidth*tileHeight:
-                    x = int((tileWidth-1)-1 - (pixel_index % tileWidth)) # x is reverse-order and starts one pixel off
+                    x = int((tileWidth-1) - (pixel_index % tileWidth)) # x is reverse-order and starts one pixel off
                     y = int(pixel_index / tileWidth)#(tileWidth*2))
-                    if x < 0:
-                        x = int(tileWidth-1)
-                        y = max(0, y - 1)
                     image_widget.setPixel(x, y, int(str_subgroups(file_bits, algorithm.depth)[pixel_index], 2))
-        case CompressionAlgorithmEnum.FOURBPP: # GBA 4bpp
+        case CompressionAlgorithmEnum.FOURBPP: # NDS/GBA 4bpp
             for pixel_index in range(0, len(str_subgroups(file_bits, algorithm.depth)), 2):
                 #print(str_subgroups(file_bits, 4)[pixel_index])
                 if pixel_index < tileWidth*tileHeight:
@@ -321,7 +318,7 @@ def convertdata_bin_to_qt(binary_data: bytearray, palette=[0xff000000+((0x0b7421
                     y = int(pixel_index / tileWidth)
                     image_widget.setPixel(x, y, int(str_subgroups(file_bits, algorithm.depth)[pixel_index+1], 2))
                     image_widget.setPixel(x+1, y, int(str_subgroups(file_bits, algorithm.depth)[pixel_index], 2))
-        case CompressionAlgorithmEnum.EIGHTBPP: # GBA 8bpp
+        case CompressionAlgorithmEnum.EIGHTBPP: # NDS/GBA 8bpp
             for pixel_index in range(0, len(str_subgroups(file_bits, algorithm.depth))):
                 #print(str_subgroups(file_bits, 4)[pixel_index])
                 if pixel_index < tileWidth*tileHeight:
