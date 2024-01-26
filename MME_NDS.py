@@ -1,9 +1,10 @@
 import PyQt6
 import PyQt6.QtGui, PyQt6.QtWidgets, PyQt6.QtCore
-import sys, os
+import sys, os, platform
+#import math
 import ndspy
-import ndspy.rom, ndspy.code
-import dataconverter, patchdata, init_readwrite
+import ndspy.rom, ndspy.code#, ndspy.fnt
+import library.dataconverter, library.patchdata, library.init_readwrite
 
 class GFXView(PyQt6.QtWidgets.QGraphicsView):
     def __init__(self, *args, **kwargs):
@@ -222,7 +223,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
         self.window_width = 1024
         self.window_height = 720
-        self.setWindowIcon(PyQt6.QtGui.QIcon('icon_biometals-creation.png'))
+        self.setWindowIcon(PyQt6.QtGui.QIcon('icons\\biometals-creation.png'))
         self.setWindowTitle("Mega Man ZX Editor")
         self.rom = ndspy.rom.NintendoDSRom
         self.arm9 = ndspy.code.MainCodeFile
@@ -242,7 +243,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
     def load_preferences(self):
         #SETTINGS
-        init_readwrite.load_preferences(self, "SETTINGS", struct="bool")
+        library.init_readwrite.load_preferences(self, "SETTINGS", struct="bool")
         self.checkbox_theme.setChecked(self.theme_switch)# Update checkbox with current option
         self.switch_theme(True)# Update theme with current option
 
@@ -254,23 +255,23 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
     
     def UiComponents(self):
         # Menus
-        self.openAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_folder-horizontal-open.png'), '&Open', self)        
+        self.openAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\folder-horizontal-open.png'), '&Open', self)        
         self.openAction.setShortcut('Ctrl+O')
         self.openAction.setStatusTip('Open ROM')
         self.openAction.triggered.connect(self.openCall)
 
-        self.exportAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_blueprint--arrow.png'), '&Export...', self)        
+        self.exportAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\blueprint--arrow.png'), '&Export...', self)        
         self.exportAction.setShortcut('Ctrl+E')
         self.exportAction.setStatusTip('Export file in binary or converted format')
         self.exportAction.triggered.connect(self.exportCall)
         self.exportAction.setDisabled(True)
 
-        self.replaceAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_blue-document-import.png'), '&Replace...', self)
+        self.replaceAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\blue-document-import.png'), '&Replace...', self)
         self.replaceAction.setShortcut('Ctrl+R')
         self.replaceAction.setStatusTip('replace with file in binary or converted format')
         self.replaceAction.triggered.connect(self.replaceCall)
 
-        self.replacebynameAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_blue-document-import.png'), '&Replace by name...', self)        
+        self.replacebynameAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\blue-document-import.png'), '&Replace by name...', self)        
         self.replacebynameAction.setStatusTip('replace with file of same name in binary or converted format')
         self.replacebynameAction.triggered.connect(self.replacebynameCall)
 
@@ -278,46 +279,58 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.fileMenu = self.menu_bar.addMenu('&File')
         self.fileMenu.addActions([self.openAction, self.exportAction])
         self.importSubmenu = self.fileMenu.addMenu('&Import...')
-        self.importSubmenu.setIcon(PyQt6.QtGui.QIcon('icon_blue-document-import.png'))
+        self.importSubmenu.setIcon(PyQt6.QtGui.QIcon('icons\\blue-document-import.png'))
         self.importSubmenu.addActions([self.replaceAction, self.replacebynameAction])
         self.importSubmenu.setDisabled(True)
 
+
+        self.dialog_about = PyQt6.QtWidgets.QDialog(self)
+        self.dialog_about.setWindowIcon(PyQt6.QtGui.QIcon('icons\\information.png'))
+        self.dialog_about.setWindowTitle("About Mega Man ZX Editor")
+        self.dialog_about.resize(500, 500)
+        self.text_about = PyQt6.QtWidgets.QTextBrowser(self.dialog_about)
+        self.text_about.resize(self.dialog_about.width(), self.dialog_about.height())
+        self.text_about.setText(f"Supports:\nMEGAMANZX (Mega Man ZX)\nMEGAMANZXA (Mega Man ZX Advent)\n\nVersionning:\nEditor version: 0.2.1 (beta, two functional features, one WIP feature)\nPython version: 3.11.4 (your version is {platform.python_version()})\nPyQt version: 6.5.2 (your version is {PyQt6.QtCore.PYQT_VERSION_STR})\nNDSPy version: 4.1.0 (your version is {list(ndspy.VERSION)[0]}.{list(ndspy.VERSION)[1]}.{list(ndspy.VERSION)[2]})\n")
+        self.aboutAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\information.png'), '&About', self)
+        self.aboutAction.setStatusTip('Show information about the application')
+        self.aboutAction.triggered.connect(lambda: self.dialog_about.exec())
+
         self.dialog_settings = PyQt6.QtWidgets.QDialog(self)
         self.dialog_settings.setWindowTitle("Settings")
-        self.dialog_settings.resize(100, 25)
+        self.dialog_settings.setContentsMargins(5, 5, 5, 5)
         self.checkbox_theme = PyQt6.QtWidgets.QCheckBox("Dark Theme", self.dialog_settings)
         self.checkbox_theme.move(15, 0)
         self.checkbox_theme.clicked.connect(lambda: self.switch_theme())
 
-        self.settingsAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_gear.png'), '&Settings', self)
+        self.settingsAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\gear.png'), '&Settings', self)
         self.settingsAction.setStatusTip('Settings')
         self.settingsAction.triggered.connect(lambda: self.dialog_settings.exec())
 
-        self.exitAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_door.png'), '&Exit', self)
+        self.exitAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\door.png'), '&Exit', self)
         self.exitAction.setStatusTip('Exit application')
         self.exitAction.triggered.connect(self.exitCall)
 
         self.appMenu = self.menu_bar.addMenu('&Application')
-        self.appMenu.addActions([self.settingsAction, self.exitAction])
+        self.appMenu.addActions([self.aboutAction, self.settingsAction, self.exitAction])
 
-        self.displayRawAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_brain.png'), '&Converted formats', self)
+        self.displayRawAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\brain.png'), '&Converted formats', self)
         self.displayRawAction.setStatusTip('Displays files in a readable format instead of raw format.')
         self.displayRawAction.setCheckable(True)
         self.displayRawAction.setChecked(True)
         self.displayRawAction.triggered.connect(self.display_format_toggleCall)
 
-        self.viewAdaptAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_document-node.png'), '&Adapt', self)
+        self.viewAdaptAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\document-node.png'), '&Adapt', self)
         self.viewAdaptAction.setStatusTip('Files will be decrypted on a case per case basis.')
         self.viewAdaptAction.setCheckable(True)
         self.viewAdaptAction.setChecked(True)
         self.viewAdaptAction.triggered.connect(lambda: self.value_update_Call("fileDisplayMode", "Adapt"))
 
-        self.viewEndialogAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_document-text.png'), '&English Dialogue', self)
+        self.viewEndialogAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\document-text.png'), '&English Dialogue', self)
         self.viewEndialogAction.setStatusTip('Files will be decrypted as in-game english dialogues.')
         self.viewEndialogAction.setCheckable(True)
         self.viewEndialogAction.triggered.connect(lambda: self.value_update_Call("fileDisplayMode", "English dialogue"))
 
-        self.viewGraphicAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_biometals-creation.png'), '&Graphics', self)
+        self.viewGraphicAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\biometals-creation.png'), '&Graphics', self)
         self.viewGraphicAction.setStatusTip('Files will be decrypted as graphics.')
         self.viewGraphicAction.setCheckable(True)
         self.viewGraphicAction.triggered.connect(lambda: self.value_update_Call("fileDisplayMode", "Graphics"))
@@ -329,7 +342,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
         self.viewMenu = self.menu_bar.addMenu('&View')
         self.viewMenu.addAction(self.displayRawAction)
-        self.displayFormatSubmenu = self.viewMenu.addMenu(PyQt6.QtGui.QIcon('icon_document-convert.png'), '&Set edit mode...')
+        self.displayFormatSubmenu = self.viewMenu.addMenu(PyQt6.QtGui.QIcon('icons\\document-convert.png'), '&Set edit mode...')
         self.displayFormatSubmenu.addActions([self.viewAdaptAction, self.viewEndialogAction, self.viewGraphicAction])
 
         #Toolbar
@@ -337,11 +350,11 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.toolbar.setMaximumHeight(30)
         self.addToolBar(self.toolbar)
 
-        self.button_save = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_disk.png'), "Save to ROM", self)
+        self.button_save = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\disk.png'), "Save to ROM", self)
         self.button_save.setStatusTip("Save changes to the ROM")
         self.button_save.triggered.connect(self.saveCall)
         self.button_save.setDisabled(True)
-        #self.button_codeedit = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icon_document-text.png'), "Open code", self)
+        #self.button_codeedit = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\document-text.png'), "Open code", self)
         #self.button_codeedit.setStatusTip("Edit the ROM's code")
         #self.button_codeedit.triggered.connect(self.codeeditCall)
         #self.button_codeedit.setDisabled(True)
@@ -501,22 +514,26 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.rom = ndspy.rom.NintendoDSRom.fromFile(fname[0])
             self.arm9 = self.rom.loadArm9()
             self.arm7 = self.rom.loadArm7()
-            self.setWindowTitle("Mega Man ZX Editor" + " [ " + self.romToEdit_name + self.romToEdit_ext + " ( " + self.rom.name.decode() + " ) " + " ]")
-            print(self.rom.filenames)
+            self.setWindowTitle("Mega Man ZX Editor" + " <" + self.rom.name.decode() + " v" + str(self.rom.version) + " region " + str(self.rom.region) + ">" + " \"" + self.romToEdit_name + self.romToEdit_ext + "\"")
+            #print(self.rom.filenames)
             self.tree_patches.clear()
             patches = []
-            if self.rom.name.decode().replace(" ", "_") in patchdata.GameEnum.__members__:
-                for patch in patchdata.GameEnum[self.rom.name.decode().replace(" ", "_")].value[1]:
+            if self.rom.name.decode().replace(" ", "_") in library.patchdata.GameEnum.__members__:
+                for patch in library.patchdata.GameEnum[self.rom.name.decode().replace(" ", "_")].value[1]:
                     #PyQt6.QtWidgets.QTreeWidgetItem(None, ["", "<address>", "<patch name>", "<patch type>", "<size>"])
                     patch_item = PyQt6.QtWidgets.QTreeWidgetItem(None, ["", "0x" + f"{patch[0]:08X}", patch[1], patch[2], "0x" + f"{len(patch[4]):01X}"])
                     patches.append(patch_item)
                     patch_item.setFlags(patch_item.flags() | PyQt6.QtCore.Qt.ItemFlag.ItemIsUserCheckable)
-                    patch_item.setCheckState(0, PyQt6.QtCore.Qt.CheckState.Unchecked)
+                    if self.rom.save()[patch[0]:patch[0]+len(patch[4])] == patch[4]: # Check for already applied patches
+                        patch_item.setCheckState(0, PyQt6.QtCore.Qt.CheckState.Checked)
+                    else:
+                        patch_item.setCheckState(0, PyQt6.QtCore.Qt.CheckState.Unchecked)
                 self.tree_patches.addTopLevelItems(patches)
             else:
                 print("ROM is NOT supported! Continue at your own risk!")
                 dialog = PyQt6.QtWidgets.QMessageBox(self)
                 dialog.setWindowTitle("Warning!")
+                dialog.setWindowIcon(PyQt6.QtGui.QIcon("icons\\exclamation"))
                 dialog.setText("Game \"" + self.rom.name.decode() + "\" is NOT supported! Continue at your own risk!")
                 dialog.exec()
             self.importSubmenu.setDisabled(False)
@@ -588,7 +605,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                             case "txt":
                                 try:
                                     print(w.rom.filenames.idOf(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']").replace(".txt", ".bin")))
-                                    w.rom.files[w.rom.filenames.idOf(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']").replace(".txt", ".bin"))] = dataconverter.convertdata_text_to_bin(fileEdited.decode("utf-8"))
+                                    w.rom.files[w.rom.filenames.idOf(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']").replace(".txt", ".bin"))] = library.dataconverter.convertdata_text_to_bin(fileEdited.decode("utf-8"))
                                 except Exception as e:
                                     print(e)
                             case _:
@@ -614,7 +631,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                             case "txt":
                                 try:
                                     print(w.tree.currentItem().text(0))
-                                    w.rom.files[int(w.tree.currentItem().text(0))] = dataconverter.convertdata_text_to_bin(fileEdited.decode("utf-8"))
+                                    w.rom.files[int(w.tree.currentItem().text(0))] = library.dataconverter.convertdata_text_to_bin(fileEdited.decode("utf-8"))
                                 except Exception as e:
                                     print(e)
                             case _:
@@ -626,7 +643,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
     def switch_theme(self, isupdate=False):
         if isupdate == False:
             self.theme_switch = not self.theme_switch
-            init_readwrite.write_preferences(self)
+            library.init_readwrite.write_preferences(self)
         if self.theme_switch:
             app = PyQt6.QtCore.QCoreApplication.instance()
             app.setStyleSheet(open('dark_theme.qss').read())
@@ -640,7 +657,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
     def display_format_toggleCall(self):
         self.fileDisplayRaw = not self.fileDisplayRaw
         self.displayFormatSubmenu.setDisabled(self.displayFormatSubmenu.isEnabled())
-        self.toggle_widget_icon(self.displayRawAction, PyQt6.QtGui.QIcon('icon_brain.png'), PyQt6.QtGui.QIcon('icon_document-binary.png'))
+        self.toggle_widget_icon(self.displayRawAction, PyQt6.QtGui.QIcon('icons\\brain.png'), PyQt6.QtGui.QIcon('icons\\document-binary.png'))
         self.treeCall()
 
     def value_update_Call(self, var, val, istreecall=True):
@@ -661,7 +678,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.set_dialog_button_name(dialog, "&Open", "Save")
         if dialog.exec(): # if you saved a file
             print(*dialog.selectedFiles())
-            w.rom.saveToFile(*dialog.selectedFiles())
+            self.rom.saveToFile(*dialog.selectedFiles())
             print("ROM modifs saved!")
 
     #def codeeditCall(self):
@@ -703,7 +720,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 if self.fileDisplayRaw == False:
                     if (self.fileDisplayMode == "English dialogue") or (self.fileDisplayMode == "Adapt" and self.tree.currentItem().text(1).find("talk") != -1 and self.tree.currentItem().text(1).find("en") != -1): # if english text
                         self.file_editor_show("Text")
-                        self.file_content_text.setPlainText(dataconverter.convertdata_bin_to_text(self.rom.files[int(self.tree.currentItem().text(0))]))
+                        self.file_content_text.setPlainText(library.dataconverter.convertdata_bin_to_text(self.rom.files[int(self.tree.currentItem().text(0))]))
                     elif (self.fileDisplayMode == "Graphics") or (self.fileDisplayMode == "Adapt" and (self.tree.currentItem().text(1).find("obj_fnt") != -1 or self.tree.currentItem().text(1).find("font") != -1 or self.tree.currentItem().text(1).find("face") != -1)):
                         #print(self.dropdown_gfx_depth.currentText()[:1] + " bpp graphics")
                         self.file_content_gfx.resetScene()
@@ -714,7 +731,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.field_address.setMinimum(self.base_address)
                         self.field_address.setValue(self.base_address+self.relative_adress)
                         self.field_address.setMaximum(self.base_address+len(self.rom.files[int(self.tree.currentItem().text(0))]))
-                        addItem_tilesQImage_frombytes(self.file_content_gfx, self.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:], algorithm=list(dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column)
+                        addItem_tilesQImage_frombytes(self.file_content_gfx, self.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:], algorithm=list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column)
                     else:
                         self.file_editor_show("Text")
                         self.file_content_text.setReadOnly(True)
@@ -782,24 +799,51 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
     def save_filecontent(self):
         if self.fileDisplayRaw == False:
             if (self.fileDisplayMode == "English dialogue") or (self.fileDisplayMode == "Adapt" and self.tree.currentItem().text(1).find("talk") != -1 and self.tree.currentItem().text(1).find("en") != -1): # if english text
-                w.rom.files[int(self.tree.currentItem().text(0))] = dataconverter.convertdata_text_to_bin(self.file_content_text.toPlainText())
+                w.rom.files[int(self.tree.currentItem().text(0))] = library.dataconverter.convertdata_text_to_bin(self.file_content_text.toPlainText())
         else:
             w.rom.files[int(self.tree.currentItem().text(0))] = bytearray.fromhex(self.file_content_text.toPlainText())
         print("file changes saved")
         self.button_file_save.setDisabled(True)
 
-    def patch_game(self):
-        print("patch")
+    def patch_game(self):# Currently a workaround to having no easy way of writing directly to any address in the ndspy rom object
+        if not os.path.exists("temp"):
+            os.mkdir("temp")
+        temp_path = f"temp\\{self.romToEdit_name+self.romToEdit_ext}"
+        self.rom.saveToFile(temp_path)# Create temporary ROM to write patch to
+        iteration_count = 0
+        patch_list = library.patchdata.GameEnum[self.rom.name.decode().replace(" ", "_")].value[1]
+        tree_list = self.tree_patches.findItems("", PyQt6.QtCore.Qt.MatchFlag.MatchContains | PyQt6.QtCore.Qt.MatchFlag.MatchRecursive)
+        for item in tree_list:
+            #print (item.text(0),item.checkState(0))
+            #print(patch_list[iteration_count])
+            if (item.checkState(0) == PyQt6.QtCore.Qt.CheckState.Checked):
+                # Apply patch
+                with open(temp_path, "r+b") as f:
+                    f.seek(patch_list[iteration_count][0])# get to patch pos
+                    f.write(patch_list[iteration_count][4])# write patch data
+            else:
+                patch_undo = True
+                for patch_i in range(len(patch_list)):
+                    if patch_list[patch_i][0] == patch_list[iteration_count][0] and tree_list[patch_i].checkState(0) == PyQt6.QtCore.Qt.CheckState.Checked: # look for active patches that modify the same address
+                        patch_undo = False
+                # Revert patch
+                if patch_undo == True:
+                    with open(temp_path, "r+b") as f:
+                        f.seek(patch_list[iteration_count][0])# get to patch pos
+                        f.write(patch_list[iteration_count][3])# write og data
+            iteration_count += 1
+        self.rom = ndspy.rom.NintendoDSRom.fromFile(temp_path)# update the editor with patched ROM
+        os.remove(temp_path)# delete temporary ROM
 
 app = PyQt6.QtWidgets.QApplication(sys.argv)
 w = MainWindow()
 
 # Draw contents of tile viewer
-def addItem_tilesQImage_frombytes(view, data, palette=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], algorithm=dataconverter.CompressionAlgorithmEnum.ONEBPP, tilesPerRow=4, tilesPerColumn=8, tileWidth=8, tileHeight=8):
+def addItem_tilesQImage_frombytes(view, data, palette=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], algorithm=library.dataconverter.CompressionAlgorithmEnum.ONEBPP, tilesPerRow=4, tilesPerColumn=8, tileWidth=8, tileHeight=8):
     for tile in range(tilesPerRow*tilesPerColumn):
         # get data of current tile from bytearray, multiplying tile index by amount of pixels in a tile and by amount of bits per pixel, then dividing by amount of bits per byte
         # that data is then converted into a QImage that is used to create the QPixmap of the tile
-        gfx = PyQt6.QtGui.QPixmap.fromImage(dataconverter.convertdata_bin_to_qt(data[int(tile*(tileWidth*tileHeight)*algorithm.depth/8):int(tile*(tileWidth*tileHeight)*algorithm.depth/8+(tileWidth*tileHeight)*algorithm.depth/8)], palette, algorithm, tileWidth, tileHeight))
+        gfx = PyQt6.QtGui.QPixmap.fromImage(library.dataconverter.convertdata_bin_to_qt(data[int(tile*(tileWidth*tileHeight)*algorithm.depth/8):int(tile*(tileWidth*tileHeight)*algorithm.depth/8+(tileWidth*tileHeight)*algorithm.depth/8)], palette, algorithm, tileWidth, tileHeight))
         gfx_container = PyQt6.QtWidgets.QGraphicsPixmapItem()
         gfx_container.setPixmap(gfx)
         #print(tile)
@@ -826,7 +870,7 @@ def extract(fileToEdit_id, folder="", fileToEdit_name="", path="", format=""):
         match format:
             case "English dialogue":
                 with open(os.path.join(path + "/" + folder + fileToEdit_name.split(".")[0] + ".txt"), 'wb') as f:
-                    f.write(bytes(dataconverter.convertdata_bin_to_text(fileToEdit), "utf-8"))
+                    f.write(bytes(library.dataconverter.convertdata_bin_to_text(fileToEdit), "utf-8"))
                     print(os.path.join(path + "/" + folder + fileToEdit_name.split(".")[0] + ".txt"))
                     print("File extracted!")
             case _:

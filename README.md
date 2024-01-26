@@ -1,7 +1,7 @@
 # Mega Man ZX Editor
 <img src="https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/blob/main/GitHub-page-content/Showcase-GUI.png" /><br>Graphic User Interface of the editor<br>
 <img src="https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/blob/main/GitHub-page-content/Showcase-Dialogue.gif" /><br>Edited dialogue file(talk_m01_en1.bin) in-game<br>
-<img src="https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/blob/main/GitHub-page-content/Showcase-Dialogue-ZXA.png" /><br>Edited dialogue file(talk_m01_en1.bin) in ZXA<br>
+<img src="https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/blob/main/GitHub-page-content/Showcase-Dialogue-ZXA.png" /><br>Edited dialogue file(talk_m01_en1.bin) in Mega Man ZX Advent<br>
 ## What this is
 This is an attempt at creating a tool that will make editing Mega Man ZX much easier.<br>
 If you need to know where specific assets, values, or code sections are in the game, please see the(unfinished) [wiki page](https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/wiki), as it contains documentation I accumulated on the game.
@@ -31,10 +31,10 @@ For now, I'm making the graphics viewer(and eventually editor).
 *This feature may not be implemented/is not currently prioritized since I haven't looked into it and it looks hard to do at first glance. 
 ## Setup for usage
 Currently, there are no releases and I'm not sure how to include the dependencies in my project, so:
-- [Download&Install Python v3.10 or higher](https://www.python.org/downloads/)
+- [Download&Install Python v3.10 or higher](https://www.python.org/downloads/) (made with 3.11.4)
 - Now that you have Python, you can use pip(Package Installer for Python) to install the two following modules:
-- [Download&Install NDS Py](https://pypi.org/project/ndspy/)
-- [Download&Install PyQt6](https://pypi.org/project/PyQt6/)
+- [Download&Install NDS Py](https://pypi.org/project/ndspy/) (made with 4.1.0)
+- [Download&Install PyQt6](https://pypi.org/project/PyQt6/) (made with 6.5.2)
 <!---
 - [Download&Install NumPy](https://pypi.org/project/numpy/)
 - [Download&Install Pillow v9.3.0 or higher](https://pypi.org/project/Pillow/)
