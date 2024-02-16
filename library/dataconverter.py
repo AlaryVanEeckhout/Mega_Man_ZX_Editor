@@ -18,7 +18,7 @@ special_character_list[0x65] = [0, "┅"]
 #special_character_list[0x67] = [0, ""] #unknown char, empty in font
 special_character_list[0x68] = [0, "ˆ"]
 #special_character_list[0x69] = [0, ""] #unknown char, empty in font
-special_character_list[0x6a] = [0, "š"]
+special_character_list[0x6a] = [0, "Š"]
 special_character_list[0x6b] = [0, "⟨"]
 special_character_list[0x6c] = [0, "Œ"]
 #special_character_list[0x6d] = [0, ""] #unknown char, empty in font
@@ -179,7 +179,7 @@ def convertfile_bin_to_text(binary_name):
             chars = []
             i=0
             while i < len(file_text):
-                if file_text[i] <= 0x5E:
+                if file_text[i] <= 0x5E:# normal ASCII chars
                     chars.append(chr(file_text[i] + 0x20 & 0xFF))
                 elif type(special_character_list[file_text[i]]) == type([]):
                     special_character = special_character_list[file_text[i]]

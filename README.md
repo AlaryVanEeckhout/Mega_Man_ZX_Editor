@@ -6,24 +6,27 @@
 This is an attempt at creating a tool that will make editing Mega Man ZX much easier.<br>
 If you need to know where specific assets, values, or code sections are in the game, please see the(unfinished) [wiki page](https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/wiki), as it contains documentation I accumulated on the game.
 ## Progress
-Currently, I am focusing on the USA version of Mega Man ZX. This means that the editor's (full) compatibility with other versions of the game is not guarenteed at the moment(although, it's worth noting that MMZXA has a similar font to MMZX, and as such, the dialogue editor works for both games).<br>
+Currently, I am focusing on the USA version of Mega Man ZX. This means that the editor's (full) compatibility with other versions of the game is not guarenteed at the moment(although, it's worth noting that MMZXA has the same dialogue system as MMZX, and as such, the dialogue editor works for both games).<br>
 The editor can edit, export and import english dialogue files and save them to the ROM. Other files can be viewed but I have not yet implemented the code to view and/or edit them in their converted format.<br>
 For now, I'm making the graphics viewer(and eventually editor).
 ### Done
-- Dialogue text converter
+- Dialogue text converter(for dialogue "talk_" and message "m_" files)
 - Functional User Interface
 - File export with options for converted file formats(except graphics)
 - File import with support for converted file formats(except graphics)
 - Converter for binary to pyqt widget(image)
+- Togglable patches system
+- Test button
 - Graphics Viewer(WIP)
 ### To do
 - (Dialogue text converter)Find use of special values 0xF4, 0xF5, 0xF7, 0xF9, and 0xFF
 - Graphics converter(feature complete)
 - Graphics Editor(saving, exporting, and importing)
+- Find actual patches for the game
+- Find patches that are helpful for testing purposes
 - OAM Editor*
 - Sound/Music Editor*
 - Movie Editor*
-- List of togglable patches
 - Tweaks/Physics Editor*
 - Level Editor*
 - Game Logic Editor*
