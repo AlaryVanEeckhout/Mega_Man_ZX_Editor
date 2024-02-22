@@ -19,7 +19,7 @@ For now, I'm making the graphics viewer(and eventually editor).
 - Test button
 - Graphics Viewer(WIP)
 ### To do
-- (Dialogue text converter)Find use of special values 0xF4, 0xF5, 0xF7, 0xF9, and 0xFF
+- (Dialogue text converter)Find use of special values 0xF4, 0xF5, 0xF7, and 0xF9
 - Graphics converter(feature complete)
 - Graphics Editor(saving, exporting, and importing)
 - Find actual patches for the game

@@ -40,7 +40,7 @@ special_character_list[0x7c] = [0, "œ"]
 #special_character_list[0x7d] = [0, ""] #unknown char, empty in font
 special_character_list[0x7e] = [0, "ž"]
 special_character_list[0x7f] = [0, "Ÿ"]
-#special_character_list[0x80] = [0, " "] #empty in font
+"""#special_character_list[0x80] = [0, " "]
 special_character_list[0x81] = [0, "¡"]
 special_character_list[0x82] = [0, "¢"]
 special_character_list[0x83] = [0, "£"]
@@ -133,9 +133,9 @@ special_character_list[0xd9] = [0, "ù"]
 special_character_list[0xda] = [0, "ú"]
 special_character_list[0xdb] = [0, "û"]
 special_character_list[0xdc] = [0, "ü"]
-special_character_list[0xdd] = [0, "ỳ"]
+special_character_list[0xdd] = [0, "ý"]
 special_character_list[0xde] = [0, "þ"]
-special_character_list[0xdf] = [0, "ÿ"]
+special_character_list[0xdf] = [0, "ÿ"]"""
 special_character_list[0xe0] = [0, "├DPAD_LEFT┤"]
 special_character_list[0xe1] = [0, "├DPAD_RIGHT┤"]
 special_character_list[0xe2] = [0, "├BUTTON_A_LEFT┤"]
@@ -167,7 +167,7 @@ special_character_list[0xfb] = [0, "├THREECHOICES┤"]
 special_character_list[0xfc] = [0, "├NEWLINE┤"]
 special_character_list[0xfd] = [0, "├NEWPAGE┤"]
 special_character_list[0xfe] = [0, "├END┤"]
-#special_character_list[0xff] = [0, ""] #ends scene, FE FF FE FF skips dialogue until next FE
+special_character_list[0xff] = [0, "├ENDOFFILE┤"] #end of used file (duplicate text is used to fill the rest of the file)
 
 def str_subgroups(s, n):
     return [s[i:i+n] for i in range(0, len(s), n)]
@@ -175,78 +175,34 @@ def str_subgroups(s, n):
 def convertfile_bin_to_text(binary_name):
     if os.path.exists(binary_name):
         with open(binary_name, "rb") as file:
-            file_text = file.read()
-            chars = []
-            i=0
-            while i < len(file_text):
-                if file_text[i] <= 0x5E:# normal ASCII chars
-                    chars.append(chr(file_text[i] + 0x20 & 0xFF))
-                elif type(special_character_list[file_text[i]]) == type([]):
-                    special_character = special_character_list[file_text[i]]
-                    params = []
-                    for j in range(special_character[0]):
-                        i+=1
-                        params.append(file_text[i])
-                    chars.append(special_character[1].format(*params))
-                else:
-                    chars.append(f"├0x{file_text[i]:02X}┤")
-                i+=1
-            file_text = ''.join(chars)
-            return file_text
+            return convertdata_bin_to_text(file.read())
     else:
         print("The file you are trying to open doesn't exist!")
 
 def convertfile_text_to_bin(text):
     if os.path.exists(text):
         with open(text, "rb") as file:
-            file_text = file.read().decode()
-            file_data = []
-            c=0
-            while c < len(file_text):
-                if file_text[c] == "├": #extra special chars
-                    if file_text[c+1].isdigit():
-                        file_data.append(int.to_bytes(int(file_text[c+3]+file_text[c+4], 16)))
-                        c+=len("├0xXX┤")-1
-                    else:
-                        special_string = file_text[c:file_text.find("┤", c)+1]
-                        #print(special_string.split(' ')[0])
-                        for d in range(len(special_character_list)):
-                            if type(special_character_list[d]) == type([]) and special_character_list[d][1].split(' ')[0] == special_string.split(' ')[0]:
-                                file_data.append(int.to_bytes(d))
-                                for p in range(special_character_list[d][0]):
-                                    #print(p)
-                                    #print(file_text[c+len(special_string)+2-(5+p*5)]+file_text[c+len(special_string)+3-(5+p*5)])
-                                    file_data.append(int.to_bytes(int(file_text[c+len(special_string)+2-(5+p*5)]+file_text[c+len(special_string)+3-(5+p*5)], 16)))
-                                c+=len(special_string)-1
-                elif any(file_text[c] in sublist for sublist in special_character_list if isinstance(sublist, list)): #game's extended char table
-                    for d in range(len(special_character_list)):
-                        if type(special_character_list[d]) == type([]) and special_character_list[d][1] == file_text[c]:
-                            file_data.append(int.to_bytes(d))
-                else: #normal ASCII chars
-                    file_data.append(int.to_bytes(ord(file_text[c]) - 0x20 & 0xFF))
-                c+=1
-            file_data = b''.join(file_data)
-            return file_data
+            return convertdata_text_to_bin(file.read().decode())
     else:
         print("The file you are trying to open doesn't exist!")
 
 def convertdata_bin_to_text(data):
     chars = []
     i=0
-    while i < len(data):
-        if data[i] <= 0x5E:
+    while i < len(data):# while file not fully read
+        if data[i] <= 0x5E or (data[i] > 0x80 and data[i] <= 0xDF):# normal ASCII chars
             chars.append(chr(data[i] + 0x20 & 0xFF))
-        elif type(special_character_list[data[i]]) == type([]):
+        elif type(special_character_list[data[i]]) == type([]):# game specific chars
             special_character = special_character_list[data[i]]
             params = []
-            for j in range(special_character[0]):
+            for _ in range(special_character[0]):# if char is a "function", append params and count the file chars read
                 i+=1
                 params.append(data[i])
-            chars.append(special_character[1].format(*params))
-        else:
+            chars.append(special_character[1].format(*params))# add the char and insert the param values, if applicable
+        else:# undefined hex values
             chars.append(f"├0x{data[i]:02X}┤")
         i+=1
-    data = ''.join(chars)
+    data = ''.join(chars)# join all converted chars into one full string
     return data
 
 def convertdata_text_to_bin(data):

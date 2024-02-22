@@ -207,6 +207,8 @@ class HoldButton(PyQt6.QtWidgets.QPushButton):
         self.counter = 0
         self.rate = 100
         self.allow_press = False
+        self.pressed_quick = False
+        self.press_quick_threshold = 0
         self.timer = PyQt6.QtCore.QTimer(self)
         self.timer.timeout.connect(self.on_timeout)
         self.pressed.connect(self.on_press)
@@ -214,8 +216,9 @@ class HoldButton(PyQt6.QtWidgets.QPushButton):
         self.timeout_func = None
 
     def on_timeout(self):
+        self.pressed_quick = False
         self.counter += 1
-        #print("hold " + str(self.counter))
+        print("hold " + str(self.counter))
         if self.timeout_func != None:
             for f in self.timeout_func:
                 f()
@@ -223,13 +226,16 @@ class HoldButton(PyQt6.QtWidgets.QPushButton):
     def on_press(self):
         #print("pressed")
         self.counter = 0
-        if self.allow_press == True and self.timeout_func != None:
-            for f in self.timeout_func:
-                f()
         self.timer.start(self.rate)
 
     def on_release(self):
         #print("released")
+        if self.counter <= self.press_quick_threshold and self.allow_press == True:
+            self.pressed_quick = True
+            if self.timeout_func != None:
+                for f in self.timeout_func:
+                    f()
+        self.pressed_quick = False
         self.timer.stop()
         self.counter = -1
 
@@ -534,11 +540,15 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
         #Palettes
         for i in range(256): #setup default palette
-            setattr(self, f"button_palettepick_{i}", PyQt6.QtWidgets.QPushButton(self.page_explorer))
-            getattr(self, f"button_palettepick_{i}").setStyleSheet(f"background-color: #{self.gfx_palette[i]:00x}; color: white;")
-            getattr(self, f"button_palettepick_{i}").setGeometry(600 + 8*int(i%16), 0 + 8*int(i/16), 10, 10)
-            getattr(self, f"button_palettepick_{i}").pressed.connect(self.ColorpickCall)
-            getattr(self, f"button_palettepick_{i}").hide()
+            setattr(self, f"button_palettepick_{i}", HoldButton(self.page_explorer))
+            button_palettepick = getattr(self, f"button_palettepick_{i}")
+
+            button_palettepick.timeout_func = [lambda color_index=i: self.ColorpickCall(color_index)] #lambda color_index=i: print(f"button {color_index} pressed")
+            button_palettepick.allow_press = True
+            button_palettepick.press_quick_threshold = 1
+            button_palettepick.setStyleSheet(f"background-color: #{self.gfx_palette[i]:00x}; color: white;")
+            button_palettepick.setGeometry(600 + 8*int(i%16), 0 + 8*int(i/16), 10, 10)
+            button_palettepick.hide()
 
         #Level Editor(Coming Soon™)
         #Tweaks(Coming Soon™)
@@ -769,9 +779,19 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         if istreecall:
             self.treeCall(True)
 
-    def ColorpickCall(self):
-        dialog = PyQt6.QtWidgets.QColorDialog(self)
-        dialog.exec()
+    def ColorpickCall(self, color_index):
+        #print(color_index)
+        button = getattr(self, f"button_palettepick_{color_index}")
+        if button.counter >= 2:
+            dialog = PyQt6.QtWidgets.QColorDialog(self)
+            dialog.exec()
+            if dialog.selectedColor().isValid():
+                button.setStyleSheet(f"background-color: {dialog.selectedColor().name()}; color: white;")
+                self.gfx_palette[color_index] = dialog.selectedColor().rgba()
+                self.treeCall(True) # update gfx colors
+        elif button.pressed_quick:
+            #print(button.styleSheet())
+            self.file_content_gfx.pen.setColor(int(button.styleSheet()[button.styleSheet().find(":")+3:button.styleSheet().find(";")], 16))
     
     def saveCall(self):
         dialog = PyQt6.QtWidgets.QFileDialog(
@@ -792,7 +812,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         dialog_playtest = PyQt6.QtWidgets.QDialog(self)
         dialog_playtest.setWindowTitle("Playtest Options")
         dialog_playtest.resize(500, 500)
-        # Test options
+        # Test options; arm 9 at 0x00004000
         input_address = PyQt6.QtWidgets.QLineEdit(dialog_playtest)
         input_address.setPlaceholderText("insert test patch adress")
         input_address.move(250, 375)
@@ -814,10 +834,11 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         try:
                             f.seek(int(f"{int(input_address.text(), 16):08X}", 16))# get to pos
                             f.write(bytes.fromhex(input_value.text()))# write data
+                            print(f"successfully wrote <{input_value.text()}> to 0x{int(input_address.text(), 16):08X}")
                         except ValueError as e:
-                            error_msg = PyQt6.QtWidgets.QMessageBox.critical(
+                            PyQt6.QtWidgets.QMessageBox.critical(
                                 self,
-                                "Invalid input",
+                                str(e),
                                 f"Address input must be hexadecimal and must not go over size 0x{len(self.rom.save()):08X}\nValue input must be hexadecimal"
                                 )
                             return
@@ -868,7 +889,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                     elif (self.fileDisplayMode == "Graphics") or (self.fileDisplayMode == "Adapt" and (self.tree.currentItem().text(1).find("obj_fnt") != -1 or self.tree.currentItem().text(1).find("font") != -1 or self.tree.currentItem().text(1).find("face") != -1)):
                         #print(self.dropdown_gfx_depth.currentText()[:1] + " bpp graphics")
                         self.file_content_gfx.resetScene()
-                        if not isValueUpdate:
+                        if not isValueUpdate: # if entering graphics mode and func is not called to update other stuff
                             self.file_editor_show("Graphics")
                         self.base_address = self.rom.save().index(self.rom.files[int(self.tree.currentItem().text(0))])
                         # set text to current ROM address
