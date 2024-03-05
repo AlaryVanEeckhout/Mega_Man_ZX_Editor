@@ -1,13 +1,13 @@
 import os.path
 import re
 
-def write_preferences(obj):
+def write_preferences(obj: object):
     with open("preferences.txt", "w") as my_file:
         my_file.write(
 f"""[SETTINGS]
 theme_switch={obj.theme_switch}""")
 
-def load_preferences(obj, sec="ALL_SECTIONS", inc=[], exc=[], struct="string"):
+def load_preferences(obj: object, sec="ALL_SECTIONS", inc: list[str]=[], exc: list[str]=[], struct="string"):
     info_name = "[INFO] "
     PRINTCOLOR_HEADER = '\033[95m'
     PRINTCOLOR_OKBLUE = '\033[94m'

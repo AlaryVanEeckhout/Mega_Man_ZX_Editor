@@ -2,7 +2,7 @@ import enum
 
 class GameEnum(enum.Enum):
 
-  def __init__(self, id, patches):
+  def __init__(self, id: enum.auto, patches: list):
       self.id = id
       self.patches = patches
 

@@ -267,7 +267,7 @@ class LongTextEdit(PyQt6.QtWidgets.QPlainTextEdit):
     #    else:
     #        self.show()
         
-    def setLongText(self, text):
+    def setLongText(self, text: str):
         self.longText = text
         page_charCount = int(int(self.width()/self.fontMetrics().averageCharWidth() - 1)*int(self.height()/self.fontMetrics().lineSpacing() -1)*3)
         self.setPlainText(self.longText[:page_charCount])
@@ -312,6 +312,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.fileToEdit_name = ''
         self.fileDisplayRaw = False # Display file in 'raw'(bin) format. Else, diplayed in readable format
         self.fileDisplayMode = "Adapt" # Modes: Adapt, Binary, English dialogue, Japanese dialogue, Graphics, Sound, Movie, Code
+        self.fileDisplayState = "None" # Same states as mode
         self.gfx_palette = [0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)]
         self.resize(self.window_width, self.window_height)
         self.theme_switch = False
@@ -325,7 +326,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.checkbox_theme.setChecked(self.theme_switch)# Update checkbox with current option
         self.switch_theme(True)# Update theme with current option
 
-    def toggle_widget_icon(self, widget, checkedicon, uncheckedicon):
+    def toggle_widget_icon(self, widget: PyQt6.QtWidgets.QWidget, checkedicon: PyQt6.QtGui.QImage, uncheckedicon: PyQt6.QtGui.QImage):
         if widget.isChecked():
             widget.setIcon(checkedicon)
         else:
@@ -401,17 +402,20 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.viewAdaptAction.setStatusTip('Files will be decrypted on a case per case basis.')
         self.viewAdaptAction.setCheckable(True)
         self.viewAdaptAction.setChecked(True)
-        self.viewAdaptAction.triggered.connect(lambda: self.value_update_Call("fileDisplayMode", "Adapt"))
+        self.viewAdaptAction.triggered.connect(lambda: setattr(self, "fileDisplayMode", "Adapt"))
+        self.viewAdaptAction.triggered.connect(lambda: self.treeCall(False))
 
         self.viewEndialogAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\document-text.png'), '&English Dialogue', self)
         self.viewEndialogAction.setStatusTip('Files will be decrypted as in-game english dialogues.')
         self.viewEndialogAction.setCheckable(True)
-        self.viewEndialogAction.triggered.connect(lambda: self.value_update_Call("fileDisplayMode", "English dialogue"))
+        self.viewEndialogAction.triggered.connect(lambda: setattr(self, "fileDisplayMode", "English dialogue"))
+        self.viewEndialogAction.triggered.connect(lambda: self.treeCall(False))
 
         self.viewGraphicAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\biometals-creation.png'), '&Graphics', self)
         self.viewGraphicAction.setStatusTip('Files will be decrypted as graphics.')
         self.viewGraphicAction.setCheckable(True)
-        self.viewGraphicAction.triggered.connect(lambda: self.value_update_Call("fileDisplayMode", "Graphics"))
+        self.viewGraphicAction.triggered.connect(lambda: setattr(self, "fileDisplayMode", "Graphics"))
+        self.viewGraphicAction.triggered.connect(lambda: self.treeCall(False))
 
         self.viewFormatsGroup = PyQt6.QtGui.QActionGroup(self) #group for mutually exclusive togglable items
         self.viewFormatsGroup.addAction(self.viewAdaptAction)
@@ -541,7 +545,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         #Palettes
         for i in range(256): #setup default palette
             setattr(self, f"button_palettepick_{i}", HoldButton(self.page_explorer))
-            button_palettepick = getattr(self, f"button_palettepick_{i}")
+            button_palettepick: HoldButton = getattr(self, f"button_palettepick_{i}")
 
             button_palettepick.timeout_func = [lambda color_index=i: self.ColorpickCall(color_index)] #lambda color_index=i: print(f"button {color_index} pressed")
             button_palettepick.allow_press = True
@@ -556,11 +560,21 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
         self.tabs_tweaks.setGeometry(0, 0, self.width(), self.height() - 55)
 
+        self.dropdown_tweak_target = PyQt6.QtWidgets.QComboBox(self.page_tweaks)
+        self.dropdown_tweak_target.setGeometry(125, 75, 125, 25)
+        self.dropdown_tweak_target.setToolTip("Choose a target to appy tweaks to")
+        self.dropdown_tweak_target.addItems(["Other", "Player", "Player(Hu)", "Player(X)", "Player(Zx)", "Player(Hx)", "Player(Fx)", "Player(Lx)", "Player(Px)", "Player(Ox)"])# order of names is determined by the enum in dataconverter
+        #self.dropdown_tweak_target.currentTextChanged.connect(self.treeCall)# Update gfx with current depth
+        self.dropdown_tweak_target.hide()
+
         self.page_tweaks_stats = PyQt6.QtWidgets.QWidget(self.tabs_tweaks)
         self.page_tweaks_stats.setLayout(PyQt6.QtWidgets.QGridLayout())
 
         self.page_tweaks_physics = PyQt6.QtWidgets.QWidget(self.tabs_tweaks)
         self.page_tweaks_physics.setLayout(PyQt6.QtWidgets.QGridLayout())
+
+        self.page_tweaks_behaviour = PyQt6.QtWidgets.QWidget(self.tabs_tweaks)
+        self.page_tweaks_behaviour.setLayout(PyQt6.QtWidgets.QGridLayout())
 
         self.page_tweaks_animations = PyQt6.QtWidgets.QWidget(self.tabs_tweaks)
         self.page_tweaks_animations.setLayout(PyQt6.QtWidgets.QGridLayout())
@@ -569,9 +583,21 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.page_tweaks_misc.setLayout(PyQt6.QtWidgets.QGridLayout())
 
         self.tabs_tweaks.addTab(self.page_tweaks_stats, "Stats")
+
+
         self.tabs_tweaks.addTab(self.page_tweaks_physics, "Physics")
+
+
+        self.tabs_tweaks.addTab(self.page_tweaks_behaviour, "Behaviour")
+
+        self.checkbox_paralyzed = PyQt6.QtWidgets.QCheckBox(self.page_tweaks_behaviour)
+
+
         self.tabs_tweaks.addTab(self.page_tweaks_animations, "Animations")
+
+
         self.tabs_tweaks.addTab(self.page_tweaks_misc, "Misc.")
+
 
         #Patches
         self.tree_patches = EditorTree(self.page_patches)
@@ -584,7 +610,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
         self.setStatusBar(PyQt6.QtWidgets.QStatusBar(self))
     
-    def runTasks(self, runnable_list):
+    def runTasks(self, runnable_list: list):
         activeThreadCount = PyQt6.QtCore.QThreadPool.globalInstance().activeThreadCount()
         #self.setWindowTitle(f"{self.windowTitle()} Running {activeThreadCount} Threads")
         pool = PyQt6.QtCore.QThreadPool.globalInstance()
@@ -603,7 +629,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         pool = PyQt6.QtCore.QThreadPool.globalInstance()
         pool.clear()
 
-    def set_dialog_button_name(self, dialog, oldtext, newtext):
+    def set_dialog_button_name(self, dialog: PyQt6.QtWidgets.QDialog, oldtext: str, newtext: str):
         for btn in dialog.findChildren(PyQt6.QtWidgets.QPushButton):
             if btn.text() == self.tr(oldtext):
                 PyQt6.QtCore.QTimer.singleShot(0, lambda btn=btn: btn.setText(newtext))
@@ -634,6 +660,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 for patch in library.patchdata.GameEnum[self.rom.name.decode().replace(" ", "_")].value[1]:
                     #PyQt6.QtWidgets.QTreeWidgetItem(None, ["", "<address>", "<patch name>", "<patch type>", "<size>"])
                     patch_item = PyQt6.QtWidgets.QTreeWidgetItem(None, ["", "0x" + f"{patch[0]:08X}", patch[1], patch[2], "0x" + f"{len(patch[4]):01X}"])
+                    patch_item.setToolTip(0, str(patch[4]))
                     patches.append(patch_item)
                     patch_item.setFlags(patch_item.flags() | PyQt6.QtCore.Qt.ItemFlag.ItemIsUserCheckable)
                     if self.rom.save()[patch[0]:patch[0]+len(patch[4])] == patch[4]: # Check for already applied patches
@@ -648,13 +675,17 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 dialog.setWindowIcon(PyQt6.QtGui.QIcon("icons\\exclamation"))
                 dialog.setText("Game \"" + self.rom.name.decode() + "\" is NOT supported! Continue at your own risk!")
                 dialog.exec()
-            self.importSubmenu.setDisabled(False)
-            self.button_save.setDisabled(False)
-            self.button_playtest.setDisabled(False)
-            #self.button_codeedit.setDisabled(False)
+
             self.tree.setCurrentItem(None)
             self.treeUpdate()
             self.file_content_text.setDisabled(True)
+
+    def enable_editing_ui(self):
+        #self.button_codeedit.setDisabled(False)
+        self.importSubmenu.setDisabled(False)
+        self.button_save.setDisabled(False)
+        self.button_playtest.setDisabled(False)
+        self.dropdown_tweak_target.show()
 
     def exportCall(self):
         dialog = PyQt6.QtWidgets.QFileDialog(
@@ -757,11 +788,11 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         if isupdate == False:
             self.theme_switch = not self.theme_switch
             library.init_readwrite.write_preferences(self)
+
+        app: PyQt6.QtWidgets.QMainWindow = PyQt6.QtCore.QCoreApplication.instance()
         if self.theme_switch:
-            app = PyQt6.QtCore.QCoreApplication.instance()
             app.setStyleSheet(open('library\\dark_theme.qss').read())
         else:
-            app = PyQt6.QtCore.QCoreApplication.instance()
             app.setStyleSheet("")
 
     def exitCall(self):
@@ -779,9 +810,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         if istreecall:
             self.treeCall(True)
 
-    def ColorpickCall(self, color_index):
+    def ColorpickCall(self, color_index: int):
         #print(color_index)
-        button = getattr(self, f"button_palettepick_{color_index}")
+        button: HoldButton = getattr(self, f"button_palettepick_{color_index}")
         if button.counter >= 2:
             dialog = PyQt6.QtWidgets.QColorDialog(self)
             dialog.exec()
@@ -793,7 +824,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             #print(button.styleSheet())
             self.file_content_gfx.pen.setColor(int(button.styleSheet()[button.styleSheet().find(":")+3:button.styleSheet().find(";")], 16))
     
-    def saveCall(self):
+    def saveCall(self): #Save to external ROM
         dialog = PyQt6.QtWidgets.QFileDialog(
                 self,
                 "Save ROM",
@@ -812,7 +843,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         dialog_playtest = PyQt6.QtWidgets.QDialog(self)
         dialog_playtest.setWindowTitle("Playtest Options")
         dialog_playtest.resize(500, 500)
-        # Test options; arm 9 at 0x00004000
+        # Test options; arm 9 at 0x00004000; starting pos x=00A00D00 y=FF6F0400
         input_address = PyQt6.QtWidgets.QLineEdit(dialog_playtest)
         input_address.setPlaceholderText("insert test patch adress")
         input_address.move(250, 375)
@@ -833,8 +864,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                     if input_address.text() != "":
                         try:
                             f.seek(int(f"{int(input_address.text(), 16):08X}", 16))# get to pos
+                            print(f"successfully wrote {f.read(len(bytes.fromhex(input_value.text()))).hex()} => {input_value.text()} to 0x{int(input_address.text(), 16):08X}")
+                            f.seek(int(f"{int(input_address.text(), 16):08X}", 16))# get to pos
                             f.write(bytes.fromhex(input_value.text()))# write data
-                            print(f"successfully wrote <{input_value.text()}> to 0x{int(input_address.text(), 16):08X}")
                         except ValueError as e:
                             PyQt6.QtWidgets.QMessageBox.critical(
                                 self,
@@ -852,9 +884,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         #print("code")
 
     def treeUpdate(self):
-        tree_files = []
+        tree_files: list[PyQt6.QtWidgets.QTreeWidgetItem] = []
         try: # convert NDS Py filenames to QTreeWidgetItems
-            tree_folder = []
+            tree_folder: list[PyQt6.QtWidgets.QTreeWidgetItem] = []
             for f in str(self.rom.filenames).split("\n"):
                 if f.find("/") == -1: # if file
                     if f.find("    ") != -1: # if contents of folder
@@ -870,7 +902,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         tree_files.append(tree_folder[f.count("    ")])
                     else:
                         tree_folder[f.count("    ") - 1].addChild(tree_folder[f.count("    ")])
-        except Exception as e: # if failed, empty list
+        except Exception: # if failed, empty list
             tree_files = []
         self.tree.clear()
         self.tree.addTopLevelItems(tree_files)
@@ -883,10 +915,25 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.fileToEdit_name = str(self.tree.currentItem().text(1) + "." + self.tree.currentItem().text(2))
             if self.fileToEdit_name.find(".Folder") == -1:# if it's a file
                 if self.fileDisplayRaw == False:
-                    if (self.fileDisplayMode == "English dialogue") or (self.fileDisplayMode == "Adapt" and (self.tree.currentItem().text(1).find("talk") != -1 or self.tree.currentItem().text(1).find("m_") != -1) and self.tree.currentItem().text(1).find("en") != -1): # if english text
+                    match self.fileDisplayMode:
+                        case "Adapt":
+                            if (self.tree.currentItem().text(1).find("talk") != -1 or self.tree.currentItem().text(1).find("m_") != -1) and self.tree.currentItem().text(1).find("en") != -1:
+                                self.fileDisplayState = "English dialogue"
+                            elif self.tree.currentItem().text(1).find("obj_fnt") != -1 or self.tree.currentItem().text(1).find("font") != -1 or self.tree.currentItem().text(1).find("face") != -1:
+                                self.fileDisplayState = "Graphics"
+                            else:
+                                self.fileDisplayState = "None"
+                        case "English dialogue":
+                            self.fileDisplayState = "English dialogue"
+                        case "Graphics":
+                            self.fileDisplayState = "Graphics"
+                        case _:
+                            self.fileDisplayState = "None"
+
+                    if (self.fileDisplayState == "English dialogue"): # if english text
                         self.file_editor_show("Text")
                         self.file_content_text.setPlainText(library.dataconverter.convertdata_bin_to_text(self.rom.files[int(self.tree.currentItem().text(0))]))
-                    elif (self.fileDisplayMode == "Graphics") or (self.fileDisplayMode == "Adapt" and (self.tree.currentItem().text(1).find("obj_fnt") != -1 or self.tree.currentItem().text(1).find("font") != -1 or self.tree.currentItem().text(1).find("face") != -1)):
+                    elif (self.fileDisplayState == "Graphics"):
                         #print(self.dropdown_gfx_depth.currentText()[:1] + " bpp graphics")
                         self.file_content_gfx.resetScene()
                         if not isValueUpdate: # if entering graphics mode and func is not called to update other stuff
@@ -926,8 +973,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         modes = ["Text", "Graphics"]
         mode_index = modes.index(mode)
         # Contents of widget sets
-        text_widgets = [self.file_content_text, self.checkbox_textoverwite]
-        graphics_widgets = [
+        text_widgets: list[PyQt6.QtWidgets.QWidget] = [self.file_content_text, self.checkbox_textoverwite]
+        graphics_widgets: list[PyQt6.QtWidgets.QWidget] = [
             self.file_content_gfx,
             self.dropdown_gfx_depth,
             self.field_address,
@@ -965,9 +1012,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             elif action2 == importAction:
                 self.replaceCall()
 
-    def save_filecontent(self):
+    def save_filecontent(self): #Save to virtual ROM
         if self.fileDisplayRaw == False:
-            if (self.fileDisplayMode == "English dialogue") or (self.fileDisplayMode == "Adapt" and self.tree.currentItem().text(1).find("talk") != -1 and self.tree.currentItem().text(1).find("en") != -1): # if english text
+            if (self.fileDisplayState == "English dialogue"): # if english text
                 w.rom.files[int(self.tree.currentItem().text(0))] = library.dataconverter.convertdata_text_to_bin(self.file_content_text.toPlainText())
         else:
             w.rom.files[int(self.tree.currentItem().text(0))] = bytearray.fromhex(self.file_content_text.toPlainText())
@@ -998,7 +1045,7 @@ app = PyQt6.QtWidgets.QApplication(sys.argv)
 w = MainWindow()
 
 # Draw contents of tile viewer
-def addItem_tilesQImage_frombytes(view, data, palette=w.gfx_palette, algorithm=library.dataconverter.CompressionAlgorithmEnum.ONEBPP, tilesPerRow=4, tilesPerColumn=8, tileWidth=8, tileHeight=8):
+def addItem_tilesQImage_frombytes(view: GFXView, data: bytearray, palette: list[int]=w.gfx_palette, algorithm=library.dataconverter.CompressionAlgorithmEnum.ONEBPP, tilesPerRow=4, tilesPerColumn=8, tileWidth=8, tileHeight=8):
     for tile in range(tilesPerRow*tilesPerColumn):
         # get data of current tile from bytearray, multiplying tile index by amount of pixels in a tile and by amount of bits per pixel, then dividing by amount of bits per byte
         # that data is then converted into a QImage that is used to create the QPixmap of the tile
@@ -1012,7 +1059,7 @@ def addItem_tilesQImage_frombytes(view, data, palette=w.gfx_palette, algorithm=l
         view._scene.addItem(gfx_container)
     return
 
-def extract(fileToEdit_id, folder="", fileToEdit_name="", path="", format=""):
+def extract(fileToEdit_id: int, folder="", fileToEdit_name="", path="", format=""):
     fileToEdit = w.rom.files[fileToEdit_id]
     if fileToEdit_name == "":
         fileToEdit_name = w.rom.filenames[fileToEdit_id]
@@ -1038,4 +1085,7 @@ def extract(fileToEdit_id, folder="", fileToEdit_name="", path="", format=""):
 app.exec()
 # After execution
 if os.path.exists(w.temp_path) and w.romToEdit_name != "":
-    os.remove(w.temp_path)# delete temporary ROM
+    try:
+        os.remove(w.temp_path) # delete temporary ROM
+    except OSError as error:
+        print(error)
