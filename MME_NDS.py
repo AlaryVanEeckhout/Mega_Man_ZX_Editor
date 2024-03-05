@@ -51,7 +51,7 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
         self.setMouseTracking(True)
         self.mousePressed = False
         self.draw_mode = "pixel"
-        self.rect, self.line = None, None # used for drawing rectangles
+        self.rectangle, self.line = None, None # used for drawing rectangles
 
     def resetScene(self):
         self._scene.clear()
@@ -65,7 +65,7 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
         rect = PyQt6.QtCore.QRectF(self._graphic.pixmap().rect())
         if not rect.isNull():
             self.setSceneRect(rect)
-            if self.hasGraphic():
+            if self.hasGraphic() and scale:
                 unity = self.transform().mapRect(PyQt6.QtCore.QRectF(0, 0, 1, 1))
                 self.scale(1 / unity.width(), 1 / unity.height())
                 viewrect = self.viewport().rect()
@@ -75,7 +75,7 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
                 self.scale(factor, factor)
             self._zoom = 0
 
-    def setGraphic(self, pixmap=None):
+    def setGraphic(self, pixmap: PyQt6.QtGui.QPixmap=None):
         self._zoom = 0
         if pixmap and not pixmap.isNull():
             self._empty = False
@@ -113,9 +113,9 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
                 if self.start.x() == self.end.x() and self.start.y() == self.end.y():
                     return
                 elif abs(self.end.x() - self.start.x()) < 1 or abs(self.end.y() - self.start.y()) < 1:
-                    if self.rect != None:
-                        self.scene().removeItem(self.rect)
-                        self.rect = None
+                    if self.rectangle != None:
+                        self.scene().removeItem(self.rectangle)
+                        self.rectangle = None
                     if abs(self.end.y() - self.start.y()) < 1:
                         # draw vertical line
                         if self.line != None:
@@ -135,10 +135,10 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
 
                     width = abs(self.start.x() - self.end.x())
                     height = abs(self.start.y() - self.end.y())
-                    if self.rect == None:
-                        self.rect = self.scene().addRect(min(self.start.x(), self.end.x()), min(self.start.y(), self.end.y()), width, height, self.pen)
+                    if self.rectangle == None:
+                        self.rectangle = self.scene().addRect(min(self.start.x(), self.end.x()), min(self.start.y(), self.end.y()), width, height, self.pen)
                     else:
-                        self.rect.setRect(min(self.start.x(), self.end.x()), min(self.start.y(), self.end.y()), width, height)
+                        self.rectangle.setRect(min(self.start.x(), self.end.x()), min(self.start.y(), self.end.y()), width, height)
 
     def mousePressEvent(self, event):
         #print("QGraphicsView mousePress")
@@ -186,13 +186,13 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
             self.mousePressed = False
             self.drawShape()
             self.start, self.end = PyQt6.QtCore.QPoint(), PyQt6.QtCore.QPoint()
-            self.rect, self.line = None, None
+            self.rectangle, self.line = None, None
 
 class EditorTree(PyQt6.QtWidgets.QTreeWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
     
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event: PyQt6.QtCore.QEvent):
         if event.type() == PyQt6.QtCore.QEvent.Type.MouseButtonPress:
             if event.button() == PyQt6.QtCore.Qt.MouseButton.RightButton: # execute different code if right click
                 super(EditorTree, self).mousePressEvent(event)
@@ -676,6 +676,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 dialog.setText("Game \"" + self.rom.name.decode() + "\" is NOT supported! Continue at your own risk!")
                 dialog.exec()
 
+            self.enable_editing_ui()
             self.tree.setCurrentItem(None)
             self.treeUpdate()
             self.file_content_text.setDisabled(True)
@@ -815,14 +816,19 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         button: HoldButton = getattr(self, f"button_palettepick_{color_index}")
         if button.counter >= 2:
             dialog = PyQt6.QtWidgets.QColorDialog(self)
+            dialog.setCurrentColor(int(button.styleSheet()[button.styleSheet().find(":")+3:button.styleSheet().find(";")], 16))
             dialog.exec()
             if dialog.selectedColor().isValid():
                 button.setStyleSheet(f"background-color: {dialog.selectedColor().name()}; color: white;")
+                if self.file_content_gfx.pen.color().rgba() == self.gfx_palette[color_index]:
+                    self.file_content_gfx.pen.setColor(dialog.selectedColor().rgba())
                 self.gfx_palette[color_index] = dialog.selectedColor().rgba()
                 self.treeCall(True) # update gfx colors
         elif button.pressed_quick:
             #print(button.styleSheet())
-            self.file_content_gfx.pen.setColor(int(button.styleSheet()[button.styleSheet().find(":")+3:button.styleSheet().find(";")], 16))
+            if color_index < 2**list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()].depth:
+                self.file_content_gfx.pen.setColor(int(button.styleSheet()[button.styleSheet().find(":")+3:button.styleSheet().find(";")], 16))
+                    
     
     def saveCall(self): #Save to external ROM
         dialog = PyQt6.QtWidgets.QFileDialog(
@@ -935,6 +941,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.file_content_text.setPlainText(library.dataconverter.convertdata_bin_to_text(self.rom.files[int(self.tree.currentItem().text(0))]))
                     elif (self.fileDisplayState == "Graphics"):
                         #print(self.dropdown_gfx_depth.currentText()[:1] + " bpp graphics")
+                        if self.gfx_palette.index(self.file_content_gfx.pen.color().rgba()) >= 2**list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()].depth:
+                            self.file_content_gfx.pen.setColor(self.gfx_palette[0])
                         self.file_content_gfx.resetScene()
                         if not isValueUpdate: # if entering graphics mode and func is not called to update other stuff
                             self.file_editor_show("Graphics")

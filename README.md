@@ -8,7 +8,7 @@ If you need to know where specific assets, values, or code sections are in the g
 ## Progress
 Currently, I am focusing on the USA version of Mega Man ZX. This means that the editor's (full) compatibility with other versions of the game is not guarenteed at the moment(although, it's worth noting that MMZXA has the same dialogue system as MMZX, and as such, the dialogue editor works for both games).<br>
 The editor can edit, export and import english dialogue files and save them to the ROM. Other files can be viewed but I have not yet implemented the code to view and/or edit them in their converted format.<br>
-For now, I'm making the graphics viewer(and eventually editor).
+For now, I'm messing around with the game to find usefull tweaks. I'm also making the graphics viewer(and eventually editor).
 ### Done
 - Dialogue text converter(for dialogue "talk_" and message "m_" files)
 - Functional User Interface
@@ -22,7 +22,7 @@ For now, I'm making the graphics viewer(and eventually editor).
 - (Dialogue text converter)Find use of special values 0xF4, 0xF5, 0xF7, and 0xF9
 - Graphics converter(feature complete)
 - Graphics Editor(saving, exporting, and importing)
-- Find actual patches for the game
+- Find actual patches for the game to add to the editor's "patches" tab
 - Find patches that are helpful for testing purposes
 - OAM Editor*
 - Sound/Music Editor*
