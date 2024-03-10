@@ -507,7 +507,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.file_content_gfx.hide()
         self.dropdown_gfx_depth = PyQt6.QtWidgets.QComboBox(self.page_explorer)
         self.dropdown_gfx_depth.setGeometry(775, 10, 125, 25)
-        self.dropdown_gfx_depth.addItems(["1bpp", "1bpp(WIP JP 16x16)", "4bpp", "8bpp"])# order of names is determined by the enum in dataconverter
+        self.dropdown_gfx_depth.addItems(["1bpp", "4bpp", "8bpp"])# order of names is determined by the enum in dataconverter
         self.dropdown_gfx_depth.currentTextChanged.connect(self.treeCall)# Update gfx with current depth
         self.dropdown_gfx_depth.hide()
 
@@ -523,6 +523,30 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.field_address.setDisplayIntegerBase(16)
         self.field_address.valueChanged.connect(lambda: self.value_update_Call("relative_adress", self.field_address.value() - self.base_address, True))
         self.field_address.hide()
+        # notes
+        self.label_gfx_params = PyQt6.QtWidgets.QLabel(self.page_explorer)
+        self.label_gfx_params.move(745, 75)
+        self.label_gfx_params.setText("tile params: width     height       rows   columns")
+        self.label_gfx_params.hide()
+        # Tiles Per row
+        self.tile_width = 8
+        self.field_tile_width = PyQt6.QtWidgets.QSpinBox(self.page_explorer)
+        self.field_tile_width.setStatusTip("Set depth to 1bpp and tile width to 16 for JP font")
+        self.field_tile_width.setGeometry(800, 50, 50, 25)
+        self.field_tile_width.setFont(self.font_caps)
+        self.field_tile_width.setValue(self.tile_width)
+        self.field_tile_width.setDisplayIntegerBase(10)
+        self.field_tile_width.valueChanged.connect(lambda: self.value_update_Call("tile_width", int(f"{self.field_tile_width.text():01}"), True))
+        self.field_tile_width.hide()
+        # Tiles Per Column
+        self.tile_height = 8
+        self.field_tile_height = PyQt6.QtWidgets.QSpinBox(self.page_explorer)
+        self.field_tile_height.setGeometry(850, 50, 50, 25)
+        self.field_tile_height.setFont(self.font_caps)
+        self.field_tile_height.setValue(self.tile_height)
+        self.field_tile_height.setDisplayIntegerBase(10)
+        self.field_tile_height.valueChanged.connect(lambda: self.value_update_Call("tile_height", int(f"{self.field_tile_height.text():01}"), True))
+        self.field_tile_height.hide()
         # Tiles Per row
         self.tiles_per_row = 8
         self.field_tiles_per_row = PyQt6.QtWidgets.QSpinBox(self.page_explorer)
@@ -951,7 +975,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.field_address.setMinimum(self.base_address)
                         self.field_address.setValue(self.base_address+self.relative_adress)
                         self.field_address.setMaximum(self.base_address+len(self.rom.files[int(self.tree.currentItem().text(0))]))
-                        addItem_tilesQImage_frombytes(self.file_content_gfx, self.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:], algorithm=list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column)
+                        addItem_tilesQImage_frombytes(self.file_content_gfx, self.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:], algorithm=list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column, tileWidth=self.tile_width, tileHeight=self.tile_height)
                     else:
                         self.file_editor_show("Text")
                         self.file_content_text.setReadOnly(True)
@@ -986,8 +1010,11 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.file_content_gfx,
             self.dropdown_gfx_depth,
             self.field_address,
+            self.field_tile_width,
+            self.field_tile_height,
             self.field_tiles_per_row,
             self.field_tiles_per_column,
+            self.label_gfx_params
             ]
         for i in range(256):
             graphics_widgets.append(getattr(self, f"button_palettepick_{i}"))
@@ -1053,7 +1080,7 @@ app = PyQt6.QtWidgets.QApplication(sys.argv)
 w = MainWindow()
 
 # Draw contents of tile viewer
-def addItem_tilesQImage_frombytes(view: GFXView, data: bytearray, palette: list[int]=w.gfx_palette, algorithm=library.dataconverter.CompressionAlgorithmEnum.ONEBPP, tilesPerRow=4, tilesPerColumn=8, tileWidth=8, tileHeight=8):
+def addItem_tilesQImage_frombytes(view: GFXView, data: bytearray, palette: list[int]=w.gfx_palette, algorithm=library.dataconverter.CompressionAlgorithmEnum.ONEBPP, tilesPerRow=4, tilesPerColumn=8, tileWidth=16, tileHeight=8):
     for tile in range(tilesPerRow*tilesPerColumn):
         # get data of current tile from bytearray, multiplying tile index by amount of pixels in a tile and by amount of bits per pixel, then dividing by amount of bits per byte
         # that data is then converted into a QImage that is used to create the QPixmap of the tile

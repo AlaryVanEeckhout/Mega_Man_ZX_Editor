@@ -140,11 +140,11 @@ class CompressionAlgorithmEnum(enum.Enum):
       self.depth = depth
 
   ONEBPP = enum.auto(), 1
-  ONEBPP_JP = enum.auto(), 1
   FOURBPP = enum.auto(), 4
   EIGHTBPP = enum.auto(), 8
 
 def convertdata_bin_to_qt(binary_data: bytearray, palette: list[int]=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], algorithm=CompressionAlgorithmEnum.ONEBPP, tileWidth=8, tileHeight=8): # GBA 4bpp = 4bpp linear reverse order
+    
     #file_bits = bin(int.from_bytes(binary_data))[2:]
     file_bits = "".join([bit for byte in binary_data for bit in ("00000000"+(bin(byte)[2:]))[-8:]])
     image_widget = PyQt6.QtGui.QImage(tileWidth, tileHeight, PyQt6.QtGui.QImage.Format.Format_Indexed8)
@@ -153,22 +153,12 @@ def convertdata_bin_to_qt(binary_data: bytearray, palette: list[int]=[0xff000000
     #print(file_bits)
     
     match algorithm:
-        case CompressionAlgorithmEnum.ONEBPP: # For english 8x16 font
-            for pixel_index in range(0, len(str_subgroups(file_bits, algorithm.depth)), 1):
+        case CompressionAlgorithmEnum.ONEBPP: # For english 8x16 and JP 16x16 fonts
+            file_bits = "".join([file_bits[i:i+8][::-1] for i in range(0, len(file_bits), 8)]) # reverse the order of the bits in each byte
+            for pixel_index in range(0, len(str_subgroups(file_bits, algorithm.depth))):
                 if pixel_index < tileWidth*tileHeight:
-                    x = int((tileWidth-1) - (pixel_index % tileWidth)) # x is reverse-order
-                    y = int((pixel_index / tileWidth))
-                    image_widget.setPixel(x, y, int(str_subgroups(file_bits, algorithm.depth)[pixel_index], 2))
-        case CompressionAlgorithmEnum.ONEBPP_JP:# For japanese 16x16 font (WIP)
-            for pixel_index in range(0, len(str_subgroups(file_bits, algorithm.depth)), 1):
-                if pixel_index < tileWidth*tileHeight:
-                    x = int((tileWidth-1) - (pixel_index % tileWidth)) # x is reverse-order and even and uneven lines are sent to different tiles
-                    y = int(pixel_index / (tileWidth))#(tileWidth*2))
-                    if y % 2 == 0:
-                        y = int(y/2)
-                    else:
-                        y = int((y-1)/2)+4
-                        #x += 8
+                    x = int(pixel_index % tileWidth)
+                    y = int(pixel_index / tileWidth)
                     image_widget.setPixel(x, y, int(str_subgroups(file_bits, algorithm.depth)[pixel_index], 2))
         case CompressionAlgorithmEnum.FOURBPP: # NDS/GBA 4bpp
             for pixel_index in range(0, len(str_subgroups(file_bits, algorithm.depth)), 2):
@@ -197,12 +187,6 @@ def convertdata_qt_to_bin(qimage: PyQt6.QtGui.QImage, palette: list[int]=[0xff00
                 if pixel_index < tileWidth*tileHeight:
                     x = int((tileWidth-1) - (pixel_index % tileWidth)) # x is reverse-order
                     y = int(pixel_index / tileWidth)
-                    file_bits = file_bits + bin(palette.index(qimage.pixelColor(x, y).rgba())).removeprefix('0b')
-        case CompressionAlgorithmEnum.ONEBPP_JP:# For japanese 16x16 font (WIP)
-            for pixel_index in range(0, qimage.size().width()*qimage.size().height(), 2):
-                if pixel_index < tileWidth*tileHeight:
-                    x = int((tileWidth-1) - (pixel_index % tileWidth)) # x is reverse-order and starts one pixel off
-                    y = int(pixel_index / tileWidth)#(tileWidth*2))
                     file_bits = file_bits + bin(palette.index(qimage.pixelColor(x, y).rgba())).removeprefix('0b')
         case CompressionAlgorithmEnum.FOURBPP: # NDS/GBA 4bpp
             for pixel_index in range(0, qimage.size().width()*qimage.size().height(), 2):
