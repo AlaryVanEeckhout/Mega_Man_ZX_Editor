@@ -3,7 +3,7 @@ import PyQt6.QtGui, PyQt6.QtWidgets, PyQt6.QtCore
 import sys, os, platform
 #import logging, time, random
 import ndspy
-import ndspy.rom, ndspy.code#, ndspy.fnt
+import ndspy.rom, ndspy.code#, ndspy.soundArchive
 import library.dataconverter, library.patchdata, library.init_readwrite
 
 class ThreadSignals(PyQt6.QtCore.QObject):
@@ -376,7 +376,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
         self.dialog_settings = PyQt6.QtWidgets.QDialog(self)
         self.dialog_settings.setWindowTitle("Settings")
-        self.dialog_settings.setContentsMargins(5, 5, 5, 5)
+        self.dialog_settings.resize(100, 50)
         self.checkbox_theme = PyQt6.QtWidgets.QCheckBox("Dark Theme", self.dialog_settings)
         self.checkbox_theme.move(15, 0)
         self.checkbox_theme.clicked.connect(lambda: self.switch_theme())
@@ -676,7 +676,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.arm9 = self.rom.loadArm9()
             self.arm7 = self.rom.loadArm7()
             self.temp_path = f"{os.path.curdir}\\temp\\{self.romToEdit_name+self.romToEdit_ext}"
-            self.setWindowTitle("Mega Man ZX Editor" + " <" + self.rom.name.decode() + " v" + str(self.rom.version) + " region " + str(self.rom.region) + ">" + " \"" + self.romToEdit_name + self.romToEdit_ext + "\"")
+            self.setWindowTitle("Mega Man ZX Editor" + " <" + self.rom.name.decode() + " v" + self.rom.idCode.decode("utf-8") + " rev" + str(self.rom.version) + " region" + str(self.rom.region) + ">" + " \"" + self.romToEdit_name + self.romToEdit_ext + "\"")
             #print(self.rom.filenames)
             self.tree_patches.clear()
             patches = []

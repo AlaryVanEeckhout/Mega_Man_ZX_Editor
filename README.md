@@ -20,10 +20,9 @@ For now, I'm messing around with the game to find useful tweaks. I'm also making
 - Graphics Viewer(WIP)
 ### To do
 - (Dialogue text converter)Find use of special values 0xF4, 0xF5, 0xF7, and 0xF9
-- Graphics converter(feature complete)
 - Graphics Editor(saving, exporting, and importing)
 - Find actual patches for the game to add to the editor's "patches" tab
-- Find patches that are helpful for testing purposes
+- Find patches and tweaks that are helpful for testing purposes
 - OAM Editor*
 - Sound/Music Editor*
 - Movie Editor*
