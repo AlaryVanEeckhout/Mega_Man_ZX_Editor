@@ -246,52 +246,6 @@ class AddressSpinBox(PyQt6.QtWidgets.QSpinBox):
 
     def textFromValue(self, value):
         return "%08X" % value
-    
-class LongTextEdit(PyQt6.QtWidgets.QPlainTextEdit):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.longText = ""
-        self.longText_scrollBar_previousValue = self.verticalScrollBar().value()
-        self.longText_page = 0
-
-    #@PyQt6.QtCore.pyqtSlot(str)
-    #def decSetLongText(self, text):
-    #    if text == "":
-    #        self.setPlainText(text)
-    #    self.insertPlainText(text)
-
-    #@PyQt6.QtCore.pyqtSlot(bool)
-    #def decSetUnavailable(self, is_true):
-    #    if is_true:
-    #        self.hide()
-    #    else:
-    #        self.show()
-        
-    def setLongText(self, text: str):
-        self.longText = text
-        page_charCount = int(int(self.width()/self.fontMetrics().averageCharWidth() - 1)*int(self.height()/self.fontMetrics().lineSpacing() -1)*3)
-        self.setPlainText(self.longText[:page_charCount])
-        #self.verticalScrollBar().setMaximum(int(len(self.longText)/int(self.width()/self.fontMetrics().averageCharWidth() - 1)))# set scrollBar's limit to file lenght
-        self.verticalScrollBar().valueChanged.connect(self.longTextAdjustDisplay)
-
-    def longTextAdjustDisplay(self):
-        print(self.verticalScrollBar().value())
-        page_charCount = int(int(self.width()/self.fontMetrics().averageCharWidth() - 1)*int(self.height()/self.fontMetrics().lineSpacing() -1)*3)
-        page_threshold_lineCount = int(int(self.height()/self.fontMetrics().lineSpacing() -1)*2)
-        longText_lineCount = int(len(self.longText)/int(self.width()/self.fontMetrics().averageCharWidth() - 1))
-        #self.verticalScrollBar().setMaximum(longText_lineCount)# set scrollBar's limit to file lenght
-        if self.verticalScrollBar().value() > self.longText_scrollBar_previousValue and self.verticalScrollBar().value() > page_threshold_lineCount*(self.longText_page+1):
-            print(f"load next page {self.longText_page+1}")
-            self.longText_page += 1
-            #self.setPlainText("")
-            #self.insertPlainText("\n"*page_threshold_lineCount*self.longText_page)
-            self.setPlainText(self.longText[page_charCount*(self.longText_page):page_charCount*(self.longText_page+1)])
-            #self.verticalScrollBar().setValue(page_threshold_lineCount)
-        elif self.longText_page != 0 and self.longText_scrollBar_previousValue < page_threshold_lineCount*(self.longText_page+1) and self.verticalScrollBar().value() < self.longText_scrollBar_previousValue and self.verticalScrollBar().value() < int(page_threshold_lineCount/4)*(self.longText_page+1):
-            print(f"load previous page {self.longText_page-1}")
-            self.longText_page -= 1
-            self.setPlainText(self.longText[page_charCount*(self.longText_page):page_charCount*(self.longText_page+1)])
-        self.longText_scrollBar_previousValue = self.verticalScrollBar().value()
 
 class MainWindow(PyQt6.QtWidgets.QMainWindow):
     def __init__(self):
@@ -482,7 +436,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
         self.file_content = PyQt6.QtWidgets.QFrame(self.page_explorer)
         self.file_content.setGeometry(490, self.menu_bar.rect().bottom() + 100, 500, 500)
-        self.file_content_text = LongTextEdit(self.file_content)
+        self.file_content_text = PyQt6.QtWidgets.QPlainTextEdit(self.file_content)
         self.file_content_text.resize(self.file_content.size())
         font = PyQt6.QtGui.QFont("Monospace")
         font.setStyleHint(PyQt6.QtGui.QFont.StyleHint.TypeWriter)
@@ -495,12 +449,6 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.checkbox_textoverwite.setStatusTip("With this enabled, writing text won't change filesize")
         self.checkbox_textoverwite.clicked.connect(lambda: self.file_content_text.setOverwriteMode(not self.file_content_text.overwriteMode()))
         self.checkbox_textoverwite.hide()
-        self.button_longfile = PyQt6.QtWidgets.QPushButton("Press this button to view file,\nbut be warned that this file is very big.\nTherefore if you choose to view it,\nit will take some time to load\nand the program will be unresponsive.\n\nAlternatively, you could export the file and open it in a hex editor", self.file_content_text)
-        self.button_longfile.pressed.connect(lambda: self.button_longfile.hide())
-        self.button_longfile.pressed.connect(lambda: print("will take a while"))
-        self.button_longfile.pressed.connect(lambda: self.file_content_text.setLongText((self.rom.files[int(self.tree.currentItem().text(0))]).hex()))
-        self.button_longfile.pressed.connect(lambda: self.file_content_text.setDisabled(False))
-        self.button_longfile.hide()
 
         self.file_content_gfx = GFXView(self.file_content)
         self.file_content_gfx.resize(self.file_content.size())
@@ -522,6 +470,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.field_address.setPrefix("0x")
         self.field_address.setDisplayIntegerBase(16)
         self.field_address.valueChanged.connect(lambda: self.value_update_Call("relative_adress", self.field_address.value() - self.base_address, True))
+        self.field_address.setDisabled(True)
         self.field_address.hide()
         # notes
         self.label_gfx_params = PyQt6.QtWidgets.QLabel(self.page_explorer)
@@ -711,6 +660,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.button_save.setDisabled(False)
         self.button_playtest.setDisabled(False)
         self.dropdown_tweak_target.show()
+        self.field_address.show()
 
     def exportCall(self):
         dialog = PyQt6.QtWidgets.QFileDialog(
@@ -939,65 +889,76 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
     def treeCall(self, isValueUpdate=False):
         self.clearTasks()
-        self.button_longfile.hide()
         self.file_content_text.setReadOnly(False)
+        self.field_address.setDisabled(False)
         if self.tree.currentItem() != None:
             self.fileToEdit_name = str(self.tree.currentItem().text(1) + "." + self.tree.currentItem().text(2))
+            self.base_address = self.rom.save().index(self.rom.files[int(self.tree.currentItem().text(0))])
+            # set text to current ROM address
+            self.field_address.setMinimum(self.base_address)
+            self.field_address.setValue(self.base_address+self.relative_adress)
+            self.field_address.setMaximum(self.base_address+len(self.rom.files[int(self.tree.currentItem().text(0))]))
             if self.fileToEdit_name.find(".Folder") == -1:# if it's a file
                 if self.fileDisplayRaw == False:
                     match self.fileDisplayMode:
                         case "Adapt":
-                            if (self.tree.currentItem().text(1).find("talk") != -1 or self.tree.currentItem().text(1).find("m_") != -1) and self.tree.currentItem().text(1).find("en") != -1:
-                                self.fileDisplayState = "English dialogue"
-                            elif self.tree.currentItem().text(1).find("obj_fnt") != -1 or self.tree.currentItem().text(1).find("font") != -1 or self.tree.currentItem().text(1).find("face") != -1:
+                            indicator_list_gfx = ["face", "font", "obj_fnt", "title"]
+                            if self.rom.name.decode() == "MEGAMANZX" or self.rom.name.decode() == "ROCKMANZX":
+                                indicator_list_gfx.extend(["bbom", "dm23", "elf", "g01", "g03", "g_", "game_parm", "lmlevel", "miss", "repair", "sec_disk", "sub"])
+                            elif self.rom.name.decode() == "MEGAMANZXA" or self.rom.name.decode() == "ROCKMANZXA":
+                                indicator_list_gfx.extend(["cmm_frame_fnt", "cmm_mega_s", "cmm_rock_s", "Is_m", "Is_trans", "Is_txt_fnt", "sub_db", "sub_oth"])
+                            if (self.tree.currentItem().text(1).find("talk") != -1 or self.tree.currentItem().text(1).find("m_") != -1):
+                                if self.tree.currentItem().text(1).find("en") != -1:
+                                    self.fileDisplayState = "English dialogue"
+                                elif self.tree.currentItem().text(1).find("jp") != -1:
+                                    self.fileDisplayState = "Japanese dialogue"
+                            elif self.tree.currentItem().text(2) == "bin" and any(indicator in self.tree.currentItem().text(1) for indicator in indicator_list_gfx):
                                 self.fileDisplayState = "Graphics"
+                            elif self.tree.currentItem().text(2) == "sdat":
+                                self.fileDisplayState = "Sound"
+                            elif self.tree.currentItem().text(2) == "vx":
+                                self.fileDisplayState = "VX"
                             else:
                                 self.fileDisplayState = "None"
-                        case "English dialogue":
-                            self.fileDisplayState = "English dialogue"
-                        case "Graphics":
-                            self.fileDisplayState = "Graphics"
+                        case "English dialogue" | "Japanese dialogue" | "Graphics" | "Sound" | "VX":
+                            self.fileDisplayState = self.fileDisplayMode
                         case _:
                             self.fileDisplayState = "None"
 
-                    if (self.fileDisplayState == "English dialogue"): # if english text
+                    if self.fileDisplayState == "English dialogue": # if english text
                         self.file_editor_show("Text")
-                        self.file_content_text.setPlainText(library.dataconverter.convertdata_bin_to_text(self.rom.files[int(self.tree.currentItem().text(0))]))
-                    elif (self.fileDisplayState == "Graphics"):
+                        self.file_content_text.setPlainText(library.dataconverter.convertdata_bin_to_text(self.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:]))
+                    elif self.fileDisplayState == "Graphics":
                         #print(self.dropdown_gfx_depth.currentText()[:1] + " bpp graphics")
                         if self.gfx_palette.index(self.file_content_gfx.pen.color().rgba()) >= 2**list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()].depth:
                             self.file_content_gfx.pen.setColor(self.gfx_palette[0])
                         self.file_content_gfx.resetScene()
                         if not isValueUpdate: # if entering graphics mode and func is not called to update other stuff
                             self.file_editor_show("Graphics")
-                        self.base_address = self.rom.save().index(self.rom.files[int(self.tree.currentItem().text(0))])
-                        # set text to current ROM address
-                        self.field_address.setMinimum(self.base_address)
-                        self.field_address.setValue(self.base_address+self.relative_adress)
-                        self.field_address.setMaximum(self.base_address+len(self.rom.files[int(self.tree.currentItem().text(0))]))
                         addItem_tilesQImage_frombytes(self.file_content_gfx, self.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:], algorithm=list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column, tileWidth=self.tile_width, tileHeight=self.tile_height)
                     else:
+                        self.field_address.setDisabled(True)
                         self.file_editor_show("Text")
                         self.file_content_text.setReadOnly(True)
-                        self.file_content_text.setPlainText("This file format is unknown/not supported at the moment.\n Go to [View > Converted formats] to disable file interpretation and view hex data.")
+                        if self.fileDisplayState == "None":
+                            file_knowledge = "unknown"
+                        else:
+                            file_knowledge = "not supported at the moment"
+                        self.file_content_text.setPlainText(f"This file's format is {file_knowledge}.\n Go to [View > Converted formats] to disable file interpretation and view hex data.")
                 else:# if in hex display mode
                     self.file_editor_show("Text")
-                    if len((self.rom.files[int(self.tree.currentItem().text(0))]).hex()) > 100000:# performance issues with QPlainTextEdit
-                        self.button_longfile.setGeometry(self.file_content_text.geometry())
-                        self.button_longfile.show()
-                        self.file_content_text.setPlainText("")
-                        self.file_content_text.setDisabled(True)
-                    #self.file_content_text.hide()
-                    #self.runTasks([RunnableDisplayRawText])
-                    else:
-                        self.file_content_text.setPlainText(self.rom.files[int(self.tree.currentItem().text(0))].hex())
+                    charcount = int(int(self.file_content_text.width()/self.file_content_text.fontMetrics().averageCharWidth() - 1)*int(self.file_content_text.height()/self.file_content_text.fontMetrics().lineSpacing() -1)/2)
+                    self.file_content_text.setPlainText(self.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:self.relative_adress+charcount].hex())
                 self.file_content_text.setDisabled(False)
             else:# if it's a folder
+                self.file_editor_show("Text")
+                self.field_address.setDisabled(True)
                 self.file_content_text.setPlainText("")
                 self.file_content_text.setDisabled(True)
             self.exportAction.setDisabled(False)
             self.button_file_save.setDisabled(True)
         else:# Nothing is selected, reset edit space
+            self.field_address.setDisabled(True)
             self.file_content_text.setPlainText("")
             self.button_file_save.setDisabled(True)
 
@@ -1009,7 +970,6 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         graphics_widgets: list[PyQt6.QtWidgets.QWidget] = [
             self.file_content_gfx,
             self.dropdown_gfx_depth,
-            self.field_address,
             self.field_tile_width,
             self.field_tile_height,
             self.field_tiles_per_row,
@@ -1048,11 +1008,16 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 self.replaceCall()
 
     def save_filecontent(self): #Save to virtual ROM
+        charcount = None
         if self.fileDisplayRaw == False:
-            if (self.fileDisplayState == "English dialogue"): # if english text
-                w.rom.files[int(self.tree.currentItem().text(0))] = library.dataconverter.convertdata_text_to_bin(self.file_content_text.toPlainText())
+            if self.fileDisplayState == "English dialogue": # if english text
+                charcount = int(int(self.file_content_text.width()/self.file_content_text.fontMetrics().averageCharWidth() - 1)*int(self.file_content_text.height()/self.file_content_text.fontMetrics().lineSpacing() -1)/2/2)
+                rom_save_data = library.dataconverter.convertdata_text_to_bin(self.file_content_text.toPlainText())
         else:
-            w.rom.files[int(self.tree.currentItem().text(0))] = bytearray.fromhex(self.file_content_text.toPlainText())
+            rom_save_data = bytearray.fromhex(self.file_content_text.toPlainText())
+        if charcount != None:
+            w.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:self.relative_adress+charcount] = rom_save_data
+        w.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:] = rom_save_data
         print("file changes saved")
         self.button_file_save.setDisabled(True)
 

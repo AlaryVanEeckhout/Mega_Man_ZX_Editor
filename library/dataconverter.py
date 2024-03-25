@@ -84,7 +84,7 @@ def bitstring_to_bytes(s: str):
         v >>= 8
     return bytes(b[::-1])
 
-def convertdata_bin_to_text(data: bytearray):
+def convertdata_bin_to_text(data: bytearray, lang: str="en"):
     chars = []
     i=0
     while i < len(data):# while file not fully read
@@ -103,7 +103,7 @@ def convertdata_bin_to_text(data: bytearray):
     data = ''.join(chars)# join all converted chars into one full string
     return data
 
-def convertdata_text_to_bin(data: str):
+def convertdata_text_to_bin(data: str, lang: str="en"):
         file_text = data
         file_data = []
         c=0
