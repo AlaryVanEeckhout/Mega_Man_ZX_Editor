@@ -185,9 +185,10 @@ def convertdata_qt_to_bin(qimage: PyQt6.QtGui.QImage, palette: list[int]=[0xff00
         case CompressionAlgorithmEnum.ONEBPP: # For english 8x16 font
             for pixel_index in range(0, qimage.size().width()*qimage.size().height()):
                 if pixel_index < tileWidth*tileHeight:
-                    x = int((tileWidth-1) - (pixel_index % tileWidth)) # x is reverse-order
+                    x = int(pixel_index % tileWidth)
                     y = int(pixel_index / tileWidth)
                     file_bits = file_bits + bin(palette.index(qimage.pixelColor(x, y).rgba())).removeprefix('0b')
+            file_bits = "".join([file_bits[i:i+8][::-1] for i in range(0, len(file_bits), 8)]) # reverse the order of the bits in each byte
         case CompressionAlgorithmEnum.FOURBPP: # NDS/GBA 4bpp
             for pixel_index in range(0, qimage.size().width()*qimage.size().height(), 2):
                 #print(str_subgroups(file_bits, 4)[pixel_index])
@@ -217,6 +218,6 @@ def convertdata_qt_to_bin(qimage: PyQt6.QtGui.QImage, palette: list[int]=[0xff00
 
 #create readable graphics
 #with open("sys_panm.bin", "r+b") as t:
-    read = t.read()
-    print(read.hex())
-    print(convertdata_qt_to_bin(convertdata_bin_to_qt(read, algorithm=CompressionAlgorithmEnum.FOURBPP), algorithm=CompressionAlgorithmEnum.FOURBPP).hex())
+#    read = t.read()
+#    print("read: " + read.hex())
+#    print("convert: " + convertdata_qt_to_bin(convertdata_bin_to_qt(read, algorithm=CompressionAlgorithmEnum.ONEBPP), algorithm=CompressionAlgorithmEnum.ONEBPP).hex())

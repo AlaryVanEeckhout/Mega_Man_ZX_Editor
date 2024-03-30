@@ -247,6 +247,11 @@ class AddressSpinBox(PyQt6.QtWidgets.QSpinBox):
     def textFromValue(self, value):
         return "%08X" % value
 
+class LongTextEdit(PyQt6.QtWidgets.QPlainTextEdit):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.charcount_page = lambda: int(int(self.width()/self.fontMetrics().averageCharWidth() - 1)*int(self.height()/self.fontMetrics().lineSpacing() -1)/2)
+
 class MainWindow(PyQt6.QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
@@ -399,19 +404,24 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         #self.button_codeedit.triggered.connect(self.codeeditCall)
         #self.button_codeedit.setDisabled(True)
         self.toolbar.addActions([self.button_save, self.button_playtest])
+        self.toolbar.addSeparator()
 
         #Tabs
         self.tabs = PyQt6.QtWidgets.QTabWidget(self)
-        self.tabs.move(0, 40)
-        self.tabs.resize(self.width(), self.height() - self.tabs.pos().y())
+        self.setCentralWidget(self.tabs)
+        self.tabs.resize(self.width(), self.height())
 
         self.page_explorer = PyQt6.QtWidgets.QWidget(self.tabs)
+        self.page_explorer.setLayout(PyQt6.QtWidgets.QFormLayout())
 
         self.page_leveleditor = PyQt6.QtWidgets.QWidget(self.tabs)
+        self.page_leveleditor.setLayout(PyQt6.QtWidgets.QFormLayout())
 
         self.page_tweaks = PyQt6.QtWidgets.QWidget(self.tabs)
+        self.page_tweaks.setLayout(PyQt6.QtWidgets.QFormLayout())
 
         self.page_patches = PyQt6.QtWidgets.QWidget(self.tabs)
+        self.page_patches.setLayout(PyQt6.QtWidgets.QFormLayout())
 
         self.tabs.addTab(self.page_explorer, "File Explorer")
         self.tabs.addTab(self.page_leveleditor, "Level Editor") # Coming Soon™
@@ -421,7 +431,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         #ROM-related
         #File explorer
         self.tree = EditorTree(self.page_explorer)
-        self.tree.setGeometry(10, self.menu_bar.rect().bottom() - 20, 450, self.tabs.height() - 60)
+        self.page_explorer.layout().addWidget(self.tree)
+        #self.page_explorer.layout().setAlignment(self.tree, PyQt6.QtCore.Qt.AlignmentFlag.AlignLeft)
+        self.tree.setMaximumWidth(450)
+        self.tree.setGeometry(10, self.menu_bar.rect().bottom() - 20, 450, self.tabs.height() - 110)
         self.tree.setColumnCount(3)
         self.tree.setHeaderLabels(["File ID", "Name", "Type"])
         self.tree.setContextMenuPolicy(PyQt6.QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
@@ -435,8 +448,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.button_file_save.setDisabled(True)
 
         self.file_content = PyQt6.QtWidgets.QFrame(self.page_explorer)
-        self.file_content.setGeometry(490, self.menu_bar.rect().bottom() + 100, 500, 500)
-        self.file_content_text = PyQt6.QtWidgets.QPlainTextEdit(self.file_content)
+        self.file_content.setGeometry(490, self.menu_bar.rect().bottom() + 100, 500, 490)
+        self.file_content_text = LongTextEdit(self.file_content)
         self.file_content_text.resize(self.file_content.size())
         font = PyQt6.QtGui.QFont("Monospace")
         font.setStyleHint(PyQt6.QtGui.QFont.StyleHint.TypeWriter)
@@ -473,6 +486,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.field_address.setDisabled(True)
         self.field_address.hide()
         # notes
+        self.label_file_size = PyQt6.QtWidgets.QLabel(self.page_explorer)
+        self.label_file_size.move(745, 75)
+        self.label_file_size.setText("size: N/A")
+        self.label_file_size.hide()
         self.label_gfx_params = PyQt6.QtWidgets.QLabel(self.page_explorer)
         self.label_gfx_params.move(745, 75)
         self.label_gfx_params.setText("tile params: width     height       rows   columns")
@@ -530,8 +547,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         #Level Editor(Coming Soon™)
         #Tweaks(Coming Soon™)
         self.tabs_tweaks = PyQt6.QtWidgets.QTabWidget(self.page_tweaks)
-
-        self.tabs_tweaks.setGeometry(0, 0, self.width(), self.height() - 55)
+        self.page_tweaks.layout().addWidget(self.tabs_tweaks)
 
         self.dropdown_tweak_target = PyQt6.QtWidgets.QComboBox(self.page_tweaks)
         self.dropdown_tweak_target.setGeometry(125, 75, 125, 25)
@@ -541,19 +557,19 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.dropdown_tweak_target.hide()
 
         self.page_tweaks_stats = PyQt6.QtWidgets.QWidget(self.tabs_tweaks)
-        self.page_tweaks_stats.setLayout(PyQt6.QtWidgets.QGridLayout())
+        self.page_tweaks_stats.setLayout(PyQt6.QtWidgets.QFormLayout())
 
         self.page_tweaks_physics = PyQt6.QtWidgets.QWidget(self.tabs_tweaks)
-        self.page_tweaks_physics.setLayout(PyQt6.QtWidgets.QGridLayout())
+        self.page_tweaks_physics.setLayout(PyQt6.QtWidgets.QFormLayout())
 
         self.page_tweaks_behaviour = PyQt6.QtWidgets.QWidget(self.tabs_tweaks)
-        self.page_tweaks_behaviour.setLayout(PyQt6.QtWidgets.QGridLayout())
+        self.page_tweaks_behaviour.setLayout(PyQt6.QtWidgets.QFormLayout())
 
         self.page_tweaks_animations = PyQt6.QtWidgets.QWidget(self.tabs_tweaks)
-        self.page_tweaks_animations.setLayout(PyQt6.QtWidgets.QGridLayout())
+        self.page_tweaks_animations.setLayout(PyQt6.QtWidgets.QFormLayout())
 
         self.page_tweaks_misc = PyQt6.QtWidgets.QWidget(self.tabs_tweaks)
-        self.page_tweaks_misc.setLayout(PyQt6.QtWidgets.QGridLayout())
+        self.page_tweaks_misc.setLayout(PyQt6.QtWidgets.QFormLayout())
 
         self.tabs_tweaks.addTab(self.page_tweaks_stats, "Stats")
 
@@ -574,7 +590,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
         #Patches
         self.tree_patches = EditorTree(self.page_patches)
-        self.tree_patches.setGeometry(10, self.menu_bar.rect().bottom() - 20, self.width() - 25, 625)
+        self.page_patches.layout().addWidget(self.tree_patches)
         self.tree_patches.setColumnCount(4)
         self.tree_patches.setHeaderLabels(["Enabed", "Address", "Name", "Type", "Size"])
         self.tree_patches.itemChanged.connect(self.patch_game)
@@ -947,8 +963,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.file_content_text.setPlainText(f"This file's format is {file_knowledge}.\n Go to [View > Converted formats] to disable file interpretation and view hex data.")
                 else:# if in hex display mode
                     self.file_editor_show("Text")
-                    charcount = int(int(self.file_content_text.width()/self.file_content_text.fontMetrics().averageCharWidth() - 1)*int(self.file_content_text.height()/self.file_content_text.fontMetrics().lineSpacing() -1)/2)
-                    self.file_content_text.setPlainText(self.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:self.relative_adress+charcount].hex())
+                    self.file_content_text.setPlainText(self.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:self.relative_adress+self.file_content_text.charcount_page()].hex())
                 self.file_content_text.setDisabled(False)
             else:# if it's a folder
                 self.file_editor_show("Text")
@@ -1008,15 +1023,15 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 self.replaceCall()
 
     def save_filecontent(self): #Save to virtual ROM
-        charcount = None
+        charlimit = None
         if self.fileDisplayRaw == False:
             if self.fileDisplayState == "English dialogue": # if english text
-                charcount = int(int(self.file_content_text.width()/self.file_content_text.fontMetrics().averageCharWidth() - 1)*int(self.file_content_text.height()/self.file_content_text.fontMetrics().lineSpacing() -1)/2/2)
                 rom_save_data = library.dataconverter.convertdata_text_to_bin(self.file_content_text.toPlainText())
         else:
+            charlimit = int(self.file_content_text.charcount_page()/2) # 2 hexadecimal digits in one byte
             rom_save_data = bytearray.fromhex(self.file_content_text.toPlainText())
-        if charcount != None:
-            w.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:self.relative_adress+charcount] = rom_save_data
+        if charlimit != None:
+            w.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:self.relative_adress+charlimit] = rom_save_data
         w.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:] = rom_save_data
         print("file changes saved")
         self.button_file_save.setDisabled(True)
