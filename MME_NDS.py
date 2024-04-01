@@ -412,16 +412,16 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.tabs.resize(self.width(), self.height())
 
         self.page_explorer = PyQt6.QtWidgets.QWidget(self.tabs)
-        self.page_explorer.setLayout(PyQt6.QtWidgets.QFormLayout())
+        self.page_explorer.setLayout(PyQt6.QtWidgets.QHBoxLayout())
 
         self.page_leveleditor = PyQt6.QtWidgets.QWidget(self.tabs)
-        self.page_leveleditor.setLayout(PyQt6.QtWidgets.QFormLayout())
+        self.page_leveleditor.setLayout(PyQt6.QtWidgets.QGridLayout())
 
         self.page_tweaks = PyQt6.QtWidgets.QWidget(self.tabs)
-        self.page_tweaks.setLayout(PyQt6.QtWidgets.QFormLayout())
+        self.page_tweaks.setLayout(PyQt6.QtWidgets.QGridLayout())
 
         self.page_patches = PyQt6.QtWidgets.QWidget(self.tabs)
-        self.page_patches.setLayout(PyQt6.QtWidgets.QFormLayout())
+        self.page_patches.setLayout(PyQt6.QtWidgets.QGridLayout())
 
         self.tabs.addTab(self.page_explorer, "File Explorer")
         self.tabs.addTab(self.page_leveleditor, "Level Editor") # Coming Soon™
@@ -431,43 +431,50 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         #ROM-related
         #File explorer
         self.tree = EditorTree(self.page_explorer)
-        self.page_explorer.layout().addWidget(self.tree)
-        #self.page_explorer.layout().setAlignment(self.tree, PyQt6.QtCore.Qt.AlignmentFlag.AlignLeft)
+        self.page_explorer.layout().addWidget(self.tree, 0)
         self.tree.setMaximumWidth(450)
-        self.tree.setGeometry(10, self.menu_bar.rect().bottom() - 20, 450, self.tabs.height() - 110)
         self.tree.setColumnCount(3)
         self.tree.setHeaderLabels(["File ID", "Name", "Type"])
         self.tree.setContextMenuPolicy(PyQt6.QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
         self.treeUpdate()
         self.tree.itemSelectionChanged.connect(self.treeCall)
 
+        self.layout_editzone = PyQt6.QtWidgets.QVBoxLayout()
+        self.page_explorer.layout().addItem(self.layout_editzone)
+        self.layout_editzone_row0 = PyQt6.QtWidgets.QHBoxLayout()
+        self.layout_editzone_row1 = PyQt6.QtWidgets.QHBoxLayout()
+        self.layout_colorpick = PyQt6.QtWidgets.QGridLayout()
+
         self.button_file_save = PyQt6.QtWidgets.QPushButton("Save file", self.page_explorer)
+        self.button_file_save.setMaximumWidth(100)
         self.button_file_save.setToolTip("save this file's changes")
-        self.button_file_save.setGeometry(490, 20, 100, 50)
         self.button_file_save.pressed.connect(self.save_filecontent)
         self.button_file_save.setDisabled(True)
+        self.button_file_save.hide()
 
-        self.file_content = PyQt6.QtWidgets.QFrame(self.page_explorer)
-        self.file_content.setGeometry(490, self.menu_bar.rect().bottom() + 100, 500, 490)
-        self.file_content_text = LongTextEdit(self.file_content)
-        self.file_content_text.resize(self.file_content.size())
+        self.file_content = PyQt6.QtWidgets.QGridLayout()
+        self.file_content_text = LongTextEdit(self.page_explorer)
+        self.file_content_text.setSizePolicy(PyQt6.QtWidgets.QSizePolicy.Policy.Expanding, PyQt6.QtWidgets.QSizePolicy.Policy.Expanding)
         font = PyQt6.QtGui.QFont("Monospace")
         font.setStyleHint(PyQt6.QtGui.QFont.StyleHint.TypeWriter)
         self.file_content_text.setFont(font)
         self.file_content_text.setContextMenuPolicy(PyQt6.QtCore.Qt.ContextMenuPolicy.NoContextMenu)
         self.file_content_text.textChanged.connect(lambda: self.button_file_save.setDisabled(False))
         self.file_content_text.setDisabled(True)
+
         self.checkbox_textoverwite = PyQt6.QtWidgets.QCheckBox("Overwite\n existing text", self.page_explorer)
-        self.checkbox_textoverwite.setGeometry(625, 20, 100, 50)
         self.checkbox_textoverwite.setStatusTip("With this enabled, writing text won't change filesize")
         self.checkbox_textoverwite.clicked.connect(lambda: self.file_content_text.setOverwriteMode(not self.file_content_text.overwriteMode()))
         self.checkbox_textoverwite.hide()
+        self.layout_editzone_row1.addWidget(self.checkbox_textoverwite)
 
-        self.file_content_gfx = GFXView(self.file_content)
-        self.file_content_gfx.resize(self.file_content.size())
+        self.file_content_gfx = GFXView(self.page_explorer)
+        self.file_content_gfx.setSizePolicy(PyQt6.QtWidgets.QSizePolicy.Policy.Expanding, PyQt6.QtWidgets.QSizePolicy.Policy.Expanding)
         self.file_content_gfx.hide()
+        self.file_content.addWidget(self.file_content_gfx)
+        self.file_content.addWidget(self.file_content_text)
+
         self.dropdown_gfx_depth = PyQt6.QtWidgets.QComboBox(self.page_explorer)
-        self.dropdown_gfx_depth.setGeometry(775, 10, 125, 25)
         self.dropdown_gfx_depth.addItems(["1bpp", "4bpp", "8bpp"])# order of names is determined by the enum in dataconverter
         self.dropdown_gfx_depth.currentTextChanged.connect(self.treeCall)# Update gfx with current depth
         self.dropdown_gfx_depth.hide()
@@ -477,7 +484,6 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         
         # Address bar
         self.field_address = AddressSpinBox(self.page_explorer)
-        self.field_address.setGeometry(900, 10, 100, 25)
         self.field_address.setFont(self.font_caps)
         self.field_address.setValue(self.base_address+self.relative_adress)
         self.field_address.setPrefix("0x")
@@ -487,50 +493,77 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.field_address.hide()
         # notes
         self.label_file_size = PyQt6.QtWidgets.QLabel(self.page_explorer)
-        self.label_file_size.move(745, 75)
-        self.label_file_size.setText("size: N/A")
+        self.label_file_size.setText("Size: N/A")
         self.label_file_size.hide()
-        self.label_gfx_params = PyQt6.QtWidgets.QLabel(self.page_explorer)
-        self.label_gfx_params.move(745, 75)
-        self.label_gfx_params.setText("tile params: width     height       rows   columns")
-        self.label_gfx_params.hide()
         # Tiles Per row
         self.tile_width = 8
         self.field_tile_width = PyQt6.QtWidgets.QSpinBox(self.page_explorer)
         self.field_tile_width.setStatusTip("Set depth to 1bpp and tile width to 16 for JP font")
-        self.field_tile_width.setGeometry(800, 50, 50, 25)
         self.field_tile_width.setFont(self.font_caps)
         self.field_tile_width.setValue(self.tile_width)
         self.field_tile_width.setDisplayIntegerBase(10)
         self.field_tile_width.valueChanged.connect(lambda: self.value_update_Call("tile_width", int(f"{self.field_tile_width.text():01}"), True))
         self.field_tile_width.hide()
+
+        self.label_tile_width = PyQt6.QtWidgets.QLabel(self.page_explorer)
+        self.label_tile_width.setText(" width")
+        self.label_tile_width.hide()
+
+        self.layout_tile_width = PyQt6.QtWidgets.QVBoxLayout()
+        self.layout_tile_width.addWidget(self.field_tile_width)
+        self.layout_tile_width.addWidget(self.label_tile_width)
+        self.layout_tile_width.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignTop)
         # Tiles Per Column
         self.tile_height = 8
         self.field_tile_height = PyQt6.QtWidgets.QSpinBox(self.page_explorer)
-        self.field_tile_height.setGeometry(850, 50, 50, 25)
         self.field_tile_height.setFont(self.font_caps)
         self.field_tile_height.setValue(self.tile_height)
         self.field_tile_height.setDisplayIntegerBase(10)
         self.field_tile_height.valueChanged.connect(lambda: self.value_update_Call("tile_height", int(f"{self.field_tile_height.text():01}"), True))
         self.field_tile_height.hide()
+
+        self.label_tile_height = PyQt6.QtWidgets.QLabel(self.page_explorer)
+        self.label_tile_height.setText(" height")
+        self.label_tile_height.hide()
+
+        self.layout_tile_height = PyQt6.QtWidgets.QVBoxLayout()
+        self.layout_tile_height.addWidget(self.field_tile_height)
+        self.layout_tile_height.addWidget(self.label_tile_height)
+        self.layout_tile_height.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignTop)
         # Tiles Per row
         self.tiles_per_row = 8
         self.field_tiles_per_row = PyQt6.QtWidgets.QSpinBox(self.page_explorer)
-        self.field_tiles_per_row.setGeometry(900, 50, 50, 25)
         self.field_tiles_per_row.setFont(self.font_caps)
         self.field_tiles_per_row.setValue(self.tiles_per_row)
         self.field_tiles_per_row.setDisplayIntegerBase(10)
         self.field_tiles_per_row.valueChanged.connect(lambda: self.value_update_Call("tiles_per_row", int(f"{self.field_tiles_per_row.text():01}"), True))
         self.field_tiles_per_row.hide()
+
+        self.label_tiles_per_row = PyQt6.QtWidgets.QLabel(self.page_explorer)
+        self.label_tiles_per_row.setText(" rows")
+        self.label_tiles_per_row.hide()
+
+        self.layout_tiles_per_row = PyQt6.QtWidgets.QVBoxLayout()
+        self.layout_tiles_per_row.addWidget(self.field_tiles_per_row)
+        self.layout_tiles_per_row.addWidget(self.label_tiles_per_row)
+        self.layout_tiles_per_row.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignTop)
         # Tiles Per Column
         self.tiles_per_column = 16
         self.field_tiles_per_column = PyQt6.QtWidgets.QSpinBox(self.page_explorer)
-        self.field_tiles_per_column.setGeometry(950, 50, 50, 25)
         self.field_tiles_per_column.setFont(self.font_caps)
         self.field_tiles_per_column.setValue(self.tiles_per_column)
         self.field_tiles_per_column.setDisplayIntegerBase(10)
         self.field_tiles_per_column.valueChanged.connect(lambda: self.value_update_Call("tiles_per_column", int(f"{self.field_tiles_per_column.text():01}"), True))
         self.field_tiles_per_column.hide()
+
+        self.label_tiles_per_column = PyQt6.QtWidgets.QLabel(self.page_explorer)
+        self.label_tiles_per_column.setText(" columns")
+        self.label_tiles_per_column.hide()
+
+        self.layout_tiles_per_column = PyQt6.QtWidgets.QVBoxLayout()
+        self.layout_tiles_per_column.addWidget(self.field_tiles_per_column)
+        self.layout_tiles_per_column.addWidget(self.label_tiles_per_column)
+        self.layout_tiles_per_column.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignTop)
 
         #Palettes
         for i in range(256): #setup default palette
@@ -541,8 +574,24 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             button_palettepick.allow_press = True
             button_palettepick.press_quick_threshold = 1
             button_palettepick.setStyleSheet(f"background-color: #{self.gfx_palette[i]:00x}; color: white;")
-            button_palettepick.setGeometry(600 + 8*int(i%16), 0 + 8*int(i/16), 10, 10)
+            button_palettepick.setMaximumSize(10, 10)
+            self.layout_colorpick.addWidget(button_palettepick, int(i/16), int(i%16))
             button_palettepick.hide()
+
+        self.layout_editzone_row1.addItem(self.layout_colorpick)
+        self.layout_editzone_row1.addItem(self.layout_tile_width)
+        self.layout_editzone_row1.addItem(self.layout_tile_height)
+        self.layout_editzone_row1.addItem(self.layout_tiles_per_row)
+        self.layout_editzone_row1.addItem(self.layout_tiles_per_column)
+
+        self.layout_editzone_row0.addWidget(self.button_file_save)
+        self.layout_editzone_row0.addWidget(self.label_file_size)
+        self.layout_editzone_row0.addWidget(self.dropdown_gfx_depth)
+        self.layout_editzone_row0.addWidget(self.field_address)
+
+        self.layout_editzone.addItem(self.layout_editzone_row0)
+        self.layout_editzone.addItem(self.layout_editzone_row1)
+        self.layout_editzone.addItem(self.file_content)
 
         #Level Editor(Coming Soon™)
         #Tweaks(Coming Soon™)
@@ -557,19 +606,19 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.dropdown_tweak_target.hide()
 
         self.page_tweaks_stats = PyQt6.QtWidgets.QWidget(self.tabs_tweaks)
-        self.page_tweaks_stats.setLayout(PyQt6.QtWidgets.QFormLayout())
+        self.page_tweaks_stats.setLayout(PyQt6.QtWidgets.QGridLayout())
 
         self.page_tweaks_physics = PyQt6.QtWidgets.QWidget(self.tabs_tweaks)
-        self.page_tweaks_physics.setLayout(PyQt6.QtWidgets.QFormLayout())
+        self.page_tweaks_physics.setLayout(PyQt6.QtWidgets.QGridLayout())
 
         self.page_tweaks_behaviour = PyQt6.QtWidgets.QWidget(self.tabs_tweaks)
-        self.page_tweaks_behaviour.setLayout(PyQt6.QtWidgets.QFormLayout())
+        self.page_tweaks_behaviour.setLayout(PyQt6.QtWidgets.QGridLayout())
 
         self.page_tweaks_animations = PyQt6.QtWidgets.QWidget(self.tabs_tweaks)
-        self.page_tweaks_animations.setLayout(PyQt6.QtWidgets.QFormLayout())
+        self.page_tweaks_animations.setLayout(PyQt6.QtWidgets.QGridLayout())
 
         self.page_tweaks_misc = PyQt6.QtWidgets.QWidget(self.tabs_tweaks)
-        self.page_tweaks_misc.setLayout(PyQt6.QtWidgets.QFormLayout())
+        self.page_tweaks_misc.setLayout(PyQt6.QtWidgets.QGridLayout())
 
         self.tabs_tweaks.addTab(self.page_tweaks_stats, "Stats")
 
@@ -673,10 +722,12 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
     def enable_editing_ui(self):
         #self.button_codeedit.setDisabled(False)
         self.importSubmenu.setDisabled(False)
+        self.button_file_save.show()
         self.button_save.setDisabled(False)
         self.button_playtest.setDisabled(False)
         self.dropdown_tweak_target.show()
         self.field_address.show()
+        self.label_file_size.show()
 
     def exportCall(self):
         dialog = PyQt6.QtWidgets.QFileDialog(
@@ -915,6 +966,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.field_address.setValue(self.base_address+self.relative_adress)
             self.field_address.setMaximum(self.base_address+len(self.rom.files[int(self.tree.currentItem().text(0))]))
             if self.fileToEdit_name.find(".Folder") == -1:# if it's a file
+                self.label_file_size.setText(f"Size: {len(self.rom.files[int(self.tree.currentItem().text(0))]):00X} bytes")
                 if self.fileDisplayRaw == False:
                     match self.fileDisplayMode:
                         case "Adapt":
@@ -955,6 +1007,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                     else:
                         self.field_address.setDisabled(True)
                         self.file_editor_show("Text")
+                        self.checkbox_textoverwite.hide()
                         self.file_content_text.setReadOnly(True)
                         if self.fileDisplayState == "None":
                             file_knowledge = "unknown"
@@ -966,7 +1019,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                     self.file_content_text.setPlainText(self.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:self.relative_adress+self.file_content_text.charcount_page()].hex())
                 self.file_content_text.setDisabled(False)
             else:# if it's a folder
+                self.label_file_size.setText(f"Size: N/A")
                 self.file_editor_show("Text")
+                self.checkbox_textoverwite.hide()
                 self.field_address.setDisabled(True)
                 self.file_content_text.setPlainText("")
                 self.file_content_text.setDisabled(True)
@@ -974,6 +1029,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.button_file_save.setDisabled(True)
         else:# Nothing is selected, reset edit space
             self.field_address.setDisabled(True)
+            self.label_file_size.setText(f"Size: N/A")
             self.file_content_text.setPlainText("")
             self.button_file_save.setDisabled(True)
 
@@ -986,10 +1042,13 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.file_content_gfx,
             self.dropdown_gfx_depth,
             self.field_tile_width,
+            self.label_tile_width,
             self.field_tile_height,
+            self.label_tile_height,
             self.field_tiles_per_row,
+            self.label_tiles_per_row,
             self.field_tiles_per_column,
-            self.label_gfx_params
+            self.label_tiles_per_column
             ]
         for i in range(256):
             graphics_widgets.append(getattr(self, f"button_palettepick_{i}"))
