@@ -2,6 +2,8 @@
 *.nds
 #pycache
 *.pyc
+#init
+*.ini
 #exported files
 *.bin
 *.vx

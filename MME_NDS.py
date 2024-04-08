@@ -5,6 +5,9 @@ import sys, os, platform
 import ndspy
 import ndspy.rom, ndspy.code#, ndspy.soundArchive
 import library.dataconverter, library.patchdata, library.init_readwrite
+#Global variables
+global EDITOR_VERSION
+EDITOR_VERSION = "0.2.1"
 
 class ThreadSignals(PyQt6.QtCore.QObject):
     signal_RunnableDisplayRawText = PyQt6.QtCore.pyqtSignal(str)
@@ -275,6 +278,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.gfx_palette = [0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)]
         self.resize(self.window_width, self.window_height)
         self.theme_switch = False
+        self.firstLaunch = True
         self.UiComponents()
         self.show()
         self.load_preferences()
@@ -284,6 +288,13 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         library.init_readwrite.load_preferences(self, "SETTINGS", struct="bool")
         self.checkbox_theme.setChecked(self.theme_switch)# Update checkbox with current option
         self.switch_theme(True)# Update theme with current option
+        #MISC
+        library.init_readwrite.load_preferences(self, "MISC", struct="bool")
+        if self.firstLaunch:
+            firstLaunch_dialog = PyQt6.QtWidgets.QMessageBox()
+            firstLaunch_dialog.setWindowTitle("First Launch")
+            firstLaunch_dialog.setText("Editor's current features:\n- English dialogue text editor\n- Patcher(no patches available yet)")
+            firstLaunch_dialog.exec()
 
     def toggle_widget_icon(self, widget: PyQt6.QtWidgets.QWidget, checkedicon: PyQt6.QtGui.QImage, uncheckedicon: PyQt6.QtGui.QImage):
         if widget.isChecked():
@@ -328,7 +339,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.dialog_about.resize(500, 500)
         self.text_about = PyQt6.QtWidgets.QTextBrowser(self.dialog_about)
         self.text_about.resize(self.dialog_about.width(), self.dialog_about.height())
-        self.text_about.setText(f"Supports:\nMEGAMANZX (Mega Man ZX)\nMEGAMANZXA (Mega Man ZX Advent)\n\nVersionning:\nEditor version: 0.2.1 (beta, two major functional features, one WIP feature)\nPython version: 3.11.4 (your version is {platform.python_version()})\nPyQt version: 6.5.2 (your version is {PyQt6.QtCore.PYQT_VERSION_STR})\nNDSPy version: 4.1.0 (your version is {list(ndspy.VERSION)[0]}.{list(ndspy.VERSION)[1]}.{list(ndspy.VERSION)[2]})\n")
+        self.text_about.setText(f"Supports:\nMEGAMANZX (Mega Man ZX)\nMEGAMANZXA (Mega Man ZX Advent)\n\nVersionning:\nEditor version: {EDITOR_VERSION} (final objective(s) completed, major functional features, WIP features)\nPython version: 3.11.4 (your version is {platform.python_version()})\nPyQt version: 6.5.2 (your version is {PyQt6.QtCore.PYQT_VERSION_STR})\nNDSPy version: 4.1.0 (your version is {list(ndspy.VERSION)[0]}.{list(ndspy.VERSION)[1]}.{list(ndspy.VERSION)[2]})\n")
         self.aboutAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\information.png'), '&About', self)
         self.aboutAction.setStatusTip('Show information about the application')
         self.aboutAction.triggered.connect(lambda: self.dialog_about.exec())
@@ -540,7 +551,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.field_tiles_per_row.hide()
 
         self.label_tiles_per_row = PyQt6.QtWidgets.QLabel(self.page_explorer)
-        self.label_tiles_per_row.setText(" rows")
+        self.label_tiles_per_row.setText(" columns")
         self.label_tiles_per_row.hide()
 
         self.layout_tiles_per_row = PyQt6.QtWidgets.QVBoxLayout()
@@ -557,7 +568,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.field_tiles_per_column.hide()
 
         self.label_tiles_per_column = PyQt6.QtWidgets.QLabel(self.page_explorer)
-        self.label_tiles_per_column.setText(" columns")
+        self.label_tiles_per_column.setText(" rows")
         self.label_tiles_per_column.hide()
 
         self.layout_tiles_per_column = PyQt6.QtWidgets.QVBoxLayout()
@@ -1157,6 +1168,8 @@ def extract(fileToEdit_id: int, folder="", fileToEdit_name="", path="", format="
                 print("could not find method for converting to specified format.")
 #run the app
 app.exec()
+w.firstLaunch = False
+library.init_readwrite.write_preferences(w)
 # After execution
 if os.path.exists(w.temp_path) and w.romToEdit_name != "":
     try:

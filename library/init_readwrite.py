@@ -2,10 +2,12 @@ import os.path
 import re
 
 def write_preferences(obj: object):
-    with open("preferences.txt", "w") as my_file:
+    with open("preferences.ini", "w") as my_file:
         my_file.write(
 f"""[SETTINGS]
-theme_switch={obj.theme_switch}""")
+theme_switch={obj.theme_switch}
+[MISC]
+firstLaunch={obj.firstLaunch}""")
 
 def load_preferences(obj: object, sec="ALL_SECTIONS", inc: list[str]=[], exc: list[str]=[], struct="string"):
     info_name = "[INFO] "
@@ -18,12 +20,12 @@ def load_preferences(obj: object, sec="ALL_SECTIONS", inc: list[str]=[], exc: li
     PRINTCOLOR_ENDC = '\033[0m'
     PRINTCOLOR_BOLD = '\033[1m'
     PRINTCOLOR_UNDERLINE = '\033[4m'
-    if os.path.exists("preferences.txt"):
+    if os.path.exists("preferences.ini"):
         print(info_name + PRINTCOLOR_OKCYAN + "initfile found." + PRINTCOLOR_ENDC)
         print(info_name + "reading values in \"" + struct + "\" mode.")
         init_file = {}
         init_file_section = ""
-        with open("preferences.txt", "r") as my_file:
+        with open("preferences.ini", "r") as my_file:
             for line in my_file:
                 line = line.removesuffix("\n")
                 if line and line[0] == "[":
