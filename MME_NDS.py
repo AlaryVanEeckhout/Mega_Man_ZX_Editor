@@ -195,7 +195,7 @@ class EditorTree(PyQt6.QtWidgets.QTreeWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
     
-    def mousePressEvent(self, event: PyQt6.QtCore.QEvent):
+    def mousePressEvent(self, event: PyQt6.QtCore.QEvent): #redefine mouse press to insert custom code on right click
         if event.type() == PyQt6.QtCore.QEvent.Type.MouseButtonPress:
             if event.button() == PyQt6.QtCore.Qt.MouseButton.RightButton: # execute different code if right click
                 super(EditorTree, self).mousePressEvent(event)
@@ -255,13 +255,22 @@ class LongTextEdit(PyQt6.QtWidgets.QPlainTextEdit):
         super().__init__(*args, **kwargs)
         self.charcount_page = lambda: int(int(self.width()/self.fontMetrics().averageCharWidth() - 1)*int(self.height()/self.fontMetrics().lineSpacing() -1)/2)
 
+    def mousePressEvent(self, event: PyQt6.QtCore.QEvent): #redefine mouse press to insert custom code on right click
+        if event.type() == PyQt6.QtCore.QEvent.Type.MouseButtonPress:
+            if event.button() == PyQt6.QtCore.Qt.MouseButton.RightButton: # execute different code if right click
+                super(LongTextEdit, self).mousePressEvent(event)
+                if w.tree.currentItem() != None:
+                    w.textEditContextMenu()
+            else: # do normal code if not right click
+                super(LongTextEdit, self).mousePressEvent(event)
+
 class MainWindow(PyQt6.QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
 
         self.window_width = 1024
         self.window_height = 720
-        self.setWindowIcon(PyQt6.QtGui.QIcon('icons\\biometals-creation.png'))
+        self.setWindowIcon(PyQt6.QtGui.QIcon('icons\\appicon.ico'))
         self.setWindowTitle("Mega Man ZX Editor")
         self.temp_path = f"{os.path.curdir}\\temp\\"
         self.rom = ndspy.rom.NintendoDSRom
@@ -293,6 +302,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         if self.firstLaunch:
             firstLaunch_dialog = PyQt6.QtWidgets.QMessageBox()
             firstLaunch_dialog.setWindowTitle("First Launch")
+            firstLaunch_dialog.setWindowIcon(PyQt6.QtGui.QIcon('icons\\information.png'))
             firstLaunch_dialog.setText("Editor's current features:\n- English dialogue text editor\n- Patcher(no patches available yet)")
             firstLaunch_dialog.exec()
 
@@ -381,7 +391,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.viewEndialogAction.triggered.connect(lambda: setattr(self, "fileDisplayMode", "English dialogue"))
         self.viewEndialogAction.triggered.connect(lambda: self.treeCall(False))
 
-        self.viewGraphicAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\biometals-creation.png'), '&Graphics', self)
+        self.viewGraphicAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\appicon.ico'), '&Graphics', self)
         self.viewGraphicAction.setStatusTip('Files will be decrypted as graphics.')
         self.viewGraphicAction.setCheckable(True)
         self.viewGraphicAction.triggered.connect(lambda: setattr(self, "fileDisplayMode", "Graphics"))
@@ -426,10 +436,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.page_explorer.setLayout(PyQt6.QtWidgets.QHBoxLayout())
 
         self.page_leveleditor = PyQt6.QtWidgets.QWidget(self.tabs)
-        self.page_leveleditor.setLayout(PyQt6.QtWidgets.QGridLayout())
+        self.page_leveleditor.setLayout(PyQt6.QtWidgets.QHBoxLayout())
 
         self.page_tweaks = PyQt6.QtWidgets.QWidget(self.tabs)
-        self.page_tweaks.setLayout(PyQt6.QtWidgets.QGridLayout())
+        self.page_tweaks.setLayout(PyQt6.QtWidgets.QVBoxLayout())
 
         self.page_patches = PyQt6.QtWidgets.QWidget(self.tabs)
         self.page_patches.setLayout(PyQt6.QtWidgets.QGridLayout())
@@ -605,16 +615,29 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.layout_editzone.addItem(self.file_content)
 
         #Level Editor(Coming Soon™)
+        self.layout_level_editpannel = PyQt6.QtWidgets.QVBoxLayout()
+
+        self.dropdown_editor_area = PyQt6.QtWidgets.QComboBox(self.page_leveleditor)
+        self.dropdown_editor_area.setToolTip("Choose an area to modify")
+        self.gfx_scene_level = GFXView()
+
+
+        self.page_leveleditor.layout().addItem(self.layout_level_editpannel)
+        self.layout_level_editpannel.addWidget(self.dropdown_editor_area)
+
+        self.page_leveleditor.layout().addWidget(self.gfx_scene_level)
+
         #Tweaks(Coming Soon™)
         self.tabs_tweaks = PyQt6.QtWidgets.QTabWidget(self.page_tweaks)
-        self.page_tweaks.layout().addWidget(self.tabs_tweaks)
 
         self.dropdown_tweak_target = PyQt6.QtWidgets.QComboBox(self.page_tweaks)
         self.dropdown_tweak_target.setGeometry(125, 75, 125, 25)
         self.dropdown_tweak_target.setToolTip("Choose a target to appy tweaks to")
         self.dropdown_tweak_target.addItems(["Other", "Player", "Player(Hu)", "Player(X)", "Player(Zx)", "Player(Hx)", "Player(Fx)", "Player(Lx)", "Player(Px)", "Player(Ox)"])# order of names is determined by the enum in dataconverter
-        #self.dropdown_tweak_target.currentTextChanged.connect(self.treeCall)# Update gfx with current depth
+        #self.dropdown_tweak_target.currentTextChanged.connect(self.tweakTargetCall)
         self.dropdown_tweak_target.hide()
+        self.page_tweaks.layout().addWidget(self.dropdown_tweak_target)
+        self.page_tweaks.layout().addWidget(self.tabs_tweaks)
 
         self.page_tweaks_stats = PyQt6.QtWidgets.QWidget(self.tabs_tweaks)
         self.page_tweaks_stats.setLayout(PyQt6.QtWidgets.QGridLayout())
@@ -640,6 +663,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.tabs_tweaks.addTab(self.page_tweaks_behaviour, "Behaviour")
 
         self.checkbox_paralyzed = PyQt6.QtWidgets.QCheckBox(self.page_tweaks_behaviour)
+        self.page_tweaks_behaviour.layout().addWidget(self.checkbox_paralyzed)
 
 
         self.tabs_tweaks.addTab(self.page_tweaks_animations, "Animations")
@@ -654,6 +678,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.tree_patches.setColumnCount(4)
         self.tree_patches.setHeaderLabels(["Enabed", "Address", "Name", "Type", "Size"])
         self.tree_patches.itemChanged.connect(self.patch_game)
+
         #Shortcuts
         #PyQt6.QtWidgets.QKeySequenceEdit()
 
@@ -725,9 +750,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 dialog.setText("Game \"" + self.rom.name.decode() + "\" is NOT supported! Continue at your own risk!")
                 dialog.exec()
 
-            self.enable_editing_ui()
             self.tree.setCurrentItem(None)
             self.treeUpdate()
+            self.enable_editing_ui()
             self.file_content_text.setDisabled(True)
 
     def enable_editing_ui(self):
@@ -739,7 +764,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.dropdown_tweak_target.show()
         self.field_address.show()
         self.label_file_size.show()
-
+        self.dropdown_editor_area.addItems([item.text(1) for item in self.tree.findItems("\A[a-z][0-9][0-9]", PyQt6.QtCore.Qt.MatchFlag.MatchRegularExpression, 1)])
     def exportCall(self):
         dialog = PyQt6.QtWidgets.QFileDialog(
                 self,
@@ -887,7 +912,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 self,
                 "Save ROM",
                 "",
-                "All Files (*)",
+                "NDS Files (*.nds *.srl);; All Files (*)",
                 options=PyQt6.QtWidgets.QFileDialog.Option.DontUseNativeDialog,
                 )
         dialog.setAcceptMode(dialog.AcceptMode.AcceptSave)
@@ -1080,7 +1105,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 self.relative_adress = 0x00000000
                 #print(f"{len(self.rom.save()):08X}")
 
-    def treeContextMenu(self):
+    def treeContextMenu(self): #quick menu to export or replace selected file
         self.tree_context_menu = PyQt6.QtWidgets.QMenu(self.tree)
         self.tree_context_menu.setGeometry(self.tree.cursor().pos().x(), self.tree.cursor().pos().y(), 50, 50)
         exportAction = self.tree_context_menu.addAction("Export " + self.tree.currentItem().text(1) + ("." + self.tree.currentItem().text(2)).replace(".Folder", " and contents"))
@@ -1091,6 +1116,16 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 self.exportCall()
             elif action2 == importAction:
                 self.replaceCall()
+
+    def textEditContextMenu(self): #quick menu to insert special values in dialogue file
+        self.file_context_menu = PyQt6.QtWidgets.QMenu(self.tree)
+        self.file_context_menu.setGeometry(self.file_content_text.cursor().pos().x(), self.file_content_text.cursor().pos().y(), 50, 50)
+        for char_index in range(len(library.dataconverter.special_character_list)):
+            if char_index >= 0xe0 and type(library.dataconverter.special_character_list[char_index]) != type(int()):
+                self.file_context_menu.addAction(f"{char_index:02X} - {library.dataconverter.special_character_list[char_index][1]}")
+        action2 = self.file_context_menu.exec()
+        if action2 is not None:
+            self.file_content_text.insertPlainText(action2.text()[action2.text().find("├"):])
 
     def save_filecontent(self): #Save to virtual ROM
         charlimit = None
