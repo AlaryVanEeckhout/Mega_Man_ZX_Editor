@@ -221,7 +221,7 @@ class HoldButton(PyQt6.QtWidgets.QPushButton):
     def on_timeout(self):
         self.pressed_quick = False
         self.counter += 1
-        print("hold " + str(self.counter))
+        #print("hold " + str(self.counter))
         if self.timeout_func != None:
             for f in self.timeout_func:
                 f()
@@ -286,7 +286,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.fileDisplayState = "None" # Same states as mode
         self.gfx_palette = [0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)]
         self.resize(self.window_width, self.window_height)
-        self.theme_switch = False
+        self.theme_index = 0
         self.firstLaunch = True
         self.UiComponents()
         self.show()
@@ -294,8 +294,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
     def load_preferences(self):
         #SETTINGS
-        library.init_readwrite.load_preferences(self, "SETTINGS", struct="bool")
-        self.checkbox_theme.setChecked(self.theme_switch)# Update checkbox with current option
+        library.init_readwrite.load_preferences(self, "SETTINGS", struct="int")
         self.switch_theme(True)# Update theme with current option
         #MISC
         library.init_readwrite.load_preferences(self, "MISC", struct="bool")
@@ -357,9 +356,14 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.dialog_settings = PyQt6.QtWidgets.QDialog(self)
         self.dialog_settings.setWindowTitle("Settings")
         self.dialog_settings.resize(100, 50)
-        self.checkbox_theme = PyQt6.QtWidgets.QCheckBox("Dark Theme", self.dialog_settings)
-        self.checkbox_theme.move(15, 0)
-        self.checkbox_theme.clicked.connect(lambda: self.switch_theme())
+        self.dialog_settings.setLayout(PyQt6.QtWidgets.QGridLayout())
+        self.dropdown_theme = PyQt6.QtWidgets.QComboBox(self.dialog_settings)
+        self.dropdown_theme.activated.connect(lambda: self.switch_theme())
+        self.dropdown_theme.addItems(PyQt6.QtWidgets.QStyleFactory.keys())
+        self.dropdown_theme.addItem("Custom")
+        self.label_theme = PyQt6.QtWidgets.QLabel("Theme", self.dialog_settings)
+        self.dialog_settings.layout().addWidget(self.label_theme)
+        self.dialog_settings.layout().addWidget(self.dropdown_theme)
 
         self.settingsAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\gear.png'), '&Settings', self)
         self.settingsAction.setStatusTip('Settings')
@@ -864,14 +868,28 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
     
     def switch_theme(self, isupdate=False):
         if isupdate == False:
-            self.theme_switch = not self.theme_switch
+            self.theme_index = self.dropdown_theme.currentIndex()
             library.init_readwrite.write_preferences(self)
+        else:
+            self.dropdown_theme.setCurrentIndex(self.theme_index) # Update dropdown with current option
 
         app: PyQt6.QtWidgets.QMainWindow = PyQt6.QtCore.QCoreApplication.instance()
-        if self.theme_switch:
-            app.setStyleSheet(open('library\\dark_theme.qss').read())
+        #print(app.style().metaObject().className())
+        app.setStyle(PyQt6.QtWidgets.QCommonStyle())
+        app.setStyleSheet("")
+        if self.theme_index < len(PyQt6.QtWidgets.QStyleFactory.keys()):
+            app.setStyle(self.dropdown_theme.itemText(self.theme_index))
         else:
-            app.setStyleSheet("")
+            if os.path.exists('theme\\custom_theme.qss'):
+                app.setStyleSheet(open('theme\\custom_theme.qss').read())
+            else:
+                os.mkdir("theme")
+                open('theme\\custom_theme.qss', "w")
+                dialog = PyQt6.QtWidgets.QMessageBox()
+                dialog.setWindowTitle("No custom stylesheet found")
+                dialog.setWindowIcon(PyQt6.QtGui.QIcon("icons\\exclamation"))
+                dialog.setText("No custom stylesheet was found in location \"theme\\custom_theme.qss\".\nAn empty file has been created there.\nPlease put the contents of your custom stylesheet in it.\nIf you wish to create one yourself but do not know how, refer to this page:\nhttps://doc.qt.io/qtforpython-6.5/overviews/stylesheet-examples.html")
+                dialog.exec()
 
     def exitCall(self):
         self.close()
@@ -893,6 +911,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         button: HoldButton = getattr(self, f"button_palettepick_{color_index}")
         if button.counter >= 2:
             dialog = PyQt6.QtWidgets.QColorDialog(self)
+            dialog.setOptions(PyQt6.QtWidgets.QColorDialog.ColorDialogOption.DontUseNativeDialog)
             dialog.setCurrentColor(int(button.styleSheet()[button.styleSheet().find(":")+3:button.styleSheet().find(";")], 16))
             dialog.exec()
             if dialog.selectedColor().isValid():
@@ -1002,7 +1021,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.field_address.setValue(self.base_address+self.relative_adress)
             self.field_address.setMaximum(self.base_address+len(self.rom.files[int(self.tree.currentItem().text(0))]))
             if self.fileToEdit_name.find(".Folder") == -1:# if it's a file
-                self.label_file_size.setText(f"Size: {len(self.rom.files[int(self.tree.currentItem().text(0))]):00X} bytes")
+                self.label_file_size.setText(f"Size: 0x{len(self.rom.files[int(self.tree.currentItem().text(0))]):00X} bytes")
                 if self.fileDisplayRaw == False:
                     match self.fileDisplayMode:
                         case "Adapt":
@@ -1120,9 +1139,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
     def textEditContextMenu(self): #quick menu to insert special values in dialogue file
         self.file_context_menu = PyQt6.QtWidgets.QMenu(self.tree)
         self.file_context_menu.setGeometry(self.file_content_text.cursor().pos().x(), self.file_content_text.cursor().pos().y(), 50, 50)
-        for char_index in range(len(library.dataconverter.special_character_list)):
-            if char_index >= 0xe0 and type(library.dataconverter.special_character_list[char_index]) != type(int()):
-                self.file_context_menu.addAction(f"{char_index:02X} - {library.dataconverter.special_character_list[char_index][1]}")
+        for char_index in range(len(library.dataconverter.SPECIAL_CHARACTER_LIST)):
+            if char_index >= 0xe0 and type(library.dataconverter.SPECIAL_CHARACTER_LIST[char_index]) != type(int()):
+                self.file_context_menu.addAction(f"{char_index:02X} - {library.dataconverter.SPECIAL_CHARACTER_LIST[char_index][1]}")
         action2 = self.file_context_menu.exec()
         if action2 is not None:
             self.file_content_text.insertPlainText(action2.text()[action2.text().find("├"):])

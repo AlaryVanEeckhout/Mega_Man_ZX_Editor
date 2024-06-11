@@ -16,7 +16,7 @@ def write_preferences(obj: object):
     with open("preferences.ini", "w") as my_file:
         my_file.write(
 f"""[SETTINGS]
-theme_switch={obj.theme_switch}
+theme_index={obj.theme_index}
 [MISC]
 firstLaunch={obj.firstLaunch}"""
         )

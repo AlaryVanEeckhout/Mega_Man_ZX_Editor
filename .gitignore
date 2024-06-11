@@ -4,6 +4,8 @@
 *.pyc
 #init
 *.ini
+#themes
+*.qss
 #exported files
 *.bin
 *.vx
@@ -11,3 +13,4 @@
 *.txt
 *.bmp
 *.mov
+#specific files

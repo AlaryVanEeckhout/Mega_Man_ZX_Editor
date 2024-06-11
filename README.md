@@ -31,6 +31,7 @@ For now, I'm messing around with the game to find useful tweaks. I'm also making
 - Game Logic Editor*
 <!---
 - 3D Model Editor*
+- In-game Cutscene Editor*
 -->
 
 *This feature may not be implemented/is not currently prioritized since I haven't looked into it and it looks hard to do at first glance. 
@@ -52,6 +53,5 @@ Currently, there are no releases and I'm not sure how to include the dependencie
 - GUI(PyQt6): https://www.riverbankcomputing.com/software/pyqt/
 - Icons: https://p.yusukekamiyamane.com/
 - appicon.ico: Mega Man ZX devs, taken from [here](https://www.spriters-resource.com/ds_dsi/megamanzx/sheet/180723/) and truncated by me using GIMP
-- Dark theme: https://raw.githubusercontent.com/NiklasWyld/Wydbid/main/Assets/stylesheet (modified by me)
 
 Some parts of code I copied(and modified) from answers to other people who asked for help(for example, on stack overflow) on topics I myself needed help on.
