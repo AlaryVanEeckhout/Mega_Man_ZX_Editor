@@ -73,6 +73,63 @@ SPECIAL_CHARACTER_LIST[0xfd] = [0, "├NEWPAGE┤"]
 SPECIAL_CHARACTER_LIST[0xfe] = [0, "├END┤"]
 SPECIAL_CHARACTER_LIST[0xff] = [0, "├ENDOFFILE┤"] #end of used file (duplicate text is used to fill the rest of the file)
 
+def ceildiv(a, b):
+    return -(a // -b)
+
+def signext(n):
+    if n == 0:
+        return 0
+    elif n > 0:
+        return 1
+    else:
+        return -1
+
+def numberToBase(n: int, b: int): # Does not support decimals(not needed anyway atm)
+    if n == 0: # 0*n^b = 0
+        return [0]
+    if b == -1: # Base 1, but even exponents give positive numbers and odd exponents give negative numbers
+        if n > 0:
+            return [1, 0]*(n-1)+[1]
+        else:
+            return [0, 1]*-n
+    if b == 0: # 0^0 = 1 <=> n = n*0^0; This is essentially a "base infinite" where each number has a different symbol
+        return [n]
+    if b == 1: # Uses Unary Numeral System
+        return [1]*n
+    digits = []
+    if b < 0: # If base negative, minus equals to number so that the code that follows still works
+        n *= -1
+    while n:
+        #print(n)
+        if n < 0 and b > 0:
+            digits.append(int(n % b - b*signext(n%b))) # substract to arrive at correct value if not 0
+            n = ceildiv(n, b)
+        else:
+            digits.append(int(n % b))
+            n //= b
+        if b < 0:
+            digits[len(digits)-1] *= -1 # Re-minus equals to number to make it correct sign
+    return digits[::-1]
+
+def baseToStr(l: list, b: int, alphanumeric: bool = False):
+    string = ""
+    symbols = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    for e in l:
+        if b != 0 and (abs(b) <= 10 or abs(e) <= 9):
+            string += str(e)
+        elif alphanumeric and (abs(b) > 10 or b == 0) and abs(e) < len(symbols):
+            string += symbols[abs(e)]
+        else:
+            string += "{" + str(e) + "}" # if out of symbol range, add base 10 value of symbol in curly brackets
+    if l[0] < 0: # if negative number, rectify minus symbol
+        string = string.replace("-", "")
+        string = "-" + string
+    string = string
+    return string
+
+def strToInt():
+    pass
+
 def str_subgroups(s: str, n: int):
     return [s[i:i+n] for i in range(0, len(s), n)]
 
@@ -225,3 +282,7 @@ def convertdata_qt_to_bin(qimage: PyQt6.QtGui.QImage, palette: list[int]=[0xff00
     alg = CompressionAlgorithmEnum.EIGHTBPP
     print("convert: " + convertdata_qt_to_bin(convertdata_bin_to_qt(read, algorithm=alg), algorithm=alg).hex())
     """
+#num = 42
+#base = 45
+#print(numberToBase(num, base))
+#print(baseToStr(numberToBase(num, base), base, True))
