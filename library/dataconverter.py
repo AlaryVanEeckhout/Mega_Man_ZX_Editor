@@ -89,9 +89,9 @@ def numberToBase(n: int, b: int): # Does not support decimals(not needed anyway 
         return [0]
     if b == -1: # Base 1, but even exponents give positive numbers and odd exponents give negative numbers
         if n > 0:
-            return [1, 0]*(n-1)+[1]
+            return [1]+[0, 1]*(n-1)
         else:
-            return [0, 1]*-n
+            return [1, 0]*-n
     if b == 0: # 0^0 = 1 <=> n = n*0^0; This is essentially a "base infinite" where each number has a different symbol
         return [n]
     if b == 1: # Uses Unary Numeral System
@@ -111,9 +111,9 @@ def numberToBase(n: int, b: int): # Does not support decimals(not needed anyway 
             digits[len(digits)-1] *= -1 # Re-minus equals to number to make it correct sign
     return digits[::-1]
 
+symbols = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 def baseToStr(l: list, b: int, alphanumeric: bool = False):
     string = ""
-    symbols = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     for e in l:
         if b != 0 and (abs(b) <= 10 or abs(e) <= 9):
             string += str(e)
@@ -127,8 +127,33 @@ def baseToStr(l: list, b: int, alphanumeric: bool = False):
     string = string
     return string
 
-def strToInt():
-    pass
+def strToBase(s: str):
+    sign = 1
+    if "-" in s:
+        sign = -1
+    s = s.replace("-", "")
+    list_1 = s.replace("{", "}").split("}")
+    list_2 = []
+    list_3 = []
+    list_final = []
+    for e in list_1:
+        if not "{" + e + "}" in s: # if not represented in base 10 due to being out of symbol range
+            list_2 = list(e)
+        else:
+            list_2 = [e]
+        list_3.extend(list_2)
+    for i in list_3:
+        if i.isalpha():
+            list_final.append(int(symbols.index(i.upper()))*sign)
+        else:
+            list_final.append(int(i)*sign)
+    return list_final
+
+def baseToInt(l: list, b: int):
+    int_final = 0
+    for i in range(len(l)):
+        int_final += l[i]*b**(len(l)-1 - i)
+    return int_final
 
 def str_subgroups(s: str, n: int):
     return [s[i:i+n] for i in range(0, len(s), n)]
@@ -282,7 +307,11 @@ def convertdata_qt_to_bin(qimage: PyQt6.QtGui.QImage, palette: list[int]=[0xff00
     alg = CompressionAlgorithmEnum.EIGHTBPP
     print("convert: " + convertdata_qt_to_bin(convertdata_bin_to_qt(read, algorithm=alg), algorithm=alg).hex())
     """
-#num = 42
-#base = 45
+# convert number to int in different formats
+#num = 3000000
+#base = 99
 #print(numberToBase(num, base))
 #print(baseToStr(numberToBase(num, base), base, True))
+#print(strToBase(baseToStr(numberToBase(num, base), base, True)))
+#print(baseToInt(strToBase(baseToStr(numberToBase(num, base), base, True)), base))
+#print(baseToInt(strToBase("3000000"), 99))

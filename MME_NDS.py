@@ -4,6 +4,8 @@ import sys, os, platform
 #import logging, time, random
 import ndspy
 import ndspy.rom, ndspy.code#, ndspy.soundArchive
+#import PyQt6.Qt6
+#import PyQt6.Qt6.qsci
 import library.dataconverter, library.patchdata, library.init_readwrite
 #Global variables
 global EDITOR_VERSION
@@ -242,13 +244,14 @@ class HoldButton(PyQt6.QtWidgets.QPushButton):
         self.timer.stop()
         self.counter = -1
 
-class AddressSpinBox(PyQt6.QtWidgets.QSpinBox):
+class BetterSpinBox(PyQt6.QtWidgets.QSpinBox):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setRange(0, 0x03000000)
+        self.alphanum = True
+        self.setRange(-0x03000000, 0x03000000)
 
     def textFromValue(self, value):
-        return "%08X" % value
+        return library.dataconverter.baseToStr(library.dataconverter.numberToBase(value, self.displayIntegerBase()), self.displayIntegerBase(), self.alphanum)
 
 class LongTextEdit(PyQt6.QtWidgets.QPlainTextEdit):
     def __init__(self, *args, **kwargs):
@@ -276,26 +279,28 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.rom = ndspy.rom.NintendoDSRom
         self.arm9 = ndspy.code.MainCodeFile
         self.arm7 = ndspy.code.MainCodeFile
-        self.base_address = 0x00000000
-        self.relative_adress = 0x00000000
+        self.base_address = 0
+        self.relative_adress = 0
         self.romToEdit_name = ''
         self.romToEdit_ext = ''
         self.fileToEdit_name = ''
-        self.fileDisplayRaw = False # Display file in 'raw'(bin) format. Else, diplayed in readable format
+        self.fileDisplayRaw = False # Display file in 'raw'(hex) format. Else, diplayed in readable format
         self.fileDisplayMode = "Adapt" # Modes: Adapt, Binary, English dialogue, Japanese dialogue, Graphics, Sound, Movie, Code
         self.fileDisplayState = "None" # Same states as mode
         self.gfx_palette = [0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)]
         self.resize(self.window_width, self.window_height)
         self.theme_index = 0
+        self.displayBase = 16
+        self.displayAlphanumeric = True
         self.firstLaunch = True
+        self.load_preferences()
         self.UiComponents()
         self.show()
-        self.load_preferences()
 
     def load_preferences(self):
         #SETTINGS
-        library.init_readwrite.load_preferences(self, "SETTINGS", struct="int")
-        self.switch_theme(True)# Update theme with current option
+        library.init_readwrite.load_preferences(self, "SETTINGS", struct="int", exc=["displayAlphanumeric"])
+        library.init_readwrite.load_preferences(self, "SETTINGS", struct="bool", inc=["displayAlphanumeric"])
         #MISC
         library.init_readwrite.load_preferences(self, "MISC", struct="bool")
         if self.firstLaunch:
@@ -357,13 +362,28 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.dialog_settings.setWindowTitle("Settings")
         self.dialog_settings.resize(100, 50)
         self.dialog_settings.setLayout(PyQt6.QtWidgets.QGridLayout())
+        self.label_theme = PyQt6.QtWidgets.QLabel("Theme", self.dialog_settings)
         self.dropdown_theme = PyQt6.QtWidgets.QComboBox(self.dialog_settings)
         self.dropdown_theme.activated.connect(lambda: self.switch_theme())
         self.dropdown_theme.addItems(PyQt6.QtWidgets.QStyleFactory.keys())
         self.dropdown_theme.addItem("Custom")
-        self.label_theme = PyQt6.QtWidgets.QLabel("Theme", self.dialog_settings)
+        self.switch_theme(True)# Update theme dropdown with current option
+        self.label_base = PyQt6.QtWidgets.QLabel("Numeric Base", self.dialog_settings)
+        self.field_base = PyQt6.QtWidgets.QSpinBox(self.dialog_settings)
+        self.field_base.setValue(self.displayBase)
+        self.field_base.setRange(-1000, 1000)
+        self.field_base.editingFinished.connect(lambda: self.treeCall(True))
+        self.label_alphanumeric = PyQt6.QtWidgets.QLabel("Alphanumeric Numbers", self.dialog_settings)
+        self.checkbox_alphanumeric = PyQt6.QtWidgets.QCheckBox(self.dialog_settings)
+        self.checkbox_alphanumeric.setChecked(self.displayAlphanumeric)
+        self.checkbox_alphanumeric.toggled.connect(lambda: setattr(self, "displayAlphanumeric", not self.displayAlphanumeric))
+        self.checkbox_alphanumeric.toggled.connect(lambda: self.treeCall(True))
         self.dialog_settings.layout().addWidget(self.label_theme)
         self.dialog_settings.layout().addWidget(self.dropdown_theme)
+        self.dialog_settings.layout().addWidget(self.label_base)
+        self.dialog_settings.layout().addWidget(self.field_base)
+        self.dialog_settings.layout().addWidget(self.label_alphanumeric)
+        self.dialog_settings.layout().addWidget(self.checkbox_alphanumeric)
 
         self.settingsAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\gear.png'), '&Settings', self)
         self.settingsAction.setStatusTip('Settings')
@@ -377,7 +397,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.appMenu.addActions([self.aboutAction, self.settingsAction, self.exitAction])
 
         self.displayRawAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\brain.png'), '&Converted formats', self)
-        self.displayRawAction.setStatusTip('Displays files in a readable format instead of raw format.')
+        self.displayRawAction.setStatusTip('Displays files in a readable format instead of hex format.')
         self.displayRawAction.setCheckable(True)
         self.displayRawAction.setChecked(True)
         self.displayRawAction.triggered.connect(self.display_format_toggleCall)
@@ -435,6 +455,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.tabs = PyQt6.QtWidgets.QTabWidget(self)
         self.setCentralWidget(self.tabs)
         self.tabs.resize(self.width(), self.height())
+        self.tabs.currentChanged.connect(self.patchCall)
 
         self.page_explorer = PyQt6.QtWidgets.QWidget(self.tabs)
         self.page_explorer.setLayout(PyQt6.QtWidgets.QHBoxLayout())
@@ -508,26 +529,26 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.font_caps.setCapitalization(PyQt6.QtGui.QFont.Capitalization.AllUppercase)
         
         # Address bar
-        self.field_address = AddressSpinBox(self.page_explorer)
+        self.field_address = BetterSpinBox(self.page_explorer)
         self.field_address.setFont(self.font_caps)
         self.field_address.setValue(self.base_address+self.relative_adress)
-        self.field_address.setPrefix("0x")
-        self.field_address.setDisplayIntegerBase(16)
-        self.field_address.valueChanged.connect(lambda: self.value_update_Call("relative_adress", self.field_address.value() - self.base_address, True))
+        #self.field_address.setPrefix("0x")
+        self.field_address.setDisplayIntegerBase(self.displayBase)
+        self.field_address.textChanged.connect(lambda: self.value_update_Call("relative_adress", library.dataconverter.baseToInt(library.dataconverter.strToBase(self.field_address.text()), self.field_address.displayIntegerBase()) - self.base_address, True))
         self.field_address.setDisabled(True)
         self.field_address.hide()
         # notes
         self.label_file_size = PyQt6.QtWidgets.QLabel(self.page_explorer)
         self.label_file_size.setText("Size: N/A")
         self.label_file_size.hide()
-        # Tiles Per row
+        # Tile Wifth
         self.tile_width = 8
-        self.field_tile_width = PyQt6.QtWidgets.QSpinBox(self.page_explorer)
-        self.field_tile_width.setStatusTip("Set depth to 1bpp and tile width to 16 for JP font")
+        self.field_tile_width = BetterSpinBox(self.page_explorer)
+        self.field_tile_width.setStatusTip(f"Set depth to 1bpp and tile width to {library.dataconverter.baseToStr(library.dataconverter.numberToBase(16, self.displayBase), self.displayBase, self.displayAlphanumeric)} for JP font")
         self.field_tile_width.setFont(self.font_caps)
         self.field_tile_width.setValue(self.tile_width)
-        self.field_tile_width.setDisplayIntegerBase(10)
-        self.field_tile_width.valueChanged.connect(lambda: self.value_update_Call("tile_width", int(f"{self.field_tile_width.text():01}"), True))
+        self.field_tile_width.setDisplayIntegerBase(self.displayBase)
+        self.field_tile_width.valueChanged.connect(lambda: self.value_update_Call("tile_width", library.dataconverter.baseToInt(library.dataconverter.strToBase(self.field_tile_width.text()), self.field_tile_width.displayIntegerBase()), True)) 
         self.field_tile_width.hide()
 
         self.label_tile_width = PyQt6.QtWidgets.QLabel(self.page_explorer)
@@ -538,13 +559,13 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.layout_tile_width.addWidget(self.field_tile_width)
         self.layout_tile_width.addWidget(self.label_tile_width)
         self.layout_tile_width.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignTop)
-        # Tiles Per Column
+        # Tile Height
         self.tile_height = 8
-        self.field_tile_height = PyQt6.QtWidgets.QSpinBox(self.page_explorer)
+        self.field_tile_height = BetterSpinBox(self.page_explorer)
         self.field_tile_height.setFont(self.font_caps)
         self.field_tile_height.setValue(self.tile_height)
-        self.field_tile_height.setDisplayIntegerBase(10)
-        self.field_tile_height.valueChanged.connect(lambda: self.value_update_Call("tile_height", int(f"{self.field_tile_height.text():01}"), True))
+        self.field_tile_height.setDisplayIntegerBase(self.displayBase)
+        self.field_tile_height.valueChanged.connect(lambda: self.value_update_Call("tile_height", library.dataconverter.baseToInt(library.dataconverter.strToBase(self.field_tile_height.text()), self.field_tile_height.DisplayIntegerBase()), True)) 
         self.field_tile_height.hide()
 
         self.label_tile_height = PyQt6.QtWidgets.QLabel(self.page_explorer)
@@ -557,11 +578,11 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.layout_tile_height.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignTop)
         # Tiles Per row
         self.tiles_per_row = 8
-        self.field_tiles_per_row = PyQt6.QtWidgets.QSpinBox(self.page_explorer)
+        self.field_tiles_per_row = BetterSpinBox(self.page_explorer)
         self.field_tiles_per_row.setFont(self.font_caps)
         self.field_tiles_per_row.setValue(self.tiles_per_row)
-        self.field_tiles_per_row.setDisplayIntegerBase(10)
-        self.field_tiles_per_row.valueChanged.connect(lambda: self.value_update_Call("tiles_per_row", int(f"{self.field_tiles_per_row.text():01}"), True))
+        self.field_tiles_per_row.setDisplayIntegerBase(self.displayBase)
+        self.field_tiles_per_row.valueChanged.connect(lambda: self.value_update_Call("tiles_per_row", library.dataconverter.baseToInt(library.dataconverter.strToBase(self.field_tiles_per_row.text()), self.field_tiles_per_row.displayIntegerBase()), True)) 
         self.field_tiles_per_row.hide()
 
         self.label_tiles_per_row = PyQt6.QtWidgets.QLabel(self.page_explorer)
@@ -574,11 +595,11 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.layout_tiles_per_row.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignTop)
         # Tiles Per Column
         self.tiles_per_column = 16
-        self.field_tiles_per_column = PyQt6.QtWidgets.QSpinBox(self.page_explorer)
+        self.field_tiles_per_column = BetterSpinBox(self.page_explorer)
         self.field_tiles_per_column.setFont(self.font_caps)
         self.field_tiles_per_column.setValue(self.tiles_per_column)
-        self.field_tiles_per_column.setDisplayIntegerBase(10)
-        self.field_tiles_per_column.valueChanged.connect(lambda: self.value_update_Call("tiles_per_column", int(f"{self.field_tiles_per_column.text():01}"), True))
+        self.field_tiles_per_column.setDisplayIntegerBase(self.displayBase)
+        self.field_tiles_per_column.valueChanged.connect(lambda: self.value_update_Call("tiles_per_column", library.dataconverter.baseToInt(library.dataconverter.strToBase(self.field_tiles_per_column.text()), self.field_tiles_per_column.displayIntegerBase()), True)) 
         self.field_tiles_per_column.hide()
 
         self.label_tiles_per_column = PyQt6.QtWidgets.QLabel(self.page_explorer)
@@ -715,6 +736,22 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             lambda: self.set_dialog_button_name(dialog, "&Open", "Import")
             )
     
+    def patches_refresh(self):
+        self.tree_patches.clear()
+        if self.rom.name.decode().replace(" ", "_") in library.patchdata.GameEnum.__members__:
+            patches = []
+            for patch in library.patchdata.GameEnum[self.rom.name.decode().replace(" ", "_")].value[1]:
+                #PyQt6.QtWidgets.QTreeWidgetItem(None, ["", "<address>", "<patch name>", "<patch type>", "<size>"])
+                patch_item = PyQt6.QtWidgets.QTreeWidgetItem(None, ["", f"{library.dataconverter.baseToStr(library.dataconverter.numberToBase(patch[0], self.displayBase), self.displayBase, self.displayAlphanumeric).zfill(8)}", patch[1], patch[2], f"{library.dataconverter.baseToStr(library.dataconverter.numberToBase(len(patch[4]), self.displayBase), self.displayBase, self.displayAlphanumeric).zfill(1)}"])
+                patch_item.setToolTip(0, str(patch[4]))
+                patches.append(patch_item)
+                patch_item.setFlags(patch_item.flags() | PyQt6.QtCore.Qt.ItemFlag.ItemIsUserCheckable)
+                if self.rom.save()[patch[0]:patch[0]+len(patch[4])] == patch[4]: # Check for already applied patches
+                    patch_item.setCheckState(0, PyQt6.QtCore.Qt.CheckState.Checked)
+                else:
+                    patch_item.setCheckState(0, PyQt6.QtCore.Qt.CheckState.Unchecked)
+            self.tree_patches.addTopLevelItems(patches)
+
     def openCall(self):
         fname = PyQt6.QtWidgets.QFileDialog.getOpenFileName(
             self,
@@ -732,21 +769,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.temp_path = f"{os.path.curdir}\\temp\\{self.romToEdit_name+self.romToEdit_ext}"
             self.setWindowTitle("Mega Man ZX Editor" + " <" + self.rom.name.decode() + " v" + self.rom.idCode.decode("utf-8") + " rev" + str(self.rom.version) + " region" + str(self.rom.region) + ">" + " \"" + self.romToEdit_name + self.romToEdit_ext + "\"")
             #print(self.rom.filenames)
-            self.tree_patches.clear()
-            patches = []
-            if self.rom.name.decode().replace(" ", "_") in library.patchdata.GameEnum.__members__:
-                for patch in library.patchdata.GameEnum[self.rom.name.decode().replace(" ", "_")].value[1]:
-                    #PyQt6.QtWidgets.QTreeWidgetItem(None, ["", "<address>", "<patch name>", "<patch type>", "<size>"])
-                    patch_item = PyQt6.QtWidgets.QTreeWidgetItem(None, ["", "0x" + f"{patch[0]:08X}", patch[1], patch[2], "0x" + f"{len(patch[4]):01X}"])
-                    patch_item.setToolTip(0, str(patch[4]))
-                    patches.append(patch_item)
-                    patch_item.setFlags(patch_item.flags() | PyQt6.QtCore.Qt.ItemFlag.ItemIsUserCheckable)
-                    if self.rom.save()[patch[0]:patch[0]+len(patch[4])] == patch[4]: # Check for already applied patches
-                        patch_item.setCheckState(0, PyQt6.QtCore.Qt.CheckState.Checked)
-                    else:
-                        patch_item.setCheckState(0, PyQt6.QtCore.Qt.CheckState.Unchecked)
-                self.tree_patches.addTopLevelItems(patches)
-            else:
+            self.patches_refresh()
+            if not self.rom.name.decode().replace(" ", "_") in library.patchdata.GameEnum.__members__:
                 print("ROM is NOT supported! Continue at your own risk!")
                 dialog = PyQt6.QtWidgets.QMessageBox(self)
                 dialog.setWindowTitle("Warning!")
@@ -769,6 +793,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.field_address.show()
         self.label_file_size.show()
         self.dropdown_editor_area.addItems([item.text(1) for item in self.tree.findItems("\A[a-z][0-9][0-9]", PyQt6.QtCore.Qt.MatchFlag.MatchRegularExpression, 1)])
+
     def exportCall(self):
         dialog = PyQt6.QtWidgets.QFileDialog(
                 self,
@@ -945,18 +970,20 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         dialog_playtest = PyQt6.QtWidgets.QDialog(self)
         dialog_playtest.setWindowTitle("Playtest Options")
         dialog_playtest.resize(500, 500)
+        dialog_playtest.setLayout(PyQt6.QtWidgets.QGridLayout())
         # Test options; arm 9 at 0x00004000; starting pos x=00A00D00 y=FF6F0400
         input_address = PyQt6.QtWidgets.QLineEdit(dialog_playtest)
         input_address.setPlaceholderText("insert test patch adress")
-        input_address.move(250, 375)
         input_value = PyQt6.QtWidgets.QLineEdit(dialog_playtest)
-        input_value.setPlaceholderText("insert test patch hexadecimal data")
-        input_value.move(250, 400)
+        input_value.setPlaceholderText("insert test patch data")
 
         button_play = PyQt6.QtWidgets.QPushButton("Play", dialog_playtest)
         button_play.move(dialog_playtest.width() - 100, dialog_playtest.height() - 50)
         button_play.pressed.connect(lambda: dialog_playtest.close())
         button_play.pressed.connect(lambda: dialog_playtest.setResult(1))
+        dialog_playtest.layout().addWidget(input_address)
+        dialog_playtest.layout().addWidget(input_value)
+        dialog_playtest.layout().addWidget(button_play)
         dialog_playtest.exec()
         if dialog_playtest.result():
             if not os.path.exists("temp"):
@@ -965,15 +992,18 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             with open(self.temp_path, "r+b") as f:
                     if input_address.text() != "":
                         try:
-                            f.seek(int(f"{int(input_address.text(), 16):08X}", 16))# get to pos
-                            print(f"successfully wrote {f.read(len(bytes.fromhex(input_value.text()))).hex()} => {input_value.text()} to 0x{int(input_address.text(), 16):08X}")
-                            f.seek(int(f"{int(input_address.text(), 16):08X}", 16))# get to pos
-                            f.write(bytes.fromhex(input_value.text()))# write data
+                            address = library.dataconverter.baseToInt(library.dataconverter.strToBase(input_address.text()), self.displayBase)
+                            value = library.dataconverter.baseToStr(library.dataconverter.strToBase(input_value.text()), 16, True)
+                            f.seek(address)# get to pos for message
+                            value_og = library.dataconverter.baseToStr(library.dataconverter.strToBase(f.read(len(bytes.fromhex(value))).hex()), self.displayBase, self.displayAlphanumeric)
+                            print(f"successfully wrote {value_og} => {input_value.text().upper()} to {input_address.text().zfill(8)}")
+                            f.seek(address)# get to pos
+                            f.write(bytes.fromhex(value))# write data
                         except ValueError as e:
                             PyQt6.QtWidgets.QMessageBox.critical(
                                 self,
                                 str(e),
-                                f"Address input must be hexadecimal and must not go over size 0x{len(self.rom.save()):08X}\nValue input must be hexadecimal"
+                                f"Address input must be numeric and must not go over size {library.dataconverter.baseToStr(library.dataconverter.numberToBase(len(self.rom.save()), self.displayBase), self.displayBase, self.displayAlphanumeric)}\nValue input must be numeric."
                                 )
                             return
             os.startfile(self.temp_path)
@@ -1010,9 +1040,25 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.tree.addTopLevelItems(tree_files)
 
     def treeCall(self, isValueUpdate=False):
-        self.clearTasks()
+        #self.clearTasks()
         self.file_content_text.setReadOnly(False)
         self.field_address.setDisabled(False)
+        setattr(self, "displayBase", self.field_base.value())
+        setattr(self.field_address, "alphanum", self.displayAlphanumeric)
+        PyQt6.QtCore.qInstallMessageHandler(lambda a, b, c: None) # Silence Invalid base warnings from the following code
+        self.field_address.setDisplayIntegerBase(self.displayBase)
+        self.field_tile_height.setDisplayIntegerBase(self.displayBase)
+        self.field_tile_width.setDisplayIntegerBase(self.displayBase)
+        self.field_tiles_per_column.setDisplayIntegerBase(self.displayBase)
+        self.field_tiles_per_row.setDisplayIntegerBase(self.displayBase)
+        PyQt6.QtCore.qInstallMessageHandler(None) # Revert to default message handler
+        if self.dialog_settings.isVisible() and (self.field_address.displayIntegerBase() != self.displayBase):
+            PyQt6.QtWidgets.QMessageBox.critical(
+                                self,
+                                "Numeric Base Warning!",
+                                f"Base is not supported for inputting data in spinboxes.\n This means that all spinboxes will revert to base 10 until they are set to a supported base.\n Proceed at your own risk!"
+                                )
+        self.field_tile_width.setStatusTip(f"Set depth to 1bpp and tile width to {library.dataconverter.baseToStr(library.dataconverter.numberToBase(16, self.displayBase), self.displayBase, self.displayAlphanumeric)} for JP font")
         if self.tree.currentItem() != None:
             self.fileToEdit_name = str(self.tree.currentItem().text(1) + "." + self.tree.currentItem().text(2))
             self.base_address = self.rom.save().index(self.rom.files[int(self.tree.currentItem().text(0))])
@@ -1021,7 +1067,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.field_address.setValue(self.base_address+self.relative_adress)
             self.field_address.setMaximum(self.base_address+len(self.rom.files[int(self.tree.currentItem().text(0))]))
             if self.fileToEdit_name.find(".Folder") == -1:# if it's a file
-                self.label_file_size.setText(f"Size: 0x{len(self.rom.files[int(self.tree.currentItem().text(0))]):00X} bytes")
+                self.label_file_size.setText(f"Size: {library.dataconverter.baseToStr(library.dataconverter.numberToBase(len(self.rom.files[int(self.tree.currentItem().text(0))]), self.displayBase), self.displayBase, self.displayAlphanumeric).zfill(0)} bytes")
                 if self.fileDisplayRaw == False:
                     match self.fileDisplayMode:
                         case "Adapt":
@@ -1088,6 +1134,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.file_content_text.setPlainText("")
             self.button_file_save.setDisabled(True)
 
+    def patchCall(self):
+        if hasattr(self.rom, "name") and (self.tabs.currentIndex() == self.tabs.indexOf(self.page_patches)):
+            self.patches_refresh()
+
     def file_editor_show(self, mode):
         modes = ["Text", "Graphics"]
         mode_index = modes.index(mode)
@@ -1141,7 +1191,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.file_context_menu.setGeometry(self.file_content_text.cursor().pos().x(), self.file_content_text.cursor().pos().y(), 50, 50)
         for char_index in range(len(library.dataconverter.SPECIAL_CHARACTER_LIST)):
             if char_index >= 0xe0 and type(library.dataconverter.SPECIAL_CHARACTER_LIST[char_index]) != type(int()):
-                self.file_context_menu.addAction(f"{char_index:02X} - {library.dataconverter.SPECIAL_CHARACTER_LIST[char_index][1]}")
+                self.file_context_menu.addAction(f"{library.dataconverter.baseToStr(library.dataconverter.numberToBase(char_index, self.displayBase), self.displayBase, self.displayAlphanumeric).zfill(2)} - {library.dataconverter.SPECIAL_CHARACTER_LIST[char_index][1]}")
         action2 = self.file_context_menu.exec()
         if action2 is not None:
             self.file_content_text.insertPlainText(action2.text()[action2.text().find("├"):])
@@ -1153,7 +1203,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 rom_save_data = library.dataconverter.convertdata_text_to_bin(self.file_content_text.toPlainText())
         else:
             charlimit = int(self.file_content_text.charcount_page()/2) # 2 hexadecimal digits in one byte
-            rom_save_data = bytearray.fromhex(self.file_content_text.toPlainText())
+            rom_save_data = bytearray.fromhex(library.dataconverter.baseToStr(library.dataconverter.strToBase(self.file_content_text.toPlainText()), 16, True))
         if charlimit != None:
             w.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:self.relative_adress+charlimit] = rom_save_data
         w.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:] = rom_save_data

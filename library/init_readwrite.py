@@ -17,6 +17,8 @@ def write_preferences(obj: object):
         my_file.write(
 f"""[SETTINGS]
 theme_index={obj.theme_index}
+displayBase={obj.displayBase}
+displayAlphanumeric={obj.displayAlphanumeric}
 [MISC]
 firstLaunch={obj.firstLaunch}"""
         )
