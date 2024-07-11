@@ -44,9 +44,6 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
         self._graphic = PyQt6.QtWidgets.QGraphicsPixmapItem()
         self._scene.addItem(self._graphic)
         self.setScene(self._scene)
-        self.setResizeAnchor(
-            PyQt6.QtWidgets.QGraphicsView.ViewportAnchor.AnchorUnderMouse
-        )
 
         self.pen = PyQt6.QtGui.QPen()
         self.pen.setColor(PyQt6.QtCore.Qt.GlobalColor.black)
@@ -64,21 +61,21 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
         self._scene.addItem(self._graphic)
 
     def hasGraphic(self):
-        return not self._empty
+        return self._scene.isActive()
 
     def fitInView(self, scale=True):
         rect = PyQt6.QtCore.QRectF(self._graphic.pixmap().rect())
-        if not rect.isNull():
-            self.setSceneRect(rect)
-            if self.hasGraphic() and scale:
-                unity = self.transform().mapRect(PyQt6.QtCore.QRectF(0, 0, 1, 1))
-                self.scale(1 / unity.width(), 1 / unity.height())
-                viewrect = self.viewport().rect()
-                scenerect = self.transform().mapRect(rect)
-                factor = min(viewrect.width() / scenerect.width(),
-                             viewrect.height() / scenerect.height())
-                self.scale(factor, factor)
-            self._zoom = 0
+        self.setSceneRect(rect)
+        if self.hasGraphic() and scale:
+            #print("fit")
+            unity = self.transform().mapRect(PyQt6.QtCore.QRectF(0, 0, 1, 1))
+            self.scale(1 / unity.width(), 1 / unity.height())
+            viewrect = self.viewport().rect()
+            scenerect = self.sceneRect()
+            factor = min(viewrect.width() / scenerect.width(),
+                            viewrect.height() / scenerect.height())
+            self.scale(factor, factor)
+        self._zoom = 0
 
     def setGraphic(self, pixmap: PyQt6.QtGui.QPixmap=None):
         self._zoom = 0
@@ -92,8 +89,7 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
 
 
     def drawShape(self):
-        match self.draw_mode:
-            case "pixel":
+        if self.draw_mode == "pixel":
                 pixel_map = PyQt6.QtGui.QPixmap(1, 1)
                 pixel_map.fill(self.pen.color())
 
@@ -112,7 +108,7 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
                 pixel_container.moveBy(int(self.end_previous.x()),int(self.end_previous.y()))
                 pixel_container.moveBy(int(self.end_previous.x() - self.end.x()),int(self.end_previous.y() - self.end.y()))
                 self._scene.addItem(pixel_container)
-            case "rectangle":
+        elif self.draw_mode == "rectangle":
                 if self.start.isNull() or self.end.isNull():
                     return
                 if self.start.x() == self.end.x() and self.start.y() == self.end.y():
@@ -158,6 +154,7 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
             self.start = self.mapToScene(event.pos())
 
     def wheelEvent(self, event):
+        #print(self._zoom)
         if event.modifiers() == PyQt6.QtCore.Qt.KeyboardModifier.ControlModifier:
             if event.angleDelta().y() > 0:
                 factor = 1.25
@@ -166,11 +163,13 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
                 factor = 0.80
                 self._zoom -= 1
             if self._zoom > 0:
+                view_pos = PyQt6.QtCore.QRect(event.position().toPoint(), PyQt6.QtCore.QSize(1, 1))
+                scene_pos = self.mapToScene(view_pos)
+                self.centerOn(scene_pos.boundingRect().center())
                 self.scale(factor, factor)
+                delta = self.mapToScene(view_pos.center()) - self.mapToScene(self.viewport().rect().center())
+                self.centerOn(scene_pos.boundingRect().center() - delta)
         if self._zoom <= 0:
-            self.fitInView()
-            # make zoom properly reset
-            PyQt6.QtWidgets.QApplication.processEvents()
             self.fitInView()
 
     def mouseMoveEvent(self, event):
@@ -372,12 +371,13 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.field_base = PyQt6.QtWidgets.QSpinBox(self.dialog_settings)
         self.field_base.setValue(self.displayBase)
         self.field_base.setRange(-1000, 1000)
-        self.field_base.editingFinished.connect(lambda: self.treeCall(True))
+        self.field_base.editingFinished.connect(lambda: setattr(self, "displayBase", self.field_base.value()))
+        self.field_base.editingFinished.connect(lambda: self.reloadCall(True))
         self.label_alphanumeric = PyQt6.QtWidgets.QLabel("Alphanumeric Numbers", self.dialog_settings)
         self.checkbox_alphanumeric = PyQt6.QtWidgets.QCheckBox(self.dialog_settings)
         self.checkbox_alphanumeric.setChecked(self.displayAlphanumeric)
         self.checkbox_alphanumeric.toggled.connect(lambda: setattr(self, "displayAlphanumeric", not self.displayAlphanumeric))
-        self.checkbox_alphanumeric.toggled.connect(lambda: self.treeCall(True))
+        self.checkbox_alphanumeric.toggled.connect(lambda: self.reloadCall(True))
         self.dialog_settings.layout().addWidget(self.label_theme)
         self.dialog_settings.layout().addWidget(self.dropdown_theme)
         self.dialog_settings.layout().addWidget(self.label_base)
@@ -444,18 +444,21 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.button_playtest.setStatusTip("Test the ROM with currently saved changes")
         self.button_playtest.triggered.connect(self.testCall)
         self.button_playtest.setDisabled(True)
+        self.button_reload = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\arrow-circle-315.png'), "Reload Interface", self)
+        self.button_reload.setStatusTip("Reload the displayed data(all changes that aren't saved will be lost)")
+        self.button_reload.triggered.connect(self.reloadCall)
         #self.button_codeedit = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\document-text.png'), "Open code", self)
         #self.button_codeedit.setStatusTip("Edit the ROM's code")
         #self.button_codeedit.triggered.connect(self.codeeditCall)
         #self.button_codeedit.setDisabled(True)
-        self.toolbar.addActions([self.button_save, self.button_playtest])
+        self.toolbar.addActions([self.button_save, self.button_playtest, self.button_reload])
         self.toolbar.addSeparator()
 
         #Tabs
         self.tabs = PyQt6.QtWidgets.QTabWidget(self)
         self.setCentralWidget(self.tabs)
         self.tabs.resize(self.width(), self.height())
-        self.tabs.currentChanged.connect(self.patchCall)
+        self.tabs.currentChanged.connect(lambda: self.reloadCall(True))
 
         self.page_explorer = PyQt6.QtWidgets.QWidget(self.tabs)
         self.page_explorer.setLayout(PyQt6.QtWidgets.QHBoxLayout())
@@ -483,6 +486,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.tree.setHeaderLabels(["File ID", "Name", "Type"])
         self.tree.setContextMenuPolicy(PyQt6.QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
         self.treeUpdate()
+        self.tree_called = False
         self.tree.itemSelectionChanged.connect(self.treeCall)
 
         self.layout_editzone = PyQt6.QtWidgets.QVBoxLayout()
@@ -717,10 +721,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             # 2. Instantiate the subclass of QRunnable
             runnable_inst = runnable(activeThreadCount)
             app.processEvents()
-            match runnable:
-                case RunnableDisplayRawText:
-                    #runnable_inst.signals.signal_RunnableDisplayRawText.connect(self.file_content_text.setPlainText)
-                    pass
+            if runnable == RunnableDisplayRawText:
+                #runnable_inst.signals.signal_RunnableDisplayRawText.connect(self.file_content_text.setPlainText)
+                pass
             # 3. Call start()
             pool.start(runnable_inst)
 
@@ -736,21 +739,24 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             lambda: self.set_dialog_button_name(dialog, "&Open", "Import")
             )
     
-    def patches_refresh(self):
-        self.tree_patches.clear()
-        if self.rom.name.decode().replace(" ", "_") in library.patchdata.GameEnum.__members__:
-            patches = []
-            for patch in library.patchdata.GameEnum[self.rom.name.decode().replace(" ", "_")].value[1]:
-                #PyQt6.QtWidgets.QTreeWidgetItem(None, ["", "<address>", "<patch name>", "<patch type>", "<size>"])
-                patch_item = PyQt6.QtWidgets.QTreeWidgetItem(None, ["", f"{library.dataconverter.baseToStr(library.dataconverter.numberToBase(patch[0], self.displayBase), self.displayBase, self.displayAlphanumeric).zfill(8)}", patch[1], patch[2], f"{library.dataconverter.baseToStr(library.dataconverter.numberToBase(len(patch[4]), self.displayBase), self.displayBase, self.displayAlphanumeric).zfill(1)}"])
-                patch_item.setToolTip(0, str(patch[4]))
-                patches.append(patch_item)
-                patch_item.setFlags(patch_item.flags() | PyQt6.QtCore.Qt.ItemFlag.ItemIsUserCheckable)
-                if self.rom.save()[patch[0]:patch[0]+len(patch[4])] == patch[4]: # Check for already applied patches
-                    patch_item.setCheckState(0, PyQt6.QtCore.Qt.CheckState.Checked)
-                else:
-                    patch_item.setCheckState(0, PyQt6.QtCore.Qt.CheckState.Unchecked)
-            self.tree_patches.addTopLevelItems(patches)
+    def patches_reload(self):
+        if self.tree_patches_numbase != self.displayBase or self.tree_patches_numaplha != self.displayAlphanumeric:
+            self.tree_patches.clear()
+            if self.rom.name.decode().replace(" ", "_") in library.patchdata.GameEnum.__members__:
+                patches = []
+                for patch in library.patchdata.GameEnum[self.rom.name.decode().replace(" ", "_")].value[1]:
+                    #PyQt6.QtWidgets.QTreeWidgetItem(None, ["", "<address>", "<patch name>", "<patch type>", "<size>"])
+                    patch_item = PyQt6.QtWidgets.QTreeWidgetItem(None, ["", f"{library.dataconverter.baseToStr(library.dataconverter.numberToBase(patch[0], self.displayBase), self.displayBase, self.displayAlphanumeric).zfill(8)}", patch[1], patch[2], f"{library.dataconverter.baseToStr(library.dataconverter.numberToBase(len(patch[4]), self.displayBase), self.displayBase, self.displayAlphanumeric).zfill(1)}"])
+                    patch_item.setToolTip(0, str(patch[4]))
+                    patches.append(patch_item)
+                    patch_item.setFlags(patch_item.flags() | PyQt6.QtCore.Qt.ItemFlag.ItemIsUserCheckable)
+                    if self.rom.save()[patch[0]:patch[0]+len(patch[4])] == patch[4]: # Check for already applied patches
+                        patch_item.setCheckState(0, PyQt6.QtCore.Qt.CheckState.Checked)
+                    else:
+                        patch_item.setCheckState(0, PyQt6.QtCore.Qt.CheckState.Unchecked)
+                self.tree_patches.addTopLevelItems(patches)
+        self.tree_patches_numbase = self.displayBase
+        self.tree_patches_numaplha = self.displayAlphanumeric
 
     def openCall(self):
         fname = PyQt6.QtWidgets.QFileDialog.getOpenFileName(
@@ -769,7 +775,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.temp_path = f"{os.path.curdir}\\temp\\{self.romToEdit_name+self.romToEdit_ext}"
             self.setWindowTitle("Mega Man ZX Editor" + " <" + self.rom.name.decode() + " v" + self.rom.idCode.decode("utf-8") + " rev" + str(self.rom.version) + " region" + str(self.rom.region) + ">" + " \"" + self.romToEdit_name + self.romToEdit_ext + "\"")
             #print(self.rom.filenames)
-            self.patches_refresh()
+            self.tree_patches_numbase = None # set to something that isn't displaybase
+            self.tree_patches_numaplha = None # set to something that isn't displayalphanumeric
+            self.patches_reload()
             if not self.rom.name.decode().replace(" ", "_") in library.patchdata.GameEnum.__members__:
                 print("ROM is NOT supported! Continue at your own risk!")
                 dialog = PyQt6.QtWidgets.QMessageBox(self)
@@ -844,25 +852,34 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 )
             self.set_dialog_button_name(dialog, "&Open", "Import")
             if dialog.exec():
+                dialog2 = PyQt6.QtWidgets.QMessageBox()
+                dialog2.setWindowTitle("Import Status")
+                dialog2.setWindowIcon(PyQt6.QtGui.QIcon('icons\\information.png'))
+                dialog2.setText("File \"" + str(dialog.selectedFiles()).split("/")[-1].removesuffix("']") + "\" imported!")
                 if str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']") in str(self.rom.filenames): # if file you're trying to replace is in ROM
                     with open(*dialog.selectedFiles(), 'rb') as f:
                         fileEdited = f.read()
-                        w.rom.setFileByName(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']"), fileEdited)
-                    print(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']") + " imported")
-                elif str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']").split(".")[0] in str(self.rom.filenames): # if filename of file(without extension) you're trying to replace is in ROM
+                        w.rom.setFileByName(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']"), bytearray(fileEdited))
+                    dialog2.exec()
+                elif str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']").split(".")[0] in [filename[filename.rfind(" ")+1:filename.find(".")] for filename in str(self.rom.filenames).split("\n")]: # if filename of file(without extension) you're trying to replace is in ROM
                     with open(*dialog.selectedFiles(), 'rb') as f:
                         fileEdited = f.read()
-                        match str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']").split(".")[1]:
-                            case "txt":
-                                try:
-                                    print(w.rom.filenames.idOf(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']").replace(".txt", ".bin")))
-                                    w.rom.files[w.rom.filenames.idOf(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']").replace(".txt", ".bin"))] = library.dataconverter.convertdata_text_to_bin(fileEdited.decode("utf-8"))
-                                except Exception as e:
-                                    print(e)
-                            case _:
-                                print("format not recognized")
+                        if str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']").split(".")[1] == "txt":
+                            #print(w.rom.filenames.idOf(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']").replace(".txt", ".bin")))
+                            w.rom.files[w.rom.filenames.idOf(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']").replace(".txt", ".bin"))] = bytearray(library.dataconverter.convertdata_text_to_bin(fileEdited.decode("utf-8")))
+                            dialog2.exec()
+                        else:
+                            PyQt6.QtWidgets.QMessageBox.critical(
+                            self,
+                            "Format not recognized",
+                            "Please select a file that is supported by the editor."
+                            )
                 else:
-                    print("no " + str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']") + " in ROM")
+                    PyQt6.QtWidgets.QMessageBox.critical(
+                    self,
+                    "File \"" + str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']") + "\" not found in game files",
+                    "Please select a file that has the same name as an existing ROM file."
+                    )
                 self.treeCall()
 
     def replaceCall(self):
@@ -878,17 +895,20 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             if dialog.exec(): # if file you're trying to replace is in ROM
                     with open(*dialog.selectedFiles(), 'rb') as f:
                         fileEdited = f.read()
-                        match str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']").split(".")[1]:
-                            case "txt":
+                        if str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']").split(".")[1] == "txt":
                                 try:
-                                    print(w.tree.currentItem().text(0))
-                                    w.rom.files[int(w.tree.currentItem().text(0))] = library.dataconverter.convertdata_text_to_bin(fileEdited.decode("utf-8"))
+                                    #print("replacement of file with id " + w.tree.currentItem().text(0) + " was successful")
+                                    w.rom.files[int(w.tree.currentItem().text(0))] = bytearray(library.dataconverter.convertdata_text_to_bin(fileEdited.decode("utf-8")))
                                 except Exception as e:
                                     print(e)
-                            case _:
-                                w.rom.files[int(w.tree.currentItem().text(0))] = fileEdited
-                                print("raw data replaced")
-                    print(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']") + " imported")
+                        else:
+                            w.rom.files[int(w.tree.currentItem().text(0))] = bytearray(fileEdited)
+                            #print("raw data replaced")
+                    dialog2 = PyQt6.QtWidgets.QMessageBox()
+                    dialog2.setWindowTitle("Import Status")
+                    dialog2.setWindowIcon(PyQt6.QtGui.QIcon('icons\\information.png'))
+                    dialog2.setText("File \"" + str(dialog.selectedFiles()).split("/")[-1].removesuffix("']") + "\" imported!")
+                    dialog2.exec()
                     self.treeCall()
     
     def switch_theme(self, isupdate=False):
@@ -1041,9 +1061,16 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
     def treeCall(self, isValueUpdate=False):
         #self.clearTasks()
+        if isValueUpdate: # prevent treeCall from being executed twice in a row. Reduces lag when clicking to view a file's content
+            if self.tree_called == True:
+                self.tree_called = False
+                return
+            #print("call update")
+        else:
+            self.tree_called = True
+            #print("call")
         self.file_content_text.setReadOnly(False)
         self.field_address.setDisabled(False)
-        setattr(self, "displayBase", self.field_base.value())
         setattr(self.field_address, "alphanum", self.displayAlphanumeric)
         PyQt6.QtCore.qInstallMessageHandler(lambda a, b, c: None) # Silence Invalid base warnings from the following code
         self.field_address.setDisplayIntegerBase(self.displayBase)
@@ -1069,8 +1096,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             if self.fileToEdit_name.find(".Folder") == -1:# if it's a file
                 self.label_file_size.setText(f"Size: {library.dataconverter.baseToStr(library.dataconverter.numberToBase(len(self.rom.files[int(self.tree.currentItem().text(0))]), self.displayBase), self.displayBase, self.displayAlphanumeric).zfill(0)} bytes")
                 if self.fileDisplayRaw == False:
-                    match self.fileDisplayMode:
-                        case "Adapt":
+                    if self.fileDisplayMode == "Adapt":
                             indicator_list_gfx = ["face", "font", "obj_fnt", "title"]
                             if self.rom.name.decode() == "MEGAMANZX" or self.rom.name.decode() == "ROCKMANZX":
                                 indicator_list_gfx.extend(["bbom", "dm23", "elf", "g01", "g03", "g_", "game_parm", "lmlevel", "miss", "repair", "sec_disk", "sub"])
@@ -1089,10 +1115,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                                 self.fileDisplayState = "VX"
                             else:
                                 self.fileDisplayState = "None"
-                        case "English dialogue" | "Japanese dialogue" | "Graphics" | "Sound" | "VX":
-                            self.fileDisplayState = self.fileDisplayMode
-                        case _:
-                            self.fileDisplayState = "None"
+                    elif self.fileDisplayMode != "None":
+                        self.fileDisplayState = self.fileDisplayMode
+                    else:
+                        self.fileDisplayState = "None"
 
                     if self.fileDisplayState == "English dialogue": # if english text
                         self.file_editor_show("Text")
@@ -1134,9 +1160,18 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.file_content_text.setPlainText("")
             self.button_file_save.setDisabled(True)
 
-    def patchCall(self):
-        if hasattr(self.rom, "name") and (self.tabs.currentIndex() == self.tabs.indexOf(self.page_patches)):
-            self.patches_refresh()
+    def reloadCall(self, isQuick=False): # Reload all reloadable content
+        if hasattr(self.rom, "name"):
+            if isQuick:
+                if self.tabs.currentIndex() == self.tabs.indexOf(self.page_explorer):
+                    self.treeCall(True)
+                elif self.tabs.currentIndex() == self.tabs.indexOf(self.page_patches):
+                    #print("b" + str(self.displayAlphanumeric))
+                    self.patches_reload()
+                    #print("a" + str(self.displayAlphanumeric))
+            else:
+                self.treeCall(True)
+                self.patches_reload()
 
     def file_editor_show(self, mode):
         modes = ["Text", "Graphics"]
@@ -1168,11 +1203,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         for w in widget_sets[mode_index]:
             w.show()
         # case-specific code
-        match mode:
-            case "Graphics":
-                # Reset Values
-                self.relative_adress = 0x00000000
-                #print(f"{len(self.rom.save()):08X}")
+        if mode == "Graphics":
+            # Reset Values
+            self.relative_adress = 0x00000000
+            #print(f"{len(self.rom.save()):08X}")
 
     def treeContextMenu(self): #quick menu to export or replace selected file
         self.tree_context_menu = PyQt6.QtWidgets.QMenu(self.tree)
@@ -1206,7 +1240,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             rom_save_data = bytearray.fromhex(library.dataconverter.baseToStr(library.dataconverter.strToBase(self.file_content_text.toPlainText()), 16, True))
         if charlimit != None:
             w.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:self.relative_adress+charlimit] = rom_save_data
-        w.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:] = rom_save_data
+        else:
+            w.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:] = rom_save_data
+        #print(type(w.rom.files[int(self.tree.currentItem().text(0))]))
         print("file changes saved")
         self.button_file_save.setDisabled(True)
 
@@ -1262,14 +1298,13 @@ def extract(fileToEdit_id: int, folder="", fileToEdit_name="", path="", format="
             print(os.path.join(path + "/" + folder + fileToEdit_name))
             print("File extracted!")
     else:
-        match format:
-            case "English dialogue":
+        if format == "English dialogue":
                 with open(os.path.join(path + "/" + folder + fileToEdit_name.split(".")[0] + ".txt"), 'wb') as f:
                     f.write(bytes(library.dataconverter.convertdata_bin_to_text(fileToEdit), "utf-8"))
                     print(os.path.join(path + "/" + folder + fileToEdit_name.split(".")[0] + ".txt"))
                     print("File extracted!")
-            case _:
-                print("could not find method for converting to specified format.")
+        else:
+            print("could not find method for converting to specified format.")
 #run the app
 app.exec()
 w.firstLaunch = False
