@@ -108,6 +108,7 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
                 pixel_container.moveBy(int(self.end_previous.x()),int(self.end_previous.y()))
                 pixel_container.moveBy(int(self.end_previous.x() - self.end.x()),int(self.end_previous.y() - self.end.y()))
                 self._scene.addItem(pixel_container)
+                w.button_file_save.setDisabled(False)
         elif self.draw_mode == "rectangle":
                 if self.start.isNull() or self.end.isNull():
                     return
@@ -1130,7 +1131,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.file_content_gfx.resetScene()
                         if not isValueUpdate: # if entering graphics mode and func is not called to update other stuff
                             self.file_editor_show("Graphics")
-                        addItem_tilesQImage_frombytes(self.file_content_gfx, self.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:], algorithm=list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column, tileWidth=self.tile_width, tileHeight=self.tile_height)
+                        addItem_tilesQImage_fromBytes(self.file_content_gfx, self.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:], algorithm=list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column, tileWidth=self.tile_width, tileHeight=self.tile_height)
                     else:
                         self.field_address.setDisabled(True)
                         self.file_editor_show("Text")
@@ -1231,15 +1232,18 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.file_content_text.insertPlainText(action2.text()[action2.text().find("├"):])
 
     def save_filecontent(self): #Save to virtual ROM
-        charlimit = None
+        savelimit = None
         if self.fileDisplayRaw == False:
             if self.fileDisplayState == "English dialogue": # if english text
                 rom_save_data = library.dataconverter.convertdata_text_to_bin(self.file_content_text.toPlainText())
+            if self.fileDisplayState == "Graphics":
+                savelimit = len(saveData_fromGFXView(self.file_content_gfx))
+                rom_save_data = saveData_fromGFXView(self.file_content_gfx)
         else:
-            charlimit = int(self.file_content_text.charcount_page()/2) # 2 hexadecimal digits in one byte
+            savelimit = int(self.file_content_text.charcount_page()/2) # 2 hexadecimal digits in one byte
             rom_save_data = bytearray.fromhex(library.dataconverter.baseToStr(library.dataconverter.strToBase(self.file_content_text.toPlainText()), 16, True))
-        if charlimit != None:
-            w.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:self.relative_adress+charlimit] = rom_save_data
+        if savelimit != None:
+            w.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:self.relative_adress+savelimit] = rom_save_data
         else:
             w.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:] = rom_save_data
         #print(type(w.rom.files[int(self.tree.currentItem().text(0))]))
@@ -1270,7 +1274,7 @@ app = PyQt6.QtWidgets.QApplication(sys.argv)
 w = MainWindow()
 
 # Draw contents of tile viewer
-def addItem_tilesQImage_frombytes(view: GFXView, data: bytearray, palette: list[int]=w.gfx_palette, algorithm=library.dataconverter.CompressionAlgorithmEnum.ONEBPP, tilesPerRow=4, tilesPerColumn=8, tileWidth=16, tileHeight=8):
+def addItem_tilesQImage_fromBytes(view: GFXView, data: bytearray, palette: list[int]=w.gfx_palette, algorithm=library.dataconverter.CompressionAlgorithmEnum.ONEBPP, tilesPerRow=4, tilesPerColumn=8, tileWidth=16, tileHeight=8):
     for tile in range(tilesPerRow*tilesPerColumn):
         # get data of current tile from bytearray, multiplying tile index by amount of pixels in a tile and by amount of bits per pixel, then dividing by amount of bits per byte
         # that data is then converted into a QImage that is used to create the QPixmap of the tile
@@ -1279,10 +1283,21 @@ def addItem_tilesQImage_frombytes(view: GFXView, data: bytearray, palette: list[
         gfx_container.setPixmap(gfx)
         #print(tile)
         #print(str(gfx_container.pos().x()) + " " + str(gfx_container.pos().y()))
-        gfx_container.setPos(tileWidth*(tile % tilesPerRow), tileHeight*int(tile / tilesPerRow))
+        gfx_container.setPos(tileWidth*int(tile % tilesPerRow), tileHeight*int(tile / tilesPerRow))
         #print(str(gfx_container.pos().x()) + " " + str(gfx_container.pos().y()))
         view._scene.addItem(gfx_container)
     return
+# Decode contents of tile viewer
+def saveData_fromGFXView(view: GFXView, palette: list[int]=w.gfx_palette, algorithm=library.dataconverter.CompressionAlgorithmEnum.ONEBPP, tilesPerRow=4, tilesPerColumn=8, tileWidth=16, tileHeight=8):
+    saved_data = bytearray()
+    view._scene.setSceneRect(0, 0, tileWidth*tilesPerRow, tileHeight*tilesPerColumn)
+    for tile in range(tilesPerRow*tilesPerColumn):
+        print(view._graphic.pos().x())
+        print(view._graphic.pos().y())
+        tile_rect = PyQt6.QtCore.QRect(int(view._graphic.pos().x() + tileWidth*int(tile % tilesPerRow)), int(view._graphic.pos().y() + tileHeight*int(tile / tilesPerRow)), tileWidth, tileHeight)
+        tile_current = view.grab(tile_rect).toImage()
+        saved_data +=  library.dataconverter.convertdata_qt_to_bin(tile_current, palette, algorithm, tileWidth, tileHeight)
+    return saved_data
 
 def extract(fileToEdit_id: int, folder="", fileToEdit_name="", path="", format=""):
     fileToEdit = w.rom.files[fileToEdit_id]

@@ -161,6 +161,8 @@ def str_subgroups(s: str, n: int):
 def bitstring_to_bytes(s: str):
     v = int(s, 2)
     b = bytearray()
+    if v == 0: # if the bitstring has only zeros, make the conversion as well to not loose data
+        b.append(v & 0xff)
     while v:
         b.append(v & 0xff)
         v >>= 8
@@ -264,30 +266,32 @@ def convertdata_qt_to_bin(qimage: PyQt6.QtGui.QImage, palette: list[int]=[0xff00
     file_bits = ""
 
     match algorithm:
-        case CompressionAlgorithmEnum.ONEBPP: # For english 8x16 font, this works
+        case CompressionAlgorithmEnum.ONEBPP: # For english 8x16 font
             for pixel_index in range(0, qimage.size().width()*qimage.size().height()):
                 if pixel_index < tileWidth*tileHeight:
                     x = int(pixel_index % tileWidth)
                     y = int(pixel_index / tileWidth)
-                    file_bits += bin(palette.index(qimage.pixelColor(x, y).rgba())).removeprefix('0b')
+                    file_bits += bin(palette.index(qimage.pixelColor(x, y).rgba())).removeprefix('0b').zfill(algorithm.depth)
             file_bits = "".join([file_bits[i:i+8][::-1] for i in range(0, len(file_bits), 8)]) # reverse the order of the bits in each byte
             binary_data = bytearray(bitstring_to_bytes(file_bits))
-        case CompressionAlgorithmEnum.FOURBPP: # NDS/GBA 4bpp, doesn't work
+        case CompressionAlgorithmEnum.FOURBPP: # NDS/GBA 4bpp
             for pixel_index in range(0, qimage.size().width()*qimage.size().height(), 2):
                 #print(str_subgroups(file_bits, 4)[pixel_index])
                 if pixel_index < tileWidth*tileHeight:
                     x = int(pixel_index % tileWidth)
                     y = int(pixel_index / tileWidth)
-                    file_bits = bin(palette.index(qimage.pixelColor(x+1, y).rgba())).removeprefix('0b')
-                    file_bits += bin(palette.index(qimage.pixelColor(x, y).rgba())).removeprefix('0b')
+                    file_bits = bin(palette.index(qimage.pixelColor(x+1, y).rgba())).removeprefix('0b').zfill(algorithm.depth)
+                    file_bits += bin(palette.index(qimage.pixelColor(x, y).rgba())).removeprefix('0b').zfill(algorithm.depth)
+                    #print(file_bits)
+                    #print(bitstring_to_bytes(file_bits).hex())
                     binary_data += bytearray(bitstring_to_bytes(file_bits))
-        case CompressionAlgorithmEnum.EIGHTBPP: # NDS/GBA 8bpp, doesn't work
+        case CompressionAlgorithmEnum.EIGHTBPP: # NDS/GBA 8bpp
             for pixel_index in range(0, qimage.size().width()*qimage.size().height()):
                 #print(str_subgroups(file_bits, 4)[pixel_index])
                 if pixel_index < tileWidth*tileHeight:
                     x = int(pixel_index % tileWidth)
                     y = int(pixel_index / tileWidth)
-                    file_bits = bin(palette.index(qimage.pixelColor(x, y).rgba())).removeprefix('0b')
+                    file_bits = bin(palette.index(qimage.pixelColor(x, y).rgba())).removeprefix('0b').zfill(algorithm.depth)
                     binary_data += bytearray(bitstring_to_bytes(file_bits))
     #print("bits: " + file_bits)
     return binary_data
@@ -301,12 +305,13 @@ def convertdata_qt_to_bin(qimage: PyQt6.QtGui.QImage, palette: list[int]=[0xff00
 #    t.write((convertfile_text_to_bin("test.txt")))
 
 #create readable graphics
-"""with open("sys_panm.bin", "r+b") as t:
-    read = t.read()
-    print("read: " + read.hex())
-    alg = CompressionAlgorithmEnum.EIGHTBPP
-    print("convert: " + convertdata_qt_to_bin(convertdata_bin_to_qt(read, algorithm=alg), algorithm=alg).hex())
-    """
+#with open("sys_panm.bin", "r+b") as t:
+#    read = t.read()
+#    print("read: " + read.hex())
+    #print("read bin: " + bin(int(read.hex(), 16)).removeprefix('0b'))
+    #print("work: ")
+#    alg = CompressionAlgorithmEnum.EIGHTBPP
+#    print("convert: " + convertdata_qt_to_bin(convertdata_bin_to_qt(read, algorithm=alg), algorithm=alg).hex())
 # convert number to int in different formats
 #num = 3000000
 #base = 99
