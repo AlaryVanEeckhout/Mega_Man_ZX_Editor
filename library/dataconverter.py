@@ -155,6 +155,15 @@ def baseToInt(l: list, b: int):
         int_final += l[i]*b**(len(l)-1 - i)
     return int_final
 
+def StrFromNumber(n: int, b: int, alphanum: bool): #for convenience
+    return baseToStr(numberToBase(n, b), b, alphanum)
+
+def IntFromStr(s: str, b: int): #for convenience
+    return baseToInt(strToBase(s), b)
+
+def StrToAlphanumStr(s: str, b: int, alphanum: bool): #for convenience
+    return baseToStr(strToBase(s), b, alphanum)
+
 def str_subgroups(s: str, n: int):
     return [s[i:i+n] for i in range(0, len(s), n)]
 

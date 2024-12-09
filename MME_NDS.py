@@ -3,13 +3,14 @@ import PyQt6.QtGui, PyQt6.QtWidgets, PyQt6.QtCore
 import sys, os, platform
 #import logging, time, random
 import ndspy
-import ndspy.rom, ndspy.code#, ndspy.soundArchive
+import ndspy.rom, ndspy.code
+import ndspy.soundArchive
 #import PyQt6.Qt6
 #import PyQt6.Qt6.qsci
 import library.dataconverter, library.patchdata, library.init_readwrite
 #Global variables
 global EDITOR_VERSION
-EDITOR_VERSION = "0.2.1"
+EDITOR_VERSION = "0.2.2" # objective, feature, WIP
 
 class ThreadSignals(PyQt6.QtCore.QObject):
     signal_RunnableDisplayRawText = PyQt6.QtCore.pyqtSignal(str)
@@ -196,15 +197,28 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
 class EditorTree(PyQt6.QtWidgets.QTreeWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+    def contextMenuOpen(self): #quick menu to export or replace selected file
+        self.context_menu = PyQt6.QtWidgets.QMenu(self)
+        self.context_menu.setGeometry(self.cursor().pos().x(), self.cursor().pos().y(), 50, 50)
+        exportAction = self.context_menu.addAction("Export " + self.currentItem().text(1) + ("." + self.currentItem().text(2)).replace(".Folder", " and contents"))
+        importAction = self.context_menu.addAction("Replace " + self.currentItem().text(1) + ("." + self.currentItem().text(2)).replace(".Folder", " and contents"))
+        if self.currentItem().text(2) == "sdat":
+            sdatAction = self.context_menu.addAction("Open Sound Archive")
+        action2 = self.context_menu.exec()
+        if action2 is not None:
+            if action2 == exportAction:
+                w.exportCall(self.currentItem())
+            elif action2 == importAction:
+                w.replaceCall(self.currentItem())
+            elif action2 == sdatAction:
+                w.dialog_sdat.show()
     
     def mousePressEvent(self, event: PyQt6.QtCore.QEvent): #redefine mouse press to insert custom code on right click
         if event.type() == PyQt6.QtCore.QEvent.Type.MouseButtonPress:
-            if event.button() == PyQt6.QtCore.Qt.MouseButton.RightButton: # execute different code if right click
-                super(EditorTree, self).mousePressEvent(event)
-                if w.tree.currentItem() != None:
-                    w.treeContextMenu()
-            else: # do normal code if not right click
-                super(EditorTree, self).mousePressEvent(event)
+            super(EditorTree, self).mousePressEvent(event)
+            if event.button() == PyQt6.QtCore.Qt.MouseButton.RightButton and self.currentItem() != None: # execute different code if right click
+                self.contextMenuOpen()
 
 class HoldButton(PyQt6.QtWidgets.QPushButton):
     def __init__(self, *args, **kwargs):
@@ -249,23 +263,34 @@ class BetterSpinBox(PyQt6.QtWidgets.QSpinBox):
         super().__init__(*args, **kwargs)
         self.alphanum = True
         self.setRange(-0x03000000, 0x03000000)
+        self.numfill = 0
 
-    def textFromValue(self, value):
-        return library.dataconverter.baseToStr(library.dataconverter.numberToBase(value, self.displayIntegerBase()), self.displayIntegerBase(), self.alphanum)
+    def textFromValue(self, value): # ovewrite of existing function with 2 args that determines how value is displayed inside spinbox
+        return library.dataconverter.StrFromNumber(value, self.displayIntegerBase(), self.alphanum).zfill(self.numfill)
+    
+    def valueFromText(self, text):
+        return library.dataconverter.IntFromStr(text, self.displayIntegerBase())
 
 class LongTextEdit(PyQt6.QtWidgets.QPlainTextEdit):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.charcount_page = lambda: int(int(self.width()/self.fontMetrics().averageCharWidth() - 1)*int(self.height()/self.fontMetrics().lineSpacing() -1)/2)
 
+    def contextMenuOpen(self): #quick menu to insert special values in dialogue file
+        self.context_menu = PyQt6.QtWidgets.QMenu(self)
+        self.context_menu.setGeometry(self.cursor().pos().x(), self.cursor().pos().y(), 50, 50)
+        for char_index in range(len(library.dataconverter.SPECIAL_CHARACTER_LIST)):
+            if char_index >= 0xe0 and type(library.dataconverter.SPECIAL_CHARACTER_LIST[char_index]) != type(int()):
+                self.context_menu.addAction(f"{library.dataconverter.StrFromNumber(char_index, w.displayBase, w.displayAlphanumeric).zfill(2)} - {library.dataconverter.SPECIAL_CHARACTER_LIST[char_index][1]}")
+        action2 = self.context_menu.exec()
+        if action2 is not None:
+            self.insertPlainText(action2.text()[action2.text().find("├"):])
+
     def mousePressEvent(self, event: PyQt6.QtCore.QEvent): #redefine mouse press to insert custom code on right click
         if event.type() == PyQt6.QtCore.QEvent.Type.MouseButtonPress:
+            super(LongTextEdit, self).mousePressEvent(event)
             if event.button() == PyQt6.QtCore.Qt.MouseButton.RightButton: # execute different code if right click
-                super(LongTextEdit, self).mousePressEvent(event)
-                if w.tree.currentItem() != None:
-                    w.textEditContextMenu()
-            else: # do normal code if not right click
-                super(LongTextEdit, self).mousePressEvent(event)
+                self.contextMenuOpen()
 
 class MainWindow(PyQt6.QtWidgets.QMainWindow):
     def __init__(self):
@@ -277,6 +302,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.setWindowTitle("Mega Man ZX Editor")
         self.temp_path = f"{os.path.curdir}\\temp\\"
         self.rom = ndspy.rom.NintendoDSRom
+        self.sdat = ndspy.soundArchive.SDAT
         self.arm9 = ndspy.code.MainCodeFile
         self.arm7 = ndspy.code.MainCodeFile
         self.base_address = 0
@@ -317,6 +343,12 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             widget.setIcon(uncheckedicon)
     
     def UiComponents(self):
+        # reusable
+        self.progress = PyQt6.QtWidgets.QProgressBar()
+        self.progress.resize(250, 35)
+        self.progress.setWindowTitle("Progress")
+        self.progress.setValue(0)
+        self.progress.hide()
         # Menus
         self.openAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\folder-horizontal-open.png'), '&Open', self)        
         self.openAction.setShortcut('Ctrl+O')
@@ -326,13 +358,13 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.exportAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\blueprint--arrow.png'), '&Export...', self)        
         self.exportAction.setShortcut('Ctrl+E')
         self.exportAction.setStatusTip('Export file in binary or converted format')
-        self.exportAction.triggered.connect(self.exportCall)
+        self.exportAction.triggered.connect(lambda: self.exportCall(self.tree.currentItem()))
         self.exportAction.setDisabled(True)
 
         self.replaceAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\blue-document-import.png'), '&Replace...', self)
         self.replaceAction.setShortcut('Ctrl+R')
         self.replaceAction.setStatusTip('replace with file in binary or converted format')
-        self.replaceAction.triggered.connect(self.replaceCall)
+        self.replaceAction.triggered.connect(lambda: self.replaceCall(self.tree.currentItem()))
 
         self.replacebynameAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\blue-document-import.png'), '&Replace by name...', self)        
         self.replacebynameAction.setStatusTip('replace with file of same name in binary or converted format')
@@ -448,11 +480,15 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.button_reload = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\arrow-circle-315.png'), "Reload Interface", self)
         self.button_reload.setStatusTip("Reload the displayed data(all changes that aren't saved will be lost)")
         self.button_reload.triggered.connect(self.reloadCall)
+        self.button_sdat = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\speaker-volume.png'), "Open Sound Data Archive", self)
+        self.button_sdat.setStatusTip("Show the contents of this ROM's sdat file")
+        self.button_sdat.triggered.connect(self.sdatOpenCall)
+        self.button_sdat.setDisabled(True)
         #self.button_codeedit = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\document-text.png'), "Open code", self)
         #self.button_codeedit.setStatusTip("Edit the ROM's code")
         #self.button_codeedit.triggered.connect(self.codeeditCall)
         #self.button_codeedit.setDisabled(True)
-        self.toolbar.addActions([self.button_save, self.button_playtest, self.button_reload])
+        self.toolbar.addActions([self.button_save, self.button_playtest, self.button_sdat, self.button_reload])
         self.toolbar.addSeparator()
 
         #Tabs
@@ -478,8 +514,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.tabs.addTab(self.page_tweaks, "Tweaks") # Coming Soon™
         self.tabs.addTab(self.page_patches, "Patches") # Coming Soon™
 
-        #ROM-related
-        #File explorer
+        #  ROM-related
+        # File explorer
         self.tree = EditorTree(self.page_explorer)
         self.page_explorer.layout().addWidget(self.tree, 0)
         self.tree.setMaximumWidth(450)
@@ -533,27 +569,29 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.font_caps = PyQt6.QtGui.QFont()
         self.font_caps.setCapitalization(PyQt6.QtGui.QFont.Capitalization.AllUppercase)
         
-        # Address bar
+        #Address bar
         self.field_address = BetterSpinBox(self.page_explorer)
+        self.field_address.numfill = 8
         self.field_address.setFont(self.font_caps)
         self.field_address.setValue(self.base_address+self.relative_adress)
         #self.field_address.setPrefix("0x")
         self.field_address.setDisplayIntegerBase(self.displayBase)
-        self.field_address.textChanged.connect(lambda: self.value_update_Call("relative_adress", library.dataconverter.baseToInt(library.dataconverter.strToBase(self.field_address.text()), self.field_address.displayIntegerBase()) - self.base_address, True))
+        #self.field_address.textChanged.connect(lambda: self.value_update_Call("relative_adress", library.dataconverter.baseToInt(library.dataconverter.strToBase(self.field_address.text()), self.field_address.displayIntegerBase()) - self.base_address, True))
+        self.field_address.textChanged.connect(lambda: self.value_update_Call("relative_adress", self.field_address.valueFromText(self.field_address.text()) - self.base_address, True))
         self.field_address.setDisabled(True)
         self.field_address.hide()
-        # notes
+        #notes
         self.label_file_size = PyQt6.QtWidgets.QLabel(self.page_explorer)
         self.label_file_size.setText("Size: N/A")
         self.label_file_size.hide()
-        # Tile Wifth
+        #Tile Wifth
         self.tile_width = 8
         self.field_tile_width = BetterSpinBox(self.page_explorer)
-        self.field_tile_width.setStatusTip(f"Set depth to 1bpp and tile width to {library.dataconverter.baseToStr(library.dataconverter.numberToBase(16, self.displayBase), self.displayBase, self.displayAlphanumeric)} for JP font")
+        self.field_tile_width.setStatusTip(f"Set depth to 1bpp and tile width to {library.dataconverter.StrFromNumber(16, self.displayBase, self.displayAlphanumeric)} for JP font")
         self.field_tile_width.setFont(self.font_caps)
         self.field_tile_width.setValue(self.tile_width)
         self.field_tile_width.setDisplayIntegerBase(self.displayBase)
-        self.field_tile_width.valueChanged.connect(lambda: self.value_update_Call("tile_width", library.dataconverter.baseToInt(library.dataconverter.strToBase(self.field_tile_width.text()), self.field_tile_width.displayIntegerBase()), True)) 
+        self.field_tile_width.valueChanged.connect(lambda: self.value_update_Call("tile_width", self.field_tile_width.valueFromText(self.field_tile_width.text()), True)) 
         self.field_tile_width.hide()
 
         self.label_tile_width = PyQt6.QtWidgets.QLabel(self.page_explorer)
@@ -564,13 +602,13 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.layout_tile_width.addWidget(self.field_tile_width)
         self.layout_tile_width.addWidget(self.label_tile_width)
         self.layout_tile_width.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignTop)
-        # Tile Height
+        #Tile Height
         self.tile_height = 8
         self.field_tile_height = BetterSpinBox(self.page_explorer)
         self.field_tile_height.setFont(self.font_caps)
         self.field_tile_height.setValue(self.tile_height)
         self.field_tile_height.setDisplayIntegerBase(self.displayBase)
-        self.field_tile_height.valueChanged.connect(lambda: self.value_update_Call("tile_height", library.dataconverter.baseToInt(library.dataconverter.strToBase(self.field_tile_height.text()), self.field_tile_height.DisplayIntegerBase()), True)) 
+        self.field_tile_height.valueChanged.connect(lambda: self.value_update_Call("tile_height", self.field_tile_height.valueFromText(self.field_tile_height.text()), True)) 
         self.field_tile_height.hide()
 
         self.label_tile_height = PyQt6.QtWidgets.QLabel(self.page_explorer)
@@ -581,13 +619,13 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.layout_tile_height.addWidget(self.field_tile_height)
         self.layout_tile_height.addWidget(self.label_tile_height)
         self.layout_tile_height.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignTop)
-        # Tiles Per row
+        #Tiles Per row
         self.tiles_per_row = 8
         self.field_tiles_per_row = BetterSpinBox(self.page_explorer)
         self.field_tiles_per_row.setFont(self.font_caps)
         self.field_tiles_per_row.setValue(self.tiles_per_row)
         self.field_tiles_per_row.setDisplayIntegerBase(self.displayBase)
-        self.field_tiles_per_row.valueChanged.connect(lambda: self.value_update_Call("tiles_per_row", library.dataconverter.baseToInt(library.dataconverter.strToBase(self.field_tiles_per_row.text()), self.field_tiles_per_row.displayIntegerBase()), True)) 
+        self.field_tiles_per_row.valueChanged.connect(lambda: self.value_update_Call("tiles_per_row", self.field_tiles_per_row.valueFromText(self.field_tiles_per_row.text()), True)) 
         self.field_tiles_per_row.hide()
 
         self.label_tiles_per_row = PyQt6.QtWidgets.QLabel(self.page_explorer)
@@ -598,13 +636,13 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.layout_tiles_per_row.addWidget(self.field_tiles_per_row)
         self.layout_tiles_per_row.addWidget(self.label_tiles_per_row)
         self.layout_tiles_per_row.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignTop)
-        # Tiles Per Column
+        #Tiles Per Column
         self.tiles_per_column = 16
         self.field_tiles_per_column = BetterSpinBox(self.page_explorer)
         self.field_tiles_per_column.setFont(self.font_caps)
         self.field_tiles_per_column.setValue(self.tiles_per_column)
         self.field_tiles_per_column.setDisplayIntegerBase(self.displayBase)
-        self.field_tiles_per_column.valueChanged.connect(lambda: self.value_update_Call("tiles_per_column", library.dataconverter.baseToInt(library.dataconverter.strToBase(self.field_tiles_per_column.text()), self.field_tiles_per_column.displayIntegerBase()), True)) 
+        self.field_tiles_per_column.valueChanged.connect(lambda: self.value_update_Call("tiles_per_column", self.field_tiles_per_column.valueFromText(self.field_tiles_per_column.text()), True)) 
         self.field_tiles_per_column.hide()
 
         self.label_tiles_per_column = PyQt6.QtWidgets.QLabel(self.page_explorer)
@@ -644,7 +682,30 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.layout_editzone.addItem(self.layout_editzone_row1)
         self.layout_editzone.addItem(self.file_content)
 
-        #Level Editor(Coming Soon™)
+        #Sound Data Archive
+        self.dialog_sdat = PyQt6.QtWidgets.QMdiSubWindow()
+        self.dialog_sdat.setWindowTitle("Sound Data Archive")
+        self.dialog_sdat.setWindowIcon(PyQt6.QtGui.QIcon('icons\\speaker-volume.png'))
+        self.dialog_sdat.resize(600, 400)
+
+        self.tree_sdat = EditorTree(self.dialog_sdat)
+        self.dialog_sdat.layout().addWidget(self.tree_sdat)
+        self.tree_sdat.setColumnCount(3)
+        self.tree_sdat.setHeaderLabels(["File ID", "Name", "Type"])
+        self.tree_sdat.setContextMenuPolicy(PyQt6.QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+
+        #VX
+        self.label_vx_movieLength = PyQt6.QtWidgets.QLabel(self.page_explorer)
+        self.label_vx_movieLength.setText("Movie duration: ")
+        self.label_vx_movieLength.hide()
+        self.field_vx_movieLength = BetterSpinBox(self.page_explorer)
+        self.field_vx_movieLength.numfill = 4
+        self.file_content.addWidget(self.label_vx_movieLength)
+        self.file_content.addWidget(self.field_vx_movieLength)
+        self.field_vx_movieLength.hide()
+        self.field_vx_movieLength.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+
+        # Level Editor(Coming Soon™)
         self.layout_level_editpannel = PyQt6.QtWidgets.QVBoxLayout()
 
         self.dropdown_editor_area = PyQt6.QtWidgets.QComboBox(self.page_leveleditor)
@@ -657,7 +718,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
         self.page_leveleditor.layout().addWidget(self.gfx_scene_level)
 
-        #Tweaks(Coming Soon™)
+        # Tweaks(Coming Soon™)
         self.tabs_tweaks = PyQt6.QtWidgets.QTabWidget(self.page_tweaks)
 
         self.dropdown_tweak_target = PyQt6.QtWidgets.QComboBox(self.page_tweaks)
@@ -702,14 +763,16 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.tabs_tweaks.addTab(self.page_tweaks_misc, "Misc.")
 
 
-        #Patches
+        # Patches
         self.tree_patches = EditorTree(self.page_patches)
         self.page_patches.layout().addWidget(self.tree_patches)
         self.tree_patches.setColumnCount(4)
         self.tree_patches.setHeaderLabels(["Enabed", "Address", "Name", "Type", "Size"])
         self.tree_patches.itemChanged.connect(self.patch_game)
+        self.tree_patches_checkboxes = []
+        self.ispatching = False
 
-        #Shortcuts
+        # Shortcuts
         #PyQt6.QtWidgets.QKeySequenceEdit()
 
         self.setStatusBar(PyQt6.QtWidgets.QStatusBar(self))
@@ -742,20 +805,53 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
     
     def patches_reload(self):
         if self.tree_patches_numbase != self.displayBase or self.tree_patches_numaplha != self.displayAlphanumeric:
+            #self.progress.show()
             self.tree_patches.clear()
             if self.rom.name.decode().replace(" ", "_") in library.patchdata.GameEnum.__members__:
                 patches = []
                 for patch in library.patchdata.GameEnum[self.rom.name.decode().replace(" ", "_")].value[1]:
+                    #self.progress.setValue(self.progress.value()+12)
                     #PyQt6.QtWidgets.QTreeWidgetItem(None, ["", "<address>", "<patch name>", "<patch type>", "<size>"])
-                    patch_item = PyQt6.QtWidgets.QTreeWidgetItem(None, ["", f"{library.dataconverter.baseToStr(library.dataconverter.numberToBase(patch[0], self.displayBase), self.displayBase, self.displayAlphanumeric).zfill(8)}", patch[1], patch[2], f"{library.dataconverter.baseToStr(library.dataconverter.numberToBase(len(patch[4]), self.displayBase), self.displayBase, self.displayAlphanumeric).zfill(1)}"])
-                    patch_item.setToolTip(0, str(patch[4]))
-                    patches.append(patch_item)
-                    patch_item.setFlags(patch_item.flags() | PyQt6.QtCore.Qt.ItemFlag.ItemIsUserCheckable)
-                    if self.rom.save()[patch[0]:patch[0]+len(patch[4])] == patch[4]: # Check for already applied patches
-                        patch_item.setCheckState(0, PyQt6.QtCore.Qt.CheckState.Checked)
+                    if type(patch[2]) == type([]): # if patch contains patches
+                        patch_item = PyQt6.QtWidgets.QTreeWidgetItem(None, ["", "N/A", patch[0], patch[1], "0"])
+                        patches.append(patch_item)
+                        patch_size = 0
+                        subPatchMatches = 0
+                        for subPatch in patch:
+                            if type(subPatch) == type([]):
+                                subPatch_item = PyQt6.QtWidgets.QTreeWidgetItem(None, ["", str(library.dataconverter.StrFromNumber(subPatch[0], self.displayBase, self.displayAlphanumeric).zfill(8)), subPatch[1], "Patch Segment", str(library.dataconverter.StrFromNumber(len(subPatch[3].replace("-", "")), self.displayBase, self.displayAlphanumeric).zfill(1))])
+                                subPatch_item.setToolTip(0, subPatch[3])
+                                subPatch_item.setFlags(patch_item.flags() | PyQt6.QtCore.Qt.ItemFlag.ItemIsUserCheckable)
+                                patch_item.addChild(subPatch_item)
+                                patch_size += len(subPatch[3].replace("-", ""))
+                                if self.rom.save()[subPatch[0]:subPatch[0]+len(subPatch[3])] == subPatch[3]:
+                                    subPatchMatches += 1
+                                    subPatch_item.setCheckState(0, PyQt6.QtCore.Qt.CheckState.Checked)
+                                else:
+                                    subPatch_item.setCheckState(0, PyQt6.QtCore.Qt.CheckState.Unchecked)
+                                self.tree_patches_checkboxes.append(subPatch_item.checkState(0))
+                        patch_item.setText(4, f"{library.dataconverter.StrFromNumber(patch_size, self.displayBase, self.displayAlphanumeric).zfill(1)}")
+                        patch_item.setFlags(patch_item.flags() | PyQt6.QtCore.Qt.ItemFlag.ItemIsUserCheckable)
+                        if subPatchMatches == patch_item.childCount(): # Check for already applied patches
+                            patch_item.setCheckState(0, PyQt6.QtCore.Qt.CheckState.Checked)
+                        elif subPatchMatches > 0:
+                            patch_item.setCheckState(0, PyQt6.QtCore.Qt.CheckState.PartiallyChecked)
+                        else:
+                            patch_item.setCheckState(0, PyQt6.QtCore.Qt.CheckState.Unchecked)
+                        self.tree_patches_checkboxes.append(patch_item.checkState(0))
                     else:
-                        patch_item.setCheckState(0, PyQt6.QtCore.Qt.CheckState.Unchecked)
+                        patch_item = PyQt6.QtWidgets.QTreeWidgetItem(None, ["", str(library.dataconverter.StrFromNumber(patch[0], self.displayBase, self.displayAlphanumeric).zfill(8)), patch[1], patch[2], str(library.dataconverter.StrFromNumber(len(patch[4].replace("-", "")), self.displayBase, self.displayAlphanumeric).zfill(1))])
+                        patch_item.setToolTip(0, str(patch[4]))
+                        patches.append(patch_item)
+                        patch_item.setFlags(patch_item.flags() | PyQt6.QtCore.Qt.ItemFlag.ItemIsUserCheckable)
+                        if self.rom.save()[patch[0]:patch[0]+len(patch[4])] == patch[4]: # Check for already applied patches
+                            patch_item.setCheckState(0, PyQt6.QtCore.Qt.CheckState.Checked)
+                        else:
+                            patch_item.setCheckState(0, PyQt6.QtCore.Qt.CheckState.Unchecked)
+                        self.tree_patches_checkboxes.append(patch_item.checkState(0))
                 self.tree_patches.addTopLevelItems(patches)
+            #self.progress.setValue(100)
+            #self.progress.close()
         self.tree_patches_numbase = self.displayBase
         self.tree_patches_numaplha = self.displayAlphanumeric
 
@@ -771,6 +867,18 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.romToEdit_name = fname[0].split("/")[len(fname[0].split("/")) - 1].rsplit(".", 1)[0]
             self.romToEdit_ext = "." + fname[0].split("/")[len(fname[0].split("/")) - 1].rsplit(".", 1)[1]
             self.rom = ndspy.rom.NintendoDSRom.fromFile(fname[0])
+            try:
+                self.sdat = ndspy.soundArchive.SDAT(self.rom.files[int(str(self.rom.filenames).rpartition(".sdat")[0].split()[-2])])# manually search for sdat file because getFileByName does not find it when it is in a folder
+                print("SDAT at " + str(self.rom.filenames).rpartition(".sdat")[0].split()[-2])
+                #self.sdat.fatLengthsIncludePadding = True
+                self.button_sdat.setEnabled(True)
+            except Exception:
+                dialog = PyQt6.QtWidgets.QMessageBox(self)
+                dialog.setWindowTitle("No SDAT")
+                dialog.setWindowIcon(PyQt6.QtGui.QIcon("icons\\exclamation"))
+                dialog.setText("Sound data archive was not found. \n This means that sound data may not be there or may not be in a recognizable format.")
+                dialog.exec()
+            self.treeSdatUpdate()
             self.arm9 = self.rom.loadArm9()
             self.arm7 = self.rom.loadArm7()
             self.temp_path = f"{os.path.curdir}\\temp\\{self.romToEdit_name+self.romToEdit_ext}"
@@ -803,7 +911,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.label_file_size.show()
         self.dropdown_editor_area.addItems([item.text(1) for item in self.tree.findItems("\A[a-z][0-9][0-9]", PyQt6.QtCore.Qt.MatchFlag.MatchRegularExpression, 1)])
 
-    def exportCall(self):
+    def exportCall(self, item: PyQt6.QtWidgets.QTreeWidgetItem):
         dialog = PyQt6.QtWidgets.QFileDialog(
                 self,
                 "Save ROM",
@@ -831,15 +939,15 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 print("Selected: " + dropdown_formatselect.currentText())
                 if self.fileToEdit_name != '':
                     if self.fileToEdit_name.find(".Folder") == -1: # if file
-                        extract(int(w.tree.currentItem().text(0)), fileToEdit_name=str(w.tree.currentItem().text(1) + "." + w.tree.currentItem().text(2)), path=dialog.selectedFiles()[0], format=dropdown_formatselect.currentText())
+                        extract(item.text(0), fileToEdit_name=str(item.text(1) + "." + item.text(2)), path=dialog.selectedFiles()[0], format=dropdown_formatselect.currentText(), tree=item.treeWidget())
                     else: # if folder
                         print("Folder " + os.path.join(dialog.selectedFiles()[0] + "/" + w.fileToEdit_name.removesuffix(".Folder")) + " will be created")
                         if os.path.exists(os.path.join(dialog.selectedFiles()[0] + "/" + w.fileToEdit_name.removesuffix(".Folder"))) == False:
                             os.makedirs(os.path.join(dialog.selectedFiles()[0] + "/" + w.fileToEdit_name.removesuffix(".Folder")))
-                        print(w.tree.currentItem().childCount() - 1)
-                        for i in range(w.tree.currentItem().childCount()):
-                            print(w.tree.currentItem().child(i).text(0))
-                            extract(int(w.tree.currentItem().child(i).text(0)), path=dialog.selectedFiles()[0], format=dropdown_formatselect.currentText())#, w.fileToEdit_name.replace(".Folder", "/")
+                        print(item.childCount() - 1)
+                        for i in range(item.childCount()):
+                            print(item.child(i).text(0))
+                            extract(item.child(i).text(0), path=dialog.selectedFiles()[0], format=dropdown_formatselect.currentText(), tree=item.treeWidget())#, w.fileToEdit_name.replace(".Folder", "/")
                             #str(w.tree.currentItem().child(i).text(1) + "." + w.tree.currentItem().child(i).text(2)), 
 
     def replacebynameCall(self):
@@ -883,7 +991,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                     )
                 self.treeCall()
 
-    def replaceCall(self):
+    def replaceCall(self, item: PyQt6.QtWidgets.QTreeWidgetItem):
         if hasattr(w.rom, "name"):
             dialog = PyQt6.QtWidgets.QFileDialog(
                 self,
@@ -894,20 +1002,29 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 )
             self.set_dialog_button_name(dialog, "&Open", "Import")
             if dialog.exec(): # if file you're trying to replace is in ROM
-                    with open(*dialog.selectedFiles(), 'rb') as f:
-                        fileEdited = f.read()
-                        if str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']").split(".")[1] == "txt":
-                                try:
-                                    #print("replacement of file with id " + w.tree.currentItem().text(0) + " was successful")
-                                    w.rom.files[int(w.tree.currentItem().text(0))] = bytearray(library.dataconverter.convertdata_text_to_bin(fileEdited.decode("utf-8")))
-                                except Exception as e:
-                                    print(e)
-                        else:
-                            w.rom.files[int(w.tree.currentItem().text(0))] = bytearray(fileEdited)
-                            #print("raw data replaced")
                     dialog2 = PyQt6.QtWidgets.QMessageBox()
                     dialog2.setWindowTitle("Import Status")
                     dialog2.setWindowIcon(PyQt6.QtGui.QIcon('icons\\information.png'))
+                    dialog2.setText("File import failed!")
+                    with open(*dialog.selectedFiles(), 'rb') as f:
+                        fileEdited = f.read()
+                        if str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']").split(".")[1] == "txt": # text file
+                                try:
+                                    if item.treeWidget() == self.tree_sdat: # implement different import method
+                                        dialog2.exec()
+                                        return
+                                    else:
+                                        #print("replacement of file with id " + w.tree.currentItem().text(0) + " was successful")
+                                        w.rom.files[int(item.text(0))] = bytearray(library.dataconverter.convertdata_text_to_bin(fileEdited.decode("utf-8")))
+                                except Exception as e:
+                                    print(e)
+                        else: # raw data
+                            if item.treeWidget() == self.tree_sdat: # implement different import method
+                                dialog2.exec()
+                                return
+                            else:
+                                w.rom.files[int(item.text(0))] = bytearray(fileEdited)
+                            #print("raw data replaced")
                     dialog2.setText("File \"" + str(dialog.selectedFiles()).split("/")[-1].removesuffix("']") + "\" imported!")
                     dialog2.exec()
                     self.treeCall()
@@ -1013,10 +1130,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             with open(self.temp_path, "r+b") as f:
                     if input_address.text() != "":
                         try:
-                            address = library.dataconverter.baseToInt(library.dataconverter.strToBase(input_address.text()), self.displayBase)
-                            value = library.dataconverter.baseToStr(library.dataconverter.strToBase(input_value.text()), 16, True)
+                            address = library.dataconverter.IntFromStr(input_address.text(), self.displayBase)
+                            value = library.dataconverter.StrToAlphanumStr(input_value.text(), 16, True)
                             f.seek(address)# get to pos for message
-                            value_og = library.dataconverter.baseToStr(library.dataconverter.strToBase(f.read(len(bytes.fromhex(value))).hex()), self.displayBase, self.displayAlphanumeric)
+                            value_og = library.dataconverter.StrToAlphanumStr(f.read(len(bytes.fromhex(value))).hex(), self.displayBase, self.displayAlphanumeric)
                             print(f"successfully wrote {value_og} => {input_value.text().upper()} to {input_address.text().zfill(8)}")
                             f.seek(address)# get to pos
                             f.write(bytes.fromhex(value))# write data
@@ -1024,11 +1141,16 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                             PyQt6.QtWidgets.QMessageBox.critical(
                                 self,
                                 str(e),
-                                f"Address input must be numeric and must not go over size {library.dataconverter.baseToStr(library.dataconverter.numberToBase(len(self.rom.save()), self.displayBase), self.displayBase, self.displayAlphanumeric)}\nValue input must be numeric."
+                                f"Address input must be numeric and must not go over size {library.dataconverter.StrFromNumber(len(self.rom.save()), self.displayBase, self.displayAlphanumeric)}\nValue input must be numeric."
                                 )
                             return
             os.startfile(self.temp_path)
             print("game will start in a few seconds")
+
+    def sdatOpenCall(self):
+        if hasattr(self, 'dialog_sdat'):
+            self.dialog_sdat.show()
+
 
     #def codeeditCall(self):
         #self.tree.clearSelection()
@@ -1059,6 +1181,51 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             tree_files = []
         self.tree.clear()
         self.tree.addTopLevelItems(tree_files)
+    
+    def treeSdatUpdate(self):
+        #print(str(self.sdat.groups)[:13000])
+        #progress = PyQt6.QtWidgets.QProgressBar()
+        #progress.setValue(0)
+        #progress.show()
+        self.tree_sdat.clear() 
+        # all sdat sections follow the [(Name, object(data)), ...] format except swar with [(Name, object([object(data), ...])), ...] and groups, which have [(Name, [object(data), ...]), ...]
+        item_sseq = PyQt6.QtWidgets.QTreeWidgetItem(["N/A", "Sequenced Music", "SSEQ"]) #SSEQ
+        item_ssar = PyQt6.QtWidgets.QTreeWidgetItem(["N/A", "Sequenced Sound Effects", "SSAR"]) #SSAR
+        item_sbnk = PyQt6.QtWidgets.QTreeWidgetItem(["N/A", "Sound Banks", "SBNK"]) #SBNK
+        item_swar = PyQt6.QtWidgets.QTreeWidgetItem(["N/A", "Sound Waves", "SWAR"]) #SWAR
+        item_sseqplayer = PyQt6.QtWidgets.QTreeWidgetItem(["N/A", "Sequence Player", "SSEQ"]) #SSEQ
+        item_strm = PyQt6.QtWidgets.QTreeWidgetItem(["N/A", "Multi-Channel Stream", "STRM"]) #STRM
+        item_strmplayer = PyQt6.QtWidgets.QTreeWidgetItem(["N/A", "Stream Player", "STRM"]) #STRM
+        item_group = PyQt6.QtWidgets.QTreeWidgetItem(["N/A", "Group", ""])
+        item_list = [
+            item_sseq,
+            item_ssar,
+            item_sbnk,
+            item_swar,
+            item_sseqplayer,
+            item_strm,
+            item_strmplayer,
+            item_group
+        ]
+        data_list = [
+            self.sdat.sequences,
+            self.sdat.sequenceArchives,
+            self.sdat.banks,
+            self.sdat.waveArchives,
+            self.sdat.sequencePlayers,
+            self.sdat.streams,
+            self.sdat.streamPlayers,
+            self.sdat.groups
+        ]
+
+        for category in item_list:
+            for section in data_list[item_list.index(category)]:
+                category.addChild(PyQt6.QtWidgets.QTreeWidgetItem(["Unknown", section[0], category.text(2)]))
+            #progress.setValue(progress.value()+ 100//len(item_list))
+
+        self.tree_sdat.addTopLevelItems([*item_list])
+        #progress.setValue(100)
+        #progress.close()
 
     def treeCall(self, isValueUpdate=False):
         #self.clearTasks()
@@ -1072,21 +1239,19 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             #print("call")
         self.file_content_text.setReadOnly(False)
         self.field_address.setDisabled(False)
-        setattr(self.field_address, "alphanum", self.displayAlphanumeric)
         PyQt6.QtCore.qInstallMessageHandler(lambda a, b, c: None) # Silence Invalid base warnings from the following code
-        self.field_address.setDisplayIntegerBase(self.displayBase)
-        self.field_tile_height.setDisplayIntegerBase(self.displayBase)
-        self.field_tile_width.setDisplayIntegerBase(self.displayBase)
-        self.field_tiles_per_column.setDisplayIntegerBase(self.displayBase)
-        self.field_tiles_per_row.setDisplayIntegerBase(self.displayBase)
+        for widget in self.findChildren(BetterSpinBox): # update all widgets of same type with current settings
+            widget.alphanum = self.displayAlphanumeric
+            widget.setDisplayIntegerBase(self.displayBase)
+            widget.setValue(widget.value())# refresh widget text by "changing the value"
         PyQt6.QtCore.qInstallMessageHandler(None) # Revert to default message handler
-        if self.dialog_settings.isVisible() and (self.field_address.displayIntegerBase() != self.displayBase):
+        if self.dialog_settings.isVisible() and (self.field_address.displayIntegerBase() != self.displayBase): # handle error manually
             PyQt6.QtWidgets.QMessageBox.critical(
                                 self,
                                 "Numeric Base Warning!",
                                 f"Base is not supported for inputting data in spinboxes.\n This means that all spinboxes will revert to base 10 until they are set to a supported base.\n Proceed at your own risk!"
                                 )
-        self.field_tile_width.setStatusTip(f"Set depth to 1bpp and tile width to {library.dataconverter.baseToStr(library.dataconverter.numberToBase(16, self.displayBase), self.displayBase, self.displayAlphanumeric)} for JP font")
+        self.field_tile_width.setStatusTip(f"Set depth to 1bpp and tile width to {library.dataconverter.StrFromNumber(16, self.displayBase, self.displayAlphanumeric)} for JP font")
         if self.tree.currentItem() != None:
             self.fileToEdit_name = str(self.tree.currentItem().text(1) + "." + self.tree.currentItem().text(2))
             self.base_address = self.rom.save().index(self.rom.files[int(self.tree.currentItem().text(0))])
@@ -1095,7 +1260,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.field_address.setValue(self.base_address+self.relative_adress)
             self.field_address.setMaximum(self.base_address+len(self.rom.files[int(self.tree.currentItem().text(0))]))
             if self.fileToEdit_name.find(".Folder") == -1:# if it's a file
-                self.label_file_size.setText(f"Size: {library.dataconverter.baseToStr(library.dataconverter.numberToBase(len(self.rom.files[int(self.tree.currentItem().text(0))]), self.displayBase), self.displayBase, self.displayAlphanumeric).zfill(0)} bytes")
+                self.label_file_size.setText(f"Size: {library.dataconverter.StrFromNumber(len(self.rom.files[int(self.tree.currentItem().text(0))]), self.displayBase, self.displayAlphanumeric).zfill(0)} bytes")
                 if self.fileDisplayRaw == False:
                     if self.fileDisplayMode == "Adapt":
                             indicator_list_gfx = ["face", "font", "obj_fnt", "title"]
@@ -1123,7 +1288,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
                     if self.fileDisplayState == "English dialogue": # if english text
                         self.file_editor_show("Text")
-                        self.file_content_text.setPlainText(library.dataconverter.convertdata_bin_to_text(self.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:]))
+                        self.file_content_text.setPlainText(library.dataconverter.convertdata_bin_to_text(self.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:self.relative_adress+0x6000]))
                     elif self.fileDisplayState == "Graphics":
                         #print(self.dropdown_gfx_depth.currentText()[:1] + " bpp graphics")
                         if self.gfx_palette.index(self.file_content_gfx.pen.color().rgba()) >= 2**list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()].depth:
@@ -1132,6 +1297,19 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         if not isValueUpdate: # if entering graphics mode and func is not called to update other stuff
                             self.file_editor_show("Graphics")
                         addItem_tilesQImage_fromBytes(self.file_content_gfx, self.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:], algorithm=list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column, tileWidth=self.tile_width, tileHeight=self.tile_height)
+                    elif self.fileDisplayState == "Sound":
+                        self.file_editor_show("Text") # placeholder
+                        self.checkbox_textoverwite.hide()
+                        self.file_content_text.setReadOnly(True)
+                        self.file_content_text.setPlainText("Sound editor is not yet implemented.\n Right click on this file > open Sound Archive\nor click on the sound icon in the toolbar to open sound archive viewer.")
+                        #self.file_editor_show("Sound")
+                        self.field_address.setDisabled(True)
+                    elif self.fileDisplayState == "VX":
+                        self.file_editor_show("VX")
+                        self.field_address.setDisabled(True)
+                        #print(self.rom.files[int(self.tree.currentItem().text(0))][5:6].hex()+self.rom.files[int(self.tree.currentItem().text(0))][4:5].hex())
+                        self.field_vx_movieLength.setValue(int(self.rom.files[int(self.tree.currentItem().text(0))][5:6].hex()+self.rom.files[int(self.tree.currentItem().text(0))][4:5].hex(), 16))
+                        self.button_file_save.setDisabled(True)
                     else:
                         self.field_address.setDisabled(True)
                         self.file_editor_show("Text")
@@ -1163,19 +1341,19 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
     def reloadCall(self, isQuick=False): # Reload all reloadable content
         if hasattr(self.rom, "name"):
-            if isQuick:
+            if isQuick: #reload only necessary
                 if self.tabs.currentIndex() == self.tabs.indexOf(self.page_explorer):
                     self.treeCall(True)
                 elif self.tabs.currentIndex() == self.tabs.indexOf(self.page_patches):
                     #print("b" + str(self.displayAlphanumeric))
                     self.patches_reload()
                     #print("a" + str(self.displayAlphanumeric))
-            else:
-                self.treeCall(True)
+            else: #reload everything
+                self.treeCall()
                 self.patches_reload()
 
-    def file_editor_show(self, mode):
-        modes = ["Text", "Graphics"]
+    def file_editor_show(self, mode: str):
+        modes = ["Text", "Graphics", "Sound", "VX"]
         mode_index = modes.index(mode)
         # Contents of widget sets
         text_widgets: list[PyQt6.QtWidgets.QWidget] = [self.file_content_text, self.checkbox_textoverwite]
@@ -1191,10 +1369,16 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.field_tiles_per_column,
             self.label_tiles_per_column
             ]
+        sound_widgets: list[PyQt6.QtWidgets.QWidget] = [
+            ]
+        vx_widgets: list[PyQt6.QtWidgets.QWidget] = [
+            self.field_vx_movieLength,
+            self.label_vx_movieLength
+            ]
         for i in range(256):
             graphics_widgets.append(getattr(self, f"button_palettepick_{i}"))
         # Associates each mode with a set of widgets to show or hide 
-        widget_sets = [text_widgets, graphics_widgets]
+        widget_sets = [text_widgets, graphics_widgets, sound_widgets, vx_widgets]
         # Hide all widgets from other modes
         for s in widget_sets:
             if s != widget_sets[mode_index]:
@@ -1209,66 +1393,88 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.relative_adress = 0x00000000
             #print(f"{len(self.rom.save()):08X}")
 
-    def treeContextMenu(self): #quick menu to export or replace selected file
-        self.tree_context_menu = PyQt6.QtWidgets.QMenu(self.tree)
-        self.tree_context_menu.setGeometry(self.tree.cursor().pos().x(), self.tree.cursor().pos().y(), 50, 50)
-        exportAction = self.tree_context_menu.addAction("Export " + self.tree.currentItem().text(1) + ("." + self.tree.currentItem().text(2)).replace(".Folder", " and contents"))
-        importAction = self.tree_context_menu.addAction("Replace " + self.tree.currentItem().text(1) + ("." + self.tree.currentItem().text(2)).replace(".Folder", " and contents"))
-        action2 = self.tree_context_menu.exec()
-        if action2 is not None:
-            if action2 == exportAction:
-                self.exportCall()
-            elif action2 == importAction:
-                self.replaceCall()
-
-    def textEditContextMenu(self): #quick menu to insert special values in dialogue file
-        self.file_context_menu = PyQt6.QtWidgets.QMenu(self.tree)
-        self.file_context_menu.setGeometry(self.file_content_text.cursor().pos().x(), self.file_content_text.cursor().pos().y(), 50, 50)
-        for char_index in range(len(library.dataconverter.SPECIAL_CHARACTER_LIST)):
-            if char_index >= 0xe0 and type(library.dataconverter.SPECIAL_CHARACTER_LIST[char_index]) != type(int()):
-                self.file_context_menu.addAction(f"{library.dataconverter.baseToStr(library.dataconverter.numberToBase(char_index, self.displayBase), self.displayBase, self.displayAlphanumeric).zfill(2)} - {library.dataconverter.SPECIAL_CHARACTER_LIST[char_index][1]}")
-        action2 = self.file_context_menu.exec()
-        if action2 is not None:
-            self.file_content_text.insertPlainText(action2.text()[action2.text().find("├"):])
-
     def save_filecontent(self): #Save to virtual ROM
-        savelimit = None
-        if self.fileDisplayRaw == False:
-            if self.fileDisplayState == "English dialogue": # if english text
-                rom_save_data = library.dataconverter.convertdata_text_to_bin(self.file_content_text.toPlainText())
-            if self.fileDisplayState == "Graphics":
-                savelimit = len(saveData_fromGFXView(self.file_content_gfx))
-                rom_save_data = saveData_fromGFXView(self.file_content_gfx)
+        if self.fileDisplayState == "VX":
+            w.rom.files[int(self.tree.currentItem().text(0))][4:6] = bytearray.fromhex(self.field_vx_movieLength.text()[2:4] + self.field_vx_movieLength.text()[:2]) # set movie length
+        elif self.fileDisplayState == "Sound":
+            return
         else:
-            savelimit = int(self.file_content_text.charcount_page()/2) # 2 hexadecimal digits in one byte
-            rom_save_data = bytearray.fromhex(library.dataconverter.baseToStr(library.dataconverter.strToBase(self.file_content_text.toPlainText()), 16, True))
-        if savelimit != None:
-            w.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:self.relative_adress+savelimit] = rom_save_data
-        else:
-            w.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:] = rom_save_data
+            if self.fileDisplayRaw == False:
+                if self.fileDisplayState == "English dialogue": # if english text
+                    rom_save_data = library.dataconverter.convertdata_text_to_bin(self.file_content_text.toPlainText())
+                if self.fileDisplayState == "Graphics":
+                    rom_save_data = saveData_fromGFXView(self.file_content_gfx)
+            else:
+                rom_save_data = bytearray.fromhex(library.dataconverter.StrToAlphanumStr(self.file_content_text.toPlainText(), 16, True)) # force to alphanumeric for bytearray conversion
+            w.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:self.relative_adress+len(rom_save_data)] = rom_save_data
         #print(type(w.rom.files[int(self.tree.currentItem().text(0))]))
         print("file changes saved")
         self.button_file_save.setDisabled(True)
 
     def patch_game(self):# Currently a workaround to having no easy way of writing directly to any address in the ndspy rom object
+        if self.ispatching == True:
+            return
+        self.ispatching = True
         if not os.path.exists("temp"):
             os.mkdir("temp")
         self.rom.saveToFile(self.temp_path)# Create temporary ROM to write patch to
-        patch_list = library.patchdata.GameEnum[self.rom.name.decode().replace(" ", "_")].value[1]
+        patch_list = []
+        for patch in library.patchdata.GameEnum[self.rom.name.decode().replace(" ", "_")].value[1]: # create a patch list with a consistent format
+            if type(patch[2]) == type([]):
+                patch_list.append(['N/A', patch[0], patch[1], 'N/A', 'N/A'])
+                for subPatch in patch:
+                    if type(subPatch) == type([]):
+                        patch_list.append([subPatch[0], subPatch[1], "Patch Segment", subPatch[2], subPatch[3]])
+            else:
+                patch_list.append(patch)
+
         tree_list = self.tree_patches.findItems("", PyQt6.QtCore.Qt.MatchFlag.MatchContains | PyQt6.QtCore.Qt.MatchFlag.MatchRecursive)
+
+        for item_i in range(len(tree_list)):# Iterate through patch groups
+            if tree_list[item_i].childCount() != 0:
+                if tree_list[item_i].checkState(0) != self.tree_patches_checkboxes[item_i]: # if checkstate changed
+                    for child_i in range(tree_list[item_i].childCount()): # update children
+                        tree_list[item_i].child(child_i).setCheckState(0, tree_list[item_i].checkState(0))
+                else: # update according to children
+                    subPatchMatches = 0
+                    for child_i in range(tree_list[item_i].childCount()):
+                        if tree_list[item_i].child(child_i).checkState(0) == PyQt6.QtCore.Qt.CheckState.Checked:
+                            subPatchMatches += 1
+                    if subPatchMatches == tree_list[item_i].childCount(): # Check for already applied patches
+                            tree_list[item_i].setCheckState(0, PyQt6.QtCore.Qt.CheckState.Checked)
+                    elif subPatchMatches > 0:
+                        tree_list[item_i].setCheckState(0, PyQt6.QtCore.Qt.CheckState.PartiallyChecked)
+                    else:
+                        tree_list[item_i].setCheckState(0, PyQt6.QtCore.Qt.CheckState.Unchecked)
+
         for item_i in range(len(tree_list)):# Go through unchecked ones first
             if (tree_list[item_i].checkState(0) == PyQt6.QtCore.Qt.CheckState.Unchecked):
                 # Revert patch
-                with open(self.temp_path, "r+b") as f:
-                    f.seek(patch_list[item_i][0])# get to patch pos
-                    f.write(patch_list[item_i][3])# write og data
-        for item_i in range(len(tree_list)):# Iterate through active patches
+                if tree_list[item_i].childCount() == 0: # if not a patch group
+                    with open(self.temp_path, "r+b") as f:
+                        f.seek(patch_list[item_i][0])# get to patch pos
+                        #print("seek: " + f"{patch_list[item_i][0]:08X}")
+                        f.write(bytes.fromhex(patch_list[item_i][3]))# write og data
+                        
+        for item_i in range(len(tree_list)):# Then through active patches
             if (tree_list[item_i].checkState(0) == PyQt6.QtCore.Qt.CheckState.Checked):
                 # Apply patch
-                with open(self.temp_path, "r+b") as f:
-                    f.seek(patch_list[item_i][0])# get to patch pos
-                    f.write(patch_list[item_i][4])# write patch data
+                if tree_list[item_i].childCount() == 0: # if not a patch group
+                    with open(self.temp_path, "r+b") as f:
+                        f.seek(patch_list[item_i][0])# get to patch pos
+                        #print("seek: " + f"{patch_list[item_i][0]:08X}")
+                        newData = patch_list[item_i][4]
+                        for s in range(len(patch_list[item_i][4])):
+                            if newData[s] == "-":
+                                newData = newData[:s] + patch_list[item_i][3][s] + newData[s+1:] # replace '-' with og data
+                        newData = bytes.fromhex(newData)
+                        f.write(newData)# write patch data
+
+        for item_i in range(len(tree_list)):# Iterate through all patches
+            self.tree_patches_checkboxes[item_i] = tree_list[item_i].checkState(0) #and update checkbox state list
+
         self.rom = ndspy.rom.NintendoDSRom.fromFile(self.temp_path)# update the editor with patched ROM
+        self.ispatching = False
 
 app = PyQt6.QtWidgets.QApplication(sys.argv)
 w = MainWindow()
@@ -1299,10 +1505,17 @@ def saveData_fromGFXView(view: GFXView, palette: list[int]=w.gfx_palette, algori
         saved_data +=  library.dataconverter.convertdata_qt_to_bin(tile_current, palette, algorithm, tileWidth, tileHeight)
     return saved_data
 
-def extract(fileToEdit_id: int, folder="", fileToEdit_name="", path="", format=""):
-    fileToEdit = w.rom.files[fileToEdit_id]
-    if fileToEdit_name == "":
-        fileToEdit_name = w.rom.filenames[fileToEdit_id]
+def extract(fileToEdit_id: int, folder="", fileToEdit_name="", path="", format="", tree=w.tree):
+    if tree == w.tree:
+        fileToEdit_id = int(fileToEdit_id)
+        fileToEdit = w.rom.files[fileToEdit_id]
+        if fileToEdit_name == "":
+            fileToEdit_name = w.rom.filenames[fileToEdit_id]
+    elif tree == w.tree_sdat: # implement fetching file from sdat
+        print("files within archive are not supported")
+        return
+    else:
+        return
     print("file " + str(fileToEdit_id) + ": " + fileToEdit_name)
     print(fileToEdit[0x65:0xc5])
 
