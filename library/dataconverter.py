@@ -60,12 +60,12 @@ SPECIAL_CHARACTER_LIST[0xf0] = [1, "├CHAR_F 0x{0:02X}┤"] #sets char to 0xF0 
 SPECIAL_CHARACTER_LIST[0xf1] = [1, "├COLOR 0x{0:02X}┤"]
 SPECIAL_CHARACTER_LIST[0xf2] = [1, "├PLACEMENT 0x{0:02X}┤"]
 SPECIAL_CHARACTER_LIST[0xf3] = [1, "├MUGSHOT 0x{0:02X}┤"]
-#SPECIAL_CHARACTER_LIST[0xf4] = [1, ""] #does nothing, might be used with F9 only
-#SPECIAL_CHARACTER_LIST[0xf5] = [1, ""] #does nothing, might be used with F9 only
+SPECIAL_CHARACTER_LIST[0xf4] = [1, "├ISOLATE 0x{0:02X}┤"] #hides the next char and draws function arguments.
+SPECIAL_CHARACTER_LIST[0xf5] = [1, "├NEXTEVENT 0x{0:02X}┤"] #same as 0xfe, but does not interrupt current dialogue
 SPECIAL_CHARACTER_LIST[0xf6] = [1, "├TWOCHOICES 0x{0:02X}┤"]
-#SPECIAL_CHARACTER_LIST[0xf7] = [1, ""] #???
+SPECIAL_CHARACTER_LIST[0xf7] = [1, "├ISOLATE2 0x{0:02X}┤"] #same as 0xf4
 SPECIAL_CHARACTER_LIST[0xf8] = [1, "├NAME 0x{0:02X}┤"]
-#SPECIAL_CHARACTER_LIST[0xf9] = [2, "├0xF9 0x{0:02X} 0x{1:02X}┤"] #???
+SPECIAL_CHARACTER_LIST[0xf9] = [2, "├COUNTER 0x{0:02X} 0x{1:02X}┤"] #dialogue page counter???
 SPECIAL_CHARACTER_LIST[0xfa] = [0, "├PLAYERNAME┤"] # writes player name
 SPECIAL_CHARACTER_LIST[0xfb] = [0, "├THREECHOICES┤"]
 SPECIAL_CHARACTER_LIST[0xfc] = [0, "├NEWLINE┤"]
@@ -177,6 +177,37 @@ def bitstring_to_bytes(s: str):
         v >>= 8
     return bytes(b[::-1])
 
+def find_matching_paren(s, i, braces=None):
+    openers = braces or {"(": ")"}
+    closers = {v: k for k, v in openers.items()}
+    stack = []
+    result = []
+
+    if s[i] not in openers:
+        raise ValueError(f"char at index {i} was not an opening brace")
+
+    for ii in range(i, len(s)):
+        c = s[ii]
+
+        if c in openers:
+            stack.append([c, ii])
+        elif c in closers:
+            if not stack:
+                raise ValueError(f"tried to close brace without an open at position {i}")
+
+            pair, idx = stack.pop()
+
+            if pair != closers[c]:
+                raise ValueError(f"mismatched brace at position {i}")
+
+            if idx == i:
+                return ii
+    
+    if stack:
+        raise ValueError(f"no closing brace at position {i}")
+
+    return result
+
 def convertdata_bin_to_text(data: bytearray, lang: str="en"):
     chars = []
     i=0
@@ -186,9 +217,16 @@ def convertdata_bin_to_text(data: bytearray, lang: str="en"):
         elif type(SPECIAL_CHARACTER_LIST[data[i]]) == type([]):# game specific chars
             special_character = SPECIAL_CHARACTER_LIST[data[i]]
             params = []
-            for _ in range(special_character[0]):# if char is a "function", append params and count the file chars read
+            for p in range(special_character[0]):# if char is a "function", append params and count the file chars read
                 i+=1
-                params.append(data[i])
+                if i <= len(data)-1: # if not at end of file
+                    params.append(data[i])
+                else: # if data incomplete
+                    #print(params)
+                    #print(special_character[1][:special_character[1].replace("0x", "  ", p).find(" 0x")] + "┤")
+                    chars.append(special_character[1][:special_character[1].replace("0x", "  ", p).find(" 0x")].format(*params) + "┤")# add the char and insert the incomplete amount of param values
+                    data = ''.join(chars)# join all converted chars into one full string
+                    return data
             chars.append(special_character[1].format(*params))# add the char and insert the param values, if applicable
         else:# undefined hex values
             chars.append(f"├0x{data[i]:02X}┤")
@@ -202,19 +240,35 @@ def convertdata_text_to_bin(data: str, lang: str="en"):
         c=0
         while c < len(file_text):
             if file_text[c] == "├": #extra special chars
-                if file_text[c+1].isdigit():
-                    file_data.append(int.to_bytes(int(file_text[c+3]+file_text[c+4], 16)))
+                if file_text[c+1:c+3] == "0x": # undefined hex values
+                    file_data.append(int.to_bytes(int(file_text[c+3:c+5], 16)))
                     c+=len("├0xXX┤")-1
                 else:
-                    special_string = file_text[c:file_text.find("┤", c)+1]
+                    #special_string = file_text[c:file_text.find("┤", c)+1]
+                    special_string = file_text[c:find_matching_paren(file_text, c, {"├": "┤"})+1]
+                    #print("special: " +special_string)
                     #print(special_string.split(' ')[0])
-                    for d in range(len(SPECIAL_CHARACTER_LIST)):
-                        if type(SPECIAL_CHARACTER_LIST[d]) == type([]) and SPECIAL_CHARACTER_LIST[d][1].split(' ')[0] == special_string.split(' ')[0]:
+                    for d in range(len(SPECIAL_CHARACTER_LIST)): # iterate through special chars
+                        if type(SPECIAL_CHARACTER_LIST[d]) == type([]) and SPECIAL_CHARACTER_LIST[d][1].split(' ')[0] == special_string.split(' ')[0]: # if special char matches(remove variable 0xXX part to check)
                             file_data.append(int.to_bytes(d))
-                            for p in range(SPECIAL_CHARACTER_LIST[d][0]):
-                                #print(p)
-                                #print(file_text[c+len(special_string)+2-(5+p*5)]+file_text[c+len(special_string)+3-(5+p*5)])
-                                file_data.append(int.to_bytes(int(file_text[c+len(special_string)+2-(5+p*5)]+file_text[c+len(special_string)+3-(5+p*5)], 16)))
+                            for p in range(SPECIAL_CHARACTER_LIST[d][0]): # iterate through argument count
+                                if len(special_string.split())-2 >= p: #if index is within range(to exclude functions with invalid argument count)
+                                    if special_string.replace('0x', '').split()[p+1][0] == "├": # if function passed as arg
+                                        #print(special_string.replace('0x', '').split())
+                                        #print(special_string.replace('0x', '').split()[p+1].replace('┤┤', '┤') + " was not inserted because it is nested.")
+                                        for pd in range(len(SPECIAL_CHARACTER_LIST)): # iterate through special chars
+                                            #if type(SPECIAL_CHARACTER_LIST[pd]) == type([]):
+                                            #    print(SPECIAL_CHARACTER_LIST[pd][1].split()[0].removesuffix('┤') + " VS " + special_string.replace('0x', '').split()[p+1].removesuffix('┤').removesuffix('┤'))
+                                            if type(SPECIAL_CHARACTER_LIST[pd]) == type([]) and SPECIAL_CHARACTER_LIST[pd][1].split()[0].removesuffix('┤') == special_string.replace('0x', '').split()[p+1].removesuffix('┤').removesuffix('┤'): # if special char matches(remove variable 0xXX part to check)
+                                                file_data.append(int.to_bytes(pd))
+                                    elif special_string.replace('0x', '').split()[p+1].find("{") != -1: # args is undefined
+                                        print(special_string + ": Missing argument" + str(p) + "! setting to 0x00.")
+                                        file_data.append(int.to_bytes(0x00))
+                                    else:
+                                        #print(p)
+                                        #print(file_text[c+len(special_string)+2-(5+p*5)]+file_text[c+len(special_string)+3-(5+p*5)])
+                                        #file_data.append(int.to_bytes(int(file_text[c+len(special_string)+2-(5+p*5)]+file_text[c+len(special_string)+3-(5+p*5)], 16)))
+                                        file_data.append(int.to_bytes(int(special_string.split()[p+1].removesuffix('┤').removesuffix('┤'), 16)))
                             c+=len(special_string)-1
             elif any(file_text[c] in sublist for sublist in SPECIAL_CHARACTER_LIST if isinstance(sublist, list)): #game's extended char table
                 for d in range(len(SPECIAL_CHARACTER_LIST)):

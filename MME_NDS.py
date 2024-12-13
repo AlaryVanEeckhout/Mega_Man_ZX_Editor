@@ -10,7 +10,7 @@ import ndspy.soundArchive
 import library.dataconverter, library.patchdata, library.init_readwrite
 #Global variables
 global EDITOR_VERSION
-EDITOR_VERSION = "0.2.2" # objective, feature, WIP
+EDITOR_VERSION = "0.2.3" # objective, feature, WIP
 
 class ThreadSignals(PyQt6.QtCore.QObject):
     signal_RunnableDisplayRawText = PyQt6.QtCore.pyqtSignal(str)
@@ -333,7 +333,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             firstLaunch_dialog = PyQt6.QtWidgets.QMessageBox()
             firstLaunch_dialog.setWindowTitle("First Launch")
             firstLaunch_dialog.setWindowIcon(PyQt6.QtGui.QIcon('icons\\information.png'))
-            firstLaunch_dialog.setText("Editor's current features:\n- English dialogue text editor\n- Patcher(no patches available yet)")
+            firstLaunch_dialog.setText("Editor's current features:\n- English dialogue text editor\n- Patcher(no patches available yet)\nWIP:\n- Graphics editor\n- Sound data editor\n- VX file editor")
             firstLaunch_dialog.exec()
 
     def toggle_widget_icon(self, widget: PyQt6.QtWidgets.QWidget, checkedicon: PyQt6.QtGui.QImage, uncheckedicon: PyQt6.QtGui.QImage):
@@ -699,11 +699,44 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.label_vx_movieLength.setText("Movie duration: ")
         self.label_vx_movieLength.hide()
         self.field_vx_movieLength = BetterSpinBox(self.page_explorer)
+        self.field_vx_movieLength.setRange(0x0000,0xFFFF) # prevent impossible values
         self.field_vx_movieLength.numfill = 4
-        self.file_content.addWidget(self.label_vx_movieLength)
-        self.file_content.addWidget(self.field_vx_movieLength)
         self.field_vx_movieLength.hide()
         self.field_vx_movieLength.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.layout_vx_movieLength = PyQt6.QtWidgets.QVBoxLayout()
+        self.layout_vx_movieLength.addWidget(self.label_vx_movieLength)
+        self.layout_vx_movieLength.addWidget(self.field_vx_movieLength)
+
+        self.label_vx_movieWidth = PyQt6.QtWidgets.QLabel(self.page_explorer)
+        self.label_vx_movieWidth.setText("Movie width: ")
+        self.label_vx_movieWidth.hide()
+        self.field_vx_movieWidth = BetterSpinBox(self.page_explorer)
+        self.field_vx_movieWidth.setRange(0x0000,0xFFFF) # prevent impossible values
+        self.field_vx_movieWidth.numfill = 4
+        self.field_vx_movieWidth.hide()
+        self.field_vx_movieWidth.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.layout_vx_movieWidth = PyQt6.QtWidgets.QVBoxLayout()
+        self.layout_vx_movieWidth.addWidget(self.label_vx_movieWidth)
+        self.layout_vx_movieWidth.addWidget(self.field_vx_movieWidth)
+
+        self.label_vx_movieHeight = PyQt6.QtWidgets.QLabel(self.page_explorer)
+        self.label_vx_movieHeight.setText("Movie height: ")
+        self.label_vx_movieHeight.hide()
+        self.field_vx_movieHeight = BetterSpinBox(self.page_explorer)
+        self.field_vx_movieHeight.setRange(0x0000,0xFFFF) # prevent impossible values
+        self.field_vx_movieHeight.numfill = 4
+        self.field_vx_movieHeight.hide()
+        self.field_vx_movieHeight.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.layout_vx_movieHeight = PyQt6.QtWidgets.QVBoxLayout()
+        self.layout_vx_movieHeight.addWidget(self.label_vx_movieHeight)
+        self.layout_vx_movieHeight.addWidget(self.field_vx_movieHeight)
+
+        self.layout_vx_movieSize = PyQt6.QtWidgets.QHBoxLayout()
+        self.layout_vx_movieSize.addItem(self.layout_vx_movieWidth)
+        self.layout_vx_movieSize.addItem(self.layout_vx_movieHeight)
+
+        self.file_content.addItem(self.layout_vx_movieLength)
+        self.file_content.addItem(self.layout_vx_movieSize)
 
         # Level Editor(Coming Soon™)
         self.layout_level_editpannel = PyQt6.QtWidgets.QVBoxLayout()
@@ -1309,6 +1342,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.field_address.setDisabled(True)
                         #print(self.rom.files[int(self.tree.currentItem().text(0))][5:6].hex()+self.rom.files[int(self.tree.currentItem().text(0))][4:5].hex())
                         self.field_vx_movieLength.setValue(int(self.rom.files[int(self.tree.currentItem().text(0))][5:6].hex()+self.rom.files[int(self.tree.currentItem().text(0))][4:5].hex(), 16))
+                        self.field_vx_movieWidth.setValue(int(self.rom.files[int(self.tree.currentItem().text(0))][9:0xA].hex()+self.rom.files[int(self.tree.currentItem().text(0))][8:9].hex(), 16))
+                        self.field_vx_movieHeight.setValue(int(self.rom.files[int(self.tree.currentItem().text(0))][0xD:0xE].hex()+self.rom.files[int(self.tree.currentItem().text(0))][0xC:0xD].hex(), 16))
                         self.button_file_save.setDisabled(True)
                     else:
                         self.field_address.setDisabled(True)
@@ -1373,7 +1408,11 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             ]
         vx_widgets: list[PyQt6.QtWidgets.QWidget] = [
             self.field_vx_movieLength,
-            self.label_vx_movieLength
+            self.label_vx_movieLength,
+            self.field_vx_movieWidth,
+            self.label_vx_movieWidth,
+            self.field_vx_movieHeight,
+            self.label_vx_movieHeight
             ]
         for i in range(256):
             graphics_widgets.append(getattr(self, f"button_palettepick_{i}"))
@@ -1396,6 +1435,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
     def save_filecontent(self): #Save to virtual ROM
         if self.fileDisplayState == "VX":
             w.rom.files[int(self.tree.currentItem().text(0))][4:6] = bytearray.fromhex(self.field_vx_movieLength.text()[2:4] + self.field_vx_movieLength.text()[:2]) # set movie length
+            w.rom.files[int(self.tree.currentItem().text(0))][8:0xA] = bytearray.fromhex(self.field_vx_movieWidth.text()[2:4] + self.field_vx_movieWidth.text()[:2]) # set movie width
+            w.rom.files[int(self.tree.currentItem().text(0))][0xC:0xE] = bytearray.fromhex(self.field_vx_movieHeight.text()[2:4] + self.field_vx_movieHeight.text()[:2]) # set movie height
         elif self.fileDisplayState == "Sound":
             return
         else:
