@@ -2,12 +2,13 @@ import PyQt6
 import PyQt6.QtGui, PyQt6.QtWidgets, PyQt6.QtCore
 import sys, os, platform
 #import logging, time, random
+#import numpy
 import ndspy
 import ndspy.rom, ndspy.code
 import ndspy.soundArchive
 #import PyQt6.Qt6
 #import PyQt6.Qt6.qsci
-import library.dataconverter, library.patchdata, library.init_readwrite
+import library.dataconverter, library.patchdata, library.init_readwrite, library.actimagine
 #Global variables
 global EDITOR_VERSION
 EDITOR_VERSION = "0.2.3" # objective, feature, WIP
@@ -462,7 +463,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.viewMenu = self.menu_bar.addMenu('&View')
         self.viewMenu.addAction(self.displayRawAction)
         self.displayFormatSubmenu = self.viewMenu.addMenu(PyQt6.QtGui.QIcon('icons\\document-convert.png'), '&Set edit mode...')
-        self.displayFormatSubmenu.addActions([self.viewAdaptAction, self.viewEndialogAction, self.viewGraphicAction])
+        self.displayFormatSubmenu.addAction(self.viewAdaptAction)
+        self.displayFormatSubmenu.addSeparator()
+        self.displayFormatSubmenu.addActions(self.viewFormatsGroup.actions()[1:])
 
         #Toolbar
         self.toolbar = PyQt6.QtWidgets.QToolBar("Main Toolbar")
@@ -695,48 +698,172 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.tree_sdat.setContextMenuPolicy(PyQt6.QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
 
         #VX
-        self.label_vx_movieLength = PyQt6.QtWidgets.QLabel(self.page_explorer)
-        self.label_vx_movieLength.setText("Movie duration: ")
-        self.label_vx_movieLength.hide()
-        self.field_vx_movieLength = BetterSpinBox(self.page_explorer)
-        self.field_vx_movieLength.setRange(0x0000,0xFFFF) # prevent impossible values
-        self.field_vx_movieLength.numfill = 4
-        self.field_vx_movieLength.hide()
-        self.field_vx_movieLength.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
-        self.layout_vx_movieLength = PyQt6.QtWidgets.QVBoxLayout()
-        self.layout_vx_movieLength.addWidget(self.label_vx_movieLength)
-        self.layout_vx_movieLength.addWidget(self.field_vx_movieLength)
+        self.label_vxHeader_length = PyQt6.QtWidgets.QLabel(self.page_explorer)
+        self.label_vxHeader_length.setText("Duration(frames): ")
+        self.label_vxHeader_length.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.label_vxHeader_length.hide()
+        self.field_vxHeader_length = BetterSpinBox(self.page_explorer)
+        self.field_vxHeader_length.setMinimum(0x00000000) # prevent impossible values
+        self.field_vxHeader_length.numfill = 4
+        self.field_vxHeader_length.hide()
+        self.field_vxHeader_length.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.layout_vxHeader_length = PyQt6.QtWidgets.QVBoxLayout()
+        self.layout_vxHeader_length.addWidget(self.label_vxHeader_length)
+        self.layout_vxHeader_length.addWidget(self.field_vxHeader_length)
 
-        self.label_vx_movieWidth = PyQt6.QtWidgets.QLabel(self.page_explorer)
-        self.label_vx_movieWidth.setText("Movie width: ")
-        self.label_vx_movieWidth.hide()
-        self.field_vx_movieWidth = BetterSpinBox(self.page_explorer)
-        self.field_vx_movieWidth.setRange(0x0000,0xFFFF) # prevent impossible values
-        self.field_vx_movieWidth.numfill = 4
-        self.field_vx_movieWidth.hide()
-        self.field_vx_movieWidth.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
-        self.layout_vx_movieWidth = PyQt6.QtWidgets.QVBoxLayout()
-        self.layout_vx_movieWidth.addWidget(self.label_vx_movieWidth)
-        self.layout_vx_movieWidth.addWidget(self.field_vx_movieWidth)
+        self.label_vxHeader_framerate = PyQt6.QtWidgets.QLabel(self.page_explorer)
+        self.label_vxHeader_framerate.setText("Frame rate: ")
+        self.label_vxHeader_framerate.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.label_vxHeader_framerate.hide()
+        self.field_vxHeader_framerate = PyQt6.QtWidgets.QLineEdit(self.page_explorer)
+        #self.field_vxHeader_framerate.setRange(0x0000,0xFFFF) # prevent impossible values
+        #self.field_vxHeader_framerate.numfill = 4
+        self.field_vxHeader_framerate.hide()
+        self.field_vxHeader_framerate.textChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.layout_vxHeader_framerate = PyQt6.QtWidgets.QVBoxLayout()
+        self.layout_vxHeader_framerate.addWidget(self.label_vxHeader_framerate)
+        self.layout_vxHeader_framerate.addWidget(self.field_vxHeader_framerate)
 
-        self.label_vx_movieHeight = PyQt6.QtWidgets.QLabel(self.page_explorer)
-        self.label_vx_movieHeight.setText("Movie height: ")
-        self.label_vx_movieHeight.hide()
-        self.field_vx_movieHeight = BetterSpinBox(self.page_explorer)
-        self.field_vx_movieHeight.setRange(0x0000,0xFFFF) # prevent impossible values
-        self.field_vx_movieHeight.numfill = 4
-        self.field_vx_movieHeight.hide()
-        self.field_vx_movieHeight.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
-        self.layout_vx_movieHeight = PyQt6.QtWidgets.QVBoxLayout()
-        self.layout_vx_movieHeight.addWidget(self.label_vx_movieHeight)
-        self.layout_vx_movieHeight.addWidget(self.field_vx_movieHeight)
+        self.label_vxHeader_frameSizeMax = PyQt6.QtWidgets.QLabel(self.page_explorer)
+        self.label_vxHeader_frameSizeMax.setText("Maximal frame data size: ")
+        self.label_vxHeader_frameSizeMax.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.label_vxHeader_frameSizeMax.hide()
+        self.field_vxHeader_frameSizeMax = BetterSpinBox(self.page_explorer)
+        self.field_vxHeader_frameSizeMax.setMinimum(0x00000000) # prevent impossible values
+        self.field_vxHeader_frameSizeMax.numfill = 4
+        self.field_vxHeader_frameSizeMax.hide()
+        self.field_vxHeader_frameSizeMax.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.layout_vxHeader_frameSizeMax = PyQt6.QtWidgets.QVBoxLayout()
+        self.layout_vxHeader_frameSizeMax.addWidget(self.label_vxHeader_frameSizeMax)
+        self.layout_vxHeader_frameSizeMax.addWidget(self.field_vxHeader_frameSizeMax)
 
-        self.layout_vx_movieSize = PyQt6.QtWidgets.QHBoxLayout()
-        self.layout_vx_movieSize.addItem(self.layout_vx_movieWidth)
-        self.layout_vx_movieSize.addItem(self.layout_vx_movieHeight)
+        self.layout_vx_framesHeader = PyQt6.QtWidgets.QHBoxLayout()
+        self.layout_vx_framesHeader.addItem(self.layout_vxHeader_length)
+        self.layout_vx_framesHeader.addItem(self.layout_vxHeader_framerate)
+        self.layout_vx_framesHeader.addItem(self.layout_vxHeader_frameSizeMax)
 
-        self.file_content.addItem(self.layout_vx_movieLength)
-        self.file_content.addItem(self.layout_vx_movieSize)
+        self.label_vxHeader_streamCount = PyQt6.QtWidgets.QLabel(self.page_explorer)
+        self.label_vxHeader_streamCount.setText("Audio stream count: ")
+        self.label_vxHeader_streamCount.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.label_vxHeader_streamCount.hide()
+        self.field_vxHeader_streamCount = BetterSpinBox(self.page_explorer)
+        self.field_vxHeader_streamCount.setMinimum(0x00000000) # prevent impossible values
+        self.field_vxHeader_streamCount.numfill = 4
+        self.field_vxHeader_streamCount.hide()
+        self.field_vxHeader_streamCount.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.layout_vxHeader_streamCount = PyQt6.QtWidgets.QVBoxLayout()
+        self.layout_vxHeader_streamCount.addWidget(self.label_vxHeader_streamCount)
+        self.layout_vxHeader_streamCount.addWidget(self.field_vxHeader_streamCount)
+
+        self.label_vxHeader_sampleRate = PyQt6.QtWidgets.QLabel(self.page_explorer)
+        self.label_vxHeader_sampleRate.setText("Sound sample rate(Hz): ")
+        self.label_vxHeader_sampleRate.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.label_vxHeader_sampleRate.hide()
+        self.field_vxHeader_sampleRate = BetterSpinBox(self.page_explorer)
+        self.field_vxHeader_sampleRate.setMinimum(0x00000000) # prevent impossible values
+        self.field_vxHeader_sampleRate.numfill = 4
+        self.field_vxHeader_sampleRate.hide()
+        self.field_vxHeader_sampleRate.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.layout_vxHeader_sampleRate = PyQt6.QtWidgets.QVBoxLayout()
+        self.layout_vxHeader_sampleRate.addWidget(self.label_vxHeader_sampleRate)
+        self.layout_vxHeader_sampleRate.addWidget(self.field_vxHeader_sampleRate)
+
+        self.label_vxHeader_audioExtraDataOffset = PyQt6.QtWidgets.QLabel(self.page_explorer)
+        self.label_vxHeader_audioExtraDataOffset.setText("Extra audio data offset: ")
+        self.label_vxHeader_audioExtraDataOffset.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.label_vxHeader_audioExtraDataOffset.hide()
+        self.field_vxHeader_audioExtraDataOffset = BetterSpinBox(self.page_explorer)
+        self.field_vxHeader_audioExtraDataOffset.setMinimum(0x00000000) # prevent impossible values
+        self.field_vxHeader_audioExtraDataOffset.numfill = 4
+        self.field_vxHeader_audioExtraDataOffset.hide()
+        self.field_vxHeader_audioExtraDataOffset.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.layout_vxHeader_audioExtraDataOffset = PyQt6.QtWidgets.QVBoxLayout()
+        self.layout_vxHeader_audioExtraDataOffset.addWidget(self.label_vxHeader_audioExtraDataOffset)
+        self.layout_vxHeader_audioExtraDataOffset.addWidget(self.field_vxHeader_audioExtraDataOffset)
+
+        self.layout_vx_soundHeader = PyQt6.QtWidgets.QHBoxLayout()
+        self.layout_vx_soundHeader.addItem(self.layout_vxHeader_streamCount)
+        self.layout_vx_soundHeader.addItem(self.layout_vxHeader_sampleRate)
+        self.layout_vx_soundHeader.addItem(self.layout_vxHeader_audioExtraDataOffset)
+
+        self.label_vxHeader_width = PyQt6.QtWidgets.QLabel(self.page_explorer)
+        self.label_vxHeader_width.setText("Frame width(pixels): ")
+        self.label_vxHeader_width.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.label_vxHeader_width.hide()
+        self.field_vxHeader_width = BetterSpinBox(self.page_explorer)
+        self.field_vxHeader_width.setMinimum(0x00000000) # prevent impossible values
+        self.field_vxHeader_width.numfill = 4
+        self.field_vxHeader_width.hide()
+        self.field_vxHeader_width.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.layout_vxHeader_width = PyQt6.QtWidgets.QVBoxLayout()
+        self.layout_vxHeader_width.addWidget(self.label_vxHeader_width)
+        self.layout_vxHeader_width.addWidget(self.field_vxHeader_width)
+
+        self.label_vxHeader_height = PyQt6.QtWidgets.QLabel(self.page_explorer)
+        self.label_vxHeader_height.setText("Frame height(pixels): ")
+        self.label_vxHeader_height.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.label_vxHeader_height.hide()
+        self.field_vxHeader_height = BetterSpinBox(self.page_explorer)
+        self.field_vxHeader_height.setMinimum(0x00000000) # prevent impossible values
+        self.field_vxHeader_height.numfill = 4
+        self.field_vxHeader_height.hide()
+        self.field_vxHeader_height.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.layout_vxHeader_height = PyQt6.QtWidgets.QVBoxLayout()
+        self.layout_vxHeader_height.addWidget(self.label_vxHeader_height)
+        self.layout_vxHeader_height.addWidget(self.field_vxHeader_height)
+
+        self.layout_vx_frameSize = PyQt6.QtWidgets.QHBoxLayout()
+        self.layout_vx_frameSize.addItem(self.layout_vxHeader_width)
+        self.layout_vx_frameSize.addItem(self.layout_vxHeader_height)
+
+        self.label_vxHeader_quantiser = PyQt6.QtWidgets.QLabel(self.page_explorer)
+        self.label_vxHeader_quantiser.setText("Quantiser: ")
+        self.label_vxHeader_quantiser.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.label_vxHeader_quantiser.hide()
+        self.field_vxHeader_quantiser = BetterSpinBox(self.page_explorer)
+        self.field_vxHeader_quantiser.setMinimum(0x00000000) # prevent impossible values
+        self.field_vxHeader_quantiser.numfill = 4
+        self.field_vxHeader_quantiser.hide()
+        self.field_vxHeader_quantiser.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.layout_vxHeader_quantiser = PyQt6.QtWidgets.QVBoxLayout()
+        self.layout_vxHeader_quantiser.addWidget(self.label_vxHeader_quantiser)
+        self.layout_vxHeader_quantiser.addWidget(self.field_vxHeader_quantiser)
+
+        self.label_vxHeader_seekTableOffset = PyQt6.QtWidgets.QLabel(self.page_explorer)
+        self.label_vxHeader_seekTableOffset.setText("Seek table offset: ")
+        self.label_vxHeader_seekTableOffset.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.label_vxHeader_seekTableOffset.hide()
+        self.field_vxHeader_seekTableOffset = BetterSpinBox(self.page_explorer)
+        self.field_vxHeader_seekTableOffset.setMinimum(0x00000000) # prevent impossible values
+        self.field_vxHeader_seekTableOffset.numfill = 4
+        self.field_vxHeader_seekTableOffset.hide()
+        self.field_vxHeader_seekTableOffset.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.layout_vxHeader_seekTableOffset = PyQt6.QtWidgets.QVBoxLayout()
+        self.layout_vxHeader_seekTableOffset.addWidget(self.label_vxHeader_seekTableOffset)
+        self.layout_vxHeader_seekTableOffset.addWidget(self.field_vxHeader_seekTableOffset)
+
+        self.label_vxHeader_seekTableEntryCount = PyQt6.QtWidgets.QLabel(self.page_explorer)
+        self.label_vxHeader_seekTableEntryCount.setText("Seek table entry count: ")
+        self.label_vxHeader_seekTableEntryCount.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.label_vxHeader_seekTableEntryCount.hide()
+        self.field_vxHeader_seekTableEntryCount = BetterSpinBox(self.page_explorer)
+        self.field_vxHeader_seekTableEntryCount.setMinimum(0x00000000) # prevent impossible values
+        self.field_vxHeader_seekTableEntryCount.numfill = 4
+        self.field_vxHeader_seekTableEntryCount.hide()
+        self.field_vxHeader_seekTableEntryCount.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.layout_vxHeader_seekTableEntryCount = PyQt6.QtWidgets.QVBoxLayout()
+        self.layout_vxHeader_seekTableEntryCount.addWidget(self.label_vxHeader_seekTableEntryCount)
+        self.layout_vxHeader_seekTableEntryCount.addWidget(self.field_vxHeader_seekTableEntryCount)
+
+        self.layout_vx_seekTable = PyQt6.QtWidgets.QHBoxLayout()
+        self.layout_vx_seekTable.addItem(self.layout_vxHeader_seekTableOffset)
+        self.layout_vx_seekTable.addItem(self.layout_vxHeader_seekTableEntryCount)
+
+        self.file_content.addItem(self.layout_vx_framesHeader)
+        self.file_content.addItem(self.layout_vx_soundHeader)
+        self.file_content.addItem(self.layout_vx_frameSize)
+        self.file_content.addItem(self.layout_vxHeader_quantiser)
+        self.file_content.addItem(self.layout_vx_seekTable)
 
         # Level Editor(Coming Soon™)
         self.layout_level_editpannel = PyQt6.QtWidgets.QVBoxLayout()
@@ -1340,10 +1467,19 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                     elif self.fileDisplayState == "VX":
                         self.file_editor_show("VX")
                         self.field_address.setDisabled(True)
+                        vx_file = library.actimagine.VX(self.rom.files[int(self.tree.currentItem().text(0))])
                         #print(self.rom.files[int(self.tree.currentItem().text(0))][5:6].hex()+self.rom.files[int(self.tree.currentItem().text(0))][4:5].hex())
-                        self.field_vx_movieLength.setValue(int(self.rom.files[int(self.tree.currentItem().text(0))][5:6].hex()+self.rom.files[int(self.tree.currentItem().text(0))][4:5].hex(), 16))
-                        self.field_vx_movieWidth.setValue(int(self.rom.files[int(self.tree.currentItem().text(0))][9:0xA].hex()+self.rom.files[int(self.tree.currentItem().text(0))][8:9].hex(), 16))
-                        self.field_vx_movieHeight.setValue(int(self.rom.files[int(self.tree.currentItem().text(0))][0xD:0xE].hex()+self.rom.files[int(self.tree.currentItem().text(0))][0xC:0xD].hex(), 16))
+                        self.field_vxHeader_length.setValue(vx_file.frame_count)
+                        self.field_vxHeader_width.setValue(vx_file.frame_width)
+                        self.field_vxHeader_height.setValue(vx_file.frame_height)
+                        self.field_vxHeader_framerate.setText(str(vx_file.frame_rate))
+                        self.field_vxHeader_quantiser.setValue(vx_file.quantiser)
+                        self.field_vxHeader_sampleRate.setValue(vx_file.audio_sampleRate)
+                        self.field_vxHeader_streamCount.setValue(vx_file.audio_streamCount)
+                        self.field_vxHeader_frameSizeMax.setValue(vx_file.frame_sizeMax)
+                        self.field_vxHeader_audioExtraDataOffset.setValue(vx_file.audio_extraDataOffset)
+                        self.field_vxHeader_seekTableOffset.setValue(vx_file.seekTable_offset)
+                        self.field_vxHeader_seekTableEntryCount.setValue(vx_file.seekTable_entryCount)
                         self.button_file_save.setDisabled(True)
                     else:
                         self.field_address.setDisabled(True)
@@ -1407,12 +1543,28 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         sound_widgets: list[PyQt6.QtWidgets.QWidget] = [
             ]
         vx_widgets: list[PyQt6.QtWidgets.QWidget] = [
-            self.field_vx_movieLength,
-            self.label_vx_movieLength,
-            self.field_vx_movieWidth,
-            self.label_vx_movieWidth,
-            self.field_vx_movieHeight,
-            self.label_vx_movieHeight
+            self.field_vxHeader_length,
+            self.label_vxHeader_length,
+            self.field_vxHeader_width,
+            self.label_vxHeader_width,
+            self.field_vxHeader_height,
+            self.label_vxHeader_height,
+            self.field_vxHeader_streamCount,
+            self.label_vxHeader_streamCount,
+            self.field_vxHeader_framerate,
+            self.label_vxHeader_framerate,
+            self.field_vxHeader_sampleRate,
+            self.label_vxHeader_sampleRate,
+            self.field_vxHeader_quantiser,
+            self.label_vxHeader_quantiser,
+            self.field_vxHeader_frameSizeMax,
+            self.label_vxHeader_frameSizeMax,
+            self.field_vxHeader_audioExtraDataOffset,
+            self.label_vxHeader_audioExtraDataOffset,
+            self.field_vxHeader_seekTableOffset,
+            self.label_vxHeader_seekTableOffset,
+            self.field_vxHeader_seekTableEntryCount,
+            self.label_vxHeader_seekTableEntryCount
             ]
         for i in range(256):
             graphics_widgets.append(getattr(self, f"button_palettepick_{i}"))
@@ -1434,9 +1586,17 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
     def save_filecontent(self): #Save to virtual ROM
         if self.fileDisplayState == "VX":
-            w.rom.files[int(self.tree.currentItem().text(0))][4:6] = bytearray.fromhex(self.field_vx_movieLength.text()[2:4] + self.field_vx_movieLength.text()[:2]) # set movie length
-            w.rom.files[int(self.tree.currentItem().text(0))][8:0xA] = bytearray.fromhex(self.field_vx_movieWidth.text()[2:4] + self.field_vx_movieWidth.text()[:2]) # set movie width
-            w.rom.files[int(self.tree.currentItem().text(0))][0xC:0xE] = bytearray.fromhex(self.field_vx_movieHeight.text()[2:4] + self.field_vx_movieHeight.text()[:2]) # set movie height
+            w.rom.files[int(self.tree.currentItem().text(0))][0x04:0x08] = bytearray(int.to_bytes(self.field_vxHeader_length.valueFromText(self.field_vxHeader_length.text()), 4, "little"))
+            w.rom.files[int(self.tree.currentItem().text(0))][0x08:0x0C] = bytearray(int.to_bytes(self.field_vxHeader_width.valueFromText(self.field_vxHeader_width.text()), 4, "little"))
+            w.rom.files[int(self.tree.currentItem().text(0))][0x0C:0x10] = bytearray(int.to_bytes(self.field_vxHeader_height.valueFromText(self.field_vxHeader_height.text()), 4, "little"))
+            w.rom.files[int(self.tree.currentItem().text(0))][0x10:0x14] = bytearray(int.to_bytes(int(float(self.field_vxHeader_framerate.text())*0x10000), 4, "little")) #convert float to 16.16
+            w.rom.files[int(self.tree.currentItem().text(0))][0x14:0x18] = bytearray(int.to_bytes(self.field_vxHeader_quantiser.valueFromText(self.field_vxHeader_quantiser.text()), 4, "little"))
+            w.rom.files[int(self.tree.currentItem().text(0))][0x18:0x1C] = bytearray(int.to_bytes(self.field_vxHeader_sampleRate.valueFromText(self.field_vxHeader_sampleRate.text()), 4, "little"))
+            w.rom.files[int(self.tree.currentItem().text(0))][0x1C:0x20] = bytearray(int.to_bytes(self.field_vxHeader_streamCount.valueFromText(self.field_vxHeader_streamCount.text()), 4, "little"))
+            w.rom.files[int(self.tree.currentItem().text(0))][0x20:0x24] = bytearray(int.to_bytes(self.field_vxHeader_frameSizeMax.valueFromText(self.field_vxHeader_frameSizeMax.text()), 4, "little"))
+            w.rom.files[int(self.tree.currentItem().text(0))][0x24:0x28] = bytearray(int.to_bytes(self.field_vxHeader_audioExtraDataOffset.valueFromText(self.field_vxHeader_audioExtraDataOffset.text()), 4, "little"))
+            w.rom.files[int(self.tree.currentItem().text(0))][0x28:0x2C] = bytearray(int.to_bytes(self.field_vxHeader_seekTableOffset.valueFromText(self.field_vxHeader_seekTableOffset.text()), 4, "little"))
+            w.rom.files[int(self.tree.currentItem().text(0))][0x2C:0x30] = bytearray(int.to_bytes(self.field_vxHeader_seekTableEntryCount.valueFromText(self.field_vxHeader_seekTableEntryCount.text()), 4, "little"))
         elif self.fileDisplayState == "Sound":
             return
         else:
