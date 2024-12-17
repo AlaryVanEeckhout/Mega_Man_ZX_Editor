@@ -259,18 +259,43 @@ class HoldButton(PyQt6.QtWidgets.QPushButton):
         self.timer.stop()
         self.counter = -1
 
-class BetterSpinBox(PyQt6.QtWidgets.QSpinBox):
+    
+class BetterSpinBox(PyQt6.QtWidgets.QDoubleSpinBox):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.alphanum = True
-        self.setRange(-0x03000000, 0x03000000)
+        self.numbase = 10
+        self.setRange(-0xFFFFFFFF, 0xFFFFFFFF)
         self.numfill = 0
+        self.isInt = False
+        self.acceptedSymbols = [".", "{", "}", *library.dataconverter.symbols]
+        #self.setCorrectionMode(self.CorrectionMode.CorrectToNearestValue)
+
+    def fixup(self, str):
+        return super().fixup(str)
+
+    def validate(self, input, pos): # hijack validator to accept alphanumeric values
+        input2 = input.upper()
+        #print("input: " + input)
+        for c in self.acceptedSymbols:
+            input2 = input2.replace(c, "")
+        if input2 == "":
+            #print("valid input detected: " + input)
+            return (PyQt6.QtGui.QValidator.State.Acceptable, input, pos)
+        else:
+            #print("invalid input detected: " + input)
+            return (PyQt6.QtGui.QValidator.State.Invalid, input, pos)
 
     def textFromValue(self, value): # ovewrite of existing function with 2 args that determines how value is displayed inside spinbox
-        return library.dataconverter.StrFromNumber(value, self.displayIntegerBase(), self.alphanum).zfill(self.numfill)
+        if self.isInt:
+            self.acceptedSymbols = ["{", "}", *library.dataconverter.symbols]
+            return library.dataconverter.StrFromNumber(int(value), self.numbase, self.alphanum).zfill(self.numfill)
+        else:
+            self.acceptedSymbols = [".", "{", "}", *library.dataconverter.symbols]
+            return library.dataconverter.StrFromNumber(value, self.numbase, self.alphanum).zfill(self.numfill)
     
     def valueFromText(self, text):
-        return library.dataconverter.IntFromStr(text, self.displayIntegerBase())
+        return float(library.dataconverter.NumFromStr(text, self.numbase))
 
 class LongTextEdit(PyQt6.QtWidgets.QPlainTextEdit):
     def __init__(self, *args, **kwargs):
@@ -307,11 +332,11 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.arm9 = ndspy.code.MainCodeFile
         self.arm7 = ndspy.code.MainCodeFile
         self.base_address = 0
-        self.relative_adress = 0
+        self.relative_address = 0
         self.romToEdit_name = ''
         self.romToEdit_ext = ''
         self.fileToEdit_name = ''
-        self.fileDisplayRaw = False # Display file in 'raw'(hex) format. Else, diplayed in readable format
+        self.fileDisplayRaw = False # Display file in 'raw'(hex) format. Else, displayed in readable format
         self.fileDisplayMode = "Adapt" # Modes: Adapt, Binary, English dialogue, Japanese dialogue, Graphics, Sound, Movie, Code
         self.fileDisplayState = "None" # Same states as mode
         self.gfx_palette = [0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)]
@@ -366,6 +391,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.replaceAction.setShortcut('Ctrl+R')
         self.replaceAction.setStatusTip('replace with file in binary or converted format')
         self.replaceAction.triggered.connect(lambda: self.replaceCall(self.tree.currentItem()))
+        self.replaceAction.setDisabled(True)
 
         self.replacebynameAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\blue-document-import.png'), '&Replace by name...', self)        
         self.replacebynameAction.setStatusTip('replace with file of same name in binary or converted format')
@@ -576,11 +602,12 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.field_address = BetterSpinBox(self.page_explorer)
         self.field_address.numfill = 8
         self.field_address.setFont(self.font_caps)
-        self.field_address.setValue(self.base_address+self.relative_adress)
+        self.field_address.setValue(self.base_address+self.relative_address)
+        self.field_address.isInt = True
         #self.field_address.setPrefix("0x")
-        self.field_address.setDisplayIntegerBase(self.displayBase)
-        #self.field_address.textChanged.connect(lambda: self.value_update_Call("relative_adress", library.dataconverter.baseToInt(library.dataconverter.strToBase(self.field_address.text()), self.field_address.displayIntegerBase()) - self.base_address, True))
-        self.field_address.textChanged.connect(lambda: self.value_update_Call("relative_adress", self.field_address.valueFromText(self.field_address.text()) - self.base_address, True))
+        self.field_address.numbase = self.displayBase
+        #self.field_address.textChanged.connect(lambda: self.value_update_Call("relative_address", library.dataconverter.baseToInt(library.dataconverter.strToBase(self.field_address.text()), self.field_address.displayIntegerBase()) - self.base_address, True))
+        self.field_address.textChanged.connect(lambda: self.value_update_Call("relative_address", int(self.field_address.valueFromText(self.field_address.text()) - self.base_address), True))
         self.field_address.setDisabled(True)
         self.field_address.hide()
         #notes
@@ -593,8 +620,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.field_tile_width.setStatusTip(f"Set depth to 1bpp and tile width to {library.dataconverter.StrFromNumber(16, self.displayBase, self.displayAlphanumeric)} for JP font")
         self.field_tile_width.setFont(self.font_caps)
         self.field_tile_width.setValue(self.tile_width)
-        self.field_tile_width.setDisplayIntegerBase(self.displayBase)
-        self.field_tile_width.valueChanged.connect(lambda: self.value_update_Call("tile_width", self.field_tile_width.valueFromText(self.field_tile_width.text()), True)) 
+        self.field_tile_width.numbase = self.displayBase
+        self.field_tile_width.isInt = True
+        self.field_tile_width.valueChanged.connect(lambda: self.value_update_Call("tile_width", int(self.field_tile_width.value()), True)) 
         self.field_tile_width.hide()
 
         self.label_tile_width = PyQt6.QtWidgets.QLabel(self.page_explorer)
@@ -610,8 +638,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.field_tile_height = BetterSpinBox(self.page_explorer)
         self.field_tile_height.setFont(self.font_caps)
         self.field_tile_height.setValue(self.tile_height)
-        self.field_tile_height.setDisplayIntegerBase(self.displayBase)
-        self.field_tile_height.valueChanged.connect(lambda: self.value_update_Call("tile_height", self.field_tile_height.valueFromText(self.field_tile_height.text()), True)) 
+        self.field_tile_height.numbase = self.displayBase
+        self.field_tile_height.isInt = True
+        self.field_tile_height.valueChanged.connect(lambda: self.value_update_Call("tile_height", int(self.field_tile_height.value()), True)) 
         self.field_tile_height.hide()
 
         self.label_tile_height = PyQt6.QtWidgets.QLabel(self.page_explorer)
@@ -627,8 +656,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.field_tiles_per_row = BetterSpinBox(self.page_explorer)
         self.field_tiles_per_row.setFont(self.font_caps)
         self.field_tiles_per_row.setValue(self.tiles_per_row)
-        self.field_tiles_per_row.setDisplayIntegerBase(self.displayBase)
-        self.field_tiles_per_row.valueChanged.connect(lambda: self.value_update_Call("tiles_per_row", self.field_tiles_per_row.valueFromText(self.field_tiles_per_row.text()), True)) 
+        self.field_tiles_per_row.isInt = True
+        self.field_tiles_per_row.numbase = self.displayBase
+        self.field_tiles_per_row.valueChanged.connect(lambda: self.value_update_Call("tiles_per_row", int(self.field_tiles_per_row.value()), True)) 
         self.field_tiles_per_row.hide()
 
         self.label_tiles_per_row = PyQt6.QtWidgets.QLabel(self.page_explorer)
@@ -644,8 +674,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.field_tiles_per_column = BetterSpinBox(self.page_explorer)
         self.field_tiles_per_column.setFont(self.font_caps)
         self.field_tiles_per_column.setValue(self.tiles_per_column)
-        self.field_tiles_per_column.setDisplayIntegerBase(self.displayBase)
-        self.field_tiles_per_column.valueChanged.connect(lambda: self.value_update_Call("tiles_per_column", self.field_tiles_per_column.valueFromText(self.field_tiles_per_column.text()), True)) 
+        self.field_tiles_per_column.isInt = True
+        self.field_tiles_per_column.numbase = self.displayBase
+        self.field_tiles_per_column.valueChanged.connect(lambda: self.value_update_Call("tiles_per_column", int(self.field_tiles_per_column.value()), True)) 
         self.field_tiles_per_column.hide()
 
         self.label_tiles_per_column = PyQt6.QtWidgets.QLabel(self.page_explorer)
@@ -703,8 +734,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.label_vxHeader_length.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignCenter)
         self.label_vxHeader_length.hide()
         self.field_vxHeader_length = BetterSpinBox(self.page_explorer)
-        self.field_vxHeader_length.setMinimum(0x00000000) # prevent impossible values
-        self.field_vxHeader_length.numfill = 4
+        self.field_vxHeader_length.setFont(self.font_caps)
+        self.field_vxHeader_length.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_length.numfill = 8
+        self.field_vxHeader_length.isInt = True
         self.field_vxHeader_length.hide()
         self.field_vxHeader_length.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_length = PyQt6.QtWidgets.QVBoxLayout()
@@ -715,9 +748,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.label_vxHeader_framerate.setText("Frame rate: ")
         self.label_vxHeader_framerate.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignCenter)
         self.label_vxHeader_framerate.hide()
-        self.field_vxHeader_framerate = PyQt6.QtWidgets.QLineEdit(self.page_explorer)
-        #self.field_vxHeader_framerate.setRange(0x0000,0xFFFF) # prevent impossible values
-        #self.field_vxHeader_framerate.numfill = 4
+        self.field_vxHeader_framerate = BetterSpinBox(self.page_explorer)
+        self.field_vxHeader_framerate.setRange(0x00000000,0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_framerate.numfill = 8
         self.field_vxHeader_framerate.hide()
         self.field_vxHeader_framerate.textChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_framerate = PyQt6.QtWidgets.QVBoxLayout()
@@ -729,8 +762,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.label_vxHeader_frameSizeMax.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignCenter)
         self.label_vxHeader_frameSizeMax.hide()
         self.field_vxHeader_frameSizeMax = BetterSpinBox(self.page_explorer)
-        self.field_vxHeader_frameSizeMax.setMinimum(0x00000000) # prevent impossible values
-        self.field_vxHeader_frameSizeMax.numfill = 4
+        self.field_vxHeader_frameSizeMax.setFont(self.font_caps)
+        self.field_vxHeader_frameSizeMax.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_frameSizeMax.numfill = 8
+        self.field_vxHeader_frameSizeMax.isInt = True
         self.field_vxHeader_frameSizeMax.hide()
         self.field_vxHeader_frameSizeMax.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_frameSizeMax = PyQt6.QtWidgets.QVBoxLayout()
@@ -747,8 +782,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.label_vxHeader_streamCount.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignCenter)
         self.label_vxHeader_streamCount.hide()
         self.field_vxHeader_streamCount = BetterSpinBox(self.page_explorer)
-        self.field_vxHeader_streamCount.setMinimum(0x00000000) # prevent impossible values
-        self.field_vxHeader_streamCount.numfill = 4
+        self.field_vxHeader_streamCount.setFont(self.font_caps)
+        self.field_vxHeader_streamCount.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_streamCount.numfill = 8
+        self.field_vxHeader_streamCount.isInt = True
         self.field_vxHeader_streamCount.hide()
         self.field_vxHeader_streamCount.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_streamCount = PyQt6.QtWidgets.QVBoxLayout()
@@ -760,8 +797,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.label_vxHeader_sampleRate.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignCenter)
         self.label_vxHeader_sampleRate.hide()
         self.field_vxHeader_sampleRate = BetterSpinBox(self.page_explorer)
-        self.field_vxHeader_sampleRate.setMinimum(0x00000000) # prevent impossible values
-        self.field_vxHeader_sampleRate.numfill = 4
+        self.field_vxHeader_sampleRate.setFont(self.font_caps)
+        self.field_vxHeader_sampleRate.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_sampleRate.numfill = 8
+        self.field_vxHeader_sampleRate.isInt = True
         self.field_vxHeader_sampleRate.hide()
         self.field_vxHeader_sampleRate.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_sampleRate = PyQt6.QtWidgets.QVBoxLayout()
@@ -773,8 +812,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.label_vxHeader_audioExtraDataOffset.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignCenter)
         self.label_vxHeader_audioExtraDataOffset.hide()
         self.field_vxHeader_audioExtraDataOffset = BetterSpinBox(self.page_explorer)
-        self.field_vxHeader_audioExtraDataOffset.setMinimum(0x00000000) # prevent impossible values
-        self.field_vxHeader_audioExtraDataOffset.numfill = 4
+        self.field_vxHeader_audioExtraDataOffset.setFont(self.font_caps)
+        self.field_vxHeader_audioExtraDataOffset.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_audioExtraDataOffset.numfill = 8
+        self.field_vxHeader_audioExtraDataOffset.isInt = True
         self.field_vxHeader_audioExtraDataOffset.hide()
         self.field_vxHeader_audioExtraDataOffset.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_audioExtraDataOffset = PyQt6.QtWidgets.QVBoxLayout()
@@ -791,8 +832,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.label_vxHeader_width.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignCenter)
         self.label_vxHeader_width.hide()
         self.field_vxHeader_width = BetterSpinBox(self.page_explorer)
-        self.field_vxHeader_width.setMinimum(0x00000000) # prevent impossible values
-        self.field_vxHeader_width.numfill = 4
+        self.field_vxHeader_width.setFont(self.font_caps)
+        self.field_vxHeader_width.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_width.numfill = 8
+        self.field_vxHeader_width.isInt = True
         self.field_vxHeader_width.hide()
         self.field_vxHeader_width.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_width = PyQt6.QtWidgets.QVBoxLayout()
@@ -804,8 +847,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.label_vxHeader_height.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignCenter)
         self.label_vxHeader_height.hide()
         self.field_vxHeader_height = BetterSpinBox(self.page_explorer)
-        self.field_vxHeader_height.setMinimum(0x00000000) # prevent impossible values
-        self.field_vxHeader_height.numfill = 4
+        self.field_vxHeader_height.setFont(self.font_caps)
+        self.field_vxHeader_height.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_height.numfill = 8
+        self.field_vxHeader_height.isInt = True
         self.field_vxHeader_height.hide()
         self.field_vxHeader_height.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_height = PyQt6.QtWidgets.QVBoxLayout()
@@ -821,8 +866,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.label_vxHeader_quantiser.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignCenter)
         self.label_vxHeader_quantiser.hide()
         self.field_vxHeader_quantiser = BetterSpinBox(self.page_explorer)
-        self.field_vxHeader_quantiser.setMinimum(0x00000000) # prevent impossible values
-        self.field_vxHeader_quantiser.numfill = 4
+        self.field_vxHeader_quantiser.setFont(self.font_caps)
+        self.field_vxHeader_quantiser.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_quantiser.numfill = 8
+        self.field_vxHeader_quantiser.isInt = True
         self.field_vxHeader_quantiser.hide()
         self.field_vxHeader_quantiser.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_quantiser = PyQt6.QtWidgets.QVBoxLayout()
@@ -834,8 +881,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.label_vxHeader_seekTableOffset.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignCenter)
         self.label_vxHeader_seekTableOffset.hide()
         self.field_vxHeader_seekTableOffset = BetterSpinBox(self.page_explorer)
-        self.field_vxHeader_seekTableOffset.setMinimum(0x00000000) # prevent impossible values
-        self.field_vxHeader_seekTableOffset.numfill = 4
+        self.field_vxHeader_seekTableOffset.setFont(self.font_caps)
+        self.field_vxHeader_seekTableOffset.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_seekTableOffset.numfill = 8
+        self.field_vxHeader_seekTableOffset.isInt = True
         self.field_vxHeader_seekTableOffset.hide()
         self.field_vxHeader_seekTableOffset.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_seekTableOffset = PyQt6.QtWidgets.QVBoxLayout()
@@ -847,8 +896,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.label_vxHeader_seekTableEntryCount.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignCenter)
         self.label_vxHeader_seekTableEntryCount.hide()
         self.field_vxHeader_seekTableEntryCount = BetterSpinBox(self.page_explorer)
-        self.field_vxHeader_seekTableEntryCount.setMinimum(0x00000000) # prevent impossible values
-        self.field_vxHeader_seekTableEntryCount.numfill = 4
+        self.field_vxHeader_seekTableEntryCount.setFont(self.font_caps)
+        self.field_vxHeader_seekTableEntryCount.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_seekTableEntryCount.numfill = 8
+        self.field_vxHeader_seekTableEntryCount.isInt = True
         self.field_vxHeader_seekTableEntryCount.hide()
         self.field_vxHeader_seekTableEntryCount.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_seekTableEntryCount = PyQt6.QtWidgets.QVBoxLayout()
@@ -1290,7 +1341,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             with open(self.temp_path, "r+b") as f:
                     if input_address.text() != "":
                         try:
-                            address = library.dataconverter.IntFromStr(input_address.text(), self.displayBase)
+                            address = library.dataconverter.NumFromStr(input_address.text(), self.displayBase)
                             value = library.dataconverter.StrToAlphanumStr(input_value.text(), 16, True)
                             f.seek(address)# get to pos for message
                             value_og = library.dataconverter.StrToAlphanumStr(f.read(len(bytes.fromhex(value))).hex(), self.displayBase, self.displayAlphanumeric)
@@ -1402,10 +1453,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         PyQt6.QtCore.qInstallMessageHandler(lambda a, b, c: None) # Silence Invalid base warnings from the following code
         for widget in self.findChildren(BetterSpinBox): # update all widgets of same type with current settings
             widget.alphanum = self.displayAlphanumeric
-            widget.setDisplayIntegerBase(self.displayBase)
+            widget.numbase = self.displayBase
             widget.setValue(widget.value())# refresh widget text by "changing the value"
         PyQt6.QtCore.qInstallMessageHandler(None) # Revert to default message handler
-        if self.dialog_settings.isVisible() and (self.field_address.displayIntegerBase() != self.displayBase): # handle error manually
+        if self.dialog_settings.isVisible() and (self.field_address.numbase != self.displayBase): # handle error manually
             PyQt6.QtWidgets.QMessageBox.critical(
                                 self,
                                 "Numeric Base Warning!",
@@ -1417,7 +1468,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.base_address = self.rom.save().index(self.rom.files[int(self.tree.currentItem().text(0))])
             # set text to current ROM address
             self.field_address.setMinimum(self.base_address)
-            self.field_address.setValue(self.base_address+self.relative_adress)
+            self.field_address.setValue(self.base_address+self.relative_address)
             self.field_address.setMaximum(self.base_address+len(self.rom.files[int(self.tree.currentItem().text(0))]))
             if self.fileToEdit_name.find(".Folder") == -1:# if it's a file
                 self.label_file_size.setText(f"Size: {library.dataconverter.StrFromNumber(len(self.rom.files[int(self.tree.currentItem().text(0))]), self.displayBase, self.displayAlphanumeric).zfill(0)} bytes")
@@ -1448,7 +1499,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
                     if self.fileDisplayState == "English dialogue": # if english text
                         self.file_editor_show("Text")
-                        self.file_content_text.setPlainText(library.dataconverter.convertdata_bin_to_text(self.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:self.relative_adress+0x6000]))
+                        self.file_content_text.setPlainText(library.dataconverter.convertdata_bin_to_text(self.rom.files[int(self.tree.currentItem().text(0))][self.relative_address:self.relative_address+0x6000]))
                     elif self.fileDisplayState == "Graphics":
                         #print(self.dropdown_gfx_depth.currentText()[:1] + " bpp graphics")
                         if self.gfx_palette.index(self.file_content_gfx.pen.color().rgba()) >= 2**list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()].depth:
@@ -1456,7 +1507,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.file_content_gfx.resetScene()
                         if not isValueUpdate: # if entering graphics mode and func is not called to update other stuff
                             self.file_editor_show("Graphics")
-                        addItem_tilesQImage_fromBytes(self.file_content_gfx, self.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:], algorithm=list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column, tileWidth=self.tile_width, tileHeight=self.tile_height)
+                        addItem_tilesQImage_fromBytes(self.file_content_gfx, self.rom.files[int(self.tree.currentItem().text(0))][self.relative_address:], algorithm=list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column, tileWidth=self.tile_width, tileHeight=self.tile_height)
                     elif self.fileDisplayState == "Sound":
                         self.file_editor_show("Text") # placeholder
                         self.checkbox_textoverwite.hide()
@@ -1472,7 +1523,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.field_vxHeader_length.setValue(vx_file.frame_count)
                         self.field_vxHeader_width.setValue(vx_file.frame_width)
                         self.field_vxHeader_height.setValue(vx_file.frame_height)
-                        self.field_vxHeader_framerate.setText(str(vx_file.frame_rate))
+                        self.field_vxHeader_framerate.setValue(vx_file.frame_rate)
                         self.field_vxHeader_quantiser.setValue(vx_file.quantiser)
                         self.field_vxHeader_sampleRate.setValue(vx_file.audio_sampleRate)
                         self.field_vxHeader_streamCount.setValue(vx_file.audio_streamCount)
@@ -1493,7 +1544,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.file_content_text.setPlainText(f"This file's format is {file_knowledge}.\n Go to [View > Converted formats] to disable file interpretation and view hex data.")
                 else:# if in hex display mode
                     self.file_editor_show("Text")
-                    self.file_content_text.setPlainText(self.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:self.relative_adress+self.file_content_text.charcount_page()].hex())
+                    self.file_content_text.setPlainText(self.rom.files[int(self.tree.currentItem().text(0))][self.relative_address:self.relative_address+self.file_content_text.charcount_page()].hex())
                 self.file_content_text.setDisabled(False)
             else:# if it's a folder
                 self.label_file_size.setText(f"Size: N/A")
@@ -1502,13 +1553,19 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 self.field_address.setDisabled(True)
                 self.file_content_text.setPlainText("")
                 self.file_content_text.setDisabled(True)
+            # code that applies to any item
             self.exportAction.setDisabled(False)
+            self.replaceAction.setDisabled(False)
             self.button_file_save.setDisabled(True)
         else:# Nothing is selected, reset edit space
+            self.file_editor_show("Text")
+            self.checkbox_textoverwite.hide()
             self.field_address.setDisabled(True)
             self.label_file_size.setText(f"Size: N/A")
             self.file_content_text.setPlainText("")
             self.button_file_save.setDisabled(True)
+            self.exportAction.setDisabled(True)
+            self.replaceAction.setDisabled(True)
 
     def reloadCall(self, isQuick=False): # Reload all reloadable content
         if hasattr(self.rom, "name"):
@@ -1581,33 +1638,34 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         # case-specific code
         if mode == "Graphics":
             # Reset Values
-            self.relative_adress = 0x00000000
+            self.relative_address = 0x00000000
             #print(f"{len(self.rom.save()):08X}")
 
     def save_filecontent(self): #Save to virtual ROM
-        if self.fileDisplayState == "VX":
-            w.rom.files[int(self.tree.currentItem().text(0))][0x04:0x08] = bytearray(int.to_bytes(self.field_vxHeader_length.valueFromText(self.field_vxHeader_length.text()), 4, "little"))
-            w.rom.files[int(self.tree.currentItem().text(0))][0x08:0x0C] = bytearray(int.to_bytes(self.field_vxHeader_width.valueFromText(self.field_vxHeader_width.text()), 4, "little"))
-            w.rom.files[int(self.tree.currentItem().text(0))][0x0C:0x10] = bytearray(int.to_bytes(self.field_vxHeader_height.valueFromText(self.field_vxHeader_height.text()), 4, "little"))
-            w.rom.files[int(self.tree.currentItem().text(0))][0x10:0x14] = bytearray(int.to_bytes(int(float(self.field_vxHeader_framerate.text())*0x10000), 4, "little")) #convert float to 16.16
-            w.rom.files[int(self.tree.currentItem().text(0))][0x14:0x18] = bytearray(int.to_bytes(self.field_vxHeader_quantiser.valueFromText(self.field_vxHeader_quantiser.text()), 4, "little"))
-            w.rom.files[int(self.tree.currentItem().text(0))][0x18:0x1C] = bytearray(int.to_bytes(self.field_vxHeader_sampleRate.valueFromText(self.field_vxHeader_sampleRate.text()), 4, "little"))
-            w.rom.files[int(self.tree.currentItem().text(0))][0x1C:0x20] = bytearray(int.to_bytes(self.field_vxHeader_streamCount.valueFromText(self.field_vxHeader_streamCount.text()), 4, "little"))
-            w.rom.files[int(self.tree.currentItem().text(0))][0x20:0x24] = bytearray(int.to_bytes(self.field_vxHeader_frameSizeMax.valueFromText(self.field_vxHeader_frameSizeMax.text()), 4, "little"))
-            w.rom.files[int(self.tree.currentItem().text(0))][0x24:0x28] = bytearray(int.to_bytes(self.field_vxHeader_audioExtraDataOffset.valueFromText(self.field_vxHeader_audioExtraDataOffset.text()), 4, "little"))
-            w.rom.files[int(self.tree.currentItem().text(0))][0x28:0x2C] = bytearray(int.to_bytes(self.field_vxHeader_seekTableOffset.valueFromText(self.field_vxHeader_seekTableOffset.text()), 4, "little"))
-            w.rom.files[int(self.tree.currentItem().text(0))][0x2C:0x30] = bytearray(int.to_bytes(self.field_vxHeader_seekTableEntryCount.valueFromText(self.field_vxHeader_seekTableEntryCount.text()), 4, "little"))
-        elif self.fileDisplayState == "Sound":
-            return
+        if self.fileDisplayRaw == False:
+            if self.fileDisplayState == "English dialogue": # if english text
+                rom_save_data = library.dataconverter.convertdata_text_to_bin(self.file_content_text.toPlainText())
+                w.rom.files[int(self.tree.currentItem().text(0))][self.relative_address:self.relative_address+len(rom_save_data)] = rom_save_data
+            elif self.fileDisplayState == "Graphics":
+                rom_save_data = saveData_fromGFXView(self.file_content_gfx)
+                w.rom.files[int(self.tree.currentItem().text(0))][self.relative_address:self.relative_address+len(rom_save_data)] = rom_save_data
+            elif self.fileDisplayState == "VX":
+                w.rom.files[int(self.tree.currentItem().text(0))][0x04:0x08] = bytearray(int.to_bytes(int(self.field_vxHeader_length.value()), 4, "little"))
+                w.rom.files[int(self.tree.currentItem().text(0))][0x08:0x0C] = bytearray(int.to_bytes(int(self.field_vxHeader_width.value()), 4, "little"))
+                w.rom.files[int(self.tree.currentItem().text(0))][0x0C:0x10] = bytearray(int.to_bytes(int(self.field_vxHeader_height.value()), 4, "little"))
+                w.rom.files[int(self.tree.currentItem().text(0))][0x10:0x14] = bytearray(int.to_bytes(int(self.field_vxHeader_framerate.value()*0x10000), 4, "little")) #convert float to 16.16
+                w.rom.files[int(self.tree.currentItem().text(0))][0x14:0x18] = bytearray(int.to_bytes(int(self.field_vxHeader_quantiser.value()), 4, "little"))
+                w.rom.files[int(self.tree.currentItem().text(0))][0x18:0x1C] = bytearray(int.to_bytes(int(self.field_vxHeader_sampleRate.value()), 4, "little"))
+                w.rom.files[int(self.tree.currentItem().text(0))][0x1C:0x20] = bytearray(int.to_bytes(int(self.field_vxHeader_streamCount.value()), 4, "little"))
+                w.rom.files[int(self.tree.currentItem().text(0))][0x20:0x24] = bytearray(int.to_bytes(int(self.field_vxHeader_frameSizeMax.value()), 4, "little"))
+                w.rom.files[int(self.tree.currentItem().text(0))][0x24:0x28] = bytearray(int.to_bytes(int(self.field_vxHeader_audioExtraDataOffset.value()), 4, "little"))
+                w.rom.files[int(self.tree.currentItem().text(0))][0x28:0x2C] = bytearray(int.to_bytes(int(self.field_vxHeader_seekTableOffset.value()), 4, "little"))
+                w.rom.files[int(self.tree.currentItem().text(0))][0x2C:0x30] = bytearray(int.to_bytes(int(self.field_vxHeader_seekTableEntryCount.value()), 4, "little"))
+            elif self.fileDisplayState == "Sound":
+                return
         else:
-            if self.fileDisplayRaw == False:
-                if self.fileDisplayState == "English dialogue": # if english text
-                    rom_save_data = library.dataconverter.convertdata_text_to_bin(self.file_content_text.toPlainText())
-                if self.fileDisplayState == "Graphics":
-                    rom_save_data = saveData_fromGFXView(self.file_content_gfx)
-            else:
-                rom_save_data = bytearray.fromhex(library.dataconverter.StrToAlphanumStr(self.file_content_text.toPlainText(), 16, True)) # force to alphanumeric for bytearray conversion
-            w.rom.files[int(self.tree.currentItem().text(0))][self.relative_adress:self.relative_adress+len(rom_save_data)] = rom_save_data
+            rom_save_data = bytearray.fromhex(library.dataconverter.StrToAlphanumStr(self.file_content_text.toPlainText(), 16, True)) # force to alphanumeric for bytearray conversion
+            w.rom.files[int(self.tree.currentItem().text(0))][self.relative_address:self.relative_address+len(rom_save_data)] = rom_save_data
         #print(type(w.rom.files[int(self.tree.currentItem().text(0))]))
         print("file changes saved")
         self.button_file_save.setDisabled(True)
@@ -1682,6 +1740,10 @@ w = MainWindow()
 
 # Draw contents of tile viewer
 def addItem_tilesQImage_fromBytes(view: GFXView, data: bytearray, palette: list[int]=w.gfx_palette, algorithm=library.dataconverter.CompressionAlgorithmEnum.ONEBPP, tilesPerRow=4, tilesPerColumn=8, tileWidth=16, tileHeight=8):
+    tileWidth = int(tileWidth)
+    tileHeight = int(tileHeight)
+    tilesPerColumn = int(tilesPerColumn)
+    tilesPerRow = int(tilesPerRow)
     for tile in range(tilesPerRow*tilesPerColumn):
         # get data of current tile from bytearray, multiplying tile index by amount of pixels in a tile and by amount of bits per pixel, then dividing by amount of bits per byte
         # that data is then converted into a QImage that is used to create the QPixmap of the tile

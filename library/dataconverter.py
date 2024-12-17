@@ -84,7 +84,19 @@ def signext(n):
     else:
         return -1
 
-def numberToBase(n: int, b: int): # Does not support decimals(not needed anyway atm)
+def numberToBase(n, b: int): # Does not support decimals(not needed anyway atm)
+    isfract = False
+    if n > 0:
+        n2 = str(n - (n//1)).replace(".", "") # fractional part
+        #print(str(n) + "-" + str(n//1) + "=" + str(n2))
+    else:
+        n2 = str(n - ceildiv(n, 1)).replace(".", "") # fractional part
+        #print(str(n) + "-" + str(ceildiv(n, 1)) + "=" + str(n2))
+    zeroes = len(n2.removeprefix("-")) - len(n2.removeprefix("-").lstrip('0')) -1 # remove the 0 at int position too
+    #print(zeroes)
+    n2 = int(n2)
+    if n2:
+        isfract = True
     if n == 0: # 0*n^b = 0
         return [0]
     if b == -1: # Base 1, but even exponents give positive numbers and odd exponents give negative numbers
@@ -99,7 +111,20 @@ def numberToBase(n: int, b: int): # Does not support decimals(not needed anyway 
     digits = []
     if b < 0: # If base negative, minus equals to number so that the code that follows still works
         n *= -1
-    while n:
+        n2 *= -1
+    while n2: #fractionnal
+        if n2 < 0 and b > 0:
+            digits.append(int(n2 % b - b*signext(n2%b))) # substract to arrive at correct value if not 0
+            n2 = ceildiv(n2, b)
+        else:
+            digits.append(int(n2 % b))
+            n2 //= b
+        if b < 0:
+            digits[len(digits)-1] *= -1 # Re-minus equals to number to make it correct sign
+    if isfract:
+        digits.extend([0]*zeroes) # leading zeroes
+        digits.append(".") # separator
+    while n: #decimal
         #print(n)
         if n < 0 and b > 0:
             digits.append(int(n % b - b*signext(n%b))) # substract to arrive at correct value if not 0
@@ -115,7 +140,9 @@ symbols = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 def baseToStr(l: list, b: int, alphanumeric: bool = False):
     string = ""
     for e in l:
-        if b != 0 and (abs(b) <= 10 or abs(e) <= 9):
+        if e == ".":
+            string += "."
+        elif b != 0 and (abs(b) <= 10 or abs(e) <= 9):
             string += str(e)
         elif alphanumeric and (abs(b) > 10 or b == 0) and abs(e) < len(symbols):
             string += symbols[abs(e)]
@@ -134,37 +161,45 @@ def strToBase(s: str):
     s = s.replace("-", "")
     list_1 = s.replace("{", "}").split("}")
     list_2 = []
-    list_3 = []
     list_final = []
     for e in list_1:
         if not "{" + e + "}" in s: # if not represented in base 10 due to being out of symbol range
-            list_2 = list(e)
+            list_2.extend(e) # add e as multiple values
         else:
-            list_2 = [e]
-        list_3.extend(list_2)
-    for i in list_3:
-        if i.isalpha():
+            list_2.append(e) # add e as one value
+    for i in list_2:
+        if i == ".":
+            list_final.append(i)
+        elif i.isalpha():
             list_final.append(int(symbols.index(i.upper()))*sign)
         else:
             list_final.append(int(i)*sign)
     return list_final
 
-def baseToInt(l: list, b: int):
-    int_final = 0
-    for i in range(len(l)):
-        int_final += l[i]*b**(len(l)-1 - i)
-    return int_final
+def baseToNum(l: list, b: int):
+    l2 = l.copy()
+    if l2.count(".") > 0:
+        l2.remove(".")
+    val_final = 0
+    #print(l[:l.index(".")])
+    for i in range(len(l2)):
+        if l.count(".") > 0:
+            #print(str(l2[i]) + "*" + str(b) + "^" + str(len(l[:l.index(".")])-1 - i) )
+            val_final += l2[i]*b**(len(l[:l.index(".")])-1 - i)
+        else:
+            val_final += l2[i]*b**(len(l)-1 - i)
+    return val_final
 
-def StrFromNumber(n: int, b: int, alphanum: bool): #for convenience
+def StrFromNumber(n, b: int, alphanum: bool = False): #for convenience
     return baseToStr(numberToBase(n, b), b, alphanum)
 
-def IntFromStr(s: str, b: int): #for convenience
-    return baseToInt(strToBase(s), b)
+def NumFromStr(s: str, b: int): #for convenience
+    return baseToNum(strToBase(s), b)
 
-def StrToAlphanumStr(s: str, b: int, alphanum: bool): #for convenience
+def StrToAlphanumStr(s: str, b: int, alphanum: bool = False): #for convenience
     return baseToStr(strToBase(s), b, alphanum)
 
-def str_subgroups(s: str, n: int):
+def str_subgroups(s: str, n):
     return [s[i:i+n] for i in range(0, len(s), n)]
 
 def bitstring_to_bytes(s: str):
@@ -291,7 +326,8 @@ class CompressionAlgorithmEnum(enum.Enum):
   EIGHTBPP = enum.auto(), 8
 
 def convertdata_bin_to_qt(binary_data: bytearray, palette: list[int]=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], algorithm=CompressionAlgorithmEnum.ONEBPP, tileWidth=8, tileHeight=8): # GBA 4bpp = 4bpp linear reverse order
-    
+    tileWidth = int(tileWidth)
+    tileHeight = int(tileHeight)
     #file_bits = bin(int.from_bytes(binary_data))[2:]
     file_bits = "".join([bit for byte in binary_data for bit in ("00000000"+(bin(byte)[2:]))[-8:]])
     image_widget = PyQt6.QtGui.QImage(tileWidth, tileHeight, PyQt6.QtGui.QImage.Format.Format_Indexed8)
@@ -325,6 +361,8 @@ def convertdata_bin_to_qt(binary_data: bytearray, palette: list[int]=[0xff000000
     return image_widget
 
 def convertdata_qt_to_bin(qimage: PyQt6.QtGui.QImage, palette: list[int]=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], algorithm=CompressionAlgorithmEnum.ONEBPP, tileWidth=8, tileHeight=8): # GBA 4bpp = 4bpp linear reverse order
+    tileWidth = int(tileWidth)
+    tileHeight = int(tileHeight)
     binary_data = bytearray()
     file_bits = ""
 
@@ -381,5 +419,5 @@ def convertdata_qt_to_bin(qimage: PyQt6.QtGui.QImage, palette: list[int]=[0xff00
 #print(numberToBase(num, base))
 #print(baseToStr(numberToBase(num, base), base, True))
 #print(strToBase(baseToStr(numberToBase(num, base), base, True)))
-#print(baseToInt(strToBase(baseToStr(numberToBase(num, base), base, True)), base))
-#print(baseToInt(strToBase("3000000"), 99))
+#print(baseToNum(strToBase(baseToStr(numberToBase(num, base), base, True)), base))
+#print(baseToNum(strToBase("3000000"), 99))
