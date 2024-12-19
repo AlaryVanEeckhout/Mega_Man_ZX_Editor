@@ -84,18 +84,14 @@ def signext(n):
     else:
         return -1
 
-def numberToBase(n, b: int):
+def numberToBase(n, b: int, decimals: int=16):
     isfract = False
     if n > 0:
         n2 = n - (n//1) # fractional part
-        #print(str(n) + "-" + str(n//1) + "=" + str(n2))
     else:
         n2 = n - ceildiv(n, 1) # fractional part
-        #print(str(n) + "-" + str(ceildiv(n, 1)) + "=" + str(n2))
     if n2 != 0:
         isfract = True
-    #zeroes = len(n2.removeprefix("-")) - len(n2.removeprefix("-").lstrip('0')) -1 # remove the 0 at int position too
-    #print(zeroes)
     if n == 0: # 0*n^b = 0
         return [0]
     if b == -1: # Base 1, but even exponents give positive numbers and odd exponents give negative numbers
@@ -111,6 +107,7 @@ def numberToBase(n, b: int):
     if b < 0: # If base negative, minus equals to number so that the code that follows still works
         n *= -1
         n2 *= -1
+    n2_counter = 0
     while n2 != 0 and n2 < 1: #fractionnal
         if n2 < 0 and b > 0:
             digits.append(int(n2 * b - b*signext(n2*b))) # substract to arrive at correct value if not 0
@@ -118,8 +115,12 @@ def numberToBase(n, b: int):
             digits.append(int(n2 * b))
         n2 = n2*b - int(n2 * b)
         #print("digits: " + str(digits))
+        #print(n2)
         if b < 0:
             digits[len(digits)-1] *= -1 # Re-minus equals to number to make it correct sign
+        if n2_counter > decimals: # if the amount of digits decoded is starting to be unreasonable
+            break
+        n2_counter += 1
     if isfract:
         digits.reverse()
         digits.append(".") # separator
@@ -414,7 +415,7 @@ def convertdata_qt_to_bin(qimage: PyQt6.QtGui.QImage, palette: list[int]=[0xff00
 #    print("convert: " + convertdata_qt_to_bin(convertdata_bin_to_qt(read, algorithm=alg), algorithm=alg).hex())
 # convert number to int in different formats (verify with https://baseconvert.com/)
 #num = 65535.9999847412109375
-#base = 16
+#base = 11
 #print("representation")
 #print(numberToBase(num, base))
 #print(baseToStr(numberToBase(num, base), base, True))
