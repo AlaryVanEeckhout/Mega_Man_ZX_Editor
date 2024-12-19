@@ -84,19 +84,18 @@ def signext(n):
     else:
         return -1
 
-def numberToBase(n, b: int): # Does not support decimals(not needed anyway atm)
+def numberToBase(n, b: int):
     isfract = False
     if n > 0:
-        n2 = str(n - (n//1)).replace(".", "") # fractional part
+        n2 = n - (n//1) # fractional part
         #print(str(n) + "-" + str(n//1) + "=" + str(n2))
     else:
-        n2 = str(n - ceildiv(n, 1)).replace(".", "") # fractional part
+        n2 = n - ceildiv(n, 1) # fractional part
         #print(str(n) + "-" + str(ceildiv(n, 1)) + "=" + str(n2))
-    zeroes = len(n2.removeprefix("-")) - len(n2.removeprefix("-").lstrip('0')) -1 # remove the 0 at int position too
-    #print(zeroes)
-    n2 = int(n2)
-    if n2:
+    if n2 != 0:
         isfract = True
+    #zeroes = len(n2.removeprefix("-")) - len(n2.removeprefix("-").lstrip('0')) -1 # remove the 0 at int position too
+    #print(zeroes)
     if n == 0: # 0*n^b = 0
         return [0]
     if b == -1: # Base 1, but even exponents give positive numbers and odd exponents give negative numbers
@@ -112,17 +111,17 @@ def numberToBase(n, b: int): # Does not support decimals(not needed anyway atm)
     if b < 0: # If base negative, minus equals to number so that the code that follows still works
         n *= -1
         n2 *= -1
-    while n2: #fractionnal
+    while n2 != 0 and n2 < 1: #fractionnal
         if n2 < 0 and b > 0:
-            digits.append(int(n2 % b - b*signext(n2%b))) # substract to arrive at correct value if not 0
-            n2 = ceildiv(n2, b)
+            digits.append(int(n2 * b - b*signext(n2*b))) # substract to arrive at correct value if not 0
         else:
-            digits.append(int(n2 % b))
-            n2 //= b
+            digits.append(int(n2 * b))
+        n2 = n2*b - int(n2 * b)
+        #print("digits: " + str(digits))
         if b < 0:
             digits[len(digits)-1] *= -1 # Re-minus equals to number to make it correct sign
     if isfract:
-        digits.extend([0]*zeroes) # leading zeroes
+        digits.reverse()
         digits.append(".") # separator
     while n: #decimal
         #print(n)
@@ -144,7 +143,7 @@ def baseToStr(l: list, b: int, alphanumeric: bool = False):
             string += "."
         elif b != 0 and (abs(b) <= 10 or abs(e) <= 9):
             string += str(e)
-        elif alphanumeric and (abs(b) > 10 or b == 0) and abs(e) < len(symbols):
+        elif alphanumeric and (abs(b) > 10 or b == 0) and abs(e) < len(symbols) and abs(e) < b:
             string += symbols[abs(e)]
         else:
             string += "{" + str(e) + "}" # if out of symbol range, add base 10 value of symbol in curly brackets
@@ -413,11 +412,14 @@ def convertdata_qt_to_bin(qimage: PyQt6.QtGui.QImage, palette: list[int]=[0xff00
     #print("work: ")
 #    alg = CompressionAlgorithmEnum.EIGHTBPP
 #    print("convert: " + convertdata_qt_to_bin(convertdata_bin_to_qt(read, algorithm=alg), algorithm=alg).hex())
-# convert number to int in different formats
-#num = 3000000
-#base = 99
+# convert number to int in different formats (verify with https://baseconvert.com/)
+#num = 65535.9999847412109375
+#base = 16
+#print("representation")
 #print(numberToBase(num, base))
 #print(baseToStr(numberToBase(num, base), base, True))
 #print(strToBase(baseToStr(numberToBase(num, base), base, True)))
+#print("base 10 value = " + str(num))
+#print(baseToNum(numberToBase(num, base), base))
 #print(baseToNum(strToBase(baseToStr(numberToBase(num, base), base, True)), base))
-#print(baseToNum(strToBase("3000000"), 99))
+#print(baseToNum(strToBase(str(num)), base))

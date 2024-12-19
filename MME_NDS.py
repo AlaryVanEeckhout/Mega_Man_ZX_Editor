@@ -266,6 +266,7 @@ class BetterSpinBox(PyQt6.QtWidgets.QDoubleSpinBox):
         self.alphanum = True
         self.numbase = 10
         self.setRange(-0xFFFFFFFF, 0xFFFFFFFF)
+        #self.setDecimals(16) # cannot do setDecimals here because it will crash the program for... some reason. Have to do it for each instance instead.
         self.numfill = 0
         self.isInt = False
         self.acceptedSymbols = [".", "{", "}", *library.dataconverter.symbols]
@@ -749,7 +750,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.label_vxHeader_framerate.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignCenter)
         self.label_vxHeader_framerate.hide()
         self.field_vxHeader_framerate = BetterSpinBox(self.page_explorer)
-        self.field_vxHeader_framerate.setRange(0x00000000,0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_framerate.setDecimals(16) # increase precision to allow spinbox to respect range
+        self.field_vxHeader_framerate.setRange(0x00000000,65535.9999847412109375) # prevent impossible values (max is ffff.ffff)
         self.field_vxHeader_framerate.numfill = 8
         self.field_vxHeader_framerate.hide()
         self.field_vxHeader_framerate.textChanged.connect(lambda: self.button_file_save.setEnabled(True))
