@@ -13,29 +13,30 @@ import library.dataconverter, library.patchdata, library.init_readwrite, library
 global EDITOR_VERSION
 EDITOR_VERSION = "0.2.3" # objective, feature, WIP
 
-class ThreadSignals(PyQt6.QtCore.QObject):
-    signal_RunnableDisplayRawText = PyQt6.QtCore.pyqtSignal(str)
+"""
+class ThreadSignals(PyQt6.QtCore.QObject): # signals can omly be emmited by QObject
+    valueChanged = PyQt6.QtCore.pyqtSignal(int)
 
-class RunnableDisplayRawText(PyQt6.QtCore.QRunnable):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-    def __init__(self, n):
-        super().__init__()
-        self.n = n
+class RunnableDisplayProgress(PyQt6.QtCore.QRunnable):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.signals = ThreadSignals()
 
     def run(self):
         print("runnable active")
-        #PyQt6.QtCore.QMetaObject.invokeMethod(w.file_content_text, "decSetUnavailable", PyQt6.QtCore.Qt.ConnectionType.QueuedConnection, PyQt6.QtCore.Q_ARG(bool, True))
-        #PyQt6.QtCore.QMetaObject.invokeMethod(w.file_content_text, "decSetLongText", PyQt6.QtCore.Qt.ConnectionType.QueuedConnection, PyQt6.QtCore.Q_ARG(str, ""))
-        #text = w.rom.files[int(w.tree.currentItem().text(0))].hex()
-        #chunk_size = 1000
-        #for i in range(int(len(text)/chunk_size)):
-        #    text = w.rom.files[int(w.tree.currentItem().text(0))].hex()[i*chunk_size:i*chunk_size+chunk_size]
-        #    PyQt6.QtCore.QMetaObject.invokeMethod(w.file_content_text, "decSetLongText", PyQt6.QtCore.Qt.ConnectionType.QueuedConnection, PyQt6.QtCore.Q_ARG(str, text))
-        #    time.sleep(1)
-        #self.signals.signal_RunnableDisplayRawText.emit((w.rom.files[int(w.tree.currentItem().text(0))]).hex())
-        #PyQt6.QtCore.QMetaObject.invokeMethod(w.file_content_text, "decSetUnavailable", PyQt6.QtCore.Qt.ConnectionType.QueuedConnection, PyQt6.QtCore.Q_ARG(bool, False))
+        value = 0
+        while value < 100:
+            self.signals.valueChanged.emit(value)
+            time.sleep(0.5)
+            value += 10
+        PyQt6.QtCore.QMetaObject.invokeMethod(w.progress, "close", PyQt6.QtCore.Qt.ConnectionType.QueuedConnection)
+        PyQt6.QtCore.QMetaObject.invokeMethod(w.progress, "setValue", PyQt6.QtCore.Qt.ConnectionType.QueuedConnection, PyQt6.QtCore.Q_ARG(int, 0))
         print("runnable finish")
+"""
 
 class GFXView(PyQt6.QtWidgets.QGraphicsView):
     def __init__(self, *args, **kwargs):
@@ -198,12 +199,16 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
 class EditorTree(PyQt6.QtWidgets.QTreeWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.ContextNameType = "[Filenames]"
 
     def contextMenuOpen(self): #quick menu to export or replace selected file
         self.context_menu = PyQt6.QtWidgets.QMenu(self)
         self.context_menu.setGeometry(self.cursor().pos().x(), self.cursor().pos().y(), 50, 50)
-        exportAction = self.context_menu.addAction("Export " + self.currentItem().text(1) + ("." + self.currentItem().text(2)).replace(".Folder", " and contents"))
-        importAction = self.context_menu.addAction("Replace " + self.currentItem().text(1) + ("." + self.currentItem().text(2)).replace(".Folder", " and contents"))
+        contextName = self.ContextNameType + self.currentItem().text(0)
+        if self.ContextNameType == "[Filenames]":
+            contextName = self.currentItem().text(1) + ("." + self.currentItem().text(2)).replace(".Folder", " and contents")
+        exportAction = self.context_menu.addAction("Export " + contextName)
+        importAction = self.context_menu.addAction("Replace " + contextName)
         if self.currentItem().text(2) == "sdat":
             sdatAction = self.context_menu.addAction("Open Sound Archive")
         action2 = self.context_menu.exec()
@@ -371,11 +376,18 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
     
     def UiComponents(self):
         # reusable
-        self.progress = PyQt6.QtWidgets.QProgressBar()
-        self.progress.resize(250, 35)
-        self.progress.setWindowTitle("Progress")
-        self.progress.setValue(0)
-        self.progress.hide()
+        self.window_progress = PyQt6.QtWidgets.QMdiSubWindow()
+        self.window_progress.setWindowFlags(PyQt6.QtCore.Qt.WindowType.Window | PyQt6.QtCore.Qt.WindowType.CustomizeWindowHint | PyQt6.QtCore.Qt.WindowType.WindowStaysOnTopHint | PyQt6.QtCore.Qt.WindowType.FramelessWindowHint)
+        self.window_progress.resize(250, 35)
+        self.window_progress.setWindowTitle("Progress")
+        #self.window_progress.layout().addWidget(self.label_progress)
+
+        self.progress = PyQt6.QtWidgets.QProgressBar(self.window_progress)
+
+        self.label_progress = PyQt6.QtWidgets.QLabel(self.window_progress)
+
+        self.window_progress.layout().addWidget(self.progress)
+        self.window_progress.layout().addWidget(self.label_progress)
         # Menus
         self.openAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\folder-horizontal-open.png'), '&Open', self)        
         self.openAction.setShortcut('Ctrl+O')
@@ -514,17 +526,24 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.button_sdat.setStatusTip("Show the contents of this ROM's sdat file")
         self.button_sdat.triggered.connect(self.sdatOpenCall)
         self.button_sdat.setDisabled(True)
+        self.button_arm9 = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\processor-num-9.png'), "Open ARM9", self)
+        self.button_arm9.setStatusTip("Show the contents of this ROM's ARM9")
+        self.button_arm9.triggered.connect(self.arm9OpenCall)
+        self.button_arm9.setDisabled(True)
+        self.button_arm7 = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\processor-num-7.png'), "Open ARM7", self)
+        self.button_arm7.setStatusTip("Show the contents of this ROM's ARM7")
+        self.button_arm7.triggered.connect(self.arm7OpenCall)
+        self.button_arm7.setDisabled(True)
         #self.button_codeedit = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\document-text.png'), "Open code", self)
         #self.button_codeedit.setStatusTip("Edit the ROM's code")
         #self.button_codeedit.triggered.connect(self.codeeditCall)
         #self.button_codeedit.setDisabled(True)
-        self.toolbar.addActions([self.button_save, self.button_playtest, self.button_sdat, self.button_reload])
+        self.toolbar.addActions([self.button_save, self.button_playtest, self.button_arm9, self.button_arm7, self.button_sdat, self.button_reload])
         self.toolbar.addSeparator()
 
         #Tabs
         self.tabs = PyQt6.QtWidgets.QTabWidget(self)
         self.setCentralWidget(self.tabs)
-        self.tabs.resize(self.width(), self.height())
         self.tabs.currentChanged.connect(lambda: self.reloadCall(True))
 
         self.page_explorer = PyQt6.QtWidgets.QWidget(self.tabs)
@@ -545,6 +564,70 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.tabs.addTab(self.page_patches, "Patches") # Coming Soon™
 
         #  ROM-related
+        # ARM
+
+        self.dialog_arm9 = PyQt6.QtWidgets.QMdiSubWindow()
+        self.dialog_arm9.setWindowTitle("ARM9")
+        self.dialog_arm9.setWindowIcon(PyQt6.QtGui.QIcon('icons\\processor-num-9.png'))
+        self.dialog_arm9.resize(600, 400)
+
+        self.tabs_arm9 = PyQt6.QtWidgets.QTabWidget(self.dialog_arm9)
+        self.dialog_arm9.layout().addWidget(self.tabs_arm9)
+
+        self.page_arm9 = PyQt6.QtWidgets.QWidget(self.tabs_arm9)
+        self.page_arm9.setLayout(PyQt6.QtWidgets.QHBoxLayout())
+        self.page_arm9Ovltable = PyQt6.QtWidgets.QWidget(self.tabs_arm9)
+        self.page_arm9Ovltable.setLayout(PyQt6.QtWidgets.QHBoxLayout())
+
+        self.tabs_arm9.addTab(self.page_arm9, "Main Code")
+        self.tabs_arm9.addTab(self.page_arm9Ovltable, "Overlays")
+
+        self.tree_arm9 = EditorTree(self.page_arm9)
+        self.page_arm9.layout().addWidget(self.tree_arm9)
+        self.tree_arm9.ContextNameType = "code-section at "
+        self.tree_arm9.setColumnCount(3)
+        self.tree_arm9.setHeaderLabels(["RAM Address", "Name", "Implicit"])
+        self.tree_arm9.setContextMenuPolicy(PyQt6.QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+
+        self.tree_arm9Ovltable = EditorTree(self.page_arm9Ovltable)
+        self.page_arm9Ovltable.layout().addWidget(self.tree_arm9Ovltable)
+        self.tree_arm9Ovltable.ContextNameType = "overlay "
+        self.tree_arm9Ovltable.setColumnCount(10)
+        self.tree_arm9Ovltable.setHeaderLabels(["File ID", "RAM Address", "Compressed", "Size", "RAM Size", "BSS Size", "StaticInit Start", "StaticInit End", "Flags", "Verify Hash"])
+        self.tree_arm9Ovltable.setContextMenuPolicy(PyQt6.QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+
+
+
+        self.dialog_arm7 = PyQt6.QtWidgets.QMdiSubWindow()
+        self.dialog_arm7.setWindowTitle("ARM7")
+        self.dialog_arm7.setWindowIcon(PyQt6.QtGui.QIcon('icons\\processor-num-7.png'))
+        self.dialog_arm7.resize(600, 400)
+
+        self.tabs_arm7 = PyQt6.QtWidgets.QTabWidget(self.dialog_arm7)
+        self.dialog_arm7.layout().addWidget(self.tabs_arm7)
+
+        self.page_arm7 = PyQt6.QtWidgets.QWidget(self.tabs_arm7)
+        self.page_arm7.setLayout(PyQt6.QtWidgets.QHBoxLayout())
+        self.page_arm7Ovltable = PyQt6.QtWidgets.QWidget(self.tabs_arm7)
+        self.page_arm7Ovltable.setLayout(PyQt6.QtWidgets.QHBoxLayout())
+
+        self.tabs_arm7.addTab(self.page_arm7, "Main Code")
+        self.tabs_arm7.addTab(self.page_arm7Ovltable, "Overlays")
+
+        self.tree_arm7 = EditorTree(self.page_arm7)
+        self.page_arm7.layout().addWidget(self.tree_arm7)
+        self.tree_arm7.ContextNameType = "code-section at "
+        self.tree_arm7.setColumnCount(3)
+        self.tree_arm7.setHeaderLabels(["RAM Address", "Name", "Implicit"])
+        self.tree_arm7.setContextMenuPolicy(PyQt6.QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+
+        self.tree_arm7Ovltable = EditorTree(self.page_arm7Ovltable)
+        self.page_arm7Ovltable.layout().addWidget(self.tree_arm7Ovltable)
+        self.tree_arm7Ovltable.ContextNameType = "overlay "
+        self.tree_arm7Ovltable.setColumnCount(10)
+        self.tree_arm7Ovltable.setHeaderLabels(["File ID", "RAM Address", "Compressed", "Size", "RAM Size", "BSS Size", "StaticInit Start", "StaticInit End", "Flags", "Verify Hash"])
+        self.tree_arm7Ovltable.setContextMenuPolicy(PyQt6.QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+
         # File explorer
         self.tree = EditorTree(self.page_explorer)
         self.page_explorer.layout().addWidget(self.tree, 0)
@@ -752,7 +835,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.field_vxHeader_framerate = BetterSpinBox(self.page_explorer)
         self.field_vxHeader_framerate.setDecimals(16) # increase precision to allow spinbox to respect range
         self.field_vxHeader_framerate.setRange(0x00000000,65535.9999847412109375) # prevent impossible values (max is ffff.ffff)
-        self.field_vxHeader_framerate.numfill = 8
+        #self.field_vxHeader_framerate.numfill = 8
         self.field_vxHeader_framerate.hide()
         self.field_vxHeader_framerate.textChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_framerate = PyQt6.QtWidgets.QVBoxLayout()
@@ -990,24 +1073,40 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
         self.setStatusBar(PyQt6.QtWidgets.QStatusBar(self))
     
-    def runTasks(self, runnable_list: list):
-        activeThreadCount = PyQt6.QtCore.QThreadPool.globalInstance().activeThreadCount()
-        #self.setWindowTitle(f"{self.windowTitle()} Running {activeThreadCount} Threads")
+    def progressShow(self):
+        self.window_progress.move(self.pos().x() + (self.width() - self.window_progress.width())//2, self.pos().y() + self.height()//2) # center progress bar
+        self.progress.setValue(0)
+        self.label_progress.setText("")
+        self.window_progress.show() # show progress on task
+
+    def progressUpdate(self, completed: str, status: str=""):
+        self.progress.setValue(completed)
+        self.label_progress.setText(status)
+        app.processEvents()
+
+    def progressHide(self):
+        self.progress.setValue(0)
+        self.label_progress.setText("")
+        self.window_progress.close() # show progress on task
+
+    """
+    def runTasks(self, runnableInfo_list: list[list[PyQt6.QtCore.QRunnable, list[PyQt6.QtCore.Q_ARG], PyQt6.QtCore.pyqtSignal, lambda _: _]]):
         pool = PyQt6.QtCore.QThreadPool.globalInstance()
-        for runnable in runnable_list:
+        for runnableInfo in runnableInfo_list:
             # 2. Instantiate the subclass of QRunnable
-            runnable_inst = runnable(activeThreadCount)
+            runnable_inst = runnableInfo[0](*runnableInfo[1])
             app.processEvents()
-            if runnable == RunnableDisplayRawText:
-                #runnable_inst.signals.signal_RunnableDisplayRawText.connect(self.file_content_text.setPlainText)
-                pass
+            getattr(runnable_inst.signals, runnableInfo[2]).connect(runnableInfo[3])
             # 3. Call start()
             pool.start(runnable_inst)
+            self.setWindowTitle(self.windowTitle() + " (Running " + str(pool.activeThreadCount()) + " Threads)")
 
     def clearTasks(self):
         pool = PyQt6.QtCore.QThreadPool.globalInstance()
         pool.clear()
-
+        self.setWindowTitle(self.windowTitle().split(" (Running ")[0])
+    """
+        
     def set_dialog_button_name(self, dialog: PyQt6.QtWidgets.QDialog, oldtext: str, newtext: str):
         for btn in dialog.findChildren(PyQt6.QtWidgets.QPushButton):
             if btn.text() == self.tr(oldtext):
@@ -1077,6 +1176,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             options=PyQt6.QtWidgets.QFileDialog.Option.DontUseNativeDialog,
         )
         if not fname == ("", ""): # if file you're trying to open is not none
+            self.progressShow()
+            self.progressUpdate(0, "Loading ROM")
+            #self.runTasks([[RunnableDisplayProgress, [], "valueChanged", self.progress.setValue]])
             self.romToEdit_name = fname[0].split("/")[len(fname[0].split("/")) - 1].rsplit(".", 1)[0]
             self.romToEdit_ext = "." + fname[0].split("/")[len(fname[0].split("/")) - 1].rsplit(".", 1)[1]
             self.rom = ndspy.rom.NintendoDSRom.fromFile(fname[0])
@@ -1091,15 +1193,23 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 dialog.setWindowIcon(PyQt6.QtGui.QIcon("icons\\exclamation"))
                 dialog.setText("Sound data archive was not found. \n This means that sound data may not be there or may not be in a recognizable format.")
                 dialog.exec()
-            self.treeSdatUpdate()
+            self.progressUpdate(10, "Loading ARM9")
+
             self.arm9 = self.rom.loadArm9()
+            self.treeArm9Update()
+            self.progressUpdate(20, "Loading ARM7")
             self.arm7 = self.rom.loadArm7()
+            self.treeArm7Update()
+            self.progressUpdate(30, "Loading SDAT")
+            self.treeSdatUpdate()
             self.temp_path = f"{os.path.curdir}\\temp\\{self.romToEdit_name+self.romToEdit_ext}"
             self.setWindowTitle("Mega Man ZX Editor" + " <" + self.rom.name.decode() + " v" + self.rom.idCode.decode("utf-8") + " rev" + str(self.rom.version) + " region" + str(self.rom.region) + ">" + " \"" + self.romToEdit_name + self.romToEdit_ext + "\"")
             #print(self.rom.filenames)
+            self.progressUpdate(50, "Loading Patches")
             self.tree_patches_numbase = None # set to something that isn't displaybase
             self.tree_patches_numaplha = None # set to something that isn't displayalphanumeric
             self.patches_reload()
+            self.progressUpdate(80, "Finishing load")
             if not self.rom.name.decode().replace(" ", "_") in library.patchdata.GameEnum.__members__:
                 print("ROM is NOT supported! Continue at your own risk!")
                 dialog = PyQt6.QtWidgets.QMessageBox(self)
@@ -1110,14 +1220,18 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
             self.tree.setCurrentItem(None)
             self.treeUpdate()
+            self.progressUpdate(100, "Finishing load")
             self.enable_editing_ui()
             self.file_content_text.setDisabled(True)
+            self.progressHide()
 
     def enable_editing_ui(self):
         #self.button_codeedit.setDisabled(False)
         self.importSubmenu.setDisabled(False)
         self.button_file_save.show()
         self.button_save.setDisabled(False)
+        self.button_arm9.setDisabled(False)
+        self.button_arm7.setDisabled(False)
         self.button_playtest.setDisabled(False)
         self.dropdown_tweak_target.show()
         self.field_address.show()
@@ -1360,6 +1474,14 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             os.startfile(self.temp_path)
             print("game will start in a few seconds")
 
+    def arm9OpenCall(self):
+        if hasattr(self, 'dialog_arm9'):
+            self.dialog_arm9.show()
+
+    def arm7OpenCall(self):
+        if hasattr(self, 'dialog_arm7'):
+            self.dialog_arm7.show()
+
     def sdatOpenCall(self):
         if hasattr(self, 'dialog_sdat'):
             self.dialog_sdat.show()
@@ -1394,6 +1516,65 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             tree_files = []
         self.tree.clear()
         self.tree.addTopLevelItems(tree_files)
+
+    def treeArm9Update(self):
+        self.tree_arm9.clear()
+        #print(self.rom.loadArm9Overlays())
+        #item_mainCode = PyQt6.QtWidgets.QTreeWidgetItem([library.dataconverter.StrFromNumber(self.arm9.ramAddress, self.displayBase, self.displayAlphanumeric).zfill(8), "Main Code", "N/A"])
+
+        for e in self.arm9.sections:
+            self.tree_arm9.addTopLevelItem(PyQt6.QtWidgets.QTreeWidgetItem([
+                library.dataconverter.StrToAlphanumStr(str(e).split()[2].removeprefix("0x").removesuffix(":"), self.displayBase, self.displayAlphanumeric).zfill(8), 
+                str(e).split()[0].removeprefix("<"), 
+                str(e.implicit)
+            ]))
+        
+        self.tree_arm9Ovltable.clear()
+        arm9OvlDict = self.rom.loadArm9Overlays()
+        for overlayID in arm9OvlDict:
+                overlay = arm9OvlDict[overlayID]
+                self.tree_arm9Ovltable.addTopLevelItem(PyQt6.QtWidgets.QTreeWidgetItem([
+                    str(overlay.fileID), 
+                    library.dataconverter.StrFromNumber(overlay.ramAddress, self.displayBase, self.displayAlphanumeric).zfill(8), 
+                    str(overlay.compressed), 
+                    library.dataconverter.StrFromNumber(overlay.compressedSize, self.displayBase, self.displayAlphanumeric), 
+                    library.dataconverter.StrFromNumber(overlay.ramSize, self.displayBase, self.displayAlphanumeric), 
+                    library.dataconverter.StrFromNumber(overlay.bssSize, self.displayBase, self.displayAlphanumeric), 
+                    library.dataconverter.StrFromNumber(overlay.staticInitStart, self.displayBase, self.displayAlphanumeric).zfill(8), 
+                    library.dataconverter.StrFromNumber(overlay.staticInitEnd, self.displayBase, self.displayAlphanumeric).zfill(8), 
+                    library.dataconverter.StrFromNumber(overlay.flags, self.displayBase, self.displayAlphanumeric), 
+                    str(overlay.verifyHash)
+                ]))
+
+        #self.tree_arm9.addTopLevelItem(item_mainCode)
+
+    def treeArm7Update(self):
+        self.tree_arm7.clear()
+        #item_mainCode = PyQt6.QtWidgets.QTreeWidgetItem([library.dataconverter.StrFromNumber(self.arm7.ramAddress, self.displayBase, self.displayAlphanumeric).zfill(8), "Main Code", "N/A"])
+
+        for e in self.arm7.sections:
+            self.tree_arm7.addTopLevelItem(PyQt6.QtWidgets.QTreeWidgetItem([
+                library.dataconverter.StrToAlphanumStr(str(e).split()[2].removeprefix("0x").removesuffix(":"), self.displayBase, self.displayAlphanumeric).zfill(8), 
+                str(e).split()[0].removeprefix("<"), 
+                str(e.implicit)
+            ]))
+
+        self.tree_arm7Ovltable.clear()
+        arm7OvlDict = self.rom.loadArm7Overlays()
+        for overlayID in arm7OvlDict:
+                overlay = arm7OvlDict[overlayID]
+                self.tree_arm7Ovltable.addTopLevelItem(PyQt6.QtWidgets.QTreeWidgetItem([
+                    str(overlay.fileID), 
+                    library.dataconverter.StrFromNumber(overlay.ramAddress, self.displayBase, self.displayAlphanumeric).zfill(8), 
+                    str(overlay.compressed), 
+                    library.dataconverter.StrFromNumber(overlay.compressedSize, self.displayBase, self.displayAlphanumeric), 
+                    library.dataconverter.StrFromNumber(overlay.ramSize, self.displayBase, self.displayAlphanumeric), 
+                    library.dataconverter.StrFromNumber(overlay.bssSize, self.displayBase, self.displayAlphanumeric), 
+                    library.dataconverter.StrFromNumber(overlay.staticInitStart, self.displayBase, self.displayAlphanumeric).zfill(8), 
+                    library.dataconverter.StrFromNumber(overlay.staticInitEnd, self.displayBase, self.displayAlphanumeric).zfill(8), 
+                    library.dataconverter.StrFromNumber(overlay.flags, self.displayBase, self.displayAlphanumeric), 
+                    str(overlay.verifyHash)
+                ]))
     
     def treeSdatUpdate(self):
         #print(str(self.sdat.groups)[:13000])
