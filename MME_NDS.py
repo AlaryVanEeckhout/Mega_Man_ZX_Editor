@@ -43,10 +43,9 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
         super().__init__(*args, **kwargs)
         self._zoom = 0
         self._empty = True
-        self._scene = PyQt6.QtWidgets.QGraphicsScene(self)
+        self.setScene(PyQt6.QtWidgets.QGraphicsScene())
         self._graphic = PyQt6.QtWidgets.QGraphicsPixmapItem()
-        self._scene.addItem(self._graphic)
-        self.setScene(self._scene)
+        self.scene().addItem(self._graphic)
 
         self.pen = PyQt6.QtGui.QPen()
         self.pen.setColor(PyQt6.QtCore.Qt.GlobalColor.black)
@@ -59,12 +58,12 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
         self.rectangle, self.line = None, None # used for drawing rectangles
 
     def resetScene(self):
-        self._scene.clear()
+        self.scene().clear()
         self._graphic = PyQt6.QtWidgets.QGraphicsPixmapItem()
-        self._scene.addItem(self._graphic)
+        self.scene().addItem(self._graphic)
 
     def hasGraphic(self):
-        return self._scene.isActive()
+        return self.scene().isActive()
 
     def fitInView(self, scale=True):
         rect = PyQt6.QtCore.QRectF(self._graphic.pixmap().rect())
@@ -88,29 +87,29 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
         else:
             self._empty = True
             self._graphic.setPixmap(PyQt6.QtGui.QPixmap())
+            #self._graphic.pixmap()
         self.fitInView()
 
 
     def drawShape(self):
+        gfx_zone = PyQt6.QtGui.QPixmap(self._graphic.pixmap())
+        painter = PyQt6.QtGui.QPainter()
+        #painter.setPen(self.pen)
+        painter.begin(gfx_zone)
         if self.draw_mode == "pixel":
                 pixel_map = PyQt6.QtGui.QPixmap(1, 1)
                 pixel_map.fill(self.pen.color())
 
-                pixel_container = PyQt6.QtWidgets.QGraphicsPixmapItem()
-                pixel_container.setPixmap(pixel_map)
-                pixel_container.moveBy(int(self.end.x()),int(self.end.y()))
-                self._scene.addItem(pixel_container)
+                pos = PyQt6.QtCore.QPoint(int(self.end.x()),int(self.end.y()))
+                painter.drawPixmap(pos, pixel_map)
+                
+                pos = PyQt6.QtCore.QPoint(int(self.end_previous.x()),int(self.end_previous.y()))
+                painter.drawPixmap(pos, pixel_map)
 
-                pixel_container = PyQt6.QtWidgets.QGraphicsPixmapItem()
-                pixel_container.setPixmap(pixel_map)
-                pixel_container.moveBy(int(self.end_previous.x()),int(self.end_previous.y()))
-                self._scene.addItem(pixel_container)
-
-                pixel_container = PyQt6.QtWidgets.QGraphicsPixmapItem()
-                pixel_container.setPixmap(pixel_map)
-                pixel_container.moveBy(int(self.end_previous.x()),int(self.end_previous.y()))
-                pixel_container.moveBy(int(self.end_previous.x() - self.end.x()),int(self.end_previous.y() - self.end.y()))
-                self._scene.addItem(pixel_container)
+                pos = PyQt6.QtCore.QPoint(int(self.end_previous.x()) + int(self.end_previous.x() - self.end.x()),int(self.end_previous.y()) + int(self.end_previous.y() - self.end.y()))
+                painter.drawPixmap(pos, pixel_map)
+                self._graphic.setPixmap(gfx_zone)
+                painter.end() # release resources to prevent crash
                 w.button_file_save.setDisabled(False)
         elif self.draw_mode == "rectangle":
                 if self.start.isNull() or self.end.isNull():
@@ -333,7 +332,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.setWindowIcon(PyQt6.QtGui.QIcon('icons\\appicon.ico'))
         self.setWindowTitle("Mega Man ZX Editor")
         self.temp_path = f"{os.path.curdir}\\temp\\"
-        self.rom = ndspy.rom.NintendoDSRom
+        self.rom = ndspy.rom.NintendoDSRom # placeholder definitions
         self.sdat = ndspy.soundArchive.SDAT
         self.arm9 = ndspy.code.MainCodeFile
         self.arm7 = ndspy.code.MainCodeFile
@@ -347,6 +346,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.fileDisplayState = "None" # Same states as mode
         self.gfx_palette = [0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)]
         self.resize(self.window_width, self.window_height)
+        # Default Preferences
         self.theme_index = 0
         self.displayBase = 16
         self.displayAlphanumeric = True
@@ -1020,7 +1020,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.dropdown_tweak_target = PyQt6.QtWidgets.QComboBox(self.page_tweaks)
         self.dropdown_tweak_target.setGeometry(125, 75, 125, 25)
         self.dropdown_tweak_target.setToolTip("Choose a target to appy tweaks to")
-        self.dropdown_tweak_target.addItems(["Other", "Player", "Player(Hu)", "Player(X)", "Player(Zx)", "Player(Hx)", "Player(Fx)", "Player(Lx)", "Player(Px)", "Player(Ox)"])# order of names is determined by the enum in dataconverter
+        self.dropdown_tweak_target.addItems(["Other", "Player", "Player(Hu)", "Player(X)", "Player(Zx)", "Player(Fx)", "Player(Hx)", "Player(Lx)", "Player(Px)", "Player(Ox)"])# order of names is determined by the enum in dataconverter
         #self.dropdown_tweak_target.currentTextChanged.connect(self.tweakTargetCall)
         self.dropdown_tweak_target.hide()
         self.page_tweaks.layout().addWidget(self.dropdown_tweak_target)
@@ -1690,7 +1690,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.file_content_gfx.resetScene()
                         if not isValueUpdate: # if entering graphics mode and func is not called to update other stuff
                             self.file_editor_show("Graphics")
-                        addItem_tilesQImage_fromBytes(self.file_content_gfx, self.rom.files[int(self.tree.currentItem().text(0))][self.relative_address:], algorithm=list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column, tileWidth=self.tile_width, tileHeight=self.tile_height)
+                        draw_tilesQImage_fromBytes(self.file_content_gfx, self.rom.files[int(self.tree.currentItem().text(0))][self.relative_address:], algorithm=list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column, tileWidth=self.tile_width, tileHeight=self.tile_height)
                     elif self.fileDisplayState == "Sound":
                         self.file_editor_show("Text") # placeholder
                         self.checkbox_textoverwite.hide()
@@ -1830,7 +1830,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 rom_save_data = library.dataconverter.convertdata_text_to_bin(self.file_content_text.toPlainText())
                 w.rom.files[int(self.tree.currentItem().text(0))][self.relative_address:self.relative_address+len(rom_save_data)] = rom_save_data
             elif self.fileDisplayState == "Graphics":
-                rom_save_data = saveData_fromGFXView(self.file_content_gfx)
+                rom_save_data = saveData_fromGFXView(self.file_content_gfx, algorithm=list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()])
                 w.rom.files[int(self.tree.currentItem().text(0))][self.relative_address:self.relative_address+len(rom_save_data)] = rom_save_data
             elif self.fileDisplayState == "VX":
                 w.rom.files[int(self.tree.currentItem().text(0))][0x04:0x08] = bytearray(int.to_bytes(int(self.field_vxHeader_length.value()), 4, "little"))
@@ -1922,33 +1922,31 @@ app = PyQt6.QtWidgets.QApplication(sys.argv)
 w = MainWindow()
 
 # Draw contents of tile viewer
-def addItem_tilesQImage_fromBytes(view: GFXView, data: bytearray, palette: list[int]=w.gfx_palette, algorithm=library.dataconverter.CompressionAlgorithmEnum.ONEBPP, tilesPerRow=4, tilesPerColumn=8, tileWidth=16, tileHeight=8):
+def draw_tilesQImage_fromBytes(view: GFXView, data: bytearray, palette: list[int]=w.gfx_palette, algorithm=library.dataconverter.CompressionAlgorithmEnum.ONEBPP, tilesPerRow=4, tilesPerColumn=8, tileWidth=16, tileHeight=8):
     tileWidth = int(tileWidth)
     tileHeight = int(tileHeight)
     tilesPerColumn = int(tilesPerColumn)
     tilesPerRow = int(tilesPerRow)
+    painter = PyQt6.QtGui.QPainter()
+    gfx_zone = PyQt6.QtGui.QPixmap(tileWidth*tilesPerRow, tileHeight*tilesPerColumn) # get the correct canvas size
+    painter.begin(gfx_zone)
     for tile in range(tilesPerRow*tilesPerColumn):
         # get data of current tile from bytearray, multiplying tile index by amount of pixels in a tile and by amount of bits per pixel, then dividing by amount of bits per byte
         # that data is then converted into a QImage that is used to create the QPixmap of the tile
         gfx = PyQt6.QtGui.QPixmap.fromImage(library.dataconverter.convertdata_bin_to_qt(data[int(tile*(tileWidth*tileHeight)*algorithm.depth/8):int(tile*(tileWidth*tileHeight)*algorithm.depth/8+(tileWidth*tileHeight)*algorithm.depth/8)], palette, algorithm, tileWidth, tileHeight))
-        gfx_container = PyQt6.QtWidgets.QGraphicsPixmapItem()
-        gfx_container.setPixmap(gfx)
         #print(tile)
-        #print(str(gfx_container.pos().x()) + " " + str(gfx_container.pos().y()))
-        gfx_container.setPos(tileWidth*int(tile % tilesPerRow), tileHeight*int(tile / tilesPerRow))
-        #print(str(gfx_container.pos().x()) + " " + str(gfx_container.pos().y()))
-        view._scene.addItem(gfx_container)
+        pos = PyQt6.QtCore.QPoint(tileWidth*int(tile % tilesPerRow), tileHeight*int(tile / tilesPerRow))
+        painter.drawPixmap(pos, gfx) # draw tile at correct pos in canvas
+    view._graphic.setPixmap(gfx_zone) # overwrite current canvas with new one
     return
-# Decode contents of tile viewer
-def saveData_fromGFXView(view: GFXView, palette: list[int]=w.gfx_palette, algorithm=library.dataconverter.CompressionAlgorithmEnum.ONEBPP, tilesPerRow=4, tilesPerColumn=8, tileWidth=16, tileHeight=8):
+# Decode contents of tile viewer(WIP)
+def saveData_fromGFXView(view: GFXView, palette: list[int]=w.gfx_palette, algorithm=library.dataconverter.CompressionAlgorithmEnum.ONEBPP, tilesPerRow=w.tiles_per_row, tilesPerColumn=w.tiles_per_column, tileWidth=w.tile_width, tileHeight=w.tile_height):
     saved_data = bytearray()
-    view._scene.setSceneRect(0, 0, tileWidth*tilesPerRow, tileHeight*tilesPerColumn)
     for tile in range(tilesPerRow*tilesPerColumn):
-        print(view._graphic.pos().x())
-        print(view._graphic.pos().y())
-        tile_rect = PyQt6.QtCore.QRect(int(view._graphic.pos().x() + tileWidth*int(tile % tilesPerRow)), int(view._graphic.pos().y() + tileHeight*int(tile / tilesPerRow)), tileWidth, tileHeight)
-        tile_current = view.grab(tile_rect).toImage()
+        tile_rect = PyQt6.QtCore.QRect(int(tileWidth*int(tile % tilesPerRow)), int(tileHeight*int(tile / tilesPerRow)), tileWidth, tileHeight)
+        tile_current = view._graphic.pixmap().copy(tile_rect).toImage()
         saved_data +=  library.dataconverter.convertdata_qt_to_bin(tile_current, palette, algorithm, tileWidth, tileHeight)
+    #print(saved_data)
     return saved_data
 
 def extract(fileToEdit_id: int, folder="", fileToEdit_name="", path="", format="", tree=w.tree):
