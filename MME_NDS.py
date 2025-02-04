@@ -55,10 +55,11 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
         self.setMouseTracking(True)
         self.mousePressed = False
         self.draw_mode = "pixel"
-        self.rectangle, self.line = None, None # used for drawing rectangles
+        self.rectangle = None # used for drawing rectangles
 
     def resetScene(self):
         self.scene().clear()
+        self.rectangle = None
         self._graphic = PyQt6.QtWidgets.QGraphicsPixmapItem()
         self.scene().addItem(self._graphic)
 
@@ -92,11 +93,11 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
 
 
     def drawShape(self):
-        gfx_zone = PyQt6.QtGui.QPixmap(self._graphic.pixmap())
-        painter = PyQt6.QtGui.QPainter()
-        #painter.setPen(self.pen)
-        painter.begin(gfx_zone)
         if self.draw_mode == "pixel":
+                gfx_zone = PyQt6.QtGui.QPixmap(self._graphic.pixmap())
+                painter = PyQt6.QtGui.QPainter()
+                #painter.setPen(self.pen)
+                painter.begin(gfx_zone)
                 pixel_map = PyQt6.QtGui.QPixmap(1, 1)
                 pixel_map.fill(self.pen.color())
 
@@ -106,55 +107,32 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
                 pos = PyQt6.QtCore.QPoint(int(self.end_previous.x()),int(self.end_previous.y()))
                 painter.drawPixmap(pos, pixel_map)
 
-                pos = PyQt6.QtCore.QPoint(int(self.end_previous.x()) + int(self.end_previous.x() - self.end.x()),int(self.end_previous.y()) + int(self.end_previous.y() - self.end.y()))
+                pos = PyQt6.QtCore.QPoint(int(self.end.x()) + int(self.end_previous.x() - self.end.x()),int(self.end.y()) + int(self.end_previous.y() - self.end.y()))
                 painter.drawPixmap(pos, pixel_map)
                 self._graphic.setPixmap(gfx_zone)
                 painter.end() # release resources to prevent crash
                 w.button_file_save.setDisabled(False)
         elif self.draw_mode == "rectangle":
-                if self.start.isNull() or self.end.isNull():
-                    return
-                if self.start.x() == self.end.x() and self.start.y() == self.end.y():
-                    return
-                elif abs(self.end.x() - self.start.x()) < 1 or abs(self.end.y() - self.start.y()) < 1:
-                    if self.rectangle != None:
-                        self.scene().removeItem(self.rectangle)
-                        self.rectangle = None
-                    if abs(self.end.y() - self.start.y()) < 1:
-                        # draw vertical line
-                        if self.line != None:
-                            self.line.setLine(self.start.x(), self.start.y(), self.end.x(), self.start.y())
-                        else:
-                            self.line = self.scene().addLine(self.start.x(), self.start.y(), self.end.x(), self.start.y(), self.pen)
-                    else:
-                        # draw horizontal line
-                        if self.line != None:
-                            self.line.setLine(self.start.x(), self.start.y(), self.start.x(), self.end.y())
-                        else:
-                            self.line = self.scene().addLine(self.start.x(), self.start.y(), self.start.x(), self.end.y(), self.pen)                    
-                else:
-                    if self.line != None:
-                        self.scene().removeItem(self.line)
-                        self.line = None
-
-                    width = abs(self.start.x() - self.end.x())
-                    height = abs(self.start.y() - self.end.y())
-                    if self.rectangle == None:
-                        self.rectangle = self.scene().addRect(min(self.start.x(), self.end.x()), min(self.start.y(), self.end.y()), width, height, self.pen)
-                    else:
-                        self.rectangle.setRect(min(self.start.x(), self.end.x()), min(self.start.y(), self.end.y()), width, height)
+            width = abs(self.start.x() - self.end.x())
+            height = abs(self.start.y() - self.end.y())
+            if self.rectangle == None:
+                self.rectangle = self.scene().addRect(min(self.start.x(), self.end.x()), min(self.start.y(), self.end.y()), width, height, self.pen)
+            else:
+                self.rectangle.setRect(min(self.start.x(), self.end.x()), min(self.start.y(), self.end.y()), width, height)
+                self.rectangle.setPen(self.pen)
 
     def mousePressEvent(self, event):
         #print("QGraphicsView mousePress")
-        self.draw_mode = "pixel"
+        self.mousePressed = True
+        # Reset vars to avoid abnormal drawing positions
+        self.start = self.mapToScene(event.pos())
+        self.end = self.start
+        self.end_previous = self.end
         if event.button() == PyQt6.QtCore.Qt.MouseButton.LeftButton:
-            self.mousePressed = True
-            self.start = self.mapToScene(event.pos())
-            self.drawShape()
+            self.draw_mode = "pixel"
         elif event.button() == PyQt6.QtCore.Qt.MouseButton.RightButton:
             self.draw_mode = "rectangle"
-            self.mousePressed = True
-            self.start = self.mapToScene(event.pos())
+        self.drawShape()
 
     def wheelEvent(self, event):
         #print(self._zoom)
@@ -177,23 +155,19 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
 
     def mouseMoveEvent(self, event):
         #print("QGraphicsView mouseMove")
+        self.end = self.mapToScene(event.pos())
         if self.draw_mode == "rectangle":
-            if event.buttons() and PyQt6.QtCore.Qt.MouseButton.LeftButton and self.mousePressed:
-                self.end = self.mapToScene(event.pos())
+            if self.mousePressed:
                 self.drawShape()
         else:
-            self.end = self.mapToScene(event.pos())
-            if event.buttons() and PyQt6.QtCore.Qt.MouseButton.LeftButton and self.mousePressed:
+            if self.mousePressed:
                 self.drawShape()
             self.end_previous = self.end
 
     def mouseReleaseEvent(self, event):
         #print("QGraphicsView mouseRelease")
-        if event.button() == PyQt6.QtCore.Qt.MouseButton.LeftButton and self.mousePressed:
+        if self.mousePressed:
             self.mousePressed = False
-            self.drawShape()
-            self.start, self.end = PyQt6.QtCore.QPoint(), PyQt6.QtCore.QPoint()
-            self.rectangle, self.line = None, None
 
 class EditorTree(PyQt6.QtWidgets.QTreeWidget):
     def __init__(self, *args, **kwargs):
@@ -1948,7 +1922,6 @@ def saveData_fromGFXView(view: GFXView, palette: list[int]=w.gfx_palette, algori
     #print(str(tilesPerRow*tilesPerColumn) + " tiles to go through")
     for tile in range(tilesPerRow*tilesPerColumn):
         tile_rect = PyQt6.QtCore.QRect((tileWidth*int(tile % tilesPerRow)), (tileHeight*int(tile / tilesPerRow)), tileWidth, tileHeight)
-        #tile_rect = PyQt6.QtCore.QRect(0, 0, tileWidth, tileHeight)
         tile_current = view._graphic.pixmap().copy(tile_rect).toImage()
         saved_data +=  library.dataconverter.convertdata_qt_to_bin(tile_current, palette, algorithm, tileWidth, tileHeight)
     #print(saved_data.hex())
