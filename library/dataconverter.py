@@ -203,14 +203,11 @@ def str_subgroups(s: str, n):
     return [s[i:i+n] for i in range(0, len(s), n)]
 
 def bitstring_to_bytes(s: str):
-    v = int(s, 2)
     b = bytearray()
-    if v == 0: # if the bitstring has only zeros, make the conversion as well to not loose data
-        b.append(v & 0xff)
-    while v:
-        b.append(v & 0xff)
-        v >>= 8
-    return bytes(b[::-1])
+    l = str_subgroups(s, 8) # separate bitstring into bytes
+    for byte in l:
+        b.append(int(byte, 2) & 0xff) # convert to hex
+    return bytes(b)
 
 def find_matching_paren(s, i, braces=None):
     openers = braces or {"(": ")"}
@@ -395,6 +392,7 @@ def convertdata_qt_to_bin(qimage: PyQt6.QtGui.QImage, palette: list[int]=[0xff00
                     file_bits = bin(palette.index(qimage.pixelColor(x, y).rgba())).removeprefix('0b').zfill(algorithm.depth)
                     binary_data += bytearray(bitstring_to_bytes(file_bits))
     #print("bits: " + file_bits)
+    #print("bytearray: " + binary_data.hex())
     return binary_data
 
  #create readable text
@@ -424,3 +422,5 @@ def convertdata_qt_to_bin(qimage: PyQt6.QtGui.QImage, palette: list[int]=[0xff00
 #print(baseToNum(numberToBase(num, base), base))
 #print(baseToNum(strToBase(baseToStr(numberToBase(num, base), base, True)), base))
 #print(baseToNum(strToBase(str(num)), base))
+#print("normal length:\n0000000000000000\n----------------")
+#print(bitstring_to_bytes('00001000'+'00000000'+'00001000'+'00000000'+'00010000'+'00000000'+'00000000'+'00000000').hex())

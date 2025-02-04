@@ -17,10 +17,10 @@ For now, I'm making controlled and measured corruptions to the game to better un
 - Converter for binary to pyqt widget(image)
 - Togglable patches system
 - Test button
-- Graphics Viewer(WIP)
+- Graphics Editor(WIP)
 - SDAT Viewer(WIP)
 ### To do
-- Graphics Editor(saving, exporting, and importing)
+- Graphics Editor additional features(exporting and importing)
 - Find actual patches for the game to add to the editor's "patches" tab
 - Find patches and tweaks that are helpful for testing purposes
 - OAM Editor*

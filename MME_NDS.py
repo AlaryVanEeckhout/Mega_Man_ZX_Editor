@@ -1650,6 +1650,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.fileToEdit_name = str(self.tree.currentItem().text(1) + "." + self.tree.currentItem().text(2))
             self.base_address = self.rom.save().index(self.rom.files[int(self.tree.currentItem().text(0))])
             # set text to current ROM address
+            #print(self.relative_address)
             self.field_address.setMinimum(self.base_address)
             self.field_address.setValue(self.base_address+self.relative_address)
             self.field_address.setMaximum(self.base_address+len(self.rom.files[int(self.tree.currentItem().text(0))]))
@@ -1821,7 +1822,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         # case-specific code
         if mode == "Graphics":
             # Reset Values
-            self.relative_address = 0x00000000
+            self.field_address.setValue(self.base_address)
             #print(f"{len(self.rom.save()):08X}")
 
     def save_filecontent(self): #Save to virtual ROM
@@ -1830,7 +1831,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 rom_save_data = library.dataconverter.convertdata_text_to_bin(self.file_content_text.toPlainText())
                 w.rom.files[int(self.tree.currentItem().text(0))][self.relative_address:self.relative_address+len(rom_save_data)] = rom_save_data
             elif self.fileDisplayState == "Graphics":
-                rom_save_data = saveData_fromGFXView(self.file_content_gfx, algorithm=list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()])
+                rom_save_data = saveData_fromGFXView(self.file_content_gfx, algorithm=list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column, tileWidth=self.tile_width, tileHeight=self.tile_height)
                 w.rom.files[int(self.tree.currentItem().text(0))][self.relative_address:self.relative_address+len(rom_save_data)] = rom_save_data
             elif self.fileDisplayState == "VX":
                 w.rom.files[int(self.tree.currentItem().text(0))][0x04:0x08] = bytearray(int.to_bytes(int(self.field_vxHeader_length.value()), 4, "little"))
@@ -1940,13 +1941,17 @@ def draw_tilesQImage_fromBytes(view: GFXView, data: bytearray, palette: list[int
     view._graphic.setPixmap(gfx_zone) # overwrite current canvas with new one
     return
 # Decode contents of tile viewer(WIP)
-def saveData_fromGFXView(view: GFXView, palette: list[int]=w.gfx_palette, algorithm=library.dataconverter.CompressionAlgorithmEnum.ONEBPP, tilesPerRow=w.tiles_per_row, tilesPerColumn=w.tiles_per_column, tileWidth=w.tile_width, tileHeight=w.tile_height):
+def saveData_fromGFXView(view: GFXView, palette: list[int]=w.gfx_palette, algorithm=library.dataconverter.CompressionAlgorithmEnum.ONEBPP, tilesPerRow=8, tilesPerColumn=8, tileWidth=8, tileHeight=8):
     saved_data = bytearray()
+    #print("pixmap: " + "width=" + str(view._graphic.pixmap().width()) + "   height=" + str(view._graphic.pixmap().height()))
+    #print("tiles: " + "horizontal=" +str(tilesPerRow) + "   vertical=" + str(tilesPerColumn))
+    #print(str(tilesPerRow*tilesPerColumn) + " tiles to go through")
     for tile in range(tilesPerRow*tilesPerColumn):
-        tile_rect = PyQt6.QtCore.QRect(int(tileWidth*int(tile % tilesPerRow)), int(tileHeight*int(tile / tilesPerRow)), tileWidth, tileHeight)
+        tile_rect = PyQt6.QtCore.QRect((tileWidth*int(tile % tilesPerRow)), (tileHeight*int(tile / tilesPerRow)), tileWidth, tileHeight)
+        #tile_rect = PyQt6.QtCore.QRect(0, 0, tileWidth, tileHeight)
         tile_current = view._graphic.pixmap().copy(tile_rect).toImage()
         saved_data +=  library.dataconverter.convertdata_qt_to_bin(tile_current, palette, algorithm, tileWidth, tileHeight)
-    #print(saved_data)
+    #print(saved_data.hex())
     return saved_data
 
 def extract(fileToEdit_id: int, folder="", fileToEdit_name="", path="", format="", tree=w.tree):
