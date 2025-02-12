@@ -1,1 +1,1 @@
-python MME_NDS.py
+py -3.13 MME_NDS.py

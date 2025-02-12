@@ -19,6 +19,7 @@ For now, I'm making controlled and measured corruptions to the game to better un
 - Test button
 - Graphics Editor(WIP)
 - SDAT Viewer(WIP)
+- ARM Viewer(WIP)
 ### To do
 - Graphics Editor additional features(exporting and importing)
 - Find actual patches for the game to add to the editor's "patches" tab
@@ -37,10 +38,10 @@ For now, I'm making controlled and measured corruptions to the game to better un
 *This feature may not be implemented/is not currently prioritized since I haven't looked into it and it looks hard to do at first glance. 
 ## Setup for usage
 Currently, there are no releases and I'm not sure how to include the dependencies in my project, so:
-- [Download&Install Python v3.10 or higher](https://www.python.org/downloads/) (made with 3.11.4)
+- [Download&Install Python](https://www.python.org/downloads/) (using 3.13.2)
 - Now that you have Python, you can use pip(Package Installer for Python) to install the two following modules:
-- [Download&Install NDS Py](https://pypi.org/project/ndspy/) (made with 4.1.0)
-- [Download&Install PyQt6](https://pypi.org/project/PyQt6/) (made with 6.5.2)
+- [Download&Install NDSPy](https://pypi.org/project/ndspy/) (using 4.2.0)
+- [Download&Install PyQt6](https://pypi.org/project/PyQt6/) (using 6.8.1)
 <!---
 - [Download&Install NumPy](https://pypi.org/project/numpy/)
 - [Download&Install Pillow v9.3.0 or higher](https://pypi.org/project/Pillow/)

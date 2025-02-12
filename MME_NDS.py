@@ -11,7 +11,7 @@ import ndspy.soundArchive
 import library.dataconverter, library.patchdata, library.init_readwrite, library.actimagine
 #Global variables
 global EDITOR_VERSION
-EDITOR_VERSION = "0.2.3" # objective, feature, WIP
+EDITOR_VERSION = "0.3.2" # objective, feature, WIP
 
 """
 class ThreadSignals(PyQt6.QtCore.QObject): # signals can omly be emmited by QObject
@@ -192,6 +192,7 @@ class EditorTree(PyQt6.QtWidgets.QTreeWidget):
                 w.replaceCall(self.currentItem())
             elif action2 == sdatAction:
                 w.dialog_sdat.show()
+                w.dialog_sdat.setFocus()
     
     def mousePressEvent(self, event: PyQt6.QtCore.QEvent): #redefine mouse press to insert custom code on right click
         if event.type() == PyQt6.QtCore.QEvent.Type.MouseButtonPress:
@@ -339,7 +340,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             firstLaunch_dialog = PyQt6.QtWidgets.QMessageBox()
             firstLaunch_dialog.setWindowTitle("First Launch")
             firstLaunch_dialog.setWindowIcon(PyQt6.QtGui.QIcon('icons\\information.png'))
-            firstLaunch_dialog.setText("Editor's current features:\n- English dialogue text editor\n- Patcher(no patches available yet)\nWIP:\n- Graphics editor\n- Sound data editor\n- VX file editor")
+            firstLaunch_dialog.setText("Editor's current features:\n- English dialogue text editor\n- Patcher(no patches available yet)\n- Graphics editor\nWIP:\n- Sound data editor\n- VX file editor")
             firstLaunch_dialog.exec()
 
     def toggle_widget_icon(self, widget: PyQt6.QtWidgets.QWidget, checkedicon: PyQt6.QtGui.QImage, uncheckedicon: PyQt6.QtGui.QImage):
@@ -376,18 +377,19 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
         self.replaceAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\blue-document-import.png'), '&Replace...', self)
         self.replaceAction.setShortcut('Ctrl+R')
-        self.replaceAction.setStatusTip('replace with file in binary or converted format')
+        self.replaceAction.setStatusTip('Replace with file in binary or converted format')
         self.replaceAction.triggered.connect(lambda: self.replaceCall(self.tree.currentItem()))
         self.replaceAction.setDisabled(True)
 
         self.replacebynameAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\blue-document-import.png'), '&Replace by name...', self)        
-        self.replacebynameAction.setStatusTip('replace with file of same name in binary or converted format')
+        self.replacebynameAction.setStatusTip('Replace with file of same name in binary or converted format')
         self.replacebynameAction.triggered.connect(self.replacebynameCall)
 
         self.menu_bar = self.menuBar()
         self.fileMenu = self.menu_bar.addMenu('&File')
         self.fileMenu.addActions([self.openAction, self.exportAction])
         self.importSubmenu = self.fileMenu.addMenu('&Import...')
+        #self.importSubmenu.setStatusTip('Use external file to replace a file in ROM')
         self.importSubmenu.setIcon(PyQt6.QtGui.QIcon('icons\\blue-document-import.png'))
         self.importSubmenu.addActions([self.replaceAction, self.replacebynameAction])
         self.importSubmenu.setDisabled(True)
@@ -399,7 +401,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.dialog_about.resize(500, 500)
         self.text_about = PyQt6.QtWidgets.QTextBrowser(self.dialog_about)
         self.text_about.resize(self.dialog_about.width(), self.dialog_about.height())
-        self.text_about.setText(f"Supports:\nMEGAMANZX (Mega Man ZX)\nMEGAMANZXA (Mega Man ZX Advent)\n\nVersionning:\nEditor version: {EDITOR_VERSION} (final objective(s) completed, major functional features, WIP features)\nPython version: 3.11.4 (your version is {platform.python_version()})\nPyQt version: 6.5.2 (your version is {PyQt6.QtCore.PYQT_VERSION_STR})\nNDSPy version: 4.1.0 (your version is {list(ndspy.VERSION)[0]}.{list(ndspy.VERSION)[1]}.{list(ndspy.VERSION)[2]})\n")
+        self.text_about.setText(f"Supports:\nMEGAMANZX (Mega Man ZX)\nMEGAMANZXA (Mega Man ZX Advent)\n\nVersionning:\nEditor version: {EDITOR_VERSION} (final objective(s) completed, major functional features, WIP features)\nPython version: 3.13.2 (your version is {platform.python_version()})\nPyQt version: 6.8.1 (your version is {PyQt6.QtCore.PYQT_VERSION_STR})\nNDSPy version: 4.2.0 (your version is {list(ndspy.VERSION)[0]}.{list(ndspy.VERSION)[1]}.{list(ndspy.VERSION)[2]})\n")
         self.aboutAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\information.png'), '&About', self)
         self.aboutAction.setStatusTip('Show information about the application')
         self.aboutAction.triggered.connect(lambda: self.dialog_about.exec())
@@ -540,13 +542,13 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         #  ROM-related
         # ARM
 
-        self.dialog_arm9 = PyQt6.QtWidgets.QMdiSubWindow()
+        self.dialog_arm9 = PyQt6.QtWidgets.QMainWindow(self) # "independent" window: can move anywhere on screen, but still affected by main window
         self.dialog_arm9.setWindowTitle("ARM9")
         self.dialog_arm9.setWindowIcon(PyQt6.QtGui.QIcon('icons\\processor-num-9.png'))
         self.dialog_arm9.resize(600, 400)
 
         self.tabs_arm9 = PyQt6.QtWidgets.QTabWidget(self.dialog_arm9)
-        self.dialog_arm9.layout().addWidget(self.tabs_arm9)
+        self.dialog_arm9.setCentralWidget(self.tabs_arm9)
 
         self.page_arm9 = PyQt6.QtWidgets.QWidget(self.tabs_arm9)
         self.page_arm9.setLayout(PyQt6.QtWidgets.QHBoxLayout())
@@ -572,13 +574,13 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
 
 
-        self.dialog_arm7 = PyQt6.QtWidgets.QMdiSubWindow()
+        self.dialog_arm7 = PyQt6.QtWidgets.QMainWindow(self)
         self.dialog_arm7.setWindowTitle("ARM7")
         self.dialog_arm7.setWindowIcon(PyQt6.QtGui.QIcon('icons\\processor-num-7.png'))
         self.dialog_arm7.resize(600, 400)
 
         self.tabs_arm7 = PyQt6.QtWidgets.QTabWidget(self.dialog_arm7)
-        self.dialog_arm7.layout().addWidget(self.tabs_arm7)
+        self.dialog_arm7.setCentralWidget(self.tabs_arm7)
 
         self.page_arm7 = PyQt6.QtWidgets.QWidget(self.tabs_arm7)
         self.page_arm7.setLayout(PyQt6.QtWidgets.QHBoxLayout())
@@ -775,13 +777,13 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.layout_editzone.addItem(self.file_content)
 
         #Sound Data Archive
-        self.dialog_sdat = PyQt6.QtWidgets.QMdiSubWindow()
+        self.dialog_sdat = PyQt6.QtWidgets.QMainWindow(self)
         self.dialog_sdat.setWindowTitle("Sound Data Archive")
         self.dialog_sdat.setWindowIcon(PyQt6.QtGui.QIcon('icons\\speaker-volume.png'))
         self.dialog_sdat.resize(600, 400)
 
         self.tree_sdat = EditorTree(self.dialog_sdat)
-        self.dialog_sdat.layout().addWidget(self.tree_sdat)
+        self.dialog_sdat.setCentralWidget(self.tree_sdat)
         self.tree_sdat.setColumnCount(3)
         self.tree_sdat.setHeaderLabels(["File ID", "Name", "Type"])
         self.tree_sdat.setContextMenuPolicy(PyQt6.QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
@@ -1210,7 +1212,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.dropdown_tweak_target.show()
         self.field_address.show()
         self.label_file_size.show()
-        self.dropdown_editor_area.addItems([item.text(1) for item in self.tree.findItems("\A[a-z][0-9][0-9]", PyQt6.QtCore.Qt.MatchFlag.MatchRegularExpression, 1)])
+        self.dropdown_editor_area.addItems([item.text(1) for item in self.tree.findItems("^[a-z][0-9][0-9]", PyQt6.QtCore.Qt.MatchFlag.MatchRegularExpression, 1)])
 
     def exportCall(self, item: PyQt6.QtWidgets.QTreeWidgetItem):
         dialog = PyQt6.QtWidgets.QFileDialog(
@@ -1451,14 +1453,17 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
     def arm9OpenCall(self):
         if hasattr(self, 'dialog_arm9'):
             self.dialog_arm9.show()
+            self.dialog_arm9.setWindowState(PyQt6.QtCore.Qt.WindowState.WindowActive) # un-minimize window
 
     def arm7OpenCall(self):
         if hasattr(self, 'dialog_arm7'):
             self.dialog_arm7.show()
+            self.dialog_arm7.setWindowState(PyQt6.QtCore.Qt.WindowState.WindowActive)
 
     def sdatOpenCall(self):
         if hasattr(self, 'dialog_sdat'):
             self.dialog_sdat.show()
+            self.dialog_sdat.setWindowState(PyQt6.QtCore.Qt.WindowState.WindowActive)
 
 
     #def codeeditCall(self):
@@ -1957,9 +1962,9 @@ def extract(fileToEdit_id: int, folder="", fileToEdit_name="", path="", format="
             print("could not find method for converting to specified format.")
 #run the app
 app.exec()
+# After execution
 w.firstLaunch = False
 library.init_readwrite.write_preferences(w)
-# After execution
 if os.path.exists(w.temp_path) and w.romToEdit_name != "":
     try:
         os.remove(w.temp_path) # delete temporary ROM
