@@ -307,10 +307,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.setWindowIcon(PyQt6.QtGui.QIcon('icons\\appicon.ico'))
         self.setWindowTitle("Mega Man ZX Editor")
         self.temp_path = f"{os.path.curdir}\\temp\\"
-        self.rom = ndspy.rom.NintendoDSRom # placeholder definitions
-        self.sdat = ndspy.soundArchive.SDAT
-        self.arm9 = ndspy.code.MainCodeFile
-        self.arm7 = ndspy.code.MainCodeFile
+        self.rom = None #ndspy.rom.NintendoDSRom # placeholder definitions
+        self.sdat = None #ndspy.soundArchive.SDAT
+        self.arm9 = None #ndspy.code.MainCodeFile
+        self.arm7 = None #ndspy.code.MainCodeFile
         self.base_address = 0
         self.relative_address = 0
         self.romToEdit_name = ''
@@ -332,10 +332,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
     def load_preferences(self):
         #SETTINGS
-        library.init_readwrite.load_preferences(self, "SETTINGS", struct="int", exc=["displayAlphanumeric"])
-        library.init_readwrite.load_preferences(self, "SETTINGS", struct="bool", inc=["displayAlphanumeric"])
+        library.init_readwrite.load_preferences(self, "SETTINGS", property_type="int", exc=["displayAlphanumeric"])
+        library.init_readwrite.load_preferences(self, "SETTINGS", property_type="bool", inc=["displayAlphanumeric"])
         #MISC
-        library.init_readwrite.load_preferences(self, "MISC", struct="bool")
+        library.init_readwrite.load_preferences(self, "MISC", property_type="bool")
         if self.firstLaunch:
             firstLaunch_dialog = PyQt6.QtWidgets.QMessageBox()
             firstLaunch_dialog.setWindowTitle("First Launch")
@@ -611,7 +611,6 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.tree.setColumnCount(3)
         self.tree.setHeaderLabels(["File ID", "Name", "Type"])
         self.tree.setContextMenuPolicy(PyQt6.QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
-        self.treeUpdate()
         self.tree_called = False
         self.tree.itemSelectionChanged.connect(self.treeCall)
 
@@ -1152,23 +1151,49 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             options=PyQt6.QtWidgets.QFileDialog.Option.DontUseNativeDialog,
         )
         if not fname == ("", ""): # if file you're trying to open is not none
-            self.progressShow()
+            # reset stuff to prevent conflicts
+            self.tree.setCurrentItem(None)
+            self.field_address.setRange(0,0) # set address to 0 for consistency with the fact that no file is selected
+            self.rom = None
+            self.sdat = None
+            self.arm9 = None
+            self.arm7 = None
+            self.treeUpdate()
+            self.tree_patches.clear()
+            self.disable_editing_ui()
+            
+            self.progressShow() # progress bar
             self.progressUpdate(0, "Loading ROM")
             #self.runTasks([[RunnableDisplayProgress, [], "valueChanged", self.progress.setValue]])
             self.romToEdit_name = fname[0].split("/")[len(fname[0].split("/")) - 1].rsplit(".", 1)[0]
             self.romToEdit_ext = "." + fname[0].split("/")[len(fname[0].split("/")) - 1].rsplit(".", 1)[1]
-            self.rom = ndspy.rom.NintendoDSRom.fromFile(fname[0])
+            self.setWindowTitle("Mega Man ZX Editor" + " \"" + self.romToEdit_name + self.romToEdit_ext + "\"")
+            try:
+                self.rom = ndspy.rom.NintendoDSRom.fromFile(fname[0])
+            except Exception as e:
+                self.progressHide()
+                print(e)
+                PyQt6.QtWidgets.QMessageBox.critical(
+                self,
+                "Failed to load ROM",
+                str(e)
+                )
+                self.setWindowTitle("Mega Man ZX Editor")
+                return
             try:
                 self.sdat = ndspy.soundArchive.SDAT(self.rom.files[int(str(self.rom.filenames).rpartition(".sdat")[0].split()[-2])])# manually search for sdat file because getFileByName does not find it when it is in a folder
                 print("SDAT at " + str(self.rom.filenames).rpartition(".sdat")[0].split()[-2])
                 #self.sdat.fatLengthsIncludePadding = True
                 self.button_sdat.setEnabled(True)
             except Exception:
+                self.window_progress.hide()
+                self.sdat = None
                 dialog = PyQt6.QtWidgets.QMessageBox(self)
                 dialog.setWindowTitle("No SDAT")
                 dialog.setWindowIcon(PyQt6.QtGui.QIcon("icons\\exclamation"))
                 dialog.setText("Sound data archive was not found. \n This means that sound data may not be there or may not be in a recognizable format.")
                 dialog.exec()
+                self.progressShow()
             self.progressUpdate(10, "Loading ARM9")
 
             self.arm9 = self.rom.loadArm9()
@@ -1178,23 +1203,24 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.treeArm7Update()
             self.progressUpdate(30, "Loading SDAT")
             self.treeSdatUpdate()
-            self.temp_path = f"{os.path.curdir}\\temp\\{self.romToEdit_name+self.romToEdit_ext}"
-            self.setWindowTitle("Mega Man ZX Editor" + " <" + self.rom.name.decode() + " v" + self.rom.idCode.decode("utf-8") + " rev" + str(self.rom.version) + " region" + str(self.rom.region) + ">" + " \"" + self.romToEdit_name + self.romToEdit_ext + "\"")
             #print(self.rom.filenames)
             self.progressUpdate(50, "Loading Patches")
             self.tree_patches_numbase = None # set to something that isn't displaybase
             self.tree_patches_numaplha = None # set to something that isn't displayalphanumeric
             self.patches_reload()
             self.progressUpdate(80, "Finishing load")
+            self.temp_path = f"{os.path.curdir}\\temp\\{self.romToEdit_name+self.romToEdit_ext}"
+            self.setWindowTitle("Mega Man ZX Editor" + " <" + self.rom.name.decode() + " v" + ''.join(char for char in self.rom.idCode.decode("utf-8") if char.isalpha())  + " rev" + str(self.rom.version) + " region" + str(self.rom.region) + ">" + " \"" + self.romToEdit_name + self.romToEdit_ext + "\"")
             if not self.rom.name.decode().replace(" ", "_") in library.patchdata.GameEnum.__members__:
                 print("ROM is NOT supported! Continue at your own risk!")
+                self.window_progress.hide()
                 dialog = PyQt6.QtWidgets.QMessageBox(self)
                 dialog.setWindowTitle("Warning!")
                 dialog.setWindowIcon(PyQt6.QtGui.QIcon("icons\\exclamation"))
                 dialog.setText("Game \"" + self.rom.name.decode() + "\" is NOT supported! Continue at your own risk!")
                 dialog.exec()
+                self.progressShow()
 
-            self.tree.setCurrentItem(None)
             self.treeUpdate()
             self.progressUpdate(100, "Finishing load")
             self.enable_editing_ui()
@@ -1213,6 +1239,19 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.field_address.show()
         self.label_file_size.show()
         self.dropdown_editor_area.addItems([item.text(1) for item in self.tree.findItems("^[a-z][0-9][0-9]", PyQt6.QtCore.Qt.MatchFlag.MatchRegularExpression, 1)])
+
+    def disable_editing_ui(self):
+        #self.button_codeedit.setDisabled(False)
+        self.importSubmenu.setDisabled(True)
+        self.button_file_save.hide()
+        self.button_save.setDisabled(True)
+        self.button_arm9.setDisabled(True)
+        self.button_arm7.setDisabled(True)
+        self.button_playtest.setDisabled(True)
+        self.dropdown_tweak_target.hide()
+        self.field_address.hide()
+        self.label_file_size.hide()
+        self.dropdown_editor_area.clear()
 
     def exportCall(self, item: PyQt6.QtWidgets.QTreeWidgetItem):
         dialog = PyQt6.QtWidgets.QFileDialog(
@@ -1475,24 +1514,25 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
     def treeUpdate(self):
         tree_files: list[PyQt6.QtWidgets.QTreeWidgetItem] = []
         try: # convert NDS Py filenames to QTreeWidgetItems
-            tree_folder: list[PyQt6.QtWidgets.QTreeWidgetItem] = []
-            for f in str(self.rom.filenames).split("\n"):
-                if f.find("/") == -1: # if file
-                    if f.find("    ") != -1: # if contents of folder
-                        tree_folder[f.count("    ") - 1].addChild(PyQt6.QtWidgets.QTreeWidgetItem([f.split(" ")[0], f.split(" ")[-1].split(".")[0], f.split(".")[-1]]))
-                    else:
-                        tree_files.append(PyQt6.QtWidgets.QTreeWidgetItem([f.split(" ")[0], f.split(" ")[-1].split(".")[0], f.split(".")[-1]]))
-                else: # if folder
-                    if f.count("    ") < len(tree_folder):
-                        tree_folder[f.count("    ")] = PyQt6.QtWidgets.QTreeWidgetItem([f.split(" ")[0], f.split(" ")[-1].removesuffix("/"), "Folder"])
-                    else:
-                        tree_folder.append(PyQt6.QtWidgets.QTreeWidgetItem([f.split(" ")[0], f.split(" ")[-1].removesuffix("/"), "Folder"]))
-                    if f.find("    ") == -1:
-                        tree_files.append(tree_folder[f.count("    ")])
-                    else:
-                        tree_folder[f.count("    ") - 1].addChild(tree_folder[f.count("    ")])
-        except Exception: # if failed, empty list
-            tree_files = []
+            if self.rom.files != []:
+                tree_folder: list[PyQt6.QtWidgets.QTreeWidgetItem] = []
+                for f in str(self.rom.filenames).split("\n"):
+                    if f.find("/") == -1: # if file
+                        if f.find("    ") != -1: # if contents of folder
+                            tree_folder[f.count("    ") - 1].addChild(PyQt6.QtWidgets.QTreeWidgetItem([f.split(" ")[0], f.split(" ")[-1].split(".")[0], f.split(".")[-1]]))
+                        else:
+                            tree_files.append(PyQt6.QtWidgets.QTreeWidgetItem([f.split(" ")[0], f.split(" ")[-1].split(".")[0], f.split(".")[-1]]))
+                    else: # if folder
+                        if f.count("    ") < len(tree_folder):
+                            tree_folder[f.count("    ")] = PyQt6.QtWidgets.QTreeWidgetItem([f.split(" ")[0], f.split(" ")[-1].removesuffix("/"), "Folder"])
+                        else:
+                            tree_folder.append(PyQt6.QtWidgets.QTreeWidgetItem([f.split(" ")[0], f.split(" ")[-1].removesuffix("/"), "Folder"]))
+                        if f.find("    ") == -1:
+                            tree_files.append(tree_folder[f.count("    ")])
+                        else:
+                            tree_folder[f.count("    ") - 1].addChild(tree_folder[f.count("    ")])
+        except Exception: # if failed, do nothing
+            pass
         self.tree.clear()
         self.tree.addTopLevelItems(tree_files)
 
@@ -1561,44 +1601,45 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         #progress.setValue(0)
         #progress.show()
         self.tree_sdat.clear() 
-        # all sdat sections follow the [(Name, object(data)), ...] format except swar with [(Name, object([object(data), ...])), ...] and groups, which have [(Name, [object(data), ...]), ...]
-        item_sseq = PyQt6.QtWidgets.QTreeWidgetItem(["N/A", "Sequenced Music", "SSEQ"]) #SSEQ
-        item_ssar = PyQt6.QtWidgets.QTreeWidgetItem(["N/A", "Sequenced Sound Effects", "SSAR"]) #SSAR
-        item_sbnk = PyQt6.QtWidgets.QTreeWidgetItem(["N/A", "Sound Banks", "SBNK"]) #SBNK
-        item_swar = PyQt6.QtWidgets.QTreeWidgetItem(["N/A", "Sound Waves", "SWAR"]) #SWAR
-        item_sseqplayer = PyQt6.QtWidgets.QTreeWidgetItem(["N/A", "Sequence Player", "SSEQ"]) #SSEQ
-        item_strm = PyQt6.QtWidgets.QTreeWidgetItem(["N/A", "Multi-Channel Stream", "STRM"]) #STRM
-        item_strmplayer = PyQt6.QtWidgets.QTreeWidgetItem(["N/A", "Stream Player", "STRM"]) #STRM
-        item_group = PyQt6.QtWidgets.QTreeWidgetItem(["N/A", "Group", ""])
-        item_list = [
-            item_sseq,
-            item_ssar,
-            item_sbnk,
-            item_swar,
-            item_sseqplayer,
-            item_strm,
-            item_strmplayer,
-            item_group
-        ]
-        data_list = [
-            self.sdat.sequences,
-            self.sdat.sequenceArchives,
-            self.sdat.banks,
-            self.sdat.waveArchives,
-            self.sdat.sequencePlayers,
-            self.sdat.streams,
-            self.sdat.streamPlayers,
-            self.sdat.groups
-        ]
+        if self.sdat != None:
+            # all sdat sections follow the [(Name, object(data)), ...] format except swar with [(Name, object([object(data), ...])), ...] and groups, which have [(Name, [object(data), ...]), ...]
+            item_sseq = PyQt6.QtWidgets.QTreeWidgetItem(["N/A", "Sequenced Music", "SSEQ"]) #SSEQ
+            item_ssar = PyQt6.QtWidgets.QTreeWidgetItem(["N/A", "Sequenced Sound Effects", "SSAR"]) #SSAR
+            item_sbnk = PyQt6.QtWidgets.QTreeWidgetItem(["N/A", "Sound Banks", "SBNK"]) #SBNK
+            item_swar = PyQt6.QtWidgets.QTreeWidgetItem(["N/A", "Sound Waves", "SWAR"]) #SWAR
+            item_sseqplayer = PyQt6.QtWidgets.QTreeWidgetItem(["N/A", "Sequence Player", "SSEQ"]) #SSEQ
+            item_strm = PyQt6.QtWidgets.QTreeWidgetItem(["N/A", "Multi-Channel Stream", "STRM"]) #STRM
+            item_strmplayer = PyQt6.QtWidgets.QTreeWidgetItem(["N/A", "Stream Player", "STRM"]) #STRM
+            item_group = PyQt6.QtWidgets.QTreeWidgetItem(["N/A", "Group", ""])
+            item_list = [
+                item_sseq,
+                item_ssar,
+                item_sbnk,
+                item_swar,
+                item_sseqplayer,
+                item_strm,
+                item_strmplayer,
+                item_group
+            ]
+            data_list = [
+                self.sdat.sequences,
+                self.sdat.sequenceArchives,
+                self.sdat.banks,
+                self.sdat.waveArchives,
+                self.sdat.sequencePlayers,
+                self.sdat.streams,
+                self.sdat.streamPlayers,
+                self.sdat.groups
+            ]
 
-        for category in item_list:
-            for section in data_list[item_list.index(category)]:
-                category.addChild(PyQt6.QtWidgets.QTreeWidgetItem(["Unknown", section[0], category.text(2)]))
-            #progress.setValue(progress.value()+ 100//len(item_list))
+            for category in item_list:
+                for section in data_list[item_list.index(category)]:
+                    category.addChild(PyQt6.QtWidgets.QTreeWidgetItem(["Unknown", section[0], category.text(2)]))
+                #progress.setValue(progress.value()+ 100//len(item_list))
 
-        self.tree_sdat.addTopLevelItems([*item_list])
-        #progress.setValue(100)
-        #progress.close()
+            self.tree_sdat.addTopLevelItems([*item_list])
+            #progress.setValue(100)
+            #progress.close()
 
     def treeCall(self, isValueUpdate=False):
         #self.clearTasks()
@@ -1724,8 +1765,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.file_editor_show("Text")
             self.checkbox_textoverwite.hide()
             self.field_address.setDisabled(True)
-            self.label_file_size.setText(f"Size: N/A")
-            self.file_content_text.setPlainText("")
+            self.label_file_size.setText("Size: N/A")
+            self.file_content_text.clear()
+            self.file_content_text.setDisabled(True)
             self.button_file_save.setDisabled(True)
             self.exportAction.setDisabled(True)
             self.replaceAction.setDisabled(True)

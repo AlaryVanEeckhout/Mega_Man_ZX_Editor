@@ -24,10 +24,10 @@ firstLaunch={obj.firstLaunch}"""
         )
     print(info_name + PRINTCOLOR_OKCYAN + "wrote to ini file." + PRINTCOLOR_ENDC)
 
-def load_preferences(obj: object, sec="ALL_SECTIONS", inc: list[str]=[], exc: list[str]=[], struct="string"):
+def load_preferences(obj: object, sec="ALL_SECTIONS", inc: list[str]=[], exc: list[str]=[], property_type="string"):
     if os.path.exists("preferences.ini"):
         print(info_name + PRINTCOLOR_OKGREEN + "ini file found." + PRINTCOLOR_ENDC)
-        print(info_name + "reading values in \"" + struct + "\" mode.")
+        print(info_name + "reading values in \"" + property_type + "\" mode.")
         init_file = {}
         init_file_section = ""
         with open("preferences.ini", "r") as my_file:
@@ -48,16 +48,13 @@ def load_preferences(obj: object, sec="ALL_SECTIONS", inc: list[str]=[], exc: li
                 print(info_name + "Section: " + section_name)
             for property_name, property_value in section_value.items():
                 if sec == section_name or sec == "ALL_SECTIONS":
-                    if (not inc or property_name in inc) and not (property_name in exc):
-                        if struct == "string":
+                    if (not inc or property_name in inc) and not (property_name in exc): # inc/exc logic
+                        if property_type == "string":
                             setattr(obj, property_name, property_value)
-                        elif struct == "bool":
+                        elif property_type == "bool":
                             #print(info_name + str(getattr(obj, property_name)) + "=" + property_value)
-                            if property_value == "True":
-                                setattr(obj, property_name, True)
-                            else:
-                                setattr(obj, property_name, False)
-                        elif struct == "int":
+                            setattr(obj, property_name, property_value == "True")
+                        elif property_type == "int":
                             if not (property_value == str(re.findall("([0-9]+)", property_value)[0] + "." + re.findall("([0-9]+)", property_value)[int(len(re.findall("([0-9]+)", property_value)) - 1)]) or str.isnumeric(property_value)):
                                 print(info_name + PRINTCOLOR_FAIL + "corruption found in ini file at property: " + property_name + PRINTCOLOR_ENDC)
                                 #print(property_value)
@@ -67,7 +64,7 @@ def load_preferences(obj: object, sec="ALL_SECTIONS", inc: list[str]=[], exc: li
                                 return
                             #print(info_name + str(getattr(obj, property_name)) + "=" + property_value)
                             setattr(obj, property_name, int(float(property_value)))
-                        elif struct == "array2d int":
+                        elif property_type == "array2d int":
                             if not (property_value == str(re.findall("([0-9]+)", property_value)[0] + "." + re.findall("([0-9]+)", property_value)[int(len(re.findall("([0-9]+)", property_value)) - 1)]) or str.isnumeric(property_value)):
                                 print(info_name + PRINTCOLOR_FAIL + "corruption found in ini file at property: " + property_name + PRINTCOLOR_ENDC)
                                 print(info_name + PRINTCOLOR_FAIL + "load aborted." + PRINTCOLOR_ENDC)
