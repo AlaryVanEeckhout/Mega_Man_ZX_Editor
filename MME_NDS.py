@@ -1161,7 +1161,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.treeUpdate()
             self.tree_patches.clear()
             self.disable_editing_ui()
-            
+
             self.progressShow() # progress bar
             self.progressUpdate(0, "Loading ROM")
             #self.runTasks([[RunnableDisplayProgress, [], "valueChanged", self.progress.setValue]])
@@ -1210,7 +1210,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.patches_reload()
             self.progressUpdate(80, "Finishing load")
             self.temp_path = f"{os.path.curdir}\\temp\\{self.romToEdit_name+self.romToEdit_ext}"
-            self.setWindowTitle("Mega Man ZX Editor" + " <" + self.rom.name.decode() + " v" + ''.join(char for char in self.rom.idCode.decode("utf-8") if char.isalpha())  + " rev" + str(self.rom.version) + " region" + str(self.rom.region) + ">" + " \"" + self.romToEdit_name + self.romToEdit_ext + "\"")
+            self.setWindowTitle("Mega Man ZX Editor" + " <" + self.rom.name.decode() + ", Serial ID " + ''.join(char for char in self.rom.idCode.decode("utf-8") if char.isalnum())  + ", Rev." + str(self.rom.version) + ", Region " + str(self.rom.region) + ">" + " \"" + self.romToEdit_name + self.romToEdit_ext + "\"")
             if not self.rom.name.decode().replace(" ", "_") in library.patchdata.GameEnum.__members__:
                 print("ROM is NOT supported! Continue at your own risk!")
                 self.window_progress.hide()
