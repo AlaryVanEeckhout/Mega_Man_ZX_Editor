@@ -4,7 +4,9 @@ import sys, os, platform
 #import logging, time, random
 #import numpy
 import ndspy
-import ndspy.rom, ndspy.code
+#import ndspy.graphics2D
+#import ndspy.model
+import ndspy.rom, ndspy.code, ndspy.codeCompression
 import ndspy.soundArchive
 #import PyQt6.Qt6
 #import PyQt6.Qt6.qsci
@@ -200,27 +202,32 @@ class EditorTree(PyQt6.QtWidgets.QTreeWidget):
             if event.button() == PyQt6.QtCore.Qt.MouseButton.RightButton and self.currentItem() != None: # execute different code if right click
                 self.contextMenuOpen()
 
-class HoldButton(PyQt6.QtWidgets.QPushButton):
+class HoldButton(PyQt6.QtWidgets.QPushButton): #change class to use pyqt signals instead
+    pressed_quick = PyQt6.QtCore.pyqtSignal(bool)
+    held = PyQt6.QtCore.pyqtSignal(bool)
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.counter = 0
         self.rate = 100
         self.allow_press = False
-        self.pressed_quick = False
-        self.press_quick_threshold = 0
+        self.allow_repeat = True
+        self.press_quick_threshold = 1
         self.timer = PyQt6.QtCore.QTimer(self)
         self.timer.timeout.connect(self.on_timeout)
         self.pressed.connect(self.on_press)
         self.released.connect(self.on_release)
-        self.timeout_func = None
+        #self.timeout_func = None # when button held
 
     def on_timeout(self):
-        self.pressed_quick = False
+        #print(str(self.counter) + " vs " + str(self.press_quick_threshold))
         self.counter += 1
-        #print("hold " + str(self.counter))
-        if self.timeout_func != None:
-            for f in self.timeout_func:
-                f()
+        if self.counter > self.press_quick_threshold:
+            #print("hold")
+            self.held.emit(True)
+            if not self.allow_repeat:
+                self.counter = -1
+                self.timer.stop()
+                self.setDown(False)
 
     def on_press(self):
         #print("pressed")
@@ -228,13 +235,12 @@ class HoldButton(PyQt6.QtWidgets.QPushButton):
         self.timer.start(self.rate)
 
     def on_release(self):
-        #print("released")
-        if self.counter <= self.press_quick_threshold and self.allow_press == True:
-            self.pressed_quick = True
-            if self.timeout_func != None:
-                for f in self.timeout_func:
-                    f()
-        self.pressed_quick = False
+        #print("release " + str(self.counter))
+        self.held.emit(False)
+        if self.counter != -1 and self.counter <= self.press_quick_threshold and self.allow_press == True:
+            self.pressed_quick.emit(True)
+            #print("quick")
+        self.pressed_quick.emit(False)
         self.timer.stop()
         self.counter = -1
 
@@ -309,8 +315,6 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.temp_path = f"{os.path.curdir}\\temp\\"
         self.rom = None #ndspy.rom.NintendoDSRom # placeholder definitions
         self.sdat = None #ndspy.soundArchive.SDAT
-        self.arm9 = None #ndspy.code.MainCodeFile
-        self.arm7 = None #ndspy.code.MainCodeFile
         self.base_address = 0
         self.relative_address = 0
         self.romToEdit_name = ''
@@ -324,6 +328,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         # Default Preferences
         self.theme_index = 0
         self.displayBase = 16
+        self.displayBase_old = 16
         self.displayAlphanumeric = True
         self.firstLaunch = True
         self.load_preferences()
@@ -421,12 +426,12 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.field_base.setValue(self.displayBase)
         self.field_base.setRange(-1000, 1000)
         self.field_base.editingFinished.connect(lambda: setattr(self, "displayBase", self.field_base.value()))
-        self.field_base.editingFinished.connect(lambda: self.reloadCall(True))
+        self.field_base.editingFinished.connect(self.reloadCall)
         self.label_alphanumeric = PyQt6.QtWidgets.QLabel("Alphanumeric Numbers", self.dialog_settings)
         self.checkbox_alphanumeric = PyQt6.QtWidgets.QCheckBox(self.dialog_settings)
         self.checkbox_alphanumeric.setChecked(self.displayAlphanumeric)
         self.checkbox_alphanumeric.toggled.connect(lambda: setattr(self, "displayAlphanumeric", not self.displayAlphanumeric))
-        self.checkbox_alphanumeric.toggled.connect(lambda: self.reloadCall(True))
+        self.checkbox_alphanumeric.toggled.connect(self.reloadCall)
         self.dialog_settings.layout().addWidget(self.label_theme)
         self.dialog_settings.layout().addWidget(self.dropdown_theme)
         self.dialog_settings.layout().addWidget(self.label_base)
@@ -495,9 +500,13 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.button_playtest.setStatusTip("Test the ROM with currently saved changes")
         self.button_playtest.triggered.connect(self.testCall)
         self.button_playtest.setDisabled(True)
-        self.button_reload = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\arrow-circle-315.png'), "Reload Interface", self)
+        self.button_reload = HoldButton(PyQt6.QtGui.QIcon('icons\\arrow-circle-315.png'), "", self)
+        self.button_reload.setToolTip("Reload Interface")
         self.button_reload.setStatusTip("Reload the displayed data(all changes that aren't saved will be lost)")
-        self.button_reload.triggered.connect(self.reloadCall)
+        self.button_reload.allow_repeat = False
+        self.button_reload.allow_press = True
+        self.button_reload.pressed_quick.connect(lambda signal: self.reloadCall(1, signal))
+        self.button_reload.held.connect(lambda signal: self.reloadCall(2, signal))
         self.button_sdat = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\speaker-volume.png'), "Open Sound Data Archive", self)
         self.button_sdat.setStatusTip("Show the contents of this ROM's sdat file")
         self.button_sdat.triggered.connect(self.sdatOpenCall)
@@ -514,13 +523,14 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         #self.button_codeedit.setStatusTip("Edit the ROM's code")
         #self.button_codeedit.triggered.connect(self.codeeditCall)
         #self.button_codeedit.setDisabled(True)
-        self.toolbar.addActions([self.button_save, self.button_playtest, self.button_arm9, self.button_arm7, self.button_sdat, self.button_reload])
+        self.toolbar.addActions([self.button_save, self.button_playtest, self.button_arm9, self.button_arm7, self.button_sdat])
+        self.toolbar.addWidget(self.button_reload)
         self.toolbar.addSeparator()
 
         #Tabs
         self.tabs = PyQt6.QtWidgets.QTabWidget(self)
         self.setCentralWidget(self.tabs)
-        self.tabs.currentChanged.connect(lambda: self.reloadCall(True))
+        self.tabs.currentChanged.connect(self.reloadCall)
 
         self.page_explorer = PyQt6.QtWidgets.QWidget(self.tabs)
         self.page_explorer.setLayout(PyQt6.QtWidgets.QHBoxLayout())
@@ -751,8 +761,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         for i in range(256): #setup default palette
             setattr(self, f"button_palettepick_{i}", HoldButton(self.page_explorer))
             button_palettepick: HoldButton = getattr(self, f"button_palettepick_{i}")
-
-            button_palettepick.timeout_func = [lambda color_index=i: self.ColorpickCall(color_index)] #lambda color_index=i: print(f"button {color_index} pressed")
+            button_palettepick.held.connect(lambda hold, press=None, color_index=i: self.ColorpickCall(color_index, press, hold))
+            button_palettepick.pressed_quick.connect(lambda press, hold=None, color_index=i: self.ColorpickCall(color_index, press, hold))
             button_palettepick.allow_press = True
             button_palettepick.press_quick_threshold = 1
             button_palettepick.setStyleSheet(f"background-color: #{self.gfx_palette[i]:00x}; color: white;")
@@ -1081,17 +1091,65 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         pool.clear()
         self.setWindowTitle(self.windowTitle().split(" (Running ")[0])
     """
+
+    def file_fromItem(self, item: PyQt6.QtWidgets.QTreeWidgetItem):
+        tree = item.treeWidget()
+        name = ""
+        data = bytes()
+        obj = self.rom.files
+        if tree == self.tree:
+            name = item.text(1) + "." + item.text(2)
+            data = obj[int(item.text(0))]
+        else:
+            name = tree.ContextNameType + item.text(0)
+            if tree == self.tree_arm9: # 02000000 - 00004000 = 01FFC000
+                obj = self.rom.arm9
+                if item.text(2) == "True":
+                    try: # convert dynamically according to base (also arm9 window should update on base change)
+                        item_next = tree.itemBelow(item)
+                        data = self.rom.arm9[library.dataconverter.NumFromStr(item.text(0), self.displayBase) - 0x01FFC000 - 0x00004000:library.dataconverter.NumFromStr(item.text(0), self.displayBase) - 0x01FFC000 - 0x00004000 + (library.dataconverter.NumFromStr(item_next.text(0), self.displayBase) - library.dataconverter.NumFromStr(item.text(0), self.displayBase))]
+                    except Exception:
+                        data = self.rom.arm9[library.dataconverter.NumFromStr(item.text(0), self.displayBase) - 0x01FFC000 - 0x00004000:]
+                else:
+                    print("Explicit ARM9 code-sections are not (yet) supported")
+                    return [b'', "", None]
+                    #data = ndspy.codeCompression._compress(self.rom.loadArm9().sections[int(tree.indexFromItem(item).row())].data) #compressed
+                name += ".bin"
+            if tree == self.tree_arm7: # 02380000 - 0014E000 = 02232000
+                self.rom.arm7EntryAddress
+                obj = self.rom.arm7
+                if item.text(2) == "True":
+                    try:
+                        item_next = tree.itemBelow(item)
+                        data = self.rom.arm7[library.dataconverter.NumFromStr(item.text(0), self.displayBase) - 0x02232000 - 0x0014E000:library.dataconverter.NumFromStr(item.text(0), self.displayBase) - 0x02232000 - 0x0014E000 + (library.dataconverter.NumFromStr(item_next.text(0), self.displayBase) - library.dataconverter.NumFromStr(item.text(0), self.displayBase))]
+                    except Exception:
+                        data = self.rom.arm7[library.dataconverter.NumFromStr(item.text(0), self.displayBase) - 0x02232000 - 0x0014E000]
+                else:
+                    print("Explicit ARM7 code-sections are not (yet) supported")
+                    return [b'', "", None]
+                    #ndspy.codeCompression.compress(self.rom.loadArm7().sections[int(tree.indexFromItem(item).row())].data)
+                name += ".bin"
+            if tree == self.tree_arm9Ovltable:
+                data = self.rom.files[int(item.text(0))] #self.rom.arm9OverlayTable
+                name += ".bin"
+            if tree == self.tree_arm7Ovltable:
+                data = self.rom.files[int(item.text(0))] #.loadArm7Overlays()[int(item.text(0))].data
+                name += ".bin"
+            if tree == self.tree_sdat:
+                print("Files from SDAT archive are not (yet) supported")
+                return [b'', "", None]
+        return [data, name, obj]
         
     def set_dialog_button_name(self, dialog: PyQt6.QtWidgets.QDialog, oldtext: str, newtext: str):
         for btn in dialog.findChildren(PyQt6.QtWidgets.QPushButton):
             if btn.text() == self.tr(oldtext):
                 PyQt6.QtCore.QTimer.singleShot(0, lambda btn=btn: btn.setText(newtext))
         dialog.findChild(PyQt6.QtWidgets.QTreeView).selectionModel().currentChanged.connect(
-            lambda: self.set_dialog_button_name(dialog, "&Open", "Import")
+            lambda: self.set_dialog_button_name(dialog, oldtext, "Import")
             )
     
     def patches_reload(self):
-        if self.tree_patches_numbase != self.displayBase or self.tree_patches_numaplha != self.displayAlphanumeric:
+        if self.displayBase_old != self.displayBase or self.tree_patches_numaplha != self.displayAlphanumeric:
             #self.progress.show()
             self.tree_patches.clear()
             if self.rom.name.decode().replace(" ", "_") in library.patchdata.GameEnum.__members__:
@@ -1139,7 +1197,6 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 self.tree_patches.addTopLevelItems(patches)
             #self.progress.setValue(100)
             #self.progress.close()
-        self.tree_patches_numbase = self.displayBase
         self.tree_patches_numaplha = self.displayAlphanumeric
 
     def openCall(self):
@@ -1156,8 +1213,6 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.field_address.setRange(0,0) # set address to 0 for consistency with the fact that no file is selected
             self.rom = None
             self.sdat = None
-            self.arm9 = None
-            self.arm7 = None
             self.treeUpdate()
             self.tree_patches.clear()
             self.disable_editing_ui()
@@ -1195,17 +1250,13 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 dialog.exec()
                 self.progressShow()
             self.progressUpdate(10, "Loading ARM9")
-
-            self.arm9 = self.rom.loadArm9()
             self.treeArm9Update()
             self.progressUpdate(20, "Loading ARM7")
-            self.arm7 = self.rom.loadArm7()
             self.treeArm7Update()
             self.progressUpdate(30, "Loading SDAT")
             self.treeSdatUpdate()
             #print(self.rom.filenames)
             self.progressUpdate(50, "Loading Patches")
-            self.tree_patches_numbase = None # set to something that isn't displaybase
             self.tree_patches_numaplha = None # set to something that isn't displayalphanumeric
             self.patches_reload()
             self.progressUpdate(80, "Finishing load")
@@ -1254,6 +1305,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.dropdown_editor_area.clear()
 
     def exportCall(self, item: PyQt6.QtWidgets.QTreeWidgetItem):
+        if self.file_fromItem(item)[2] == self.tree_sdat:
+            print("Files from SDAT archive are not (yet) supported")
+            return
         dialog = PyQt6.QtWidgets.QFileDialog(
                 self,
                 "Save ROM",
@@ -1265,7 +1319,6 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         dialog.setFileMode(dialog.FileMode.Directory)
         self.set_dialog_button_name(dialog, "&Open", "Save")
         if dialog.exec(): # if you saved a file
-            print(dialog.selectedFiles()[0])
             dialog_formatselect = PyQt6.QtWidgets.QDialog(self)
             dialog_formatselect.setWindowTitle("Choose format")
             dropdown_formatselect = PyQt6.QtWidgets.QComboBox(dialog_formatselect)
@@ -1279,17 +1332,21 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             dialog_formatselect.exec()
             if dialog_formatselect.result():
                 print("Selected: " + dropdown_formatselect.currentText())
-                if self.fileToEdit_name != '':
-                    if self.fileToEdit_name.find(".Folder") == -1: # if file
-                        extract(item.text(0), fileToEdit_name=str(item.text(1) + "." + item.text(2)), path=dialog.selectedFiles()[0], format=dropdown_formatselect.currentText(), tree=item.treeWidget())
+                print("Item: " + item.text(0))
+                if item != None:
+                    if item.text(2).find("Folder") == -1: # if file
+                        extract(*self.file_fromItem(item)[:2], path=dialog.selectedFiles()[0], format=dropdown_formatselect.currentText())
                     else: # if folder
-                        print("Folder " + os.path.join(dialog.selectedFiles()[0] + "/" + w.fileToEdit_name.removesuffix(".Folder")) + " will be created")
-                        if os.path.exists(os.path.join(dialog.selectedFiles()[0] + "/" + w.fileToEdit_name.removesuffix(".Folder"))) == False:
-                            os.makedirs(os.path.join(dialog.selectedFiles()[0] + "/" + w.fileToEdit_name.removesuffix(".Folder")))
+                        folder_path = os.path.join(dialog.selectedFiles()[0] + "/" + w.fileToEdit_name.removesuffix(".Folder"))
+                        if os.path.exists(folder_path) == False:
+                            print("Folder " + folder_path  + " will be created")
+                            os.makedirs(folder_path)
+                        else:
+                            print("Folder " + folder_path  + " will be used")
                         print(item.childCount() - 1)
                         for i in range(item.childCount()):
                             print(item.child(i).text(0))
-                            extract(item.child(i).text(0), path=dialog.selectedFiles()[0], format=dropdown_formatselect.currentText(), tree=item.treeWidget())#, w.fileToEdit_name.replace(".Folder", "/")
+                            extract(*self.file_fromItem(item.child(i))[:2], path=dialog.selectedFiles()[0] + "/" + w.fileToEdit_name.removesuffix(".Folder"), format=dropdown_formatselect.currentText())#, w.fileToEdit_name.replace(".Folder", "/")
                             #str(w.tree.currentItem().child(i).text(1) + "." + w.tree.currentItem().child(i).text(2)), 
 
     def replacebynameCall(self):
@@ -1350,23 +1407,35 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                     dialog2.setText("File import failed!")
                     with open(*dialog.selectedFiles(), 'rb') as f:
                         fileEdited = f.read()
-                        if str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']").split(".")[1] == "txt": # text file
-                                try:
-                                    if item.treeWidget() == self.tree_sdat: # implement different import method
-                                        dialog2.exec()
-                                        return
-                                    else:
-                                        #print("replacement of file with id " + w.tree.currentItem().text(0) + " was successful")
-                                        w.rom.files[int(item.text(0))] = bytearray(library.dataconverter.convertdata_text_to_bin(fileEdited.decode("utf-8")))
-                                except Exception as e:
-                                    print(e)
-                        else: # raw data
-                            if item.treeWidget() == self.tree_sdat: # implement different import method
-                                dialog2.exec()
-                                return
+                        try:
+                            fileExt = str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']").split(".")[1]
+                        except IndexError:
+                            fileExt = ""
+                        #print(fileExt)
+                        # find a way to get attr and replace data at correct index.. maybe it's better to just save ROM and patch
+                        #self.rom.files[self.rom.files.index(self.file_fromItem(item)[0])]
+                        supported_list = ["txt", "bin", ""]
+                        fileInfo = self.file_fromItem(item)
+                        print(fileExt)
+                        if not any(supported == fileExt for supported in supported_list): # unknown
+                            dialog2.exec()
+                            return
+                        elif type(fileInfo[2]) != type(None):
+                            if fileExt == "txt": # text file
+                                data = bytearray(library.dataconverter.convertdata_text_to_bin(fileEdited.decode("utf-8")))
+                            else: # raw data
+                                data = bytearray(fileEdited)
+
+                            if type(fileInfo[2]) == bytearray:
+                                    fileInfo[2][fileInfo[2].index(fileInfo[0]):fileInfo[2].index(fileInfo[0])+len(fileInfo[0])] = data
+                                    print(data[:0x15])
                             else:
-                                w.rom.files[int(item.text(0))] = bytearray(fileEdited)
-                            #print("raw data replaced")
+                                fileInfo[2][fileInfo[2].index(fileInfo[0])] = data
+                                print(data[:0x15])
+                        else:
+                            dialog2.exec()
+                            return
+                            
                     dialog2.setText("File \"" + str(dialog.selectedFiles()).split("/")[-1].removesuffix("']") + "\" imported!")
                     dialog2.exec()
                     self.treeCall()
@@ -1411,10 +1480,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         if istreecall:
             self.treeCall(True)
 
-    def ColorpickCall(self, color_index: int):
+    def ColorpickCall(self, color_index: int, press=None, hold=None):
         #print(color_index)
         button: HoldButton = getattr(self, f"button_palettepick_{color_index}")
-        if button.counter >= 2:
+        if hold:
             dialog = PyQt6.QtWidgets.QColorDialog(self)
             dialog.setOptions(PyQt6.QtWidgets.QColorDialog.ColorDialogOption.DontUseNativeDialog)
             dialog.setCurrentColor(int(button.styleSheet()[button.styleSheet().find(":")+3:button.styleSheet().find(";")], 16))
@@ -1425,7 +1494,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                     self.file_content_gfx.pen.setColor(dialog.selectedColor().rgba())
                 self.gfx_palette[color_index] = dialog.selectedColor().rgba()
                 self.treeCall(True) # update gfx colors
-        elif button.pressed_quick:
+        if press:
             #print(button.styleSheet())
             if color_index < 2**list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()].depth:
                 self.file_content_gfx.pen.setColor(int(button.styleSheet()[button.styleSheet().find(":")+3:button.styleSheet().find(";")], 16))
@@ -1511,7 +1580,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         #self.file_content_text.setPlainText(str(self.arm9))
         #print("code")
 
-    def treeUpdate(self):
+    def treeUpdate(self): # files from filename table (fnt.bin)
         tree_files: list[PyQt6.QtWidgets.QTreeWidgetItem] = []
         try: # convert NDS Py filenames to QTreeWidgetItems
             if self.rom.files != []:
@@ -1541,7 +1610,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         #print(self.rom.loadArm9Overlays())
         #item_mainCode = PyQt6.QtWidgets.QTreeWidgetItem([library.dataconverter.StrFromNumber(self.arm9.ramAddress, self.displayBase, self.displayAlphanumeric).zfill(8), "Main Code", "N/A"])
 
-        for e in self.arm9.sections:
+        for e in self.rom.loadArm9().sections:
             self.tree_arm9.addTopLevelItem(PyQt6.QtWidgets.QTreeWidgetItem([
                 library.dataconverter.StrToAlphanumStr(str(e).split()[2].removeprefix("0x").removesuffix(":"), self.displayBase, self.displayAlphanumeric).zfill(8), 
                 str(e).split()[0].removeprefix("<"), 
@@ -1553,7 +1622,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         for overlayID in arm9OvlDict:
                 overlay = arm9OvlDict[overlayID]
                 self.tree_arm9Ovltable.addTopLevelItem(PyQt6.QtWidgets.QTreeWidgetItem([
-                    str(overlay.fileID), 
+                    str(overlay.fileID).zfill(4), 
                     library.dataconverter.StrFromNumber(overlay.ramAddress, self.displayBase, self.displayAlphanumeric).zfill(8), 
                     str(overlay.compressed), 
                     library.dataconverter.StrFromNumber(overlay.compressedSize, self.displayBase, self.displayAlphanumeric), 
@@ -1571,7 +1640,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.tree_arm7.clear()
         #item_mainCode = PyQt6.QtWidgets.QTreeWidgetItem([library.dataconverter.StrFromNumber(self.arm7.ramAddress, self.displayBase, self.displayAlphanumeric).zfill(8), "Main Code", "N/A"])
 
-        for e in self.arm7.sections:
+        for e in self.rom.loadArm7().sections:
             self.tree_arm7.addTopLevelItem(PyQt6.QtWidgets.QTreeWidgetItem([
                 library.dataconverter.StrToAlphanumStr(str(e).split()[2].removeprefix("0x").removesuffix(":"), self.displayBase, self.displayAlphanumeric).zfill(8), 
                 str(e).split()[0].removeprefix("<"), 
@@ -1583,7 +1652,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         for overlayID in arm7OvlDict:
                 overlay = arm7OvlDict[overlayID]
                 self.tree_arm7Ovltable.addTopLevelItem(PyQt6.QtWidgets.QTreeWidgetItem([
-                    str(overlay.fileID), 
+                    str(overlay.fileID).zfill(4), 
                     library.dataconverter.StrFromNumber(overlay.ramAddress, self.displayBase, self.displayAlphanumeric).zfill(8), 
                     str(overlay.compressed), 
                     library.dataconverter.StrFromNumber(overlay.compressedSize, self.displayBase, self.displayAlphanumeric), 
@@ -1631,7 +1700,6 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 self.sdat.streamPlayers,
                 self.sdat.groups
             ]
-
             for category in item_list:
                 for section in data_list[item_list.index(category)]:
                     category.addChild(PyQt6.QtWidgets.QTreeWidgetItem(["Unknown", section[0], category.text(2)]))
@@ -1772,18 +1840,46 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.exportAction.setDisabled(True)
             self.replaceAction.setDisabled(True)
 
-    def reloadCall(self, isQuick=False): # Reload all reloadable content
-        if hasattr(self.rom, "name"):
-            if isQuick: #reload only necessary
+    def treeBaseUpdate(self, tree: EditorTree):
+        for e in tree.findItems("", PyQt6.QtCore.Qt.MatchFlag.MatchContains | PyQt6.QtCore.Qt.MatchFlag.MatchRecursive):
+            for t in range(e.columnCount()):
+                text = e.text(t)
+                if any(char.isdigit() for char in text) and text.replace("{", "").replace("}", "").isalnum():
+                    if e.treeWidget().headerItem().text(t).lower().find("file id") == -1:
+                        value = library.dataconverter.NumFromStr(text, self.displayBase_old)
+                        newtext = library.dataconverter.StrFromNumber(value, self.displayBase, self.displayAlphanumeric)
+                        zerofill = 8 if e.treeWidget().headerItem().text(t).lower().find("address") != -1 else 0
+                        e.setText(t, newtext.zfill(zerofill))
+
+    def reloadCall(self, level=0, truecall=True): # Reload all reloadable content
+        if hasattr(self.rom, "name") and truecall:
+            #print("reloadlevel " + str(level))
+            if level == 0: #reload only necessary
+                self.treeBaseUpdate(self.tree_arm9)
+                self.treeBaseUpdate(self.tree_arm9Ovltable)
+                self.treeBaseUpdate(self.tree_arm7)
+                self.treeBaseUpdate(self.tree_arm7Ovltable)
                 if self.tabs.currentIndex() == self.tabs.indexOf(self.page_explorer):
                     self.treeCall(True)
                 elif self.tabs.currentIndex() == self.tabs.indexOf(self.page_patches):
                     #print("b" + str(self.displayAlphanumeric))
                     self.patches_reload()
                     #print("a" + str(self.displayAlphanumeric))
-            else: #reload everything
+            elif level == 1: #medium reload
+                self.treeBaseUpdate(self.tree_arm9)
+                self.treeBaseUpdate(self.tree_arm9Ovltable)
+                self.treeBaseUpdate(self.tree_arm7)
+                self.treeBaseUpdate(self.tree_arm7Ovltable)
                 self.treeCall()
                 self.patches_reload()
+            else: #reload everything
+                self.tree.setCurrentItem(None)
+                self.treeArm9Update()
+                self.treeArm7Update()
+                self.treeSdatUpdate()
+                self.treeUpdate()
+                self.patches_reload()
+            self.displayBase_old = self.displayBase
 
     def file_editor_show(self, mode: str):
         modes = ["Text", "Graphics", "Sound", "VX"]
@@ -1974,31 +2070,21 @@ def saveData_fromGFXView(view: GFXView, palette: list[int]=w.gfx_palette, algori
     #print(saved_data.hex())
     return saved_data
 
-def extract(fileToEdit_id: int, folder="", fileToEdit_name="", path="", format="", tree=w.tree):
-    if tree == w.tree:
-        fileToEdit_id = int(fileToEdit_id)
-        fileToEdit = w.rom.files[fileToEdit_id]
-        if fileToEdit_name == "":
-            fileToEdit_name = w.rom.filenames[fileToEdit_id]
-    elif tree == w.tree_sdat: # implement fetching file from sdat
-        print("files within archive are not supported")
-        return
-    else:
-        return
-    print("file " + str(fileToEdit_id) + ": " + fileToEdit_name)
-    print(fileToEdit[0x65:0xc5])
+def extract(data: bytes, name="", path="", format=""):
+    print("file " + name + ": " + format)
+    print(data[0x65:0xc5])
 
     # create a copy of the file outside ROM
     if format == "" or format == "Raw":
-        with open(os.path.join(path + "/" + folder + fileToEdit_name), 'wb') as f:
-            f.write(fileToEdit)
-            print(os.path.join(path + "/" + folder + fileToEdit_name))
+        with open(os.path.join(path + "/" + name), 'wb') as f:
+            f.write(data)
+            print(os.path.join(path + "/" + name))
             print("File extracted!")
     else:
         if format == "English dialogue":
-                with open(os.path.join(path + "/" + folder + fileToEdit_name.split(".")[0] + ".txt"), 'wb') as f:
-                    f.write(bytes(library.dataconverter.convertdata_bin_to_text(fileToEdit), "utf-8"))
-                    print(os.path.join(path + "/" + folder + fileToEdit_name.split(".")[0] + ".txt"))
+                with open(os.path.join(path + "/" + name.split(".")[0] + ".txt"), 'wb') as f:
+                    f.write(bytes(library.dataconverter.convertdata_bin_to_text(data), "utf-8"))
+                    print(os.path.join(path + "/" + name.split(".")[0] + ".txt"))
                     print("File extracted!")
         else:
             print("could not find method for converting to specified format.")

@@ -7,23 +7,21 @@ This is an attempt at creating a tool that will make editing Mega Man ZX much ea
 If you need to know where specific assets, values, or code sections are in the game, please see the(unfinished) [wiki page](https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/wiki), as it contains documentation I accumulated on the game.
 ## Progress
 Currently, I am focusing on the USA version of Mega Man ZX. This means that the editor's (full) compatibility with other versions of the game is not guarenteed at the moment(although, it's worth noting that MMZXA has the same dialogue system as MMZX, and as such, the dialogue editor works for both games).<br>
-The editor can edit, export and import english dialogue files and save them to the ROM. Other files can be viewed but I have not yet implemented the code to view and/or edit them in their converted format.<br>
-For now, I'm making controlled and measured corruptions to the game to better understand how the different files work.
+The editor can edit, export and import english dialogue files and save them to the ROM. Other files can be viewed but I have not yet implemented the code to view and/or edit them in their converted format.
 ### Done
 - Dialogue text converter(for dialogue "talk_" and message "m_" files)
 - Functional User Interface
-- File export with options for converted file formats(except graphics)
-- File import with support for converted file formats(except graphics)
-- Converter for binary to pyqt widget(image)
+- File export with options for converted file formats(WIP)
+- File import with support for converted file formats(WIP)
 - Togglable patches system
-- Test button
+- Playtest button
 - Graphics Editor(WIP)
 - SDAT Viewer(WIP)
 - ARM Viewer(WIP)
 ### To do
 - Graphics Editor additional features(exporting and importing)
 - Find actual patches for the game to add to the editor's "patches" tab
-- Find patches and tweaks that are helpful for testing purposes
+- Find patches and tweaks that are helpful for playtesting purposes
 - OAM Editor*
 - Sound/Music Editor*
 - Movie Editor*
@@ -31,13 +29,13 @@ For now, I'm making controlled and measured corruptions to the game to better un
 - Level Editor*
 - Game Logic Editor*
 <!---
-- 3D Model Editor*
+- 3D Model Viewer and Exporter/Importer*
 - In-game Cutscene Editor*
 -->
 
 *This feature may not be implemented/is not currently prioritized since I haven't looked into it and it looks hard to do at first glance. 
 ## Setup for usage
-Currently, there are no releases and I'm not sure how to include the dependencies in my project, so:
+Currently, there are no releases, so:
 - [Download&Install Python](https://www.python.org/downloads/) (using 3.13.2)
 - Now that you have Python, you can use pip(Package Installer for Python) to install the two following modules:
 - [Download&Install NDSPy](https://pypi.org/project/ndspy/) (using 4.2.0)
