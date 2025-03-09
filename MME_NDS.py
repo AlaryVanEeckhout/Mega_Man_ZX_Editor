@@ -44,11 +44,10 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._zoom = 0
-        self._empty = True
+        self._zoom_limit = 70
         self.setScene(PyQt6.QtWidgets.QGraphicsScene())
         self._graphic = PyQt6.QtWidgets.QGraphicsPixmapItem()
         self.scene().addItem(self._graphic)
-
         self.pen = PyQt6.QtGui.QPen()
         self.pen.setColor(PyQt6.QtCore.Qt.GlobalColor.black)
         self.start = PyQt6.QtCore.QPoint()
@@ -82,16 +81,16 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
             self.scale(factor, factor)
         self._zoom = 0
 
-    def setGraphic(self, pixmap: PyQt6.QtGui.QPixmap=None):
-        self._zoom = 0
-        if pixmap and not pixmap.isNull():
-            self._empty = False
-            self._graphic.setPixmap(pixmap)
-        else:
-            self._empty = True
-            self._graphic.setPixmap(PyQt6.QtGui.QPixmap())
-            #self._graphic.pixmap()
-        self.fitInView()
+    #def setGraphic(self, pixmap: PyQt6.QtGui.QPixmap=None):
+    #    self._zoom = 0
+    #    if pixmap and not pixmap.isNull():
+    #        self._empty = False
+    #        self._graphic.setPixmap(pixmap)
+    #    else:
+    #        self._empty = True
+    #        self._graphic.setPixmap(PyQt6.QtGui.QPixmap())
+    #        #self._graphic.pixmap()
+    #    self.fitInView()
 
 
     def drawShape(self):
@@ -137,7 +136,6 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
         self.drawShape()
 
     def wheelEvent(self, event):
-        #print(self._zoom)
         if event.modifiers() == PyQt6.QtCore.Qt.KeyboardModifier.ControlModifier:
             if event.angleDelta().y() > 0:
                 factor = 1.25
@@ -145,6 +143,9 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
             else:
                 factor = 0.80
                 self._zoom -= 1
+            if self._zoom >= self._zoom_limit:
+                factor = 1
+                self._zoom = self._zoom_limit
             if self._zoom > 0:
                 view_pos = PyQt6.QtCore.QRect(event.position().toPoint(), PyQt6.QtCore.QSize(1, 1))
                 scene_pos = self.mapToScene(view_pos)
@@ -152,6 +153,11 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
                 self.scale(factor, factor)
                 delta = self.mapToScene(view_pos.center()) - self.mapToScene(self.viewport().rect().center())
                 self.centerOn(scene_pos.boundingRect().center() - delta)
+            #print(self._zoom)
+        elif event.modifiers() == PyQt6.QtCore.Qt.KeyboardModifier.ShiftModifier:
+            self.horizontalScrollBar().setSliderPosition(self.horizontalScrollBar().sliderPosition()-event.angleDelta().y())
+        else:
+            self.verticalScrollBar().setSliderPosition(self.verticalScrollBar().sliderPosition()-event.angleDelta().y())
         if self._zoom <= 0:
             self.fitInView()
 
@@ -1777,9 +1783,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         if self.gfx_palette.index(self.file_content_gfx.pen.color().rgba()) >= 2**list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()].depth:
                             self.file_content_gfx.pen.setColor(self.gfx_palette[0])
                         self.file_content_gfx.resetScene()
+                        draw_tilesQImage_fromBytes(self.file_content_gfx, self.rom.files[int(self.tree.currentItem().text(0))][self.relative_address:], algorithm=list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column, tileWidth=self.tile_width, tileHeight=self.tile_height)
                         if not isValueUpdate: # if entering graphics mode and func is not called to update other stuff
                             self.file_editor_show("Graphics")
-                        draw_tilesQImage_fromBytes(self.file_content_gfx, self.rom.files[int(self.tree.currentItem().text(0))][self.relative_address:], algorithm=list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column, tileWidth=self.tile_width, tileHeight=self.tile_height)
                     elif self.fileDisplayState == "Sound":
                         self.file_editor_show("Text") # placeholder
                         self.checkbox_textoverwite.hide()
@@ -1874,6 +1880,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 self.patches_reload()
             else: #reload everything
                 self.tree.setCurrentItem(None)
+                self.field_address.setRange(0,0)
                 self.treeArm9Update()
                 self.treeArm7Update()
                 self.treeSdatUpdate()
@@ -1939,7 +1946,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         # case-specific code
         if mode == "Graphics":
             # Reset Values
-            self.field_address.setValue(self.base_address)
+            #self.field_address.setValue(self.base_address)
+            if self.file_content_gfx.sceneRect().width() != 0:
+                self.file_content_gfx.fitInView()
             #print(f"{len(self.rom.save()):08X}")
 
     def save_filecontent(self): #Save to virtual ROM
