@@ -10,7 +10,7 @@ import ndspy.rom, ndspy.code, ndspy.codeCompression
 import ndspy.soundArchive
 #import PyQt6.Qt6
 #import PyQt6.Qt6.qsci
-import library.dataconverter, library.patchdata, library.init_readwrite, library.actimagine
+import library.dataconverter, library.patchdata, library.init_readwrite, library.actimagine, library.dialoguefile
 #Global variables
 global EDITOR_VERSION
 EDITOR_VERSION = "0.3.2" # objective, feature, WIP
@@ -1719,6 +1719,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         else:
             self.tree_called = True
             #print("call")
+        current_item = self.tree.currentItem()
+        current_id = int(current_item.text(0))
+        current_name = current_item.text(1)
+        current_ext  = current_item.text(2)
         self.file_content_text.setReadOnly(False)
         self.field_address.setDisabled(False)
         PyQt6.QtCore.qInstallMessageHandler(lambda a, b, c: None) # Silence Invalid base warnings from the following code
@@ -1734,16 +1738,16 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                                 f"Base is not supported for inputting data in spinboxes.\n This means that all spinboxes will revert to base 10 until they are set to a supported base.\n Proceed at your own risk!"
                                 )
         self.field_tile_width.setStatusTip(f"Set depth to 1bpp and tile width to {library.dataconverter.StrFromNumber(16, self.displayBase, self.displayAlphanumeric)} for JP font")
-        if self.tree.currentItem() != None:
-            self.fileToEdit_name = str(self.tree.currentItem().text(1) + "." + self.tree.currentItem().text(2))
-            self.base_address = self.rom.save().index(self.rom.files[int(self.tree.currentItem().text(0))])
+        if current_item != None:
+            self.fileToEdit_name = str(current_name + "." + current_ext)
+            self.base_address = self.rom.save().index(self.rom.files[current_id])
             # set text to current ROM address
             #print(self.relative_address)
             self.field_address.setMinimum(self.base_address)
             self.field_address.setValue(self.base_address+self.relative_address)
-            self.field_address.setMaximum(self.base_address+len(self.rom.files[int(self.tree.currentItem().text(0))]))
+            self.field_address.setMaximum(self.base_address+len(self.rom.files[current_id]))
             if self.fileToEdit_name.find(".Folder") == -1:# if it's a file
-                self.label_file_size.setText(f"Size: {library.dataconverter.StrFromNumber(len(self.rom.files[int(self.tree.currentItem().text(0))]), self.displayBase, self.displayAlphanumeric).zfill(0)} bytes")
+                self.label_file_size.setText(f"Size: {library.dataconverter.StrFromNumber(len(self.rom.files[current_id]), self.displayBase, self.displayAlphanumeric).zfill(0)} bytes")
                 if self.fileDisplayRaw == False:
                     if self.fileDisplayMode == "Adapt":
                             indicator_list_gfx = ["face", "font", "obj_fnt", "title"]
@@ -1751,16 +1755,16 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                                 indicator_list_gfx.extend(["bbom", "dm23", "elf", "g01", "g03", "g_", "game_parm", "lmlevel", "miss", "repair", "sec_disk", "sub"])
                             elif self.rom.name.decode() == "MEGAMANZXA" or self.rom.name.decode() == "ROCKMANZXA":
                                 indicator_list_gfx.extend(["cmm_frame_fnt", "cmm_mega_s", "cmm_rock_s", "Is_m", "Is_trans", "Is_txt_fnt", "sub_db", "sub_oth"])
-                            if (self.tree.currentItem().text(1).find("talk") != -1 or self.tree.currentItem().text(1).find("m_") != -1):
-                                if self.tree.currentItem().text(1).find("en") != -1:
+                            if (current_name.find("talk") != -1 or current_name.find("m_") != -1):
+                                if current_name.find("en") != -1:
                                     self.fileDisplayState = "English dialogue"
-                                elif self.tree.currentItem().text(1).find("jp") != -1:
+                                elif current_name.find("jp") != -1:
                                     self.fileDisplayState = "Japanese dialogue"
-                            elif self.tree.currentItem().text(2) == "bin" and any(indicator in self.tree.currentItem().text(1) for indicator in indicator_list_gfx):
+                            elif current_ext == "bin" and any(indicator in current_name for indicator in indicator_list_gfx):
                                 self.fileDisplayState = "Graphics"
-                            elif self.tree.currentItem().text(2) == "sdat":
+                            elif current_ext == "sdat":
                                 self.fileDisplayState = "Sound"
-                            elif self.tree.currentItem().text(2) == "vx":
+                            elif current_ext == "vx":
                                 self.fileDisplayState = "VX"
                             else:
                                 self.fileDisplayState = "None"
@@ -1771,7 +1775,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
                     if self.fileDisplayState == "English dialogue": # if english text
                         self.file_editor_show("Text")
-                        self.file_content_text.setPlainText(library.dataconverter.convertdata_bin_to_text(self.rom.files[int(self.tree.currentItem().text(0))][self.relative_address:self.relative_address+0x6000]))
+                        test = library.dialoguefile.DialogueFile(self.rom.files[current_id])
+                        print(test.text_list)
+                        self.file_content_text.setPlainText(library.dataconverter.convertdata_bin_to_text(self.rom.files[current_id][self.relative_address:self.relative_address+0x6000]))
                     elif self.fileDisplayState == "Graphics":
                         #print(self.dropdown_gfx_depth.currentText()[:1] + " bpp graphics")
                         if self.gfx_palette.index(self.file_content_gfx.pen.color().rgba()) >= 2**list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()].depth:
@@ -1779,7 +1785,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.file_content_gfx.resetScene()
                         if not isValueUpdate: # if entering graphics mode and func is not called to update other stuff
                             self.file_editor_show("Graphics")
-                        draw_tilesQImage_fromBytes(self.file_content_gfx, self.rom.files[int(self.tree.currentItem().text(0))][self.relative_address:], algorithm=list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column, tileWidth=self.tile_width, tileHeight=self.tile_height)
+                        draw_tilesQImage_fromBytes(self.file_content_gfx, self.rom.files[current_id][self.relative_address:], algorithm=list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column, tileWidth=self.tile_width, tileHeight=self.tile_height)
                     elif self.fileDisplayState == "Sound":
                         self.file_editor_show("Text") # placeholder
                         self.checkbox_textoverwite.hide()
@@ -1790,8 +1796,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                     elif self.fileDisplayState == "VX":
                         self.file_editor_show("VX")
                         self.field_address.setDisabled(True)
-                        vx_file = library.actimagine.VX(self.rom.files[int(self.tree.currentItem().text(0))])
-                        #print(self.rom.files[int(self.tree.currentItem().text(0))][5:6].hex()+self.rom.files[int(self.tree.currentItem().text(0))][4:5].hex())
+                        vx_file = library.actimagine.VX(self.rom.files[current_id])
+                        #print(self.rom.files[current_id][5:6].hex()+self.rom.files[current_id][4:5].hex())
                         self.field_vxHeader_length.setValue(vx_file.frame_count)
                         self.field_vxHeader_width.setValue(vx_file.frame_width)
                         self.field_vxHeader_height.setValue(vx_file.frame_height)
@@ -1816,7 +1822,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.file_content_text.setPlainText(f"This file's format is {file_knowledge}.\n Go to [View > Converted formats] to disable file interpretation and view hex data.")
                 else:# if in hex display mode
                     self.file_editor_show("Text")
-                    self.file_content_text.setPlainText(self.rom.files[int(self.tree.currentItem().text(0))][self.relative_address:self.relative_address+self.file_content_text.charcount_page()].hex())
+                    self.file_content_text.setPlainText(self.rom.files[current_id][self.relative_address:self.relative_address+self.file_content_text.charcount_page()].hex())
                 self.file_content_text.setDisabled(False)
             else:# if it's a folder
                 self.label_file_size.setText(f"Size: N/A")
