@@ -653,11 +653,17 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.file_content_text.textChanged.connect(lambda: self.button_file_save.setDisabled(False))
         self.file_content_text.setDisabled(True)
 
+        self.dropdown_textindex = PyQt6.QtWidgets.QComboBox(self.page_explorer)
+        self.dropdown_textindex.currentIndexChanged.connect(lambda: self.treeCall(True))
+        self.dropdown_textindex.hide()
+
         self.checkbox_textoverwite = PyQt6.QtWidgets.QCheckBox("Overwite\n existing text", self.page_explorer)
         self.checkbox_textoverwite.setStatusTip("With this enabled, writing text won't change filesize")
         self.checkbox_textoverwite.clicked.connect(lambda: self.file_content_text.setOverwriteMode(not self.file_content_text.overwriteMode()))
         self.checkbox_textoverwite.hide()
+
         self.layout_editzone_row1.addWidget(self.checkbox_textoverwite)
+        self.layout_editzone_row1.addWidget(self.dropdown_textindex)
 
         self.file_content_gfx = GFXView(self.page_explorer)
         self.file_content_gfx.setSizePolicy(PyQt6.QtWidgets.QSizePolicy.Policy.Expanding, PyQt6.QtWidgets.QSizePolicy.Policy.Expanding)
@@ -667,7 +673,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
         self.dropdown_gfx_depth = PyQt6.QtWidgets.QComboBox(self.page_explorer)
         self.dropdown_gfx_depth.addItems(["1bpp", "4bpp", "8bpp"])# order of names is determined by the enum in dataconverter
-        self.dropdown_gfx_depth.currentTextChanged.connect(self.treeCall)# Update gfx with current depth
+        self.dropdown_gfx_depth.currentIndexChanged.connect(lambda: self.treeCall(True))# Update gfx with current depth
         self.dropdown_gfx_depth.hide()
 
         self.font_caps = PyQt6.QtGui.QFont()
@@ -1380,7 +1386,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         fileEdited = f.read()
                         if str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']").split(".")[1] == "txt":
                             #print(w.rom.filenames.idOf(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']").replace(".txt", ".bin")))
-                            w.rom.files[w.rom.filenames.idOf(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']").replace(".txt", ".bin"))] = bytearray(library.dataconverter.convertdata_text_to_bin(fileEdited.decode("utf-8")))
+                            w.rom.files[w.rom.filenames.idOf(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']").replace(".txt", ".bin"))] = bytearray(library.dialoguefile.DialogueFile.convertdata_text_to_bin(fileEdited.decode("utf-8")))
                             dialog2.exec()
                         else:
                             PyQt6.QtWidgets.QMessageBox.critical(
@@ -1428,16 +1434,16 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                             return
                         elif type(fileInfo[2]) != type(None):
                             if fileExt == "txt": # text file
-                                data = bytearray(library.dataconverter.convertdata_text_to_bin(fileEdited.decode("utf-8")))
+                                data = bytearray(library.dialoguefile.DialogueFile.convertdata_text_to_bin(fileEdited.decode("utf-8")))
                             else: # raw data
                                 data = bytearray(fileEdited)
 
                             if type(fileInfo[2]) == bytearray:
                                     fileInfo[2][fileInfo[2].index(fileInfo[0]):fileInfo[2].index(fileInfo[0])+len(fileInfo[0])] = data
-                                    print(data[:0x15])
+                                    print(data[:0x15].hex())
                             else:
                                 fileInfo[2][fileInfo[2].index(fileInfo[0])] = data
-                                print(data[:0x15])
+                                print(data[:0x15].hex())
                         else:
                             dialog2.exec()
                             return
@@ -1716,19 +1722,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             #progress.close()
 
     def treeCall(self, isValueUpdate=False):
+        #print("Tree")
         #self.clearTasks()
-        if isValueUpdate: # prevent treeCall from being executed twice in a row. Reduces lag when clicking to view a file's content
-            if self.tree_called == True:
-                self.tree_called = False
-                return
-            #print("call update")
-        else:
-            self.tree_called = True
-            #print("call")
         current_item = self.tree.currentItem()
-        current_id = int(current_item.text(0))
-        current_name = current_item.text(1)
-        current_ext  = current_item.text(2)
         self.file_content_text.setReadOnly(False)
         self.field_address.setDisabled(False)
         PyQt6.QtCore.qInstallMessageHandler(lambda a, b, c: None) # Silence Invalid base warnings from the following code
@@ -1745,13 +1741,20 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                                 )
         self.field_tile_width.setStatusTip(f"Set depth to 1bpp and tile width to {library.dataconverter.StrFromNumber(16, self.displayBase, self.displayAlphanumeric)} for JP font")
         if current_item != None:
+            current_id = int(current_item.text(0))
+            current_name = current_item.text(1)
+            current_ext  = current_item.text(2)
             self.fileToEdit_name = str(current_name + "." + current_ext)
             self.base_address = self.rom.save().index(self.rom.files[current_id])
+            if not isValueUpdate:
+                self.relative_address = 0
             # set text to current ROM address
             #print(self.relative_address)
+            self.field_address.blockSignals(True) # prevent treeCall from being executed twice in a row. Reduces lag when clicking to view a file's content
             self.field_address.setMinimum(self.base_address)
             self.field_address.setValue(self.base_address+self.relative_address)
             self.field_address.setMaximum(self.base_address+len(self.rom.files[current_id]))
+            self.field_address.blockSignals(False)
             if self.fileToEdit_name.find(".Folder") == -1:# if it's a file
                 self.label_file_size.setText(f"Size: {library.dataconverter.StrFromNumber(len(self.rom.files[current_id]), self.displayBase, self.displayAlphanumeric).zfill(0)} bytes")
                 if self.fileDisplayRaw == False:
@@ -1780,16 +1783,31 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.fileDisplayState = "None"
 
                     if self.fileDisplayState == "English dialogue": # if english text
-                        self.file_editor_show("Text")
-                        test = library.dialoguefile.DialogueFile(self.rom.files[current_id])
-                        print(test.text_list)
-                        self.file_content_text.setPlainText(library.dataconverter.convertdata_bin_to_text(self.rom.files[current_id][self.relative_address:self.relative_address+0x6000]))
+                        dialogue = library.dialoguefile.DialogueFile(self.rom.files[current_id])
+                        if not isValueUpdate:
+                            self.file_editor_show("Text")
+                            self.dropdown_textindex.blockSignals(True)
+                            self.dropdown_textindex.clear()
+                            for i in range(len(dialogue.text_list)):
+                                self.dropdown_textindex.addItem(str(i))
+                            self.dropdown_textindex.blockSignals(False)
+                        textIndex = self.dropdown_textindex.currentIndex()
+                        if dialogue.text_list != []:
+                            self.relative_address = dialogue.textAddress_list[textIndex]
+                            self.field_address.blockSignals(True)
+                            self.field_address.setValue(self.base_address+self.relative_address)
+                            self.field_address.setDisabled(True)
+                            self.field_address.blockSignals(False)
+                            self.file_content_text.setPlainText(dialogue.text_list[textIndex])
+                        else:
+                            self.file_content_text.setPlainText("")
+                            self.file_content_text.setReadOnly(True)
                     elif self.fileDisplayState == "Graphics":
                         #print(self.dropdown_gfx_depth.currentText()[:1] + " bpp graphics")
                         if self.gfx_palette.index(self.file_content_gfx.pen.color().rgba()) >= 2**list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()].depth:
                             self.file_content_gfx.pen.setColor(self.gfx_palette[0])
                         self.file_content_gfx.resetScene()
-                        draw_tilesQImage_fromBytes(self.file_content_gfx, self.rom.files[int(self.tree.currentItem().text(0))][self.relative_address:], algorithm=list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column, tileWidth=self.tile_width, tileHeight=self.tile_height)
+                        draw_tilesQImage_fromBytes(self.file_content_gfx, self.rom.files[current_id][self.relative_address:], algorithm=list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column, tileWidth=self.tile_width, tileHeight=self.tile_height)
                         if not isValueUpdate: # if entering graphics mode and func is not called to update other stuff
                             self.file_editor_show("Graphics")
                     elif self.fileDisplayState == "Sound":
@@ -1832,8 +1850,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 self.file_content_text.setDisabled(False)
             else:# if it's a folder
                 self.label_file_size.setText(f"Size: N/A")
-                self.file_editor_show("Text")
-                self.checkbox_textoverwite.hide()
+                self.file_editor_show("Empty")
                 self.field_address.setDisabled(True)
                 self.file_content_text.setPlainText("")
                 self.file_content_text.setDisabled(True)
@@ -1842,8 +1859,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.replaceAction.setDisabled(False)
             self.button_file_save.setDisabled(True)
         else:# Nothing is selected, reset edit space
-            self.file_editor_show("Text")
-            self.checkbox_textoverwite.hide()
+            self.file_editor_show("Empty")
             self.field_address.setDisabled(True)
             self.label_file_size.setText("Size: N/A")
             self.file_content_text.clear()
@@ -1895,10 +1911,11 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.displayBase_old = self.displayBase
 
     def file_editor_show(self, mode: str):
-        modes = ["Text", "Graphics", "Sound", "VX"]
+        modes = ["Empty", "Text", "Graphics", "Sound", "VX"]
         mode_index = modes.index(mode)
         # Contents of widget sets
-        text_widgets: list[PyQt6.QtWidgets.QWidget] = [self.file_content_text, self.checkbox_textoverwite]
+        empty_widgets: list[PyQt6.QtWidgets.QWidget] = [self.file_content_text]
+        text_widgets: list[PyQt6.QtWidgets.QWidget] = [self.file_content_text, self.checkbox_textoverwite, self.dropdown_textindex]
         graphics_widgets: list[PyQt6.QtWidgets.QWidget] = [
             self.file_content_gfx,
             self.dropdown_gfx_depth,
@@ -1940,7 +1957,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         for i in range(256):
             graphics_widgets.append(getattr(self, f"button_palettepick_{i}"))
         # Associates each mode with a set of widgets to show or hide 
-        widget_sets = [text_widgets, graphics_widgets, sound_widgets, vx_widgets]
+        widget_sets = [empty_widgets, text_widgets, graphics_widgets, sound_widgets, vx_widgets]
         # Hide all widgets from other modes
         for s in widget_sets:
             if s != widget_sets[mode_index]:
@@ -1958,31 +1975,33 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             #print(f"{len(self.rom.save()):08X}")
 
     def save_filecontent(self): #Save to virtual ROM
+        file_id = int(self.tree.currentItem().text(0))
         if self.fileDisplayRaw == False:
             if self.fileDisplayState == "English dialogue": # if english text
-                rom_save_data = library.dataconverter.convertdata_text_to_bin(self.file_content_text.toPlainText())
-                w.rom.files[int(self.tree.currentItem().text(0))][self.relative_address:self.relative_address+len(rom_save_data)] = rom_save_data
+                dialog = library.dialoguefile.DialogueFile(w.rom.files[file_id])
+                dialog.text_list[w.dropdown_textindex.currentIndex()] = self.file_content_text.toPlainText()
+                w.rom.files[file_id] = dialog.generate_file_binary()
             elif self.fileDisplayState == "Graphics":
                 rom_save_data = saveData_fromGFXView(self.file_content_gfx, algorithm=list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column, tileWidth=self.tile_width, tileHeight=self.tile_height)
-                w.rom.files[int(self.tree.currentItem().text(0))][self.relative_address:self.relative_address+len(rom_save_data)] = rom_save_data
+                w.rom.files[file_id][self.relative_address:self.relative_address+len(rom_save_data)] = rom_save_data
             elif self.fileDisplayState == "VX":
-                w.rom.files[int(self.tree.currentItem().text(0))][0x04:0x08] = bytearray(int.to_bytes(int(self.field_vxHeader_length.value()), 4, "little"))
-                w.rom.files[int(self.tree.currentItem().text(0))][0x08:0x0C] = bytearray(int.to_bytes(int(self.field_vxHeader_width.value()), 4, "little"))
-                w.rom.files[int(self.tree.currentItem().text(0))][0x0C:0x10] = bytearray(int.to_bytes(int(self.field_vxHeader_height.value()), 4, "little"))
-                w.rom.files[int(self.tree.currentItem().text(0))][0x10:0x14] = bytearray(int.to_bytes(int(self.field_vxHeader_framerate.value()*0x10000), 4, "little")) #convert float to 16.16
-                w.rom.files[int(self.tree.currentItem().text(0))][0x14:0x18] = bytearray(int.to_bytes(int(self.field_vxHeader_quantiser.value()), 4, "little"))
-                w.rom.files[int(self.tree.currentItem().text(0))][0x18:0x1C] = bytearray(int.to_bytes(int(self.field_vxHeader_sampleRate.value()), 4, "little"))
-                w.rom.files[int(self.tree.currentItem().text(0))][0x1C:0x20] = bytearray(int.to_bytes(int(self.field_vxHeader_streamCount.value()), 4, "little"))
-                w.rom.files[int(self.tree.currentItem().text(0))][0x20:0x24] = bytearray(int.to_bytes(int(self.field_vxHeader_frameSizeMax.value()), 4, "little"))
-                w.rom.files[int(self.tree.currentItem().text(0))][0x24:0x28] = bytearray(int.to_bytes(int(self.field_vxHeader_audioExtraDataOffset.value()), 4, "little"))
-                w.rom.files[int(self.tree.currentItem().text(0))][0x28:0x2C] = bytearray(int.to_bytes(int(self.field_vxHeader_seekTableOffset.value()), 4, "little"))
-                w.rom.files[int(self.tree.currentItem().text(0))][0x2C:0x30] = bytearray(int.to_bytes(int(self.field_vxHeader_seekTableEntryCount.value()), 4, "little"))
+                w.rom.files[file_id][0x04:0x08] = bytearray(int.to_bytes(int(self.field_vxHeader_length.value()), 4, "little"))
+                w.rom.files[file_id][0x08:0x0C] = bytearray(int.to_bytes(int(self.field_vxHeader_width.value()), 4, "little"))
+                w.rom.files[file_id][0x0C:0x10] = bytearray(int.to_bytes(int(self.field_vxHeader_height.value()), 4, "little"))
+                w.rom.files[file_id][0x10:0x14] = bytearray(int.to_bytes(int(self.field_vxHeader_framerate.value()*0x10000), 4, "little")) #convert float to 16.16
+                w.rom.files[file_id][0x14:0x18] = bytearray(int.to_bytes(int(self.field_vxHeader_quantiser.value()), 4, "little"))
+                w.rom.files[file_id][0x18:0x1C] = bytearray(int.to_bytes(int(self.field_vxHeader_sampleRate.value()), 4, "little"))
+                w.rom.files[file_id][0x1C:0x20] = bytearray(int.to_bytes(int(self.field_vxHeader_streamCount.value()), 4, "little"))
+                w.rom.files[file_id][0x20:0x24] = bytearray(int.to_bytes(int(self.field_vxHeader_frameSizeMax.value()), 4, "little"))
+                w.rom.files[file_id][0x24:0x28] = bytearray(int.to_bytes(int(self.field_vxHeader_audioExtraDataOffset.value()), 4, "little"))
+                w.rom.files[file_id][0x28:0x2C] = bytearray(int.to_bytes(int(self.field_vxHeader_seekTableOffset.value()), 4, "little"))
+                w.rom.files[file_id][0x2C:0x30] = bytearray(int.to_bytes(int(self.field_vxHeader_seekTableEntryCount.value()), 4, "little"))
             elif self.fileDisplayState == "Sound":
                 return
         else:
             rom_save_data = bytearray.fromhex(library.dataconverter.StrToAlphanumStr(self.file_content_text.toPlainText(), 16, True)) # force to alphanumeric for bytearray conversion
-            w.rom.files[int(self.tree.currentItem().text(0))][self.relative_address:self.relative_address+len(rom_save_data)] = rom_save_data
-        #print(type(w.rom.files[int(self.tree.currentItem().text(0))]))
+            w.rom.files[file_id][self.relative_address:self.relative_address+len(rom_save_data)] = rom_save_data
+        #print(type(w.rom.files[file_id]))
         print("file changes saved")
         self.button_file_save.setDisabled(True)
 
@@ -2097,8 +2116,8 @@ def extract(data: bytes, name="", path="", format=""):
             print("File extracted!")
     else:
         if format == "English dialogue":
-                with open(os.path.join(path + "/" + name.split(".")[0] + ".txt"), 'wb') as f:
-                    f.write(bytes(library.dataconverter.convertdata_bin_to_text(data), "utf-8"))
+                with open(os.path.join(path + "/" + name.split(".")[0] + ".txt"), 'wb') as f: # change export method
+                    f.write(bytes(library.dialoguefile.DialogueFile.convertdata_bin_to_text(data), "utf-8"))
                     print(os.path.join(path + "/" + name.split(".")[0] + ".txt"))
                     print("File extracted!")
         else:

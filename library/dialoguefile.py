@@ -54,7 +54,7 @@ SPECIAL_CHARACTER_LIST[0xf1] = [1, "├COLOR 0x{0:02X}┤"]
 SPECIAL_CHARACTER_LIST[0xf2] = [1, "├PLACEMENT 0x{0:02X}┤"]
 SPECIAL_CHARACTER_LIST[0xf3] = [1, "├MUGSHOT 0x{0:02X}┤"]
 SPECIAL_CHARACTER_LIST[0xf4] = [1, "├ISOLATE 0x{0:02X}┤"] #hides the next char and draws function arguments.
-SPECIAL_CHARACTER_LIST[0xf5] = [1, "├NEXTEVENT 0x{0:02X}┤"] #same as 0xfe, but does not interrupt current dialogue
+SPECIAL_CHARACTER_LIST[0xf5] = [1, "├REQUESTEND 0x{0:02X}┤"] #same as 0xfe, but does not interrupt current dialogue
 SPECIAL_CHARACTER_LIST[0xf6] = [1, "├TWOCHOICES 0x{0:02X}┤"]
 SPECIAL_CHARACTER_LIST[0xf7] = [1, "├ISOLATE2 0x{0:02X}┤"] #same as 0xf4
 SPECIAL_CHARACTER_LIST[0xf8] = [1, "├NAME 0x{0:02X}┤"]
@@ -85,16 +85,23 @@ class DialogueFile():
 
         data = data[text_bin_ptr_array_size:]
 
+        self.textAddress_list = []
         self.text_list = []
+        self.text_id_list = []
+        id = 0
         for i in range(len(text_bin_ptr_array)):
             start = text_bin_ptr_array[i]
+            self.textAddress_list.append(start + text_bin_ptr_array_size + 0x04)
             if data[start] == 0xff:
-                self.text_list.append(None)
+                self.text_id_list.append(None)
                 continue
-            end = text_bin_ptr_array[i+1] if i+1 < len(text_bin_ptr_array) else len(data)-1
-            assert end > start
-            self.text_list.append(self.convertdata_bin_to_text(data[start:end-1]))
-            assert data[end-1] == 0xfe
+            text = DialogueFile.convertdata_bin_to_text_until_end(data[start:])
+            if text in self.text_list:
+                self.text_id_list.append(self.text_list.index(text))
+                continue
+            self.text_list.append(text)
+            self.text_id_list.append(id)
+            id += 1
 
 
     def find_matching_paren(s, i, braces=None):
@@ -128,7 +135,36 @@ class DialogueFile():
 
         return result
 
-    def convertdata_bin_to_text(self, data: bytearray):
+    def convertdata_bin_to_text_until_end(data: bytearray):
+        chars = []
+        i=0
+        while i < len(data):# while file not fully read
+            if data[i] == 0xFE:
+                data = ''.join(chars)# join all converted chars into one full string
+                return data
+            if data[i] <= 0x5E or (data[i] >= 0x80 and data[i] <= 0xDF and data[i] not in [0x80, 0x84, 0x85, 0x86, 0x87, 0x8c, 0x8d, 0x8f, 0x92, 0x93, 0x95, 0x96, 0x98, 0x99, 0x9c, 0x9d, 0x9e]):# ASCII chars
+                chars.append(chr(data[i] + 0x20 & 0xFF))
+            elif type(SPECIAL_CHARACTER_LIST[data[i]]) == type([]):# game specific chars
+                special_character = SPECIAL_CHARACTER_LIST[data[i]]
+                params = []
+                for p in range(special_character[0]):# if char is a "function", append params and count the file chars read
+                    i+=1
+                    if i <= len(data)-1: # if not at end of file
+                        params.append(data[i])
+                    else: # if data incomplete
+                        #print(params)
+                        #print(special_character[1][:special_character[1].replace("0x", "  ", p).find(" 0x")] + "┤")
+                        chars.append(special_character[1][:special_character[1].replace("0x", "  ", p).find(" 0x")].format(*params) + "┤")# add the char and insert the incomplete amount of param values
+                        data = ''.join(chars)# join all converted chars into one full string
+                        return data
+                chars.append(special_character[1].format(*params))# add the char and insert the param values, if applicable
+            else:# undefined hex values
+                chars.append(f"├0x{data[i]:02X}┤")
+            i+=1
+        raise Exception("no end found for DialogueFile text")
+        
+
+    def convertdata_bin_to_text(data: bytearray):
         chars = []
         i=0
         while i < len(data):# while file not fully read
@@ -154,7 +190,7 @@ class DialogueFile():
         data = ''.join(chars)# join all converted chars into one full string
         return data
 
-    def convertdata_text_to_bin(self, data: str):
+    def convertdata_text_to_bin(data: str):
             file_text = data
             file_data = []
             c=0
@@ -203,26 +239,30 @@ class DialogueFile():
 
     def generate_file_binary(self):
         text_bin_list = []
-        text_bin_ptr_array = []
-        text_bin_list_size = 0
+        text_bin_id_ptr_list = []
+        text_bin_size = 0
         for text in self.text_list:
-            if text is None:
-                text_bin_ptr_array.append(None)
-                continue
-            text_bin = self.convertdata_text_to_bin(text)
-            text_bin_ptr_array.append(text_bin_list_size)
-            text_bin_list_size += len(text_bin) + 1
+            text_bin = DialogueFile.convertdata_text_to_bin(text)
+            text_bin_id_ptr_list.append(text_bin_size)
+            text_bin_size += len(text_bin) + 1
             text_bin_list.append(text_bin)
 
+        text_bin_ptr_array = []
+        for id in self.text_id_list:
+            if id is None:
+                text_bin_ptr_array.append(text_bin_size)
+                continue
+            text_bin_ptr_array.append(text_bin_id_ptr_list[id])
+
         text_bin_ptr_array_size = len(text_bin_ptr_array)*2
-        file_size = text_bin_ptr_array_size + text_bin_list_size + 1
+        file_size = text_bin_ptr_array_size + text_bin_size + 1
 
         assert file_size <= 0xffff
 
         file_binary = file_size.to_bytes(2, "little") + text_bin_ptr_array_size.to_bytes(2, "little")
         for ptr in text_bin_ptr_array:
             if ptr is None:
-                file_binary += text_bin_list_size.to_bytes(2, "little")
+                file_binary += text_bin_size.to_bytes(2, "little")
                 continue
             file_binary += ptr.to_bytes(2, "little")
         for text_bin in text_bin_list:
@@ -231,3 +271,10 @@ class DialogueFile():
 
 
 
+ #create readable text
+#with open("test.txt", "wb") as t:
+#    t.write(bytes(DialogueFile.convertfile_bin_to_text("talk_m01_en1.bin"), "utf-8"))
+ #create bin file
+#with open("talk_m01_en1.bin", "wb") as t:
+#    #DialogueFile.convertfile_text_to_bin("test.txt")
+#    t.write((DialogueFile.convertfile_text_to_bin("test.txt")))

@@ -54,3 +54,5 @@ Currently, there are no releases, so:
 - appicon.ico: Mega Man ZX devs, taken from [here](https://www.spriters-resource.com/ds_dsi/megamanzx/sheet/180723/) and truncated by me using GIMP
 
 Some parts of code I copied(and modified) from answers to other people who asked for help(for example, on stack overflow) on topics I myself needed help on.
+### Special Thanks
+- My brother, who assisted me in the development of most editor features

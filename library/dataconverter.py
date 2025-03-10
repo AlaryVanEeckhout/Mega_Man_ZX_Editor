@@ -5,74 +5,6 @@ import PyQt6.QtGui
 #import io
 import enum
 
-#https://www.rapidtables.com/code/text/ascii-table.html
-SPECIAL_CHARACTER_LIST: list = ([0])*256
-SPECIAL_CHARACTER_LIST[0x5f] = [0, "⠂"]
-SPECIAL_CHARACTER_LIST[0x60] = [0, "€"]
-#SPECIAL_CHARACTER_LIST[0x61] = [0, ""] #unknown char, empty in font
-SPECIAL_CHARACTER_LIST[0x62] = [0, "𐄀"]
-#SPECIAL_CHARACTER_LIST[0x63] = [0, ""] #unknown char, empty in font
-SPECIAL_CHARACTER_LIST[0x64] = [0, "⠤"]
-SPECIAL_CHARACTER_LIST[0x65] = [0, "┅"]
-#SPECIAL_CHARACTER_LIST[0x66] = [0, ""] #unknown char, empty in font
-#SPECIAL_CHARACTER_LIST[0x67] = [0, ""] #unknown char, empty in font
-SPECIAL_CHARACTER_LIST[0x68] = [0, "ˆ"]
-#SPECIAL_CHARACTER_LIST[0x69] = [0, ""] #unknown char, empty in font
-SPECIAL_CHARACTER_LIST[0x6a] = [0, "Š"]
-SPECIAL_CHARACTER_LIST[0x6b] = [0, "⟨"]
-SPECIAL_CHARACTER_LIST[0x6c] = [0, "Œ"]
-#SPECIAL_CHARACTER_LIST[0x6d] = [0, ""] #unknown char, empty in font
-SPECIAL_CHARACTER_LIST[0x6e] = [0, "Ž"]
-#SPECIAL_CHARACTER_LIST[0x6f] = [0, ""] #unknown char, empty in font
-#SPECIAL_CHARACTER_LIST[0x70] = [0, ""] #unknown char, empty in font
-SPECIAL_CHARACTER_LIST[0x71] = [0, "‘"]
-SPECIAL_CHARACTER_LIST[0x72] = [0, "’"]
-SPECIAL_CHARACTER_LIST[0x73] = [0, "“"]
-SPECIAL_CHARACTER_LIST[0x74] = [0, "”"]
-SPECIAL_CHARACTER_LIST[0x75] = [0, "•"]
-#SPECIAL_CHARACTER_LIST[0x76] = [0, ""] #unknown char, empty in font
-#SPECIAL_CHARACTER_LIST[0x77] = [0, ""] #unknown char, empty in font
-SPECIAL_CHARACTER_LIST[0x78] = [0, "˜"]
-SPECIAL_CHARACTER_LIST[0x79] = [0, "™"]
-SPECIAL_CHARACTER_LIST[0x7a] = [0, "š"]
-SPECIAL_CHARACTER_LIST[0x7b] = [0, "⟩"]
-SPECIAL_CHARACTER_LIST[0x7c] = [0, "œ"]
-#SPECIAL_CHARACTER_LIST[0x7d] = [0, ""] #unknown char, empty in font
-SPECIAL_CHARACTER_LIST[0x7e] = [0, "ž"]
-SPECIAL_CHARACTER_LIST[0x7f] = [0, "Ÿ"]
-SPECIAL_CHARACTER_LIST[0xe0] = [0, "├DPAD_LEFT┤"]
-SPECIAL_CHARACTER_LIST[0xe1] = [0, "├DPAD_RIGHT┤"]
-SPECIAL_CHARACTER_LIST[0xe2] = [0, "├BUTTON_A_LEFT┤"]
-SPECIAL_CHARACTER_LIST[0xe3] = [0, "├BUTTON_A_RIGHT┤"]
-SPECIAL_CHARACTER_LIST[0xe4] = [0, "├BUTTON_B_LEFT┤"]
-SPECIAL_CHARACTER_LIST[0xe5] = [0, "├BUTTON_B_RIGHT┤"]
-SPECIAL_CHARACTER_LIST[0xe6] = [0, "├BUTTON_X_LEFT┤"]
-SPECIAL_CHARACTER_LIST[0xe7] = [0, "├BUTTON_X_RIGHT┤"]
-SPECIAL_CHARACTER_LIST[0xe8] = [0, "├BUTTON_Y_LEFT┤"]
-SPECIAL_CHARACTER_LIST[0xe9] = [0, "├BUTTON_Y_RIGHT┤"]
-SPECIAL_CHARACTER_LIST[0xea] = [0, "├BUTTON_L_LEFT┤"]
-SPECIAL_CHARACTER_LIST[0xeb] = [0, "├BUTTON_L_RIGHT┤"]
-SPECIAL_CHARACTER_LIST[0xec] = [0, "├BUTTON_R_LEFT┤"]
-SPECIAL_CHARACTER_LIST[0xed] = [0, "├BUTTON_R_RIGHT┤"]
-SPECIAL_CHARACTER_LIST[0xee] = [0, "🡅"]
-SPECIAL_CHARACTER_LIST[0xef] = [0, "🡇"]
-SPECIAL_CHARACTER_LIST[0xf0] = [1, "├CHAR_F 0x{0:02X}┤"] #sets char to 0xF0 + arg
-SPECIAL_CHARACTER_LIST[0xf1] = [1, "├COLOR 0x{0:02X}┤"]
-SPECIAL_CHARACTER_LIST[0xf2] = [1, "├PLACEMENT 0x{0:02X}┤"]
-SPECIAL_CHARACTER_LIST[0xf3] = [1, "├MUGSHOT 0x{0:02X}┤"]
-SPECIAL_CHARACTER_LIST[0xf4] = [1, "├ISOLATE 0x{0:02X}┤"] #hides the next char and draws function arguments.
-SPECIAL_CHARACTER_LIST[0xf5] = [1, "├NEXTEVENT 0x{0:02X}┤"] #same as 0xfe, but does not interrupt current dialogue
-SPECIAL_CHARACTER_LIST[0xf6] = [1, "├TWOCHOICES 0x{0:02X}┤"]
-SPECIAL_CHARACTER_LIST[0xf7] = [1, "├ISOLATE2 0x{0:02X}┤"] #same as 0xf4
-SPECIAL_CHARACTER_LIST[0xf8] = [1, "├NAME 0x{0:02X}┤"]
-SPECIAL_CHARACTER_LIST[0xf9] = [2, "├COUNTER 0x{0:02X} 0x{1:02X}┤"] #dialogue page counter???
-SPECIAL_CHARACTER_LIST[0xfa] = [0, "├PLAYERNAME┤"] # writes player name
-SPECIAL_CHARACTER_LIST[0xfb] = [0, "├THREECHOICES┤"]
-SPECIAL_CHARACTER_LIST[0xfc] = [0, "├NEWLINE┤"]
-SPECIAL_CHARACTER_LIST[0xfd] = [0, "├NEWPAGE┤"]
-SPECIAL_CHARACTER_LIST[0xfe] = [0, "├END┤"]
-SPECIAL_CHARACTER_LIST[0xff] = [0, "├ENDOFFILE┤"] #end of used file (duplicate text is used to fill the rest of the file)
-
 def ceildiv(a, b):
     return -(a // -b)
 
@@ -240,78 +172,6 @@ def find_matching_paren(s, i, braces=None):
 
     return result
 
-def convertdata_bin_to_text(data: bytearray, lang: str="en"):
-    chars = []
-    i=0
-    while i < len(data):# while file not fully read
-        if data[i] <= 0x5E or (data[i] >= 0x80 and data[i] <= 0xDF and data[i] not in [0x80, 0x84, 0x85, 0x86, 0x87, 0x8c, 0x8d, 0x8f, 0x92, 0x93, 0x95, 0x96, 0x98, 0x99, 0x9c, 0x9d, 0x9e]):# ASCII chars
-            chars.append(chr(data[i] + 0x20 & 0xFF))
-        elif type(SPECIAL_CHARACTER_LIST[data[i]]) == type([]):# game specific chars
-            special_character = SPECIAL_CHARACTER_LIST[data[i]]
-            params = []
-            for p in range(special_character[0]):# if char is a "function", append params and count the file chars read
-                i+=1
-                if i <= len(data)-1: # if not at end of file
-                    params.append(data[i])
-                else: # if data incomplete
-                    #print(params)
-                    #print(special_character[1][:special_character[1].replace("0x", "  ", p).find(" 0x")] + "┤")
-                    chars.append(special_character[1][:special_character[1].replace("0x", "  ", p).find(" 0x")].format(*params) + "┤")# add the char and insert the incomplete amount of param values
-                    data = ''.join(chars)# join all converted chars into one full string
-                    return data
-            chars.append(special_character[1].format(*params))# add the char and insert the param values, if applicable
-        else:# undefined hex values
-            chars.append(f"├0x{data[i]:02X}┤")
-        i+=1
-    data = ''.join(chars)# join all converted chars into one full string
-    return data
-
-def convertdata_text_to_bin(data: str, lang: str="en"):
-        file_text = data
-        file_data = []
-        c=0
-        while c < len(file_text):
-            if file_text[c] == "├": #extra special chars
-                if file_text[c+1:c+3] == "0x": # undefined hex values
-                    file_data.append(int.to_bytes(int(file_text[c+3:c+5], 16)))
-                    c+=len("├0xXX┤")-1
-                else:
-                    #special_string = file_text[c:file_text.find("┤", c)+1]
-                    special_string = file_text[c:find_matching_paren(file_text, c, {"├": "┤"})+1]
-                    #print("special: " +special_string)
-                    #print(special_string.split(' ')[0])
-                    for d in range(len(SPECIAL_CHARACTER_LIST)): # iterate through special chars
-                        if type(SPECIAL_CHARACTER_LIST[d]) == type([]) and SPECIAL_CHARACTER_LIST[d][1].split(' ')[0] == special_string.split(' ')[0]: # if special char matches(remove variable 0xXX part to check)
-                            file_data.append(int.to_bytes(d))
-                            for p in range(SPECIAL_CHARACTER_LIST[d][0]): # iterate through argument count
-                                if len(special_string.split())-2 >= p: #if index is within range(to exclude functions with invalid argument count)
-                                    if special_string.replace('0x', '').split()[p+1][0] == "├": # if function passed as arg
-                                        #print(special_string.replace('0x', '').split())
-                                        #print(special_string.replace('0x', '').split()[p+1].replace('┤┤', '┤') + " was not inserted because it is nested.")
-                                        for pd in range(len(SPECIAL_CHARACTER_LIST)): # iterate through special chars
-                                            #if type(SPECIAL_CHARACTER_LIST[pd]) == type([]):
-                                            #    print(SPECIAL_CHARACTER_LIST[pd][1].split()[0].removesuffix('┤') + " VS " + special_string.replace('0x', '').split()[p+1].removesuffix('┤').removesuffix('┤'))
-                                            if type(SPECIAL_CHARACTER_LIST[pd]) == type([]) and SPECIAL_CHARACTER_LIST[pd][1].split()[0].removesuffix('┤') == special_string.replace('0x', '').split()[p+1].removesuffix('┤').removesuffix('┤'): # if special char matches(remove variable 0xXX part to check)
-                                                file_data.append(int.to_bytes(pd))
-                                    elif special_string.replace('0x', '').split()[p+1].find("{") != -1: # args is undefined
-                                        print(special_string + ": Missing argument" + str(p) + "! setting to 0x00.")
-                                        file_data.append(int.to_bytes(0x00))
-                                    else:
-                                        #print(p)
-                                        #print(file_text[c+len(special_string)+2-(5+p*5)]+file_text[c+len(special_string)+3-(5+p*5)])
-                                        #file_data.append(int.to_bytes(int(file_text[c+len(special_string)+2-(5+p*5)]+file_text[c+len(special_string)+3-(5+p*5)], 16)))
-                                        file_data.append(int.to_bytes(int(special_string.split()[p+1].removesuffix('┤').removesuffix('┤'), 16)))
-                            c+=len(special_string)-1
-            elif any(file_text[c] in sublist for sublist in SPECIAL_CHARACTER_LIST if isinstance(sublist, list)): #game's extended char table
-                for d in range(len(SPECIAL_CHARACTER_LIST)):
-                    if type(SPECIAL_CHARACTER_LIST[d]) == type([]) and SPECIAL_CHARACTER_LIST[d][1] == file_text[c]:
-                        file_data.append(int.to_bytes(d))
-            else: #normal ASCII chars
-                file_data.append(int.to_bytes(ord(file_text[c]) - 0x20 & 0xFF))
-            c+=1
-        file_data = b''.join(file_data)
-        return file_data
-
 class CompressionAlgorithmEnum(enum.Enum):
 
   def __init__(self, id: enum.auto, depth: int):
@@ -394,14 +254,6 @@ def convertdata_qt_to_bin(qimage: PyQt6.QtGui.QImage, palette: list[int]=[0xff00
     #print("bits: " + file_bits)
     #print("bytearray: " + binary_data.hex())
     return binary_data
-
- #create readable text
-#with open("test.txt", "wb") as t:
-#    t.write(bytes(convertfile_bin_to_text("talk_m01_en1.bin"), "utf-8"))
- #create bin file
-#with open("talk_m01_en1.bin", "wb") as t:
-#    #convertfile_text_to_bin("test.txt")
-#    t.write((convertfile_text_to_bin("test.txt")))
 
 #create readable graphics
 #with open("sys_panm.bin", "r+b") as t:
