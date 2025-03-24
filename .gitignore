@@ -9,6 +9,11 @@
 #exported files
 *.bin
 *.vx
+*.SSEQ
+*.SSAR
+*.SWAR
+*.SBNK
+*.SWAV
 #converted exported files(txt also used for preferences)
 *.txt
 *.bmp

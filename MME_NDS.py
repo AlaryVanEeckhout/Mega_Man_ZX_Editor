@@ -228,7 +228,7 @@ class HoldButton(PyQt6.QtWidgets.QPushButton): #change class to use pyqt signals
         #print(str(self.counter) + " vs " + str(self.press_quick_threshold))
         self.counter += 1
         if self.counter > self.press_quick_threshold:
-            #print("hold")
+            #print("hold " + str(self.counter))
             self.held.emit(True)
             if not self.allow_repeat:
                 self.counter = -1
@@ -242,12 +242,12 @@ class HoldButton(PyQt6.QtWidgets.QPushButton): #change class to use pyqt signals
 
     def on_release(self):
         #print("release " + str(self.counter))
-        self.held.emit(False)
+        self.timer.stop()
+        #self.held.emit(False)
         if self.counter != -1 and self.counter <= self.press_quick_threshold and self.allow_press == True:
             self.pressed_quick.emit(True)
             #print("quick")
-        self.pressed_quick.emit(False)
-        self.timer.stop()
+        #self.pressed_quick.emit(False)
         self.counter = -1
 
     
@@ -498,38 +498,43 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.toolbar.setMaximumHeight(23)
         self.addToolBar(self.toolbar)
 
-        self.button_save = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\disk.png'), "Save to ROM", self)
-        self.button_save.setStatusTip("Save changes to the ROM")
-        self.button_save.triggered.connect(self.saveCall)
-        self.button_save.setDisabled(True)
-        self.button_playtest = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\control.png'), "Playtest ROM", self)
-        self.button_playtest.setStatusTip("Test the ROM with currently saved changes")
-        self.button_playtest.triggered.connect(self.testCall)
+        self.action_save = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\disk.png'), "Save to ROM", self)
+        self.action_save.setStatusTip("Save changes to the ROM")
+        self.action_save.triggered.connect(self.saveCall)
+        self.action_save.setDisabled(True)
+        self.button_playtest = HoldButton(PyQt6.QtGui.QIcon('icons\\control.png'), "", self)
+        self.button_playtest.setToolTip("Playtest ROM (Hold for options)")
+        self.button_playtest.setStatusTip("Create a temporary ROM to test saved changes")
+        self.button_playtest.allow_repeat = False
+        self.button_playtest.allow_press = True
+        self.button_playtest.pressed_quick.connect(lambda: self.testCall(True))
+        self.button_playtest.held.connect(lambda: self.testCall(False))
         self.button_playtest.setDisabled(True)
         self.button_reload = HoldButton(PyQt6.QtGui.QIcon('icons\\arrow-circle-315.png'), "", self)
-        self.button_reload.setToolTip("Reload Interface")
+        self.button_reload.setToolTip("Reload Interface (Hold for deep refresh)")
         self.button_reload.setStatusTip("Reload the displayed data(all changes that aren't saved will be lost)")
         self.button_reload.allow_repeat = False
         self.button_reload.allow_press = True
-        self.button_reload.pressed_quick.connect(lambda signal: self.reloadCall(1, signal))
-        self.button_reload.held.connect(lambda signal: self.reloadCall(2, signal))
-        self.button_sdat = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\speaker-volume.png'), "Open Sound Data Archive", self)
-        self.button_sdat.setStatusTip("Show the contents of this ROM's sdat file")
-        self.button_sdat.triggered.connect(self.sdatOpenCall)
-        self.button_sdat.setDisabled(True)
-        self.button_arm9 = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\processor-num-9.png'), "Open ARM9", self)
-        self.button_arm9.setStatusTip("Show the contents of this ROM's ARM9")
-        self.button_arm9.triggered.connect(self.arm9OpenCall)
-        self.button_arm9.setDisabled(True)
-        self.button_arm7 = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\processor-num-7.png'), "Open ARM7", self)
-        self.button_arm7.setStatusTip("Show the contents of this ROM's ARM7")
-        self.button_arm7.triggered.connect(self.arm7OpenCall)
-        self.button_arm7.setDisabled(True)
+        self.button_reload.pressed_quick.connect(lambda: self.reloadCall(1))
+        self.button_reload.held.connect(lambda: self.reloadCall(2))
+        self.action_sdat = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\speaker-volume.png'), "Open Sound Data Archive", self)
+        self.action_sdat.setStatusTip("Show the contents of this ROM's sdat file")
+        self.action_sdat.triggered.connect(self.sdatOpenCall)
+        self.action_sdat.setDisabled(True)
+        self.action_arm9 = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\processor-num-9.png'), "Open ARM9", self)
+        self.action_arm9.setStatusTip("Show the contents of this ROM's ARM9")
+        self.action_arm9.triggered.connect(self.arm9OpenCall)
+        self.action_arm9.setDisabled(True)
+        self.action_arm7 = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\processor-num-7.png'), "Open ARM7", self)
+        self.action_arm7.setStatusTip("Show the contents of this ROM's ARM7")
+        self.action_arm7.triggered.connect(self.arm7OpenCall)
+        self.action_arm7.setDisabled(True)
         #self.button_codeedit = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\document-text.png'), "Open code", self)
         #self.button_codeedit.setStatusTip("Edit the ROM's code")
         #self.button_codeedit.triggered.connect(self.codeeditCall)
         #self.button_codeedit.setDisabled(True)
-        self.toolbar.addActions([self.button_save, self.button_playtest, self.button_arm9, self.button_arm7, self.button_sdat])
+        self.toolbar.addActions([self.action_save, self.action_arm9, self.action_arm7, self.action_sdat])
+        self.toolbar.insertWidget(self.action_arm9, self.button_playtest)
         self.toolbar.addWidget(self.button_reload)
         self.toolbar.addSeparator()
 
@@ -1109,11 +1114,15 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         name = ""
         data = bytes()
         obj = self.rom.files
+        is_subfile = False
         if tree == self.tree:
             name = item.text(1) + "." + item.text(2)
             data = obj[int(item.text(0))]
         else:
-            name = tree.ContextNameType + item.text(0)
+            if tree.ContextNameType == "[Filenames]":
+                name = item.text(1) + ("." + item.text(2)).replace(".Folder", " and contents")
+            else:
+                name = tree.ContextNameType + item.text(0)
             if tree == self.tree_arm9: # 02000000 - 00004000 = 01FFC000
                 obj = self.rom.arm9
                 if item.text(2) == "True":
@@ -1124,7 +1133,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         data = self.rom.arm9[library.dataconverter.NumFromStr(item.text(0), self.displayBase) - 0x01FFC000 - 0x00004000:]
                 else:
                     print("Explicit ARM9 code-sections are not (yet) supported")
-                    return [b'', "", None]
+                    return [b'', "", None, False]
                     #data = ndspy.codeCompression._compress(self.rom.loadArm9().sections[int(tree.indexFromItem(item).row())].data) #compressed
                 name += ".bin"
             if tree == self.tree_arm7: # 02380000 - 0014E000 = 02232000
@@ -1138,7 +1147,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         data = self.rom.arm7[library.dataconverter.NumFromStr(item.text(0), self.displayBase) - 0x02232000 - 0x0014E000]
                 else:
                     print("Explicit ARM7 code-sections are not (yet) supported")
-                    return [b'', "", None]
+                    return [b'', "", None, False]
                     #ndspy.codeCompression.compress(self.rom.loadArm7().sections[int(tree.indexFromItem(item).row())].data)
                 name += ".bin"
             if tree == self.tree_arm9Ovltable:
@@ -1148,9 +1157,25 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 data = self.rom.files[int(item.text(0))] #.loadArm7Overlays()[int(item.text(0))].data
                 name += ".bin"
             if tree == self.tree_sdat:
-                print("Files from SDAT archive are not (yet) supported")
-                return [b'', "", None]
-        return [data, name, obj]
+                is_subfile = True
+                data_list = [
+                self.sdat.sequences,
+                self.sdat.sequenceArchives,
+                self.sdat.banks,
+                self.sdat.waveArchives,
+                self.sdat.sequencePlayers,
+                self.sdat.streams,
+                self.sdat.streamPlayers,
+                self.sdat.groups
+                ]
+                for category in data_list:
+                    for file in category:
+                        if file[0] == item.text(1):
+                            data = file[1].save()
+                            print(data)
+                            if type(data) == type((0, 1)):
+                                data = data[0]
+        return [data, name, obj, is_subfile]
         
     def set_dialog_button_name(self, dialog: PyQt6.QtWidgets.QDialog, oldtext: str, newtext: str):
         for btn in dialog.findChildren(PyQt6.QtWidgets.QPushButton):
@@ -1251,7 +1276,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 self.sdat = ndspy.soundArchive.SDAT(self.rom.files[int(str(self.rom.filenames).rpartition(".sdat")[0].split()[-2])])# manually search for sdat file because getFileByName does not find it when it is in a folder
                 print("SDAT at " + str(self.rom.filenames).rpartition(".sdat")[0].split()[-2])
                 #self.sdat.fatLengthsIncludePadding = True
-                self.button_sdat.setEnabled(True)
+                self.action_sdat.setEnabled(True)
             except Exception:
                 self.window_progress.hide()
                 self.sdat = None
@@ -1294,9 +1319,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         #self.button_codeedit.setDisabled(False)
         self.importSubmenu.setDisabled(False)
         self.button_file_save.show()
-        self.button_save.setDisabled(False)
-        self.button_arm9.setDisabled(False)
-        self.button_arm7.setDisabled(False)
+        self.action_save.setDisabled(False)
+        self.action_arm9.setDisabled(False)
+        self.action_arm7.setDisabled(False)
         self.button_playtest.setDisabled(False)
         self.dropdown_tweak_target.show()
         self.field_address.show()
@@ -1307,9 +1332,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         #self.button_codeedit.setDisabled(False)
         self.importSubmenu.setDisabled(True)
         self.button_file_save.hide()
-        self.button_save.setDisabled(True)
-        self.button_arm9.setDisabled(True)
-        self.button_arm7.setDisabled(True)
+        self.action_save.setDisabled(True)
+        self.action_arm9.setDisabled(True)
+        self.action_arm7.setDisabled(True)
         self.button_playtest.setDisabled(True)
         self.dropdown_tweak_target.hide()
         self.field_address.hide()
@@ -1317,9 +1342,6 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.dropdown_editor_area.clear()
 
     def exportCall(self, item: PyQt6.QtWidgets.QTreeWidgetItem):
-        if self.file_fromItem(item)[2] == self.tree_sdat:
-            print("Files from SDAT archive are not (yet) supported")
-            return
         dialog = PyQt6.QtWidgets.QFileDialog(
                 self,
                 "Save ROM",
@@ -1346,6 +1368,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 print("Selected: " + dropdown_formatselect.currentText())
                 print("Item: " + item.text(0))
                 if item != None:
+                    if self.file_fromItem(item) == [b'', "", None]:
+                        print("could not fetch data from tree item")
+                        return
                     if item.text(2).find("Folder") == -1: # if file
                         extract(*self.file_fromItem(item)[:2], path=dialog.selectedFiles()[0], format=dropdown_formatselect.currentText())
                     else: # if folder
@@ -1426,7 +1451,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         #print(fileExt)
                         # find a way to get attr and replace data at correct index.. maybe it's better to just save ROM and patch
                         #self.rom.files[self.rom.files.index(self.file_fromItem(item)[0])]
-                        supported_list = ["txt", "bin", ""]
+                        supported_list = ["txt", "SWAR", "SBNK", "SSAR", "SSEQ", "bin", ""]
                         fileInfo = self.file_fromItem(item)
                         print(fileExt)
                         if not any(supported == fileExt for supported in supported_list): # unknown
@@ -1438,12 +1463,16 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                             else: # raw data
                                 data = bytearray(fileEdited)
 
-                            if type(fileInfo[2]) == bytearray:
+                            if type(fileInfo[2]) == bytearray: # other
                                     fileInfo[2][fileInfo[2].index(fileInfo[0]):fileInfo[2].index(fileInfo[0])+len(fileInfo[0])] = data
                                     print(data[:0x15].hex())
-                            else:
+                            elif not fileInfo[3]: # rom files
                                 fileInfo[2][fileInfo[2].index(fileInfo[0])] = data
                                 print(data[:0x15].hex())
+                            else: # subfile
+                                for file in fileInfo[2]:
+                                    if fileInfo[0] in file:
+                                        fileInfo[2][fileInfo[2].index(file)][file.index(fileInfo[0]):file.index(fileInfo[0])+len(fileInfo[0])] = data
                         else:
                             dialog2.exec()
                             return
@@ -1527,29 +1556,31 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.rom.saveToFile(*dialog.selectedFiles())
             print("ROM modifs saved!")
 
-    def testCall(self):
-        dialog_playtest = PyQt6.QtWidgets.QDialog(self)
-        dialog_playtest.setWindowTitle("Playtest Options")
-        dialog_playtest.resize(500, 500)
-        dialog_playtest.setLayout(PyQt6.QtWidgets.QGridLayout())
-        # Test options; arm 9 at 0x00004000; starting pos x=00A00D00 y=FF6F0400
-        input_address = PyQt6.QtWidgets.QLineEdit(dialog_playtest)
-        input_address.setPlaceholderText("insert test patch adress")
-        input_value = PyQt6.QtWidgets.QLineEdit(dialog_playtest)
-        input_value.setPlaceholderText("insert test patch data")
+    def testCall(self, isQuick=True):
+        #print("isQuick: " + str(isQuick))
+        if isQuick == False:
+            dialog_playtest = PyQt6.QtWidgets.QDialog(self)
+            dialog_playtest.setWindowTitle("Playtest Options")
+            dialog_playtest.resize(500, 500)
+            dialog_playtest.setLayout(PyQt6.QtWidgets.QGridLayout())
+            # Test options; arm 9 at 0x00004000; starting pos x=00A00D00 y=FF6F0400
+            input_address = PyQt6.QtWidgets.QLineEdit(dialog_playtest)
+            input_address.setPlaceholderText("insert test patch adress")
+            input_value = PyQt6.QtWidgets.QLineEdit(dialog_playtest)
+            input_value.setPlaceholderText("insert test patch data")
 
-        button_play = PyQt6.QtWidgets.QPushButton("Play", dialog_playtest)
-        button_play.move(dialog_playtest.width() - 100, dialog_playtest.height() - 50)
-        button_play.pressed.connect(lambda: dialog_playtest.close())
-        button_play.pressed.connect(lambda: dialog_playtest.setResult(1))
-        dialog_playtest.layout().addWidget(input_address)
-        dialog_playtest.layout().addWidget(input_value)
-        dialog_playtest.layout().addWidget(button_play)
-        dialog_playtest.exec()
-        if dialog_playtest.result():
-            if not os.path.exists("temp"):
+            button_play = PyQt6.QtWidgets.QPushButton("Play", dialog_playtest)
+            button_play.move(dialog_playtest.width() - 100, dialog_playtest.height() - 50)
+            button_play.pressed.connect(lambda: dialog_playtest.close())
+            button_play.pressed.connect(lambda: dialog_playtest.setResult(1))
+            dialog_playtest.layout().addWidget(input_address)
+            dialog_playtest.layout().addWidget(input_value)
+            dialog_playtest.layout().addWidget(button_play)
+            dialog_playtest.exec()
+        if not os.path.exists("temp"):
                 os.mkdir("temp")
-            self.rom.saveToFile(self.temp_path)# Create temporary ROM to playtest
+        self.rom.saveToFile(self.temp_path)# Create temporary ROM to playtest
+        if 'dialog_playtest' in locals() and dialog_playtest.result():
             with open(self.temp_path, "r+b") as f:
                     if input_address.text() != "":
                         try:
@@ -1567,6 +1598,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                                 f"Address input must be numeric and must not go over size {library.dataconverter.StrFromNumber(len(self.rom.save()), self.displayBase, self.displayAlphanumeric)}\nValue input must be numeric."
                                 )
                             return
+        if isQuick or dialog_playtest.result():
             os.startfile(self.temp_path)
             print("game will start in a few seconds")
 
@@ -1783,11 +1815,18 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.fileDisplayState = "None"
 
                     if self.fileDisplayState == "English dialogue": # if english text
-                        dialogue = library.dialoguefile.DialogueFile(self.rom.files[current_id])
                         if not isValueUpdate:
                             self.file_editor_show("Text")
                             self.dropdown_textindex.blockSignals(True)
                             self.dropdown_textindex.clear()
+                        try:
+                            dialogue = library.dialoguefile.DialogueFile(self.rom.files[current_id])
+                        except AssertionError:
+                            self.file_content_text.setPlainText("")
+                            self.file_content_text.setReadOnly(True)
+                            self.dropdown_textindex.blockSignals(False)
+                            return
+                        if not isValueUpdate:
                             for i in range(len(dialogue.text_list)):
                                 self.dropdown_textindex.addItem(str(i))
                             self.dropdown_textindex.blockSignals(False)
@@ -1879,8 +1918,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         zerofill = 8 if e.treeWidget().headerItem().text(t).lower().find("address") != -1 else 0
                         e.setText(t, newtext.zfill(zerofill))
 
-    def reloadCall(self, level=0, truecall=True): # Reload all reloadable content
-        if hasattr(self.rom, "name") and truecall:
+    def reloadCall(self, level=0): # Reload all reloadable content
+        if hasattr(self.rom, "name"):
             #print("reloadlevel " + str(level))
             if level == 0: #reload only necessary
                 self.treeBaseUpdate(self.tree_arm9)
@@ -2105,6 +2144,9 @@ def saveData_fromGFXView(view: GFXView, palette: list[int]=w.gfx_palette, algori
     return saved_data
 
 def extract(data: bytes, name="", path="", format=""):
+    if name == "":
+        print("Error, tried to extract nameless file!")
+        return
     print("file " + name + ": " + format)
     print(data[0x65:0xc5])
 
