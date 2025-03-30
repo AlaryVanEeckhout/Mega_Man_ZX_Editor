@@ -17,5 +17,6 @@
 #converted exported files(txt also used for preferences)
 *.txt
 *.bmp
-*.mov
+*.wav
+*.mp4
 #specific files

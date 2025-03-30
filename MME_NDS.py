@@ -8,6 +8,7 @@ import ndspy
 #import ndspy.model
 import ndspy.rom, ndspy.code, ndspy.codeCompression
 import ndspy.soundArchive
+import ndspy.soundSequenceArchive
 #import PyQt6.Qt6
 #import PyQt6.Qt6.qsci
 import library.dataconverter, library.patchdata, library.init_readwrite, library.actimagine, library.dialoguefile
@@ -1114,7 +1115,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         name = ""
         data = bytes()
         obj = self.rom.files
-        is_subfile = False
+        obj2 = None
         if tree == self.tree:
             name = item.text(1) + "." + item.text(2)
             data = obj[int(item.text(0))]
@@ -1133,7 +1134,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         data = self.rom.arm9[library.dataconverter.NumFromStr(item.text(0), self.displayBase) - 0x01FFC000 - 0x00004000:]
                 else:
                     print("Explicit ARM9 code-sections are not (yet) supported")
-                    return [b'', "", None, False]
+                    return [b'', "", None, None]
                     #data = ndspy.codeCompression._compress(self.rom.loadArm9().sections[int(tree.indexFromItem(item).row())].data) #compressed
                 name += ".bin"
             if tree == self.tree_arm7: # 02380000 - 0014E000 = 02232000
@@ -1147,7 +1148,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         data = self.rom.arm7[library.dataconverter.NumFromStr(item.text(0), self.displayBase) - 0x02232000 - 0x0014E000]
                 else:
                     print("Explicit ARM7 code-sections are not (yet) supported")
-                    return [b'', "", None, False]
+                    return [b'', "", None, None]
                     #ndspy.codeCompression.compress(self.rom.loadArm7().sections[int(tree.indexFromItem(item).row())].data)
                 name += ".bin"
             if tree == self.tree_arm9Ovltable:
@@ -1157,7 +1158,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 data = self.rom.files[int(item.text(0))] #.loadArm7Overlays()[int(item.text(0))].data
                 name += ".bin"
             if tree == self.tree_sdat:
-                is_subfile = True
+                obj2 = self.sdat
                 data_list = [
                 self.sdat.sequences,
                 self.sdat.sequenceArchives,
@@ -1171,11 +1172,12 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 for category in data_list:
                     for file in category:
                         if file[0] == item.text(1):
-                            data = file[1].save()
-                            print(data)
-                            if type(data) == type((0, 1)):
-                                data = data[0]
-        return [data, name, obj, is_subfile]
+                            obj2 = category
+                            data = file#[1].save()
+                            #print(data)
+                            #if type(data) == type((0, 1)):
+                            #    data = data[0]
+        return [data, name, obj, obj2]
         
     def set_dialog_button_name(self, dialog: PyQt6.QtWidgets.QDialog, oldtext: str, newtext: str):
         for btn in dialog.findChildren(PyQt6.QtWidgets.QPushButton):
@@ -1273,11 +1275,14 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 self.setWindowTitle("Mega Man ZX Editor")
                 return
             try:
-                self.sdat = ndspy.soundArchive.SDAT(self.rom.files[int(str(self.rom.filenames).rpartition(".sdat")[0].split()[-2])])# manually search for sdat file because getFileByName does not find it when it is in a folder
-                print("SDAT at " + str(self.rom.filenames).rpartition(".sdat")[0].split()[-2])
+                fileID = str(self.rom.filenames).rpartition(".sdat")[0].split()[-2]
+                self.sdat = ndspy.soundArchive.SDAT(self.rom.files[int(fileID)])# manually search for sdat file because getFileByName does not find it when it is in a folder
+                self.sdat.fileID = int(fileID)
+                print("SDAT at " + fileID)
                 #self.sdat.fatLengthsIncludePadding = True
                 self.action_sdat.setEnabled(True)
-            except Exception:
+            except Exception as e:
+                print(e)
                 self.window_progress.hide()
                 self.sdat = None
                 dialog = PyQt6.QtWidgets.QMessageBox(self)
@@ -1368,11 +1373,17 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 print("Selected: " + dropdown_formatselect.currentText())
                 print("Item: " + item.text(0))
                 if item != None:
-                    if self.file_fromItem(item) == [b'', "", None]:
+                    fileData = self.file_fromItem(item)
+                    if fileData == [b'', "", None]:
                         print("could not fetch data from tree item")
                         return
+                    elif type(fileData[0]) != bytes:
+                        fileData[0] = fileData[0][1].save()
+                        print(fileData[0])
+                        if type(fileData[0]) == type((0, 1)):
+                            fileData[0] = fileData[0][0]
                     if item.text(2).find("Folder") == -1: # if file
-                        extract(*self.file_fromItem(item)[:2], path=dialog.selectedFiles()[0], format=dropdown_formatselect.currentText())
+                        extract(*fileData[:2], path=dialog.selectedFiles()[0], format=dropdown_formatselect.currentText())
                     else: # if folder
                         folder_path = os.path.join(dialog.selectedFiles()[0] + "/" + w.fileToEdit_name.removesuffix(".Folder"))
                         if os.path.exists(folder_path) == False:
@@ -1445,16 +1456,18 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                     with open(*dialog.selectedFiles(), 'rb') as f:
                         fileEdited = f.read()
                         try:
+                            fileName = str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']").split(".")[0]
                             fileExt = str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']").split(".")[1]
                         except IndexError:
+                            fileName = ""
                             fileExt = ""
                         #print(fileExt)
                         # find a way to get attr and replace data at correct index.. maybe it's better to just save ROM and patch
                         #self.rom.files[self.rom.files.index(self.file_fromItem(item)[0])]
-                        supported_list = ["txt", "SWAR", "SBNK", "SSAR", "SSEQ", "bin", ""]
+                        supported_list = ["txt", "swar", "sbnk", "ssar", "sseq", "bin", ""]
                         fileInfo = self.file_fromItem(item)
-                        print(fileExt)
-                        if not any(supported == fileExt for supported in supported_list): # unknown
+                        print(fileName + "." + fileExt)
+                        if not any(supported == fileExt.lower() for supported in supported_list): # unknown
                             dialog2.exec()
                             return
                         elif type(fileInfo[2]) != type(None):
@@ -1466,9 +1479,28 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                             if type(fileInfo[2]) == bytearray: # other
                                     fileInfo[2][fileInfo[2].index(fileInfo[0]):fileInfo[2].index(fileInfo[0])+len(fileInfo[0])] = data
                                     print(data[:0x15].hex())
-                            elif not fileInfo[3]: # rom files
+                            elif fileInfo[3] == None: # rom files
                                 fileInfo[2][fileInfo[2].index(fileInfo[0])] = data
                                 print(data[:0x15].hex())
+                            elif any(x for x in self.sdat.__dict__.values() if x == fileInfo[3]):
+                                newName = fileName
+                                oldObject = fileInfo[0][1]
+                                newObject = type(oldObject).fromFile(dialog.selectedFiles()[0])
+                                if type(fileInfo[0][1]) == ndspy.soundSequenceArchive.soundSequence.SSEQ: # bankID fix (defaults to 0)
+                                    newObject.bankID = oldObject.bankID
+                                    newObject.volume = oldObject.volume
+                                    newObject.channelPressure = oldObject.channelPressure
+                                    newObject.polyphonicPressure = oldObject.polyphonicPressure
+                                    newObject.playerID = oldObject.playerID
+                                    #for sseq in fileInfo[3]:
+                                    #    if sseq[0] == fileName:
+                                    #        newObject.bankID = sseq[1].bankID
+                                    #        newName = fileInfo[0][0]
+                                print(oldObject)
+                                print(newObject)
+                                fileInfo[3][fileInfo[3].index(fileInfo[0])] = (newName, newObject) 
+                                fileInfo[2][self.sdat.fileID] = self.sdat.save()
+                                self.treeSdatUpdate() # refresh tree to avoid interactions with files that are not in the new state
                             else: # subfile
                                 for file in fileInfo[2]:
                                     if fileInfo[0] in file:
@@ -1746,7 +1778,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             ]
             for category in item_list:
                 for section in data_list[item_list.index(category)]:
-                    category.addChild(PyQt6.QtWidgets.QTreeWidgetItem(["Unknown", section[0], category.text(2)]))
+                    child = PyQt6.QtWidgets.QTreeWidgetItem([str(data_list[item_list.index(category)].index(section)), section[0], category.text(2)])
+                    if hasattr(section[1], "bankID"):
+                        child.setToolTip(0, "bankID: " + str(section[1].bankID))
+                    category.addChild(child)
                 #progress.setValue(progress.value()+ 100//len(item_list))
 
             self.tree_sdat.addTopLevelItems([*item_list])
@@ -2019,6 +2054,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             if self.fileDisplayState == "English dialogue": # if english text
                 dialog = library.dialoguefile.DialogueFile(w.rom.files[file_id])
                 dialog.text_list[w.dropdown_textindex.currentIndex()] = self.file_content_text.toPlainText()
+                #dialog.text_id_list = 
                 w.rom.files[file_id] = dialog.generate_file_binary()
             elif self.fileDisplayState == "Graphics":
                 rom_save_data = saveData_fromGFXView(self.file_content_gfx, algorithm=list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column, tileWidth=self.tile_width, tileHeight=self.tile_height)
@@ -2130,7 +2166,7 @@ def draw_tilesQImage_fromBytes(view: GFXView, data: bytearray, palette: list[int
         painter.drawPixmap(pos, gfx) # draw tile at correct pos in canvas
     view._graphic.setPixmap(gfx_zone) # overwrite current canvas with new one
     return
-# Decode contents of tile viewer(WIP)
+# Decode contents of tile viewer
 def saveData_fromGFXView(view: GFXView, palette: list[int]=w.gfx_palette, algorithm=library.dataconverter.CompressionAlgorithmEnum.ONEBPP, tilesPerRow=8, tilesPerColumn=8, tileWidth=8, tileHeight=8):
     saved_data = bytearray()
     #print("pixmap: " + "width=" + str(view._graphic.pixmap().width()) + "   height=" + str(view._graphic.pixmap().height()))
