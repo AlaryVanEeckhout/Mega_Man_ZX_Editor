@@ -1,6 +1,7 @@
 import PyQt6
 import PyQt6.QtGui, PyQt6.QtWidgets, PyQt6.QtCore
 import sys, os, platform
+import argparse
 #import logging, time, random
 #import numpy
 import ndspy
@@ -11,11 +12,14 @@ import ndspy.soundArchive
 import ndspy.soundSequenceArchive
 #import PyQt6.Qt6
 #import PyQt6.Qt6.qsci
-import library.dataconverter, library.patchdata, library.init_readwrite, library.actimagine, library.dialoguefile
+import library
 #Global variables
 global EDITOR_VERSION
 EDITOR_VERSION = "0.3.2" # objective, feature, WIP
 
+parser = argparse.ArgumentParser()
+parser.add_argument("-R", "--ROM", help="NDS ROM to open using the editor.", dest="openPath")
+args = parser.parse_args()
 """
 class ThreadSignals(PyQt6.QtCore.QObject): # signals can omly be emmited by QObject
     valueChanged = PyQt6.QtCore.pyqtSignal(int)
@@ -341,6 +345,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.load_preferences()
         self.UiComponents()
         self.show()
+        if args.openPath != None:
+            self.loadROM(args.openPath)
 
     def load_preferences(self):
         #SETTINGS
@@ -1239,86 +1245,96 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.tree_patches_numaplha = self.displayAlphanumeric
 
     def openCall(self):
-        fname = PyQt6.QtWidgets.QFileDialog.getOpenFileName(
+        filename = PyQt6.QtWidgets.QFileDialog.getOpenFileName(
             self,
             "Open File",
             "",
             "NDS Files (*.nds *.srl);; All Files (*)",
             options=PyQt6.QtWidgets.QFileDialog.Option.DontUseNativeDialog,
         )
-        if not fname == ("", ""): # if file you're trying to open is not none
-            # reset stuff to prevent conflicts
-            self.tree.setCurrentItem(None)
-            self.field_address.setRange(0,0) # set address to 0 for consistency with the fact that no file is selected
-            self.rom = None
-            self.sdat = None
-            self.treeUpdate()
-            self.tree_patches.clear()
-            self.disable_editing_ui()
+        if not filename == ("", ""):
+            self.loadROM(filename[0])
 
-            self.progressShow() # progress bar
-            self.progressUpdate(0, "Loading ROM")
-            #self.runTasks([[RunnableDisplayProgress, [], "valueChanged", self.progress.setValue]])
-            self.romToEdit_name = fname[0].split("/")[len(fname[0].split("/")) - 1].rsplit(".", 1)[0]
-            self.romToEdit_ext = "." + fname[0].split("/")[len(fname[0].split("/")) - 1].rsplit(".", 1)[1]
-            self.setWindowTitle("Mega Man ZX Editor" + " \"" + self.romToEdit_name + self.romToEdit_ext + "\"")
-            try:
-                self.rom = ndspy.rom.NintendoDSRom.fromFile(fname[0])
-            except Exception as e:
-                self.progressHide()
-                print(e)
-                PyQt6.QtWidgets.QMessageBox.critical(
-                self,
-                "Failed to load ROM",
-                str(e)
-                )
-                self.setWindowTitle("Mega Man ZX Editor")
-                return
-            try:
-                fileID = str(self.rom.filenames).rpartition(".sdat")[0].split()[-2]
-                self.sdat = ndspy.soundArchive.SDAT(self.rom.files[int(fileID)])# manually search for sdat file because getFileByName does not find it when it is in a folder
-                self.sdat.fileID = int(fileID)
-                print("SDAT at " + fileID)
-                #self.sdat.fatLengthsIncludePadding = True
-                self.action_sdat.setEnabled(True)
-            except Exception as e:
-                print(e)
-                self.window_progress.hide()
-                self.sdat = None
-                dialog = PyQt6.QtWidgets.QMessageBox(self)
-                dialog.setWindowTitle("No SDAT")
-                dialog.setWindowIcon(PyQt6.QtGui.QIcon("icons\\exclamation"))
-                dialog.setText("Sound data archive was not found. \n This means that sound data may not be there or may not be in a recognizable format.")
-                dialog.exec()
-                self.progressShow()
-            self.progressUpdate(10, "Loading ARM9")
-            self.treeArm9Update()
-            self.progressUpdate(20, "Loading ARM7")
-            self.treeArm7Update()
-            self.progressUpdate(30, "Loading SDAT")
-            self.treeSdatUpdate()
-            #print(self.rom.filenames)
-            self.progressUpdate(50, "Loading Patches")
-            self.tree_patches_numaplha = None # set to something that isn't displayalphanumeric
-            self.patches_reload()
-            self.progressUpdate(80, "Finishing load")
-            self.temp_path = f"{os.path.curdir}\\temp\\{self.romToEdit_name+self.romToEdit_ext}"
-            self.setWindowTitle("Mega Man ZX Editor" + " <" + self.rom.name.decode() + ", Serial ID " + ''.join(char for char in self.rom.idCode.decode("utf-8") if char.isalnum())  + ", Rev." + str(self.rom.version) + ", Region " + str(self.rom.region) + ">" + " \"" + self.romToEdit_name + self.romToEdit_ext + "\"")
-            if not self.rom.name.decode().replace(" ", "_") in library.patchdata.GameEnum.__members__:
-                print("ROM is NOT supported! Continue at your own risk!")
-                self.window_progress.hide()
-                dialog = PyQt6.QtWidgets.QMessageBox(self)
-                dialog.setWindowTitle("Warning!")
-                dialog.setWindowIcon(PyQt6.QtGui.QIcon("icons\\exclamation"))
-                dialog.setText("Game \"" + self.rom.name.decode() + "\" is NOT supported! Continue at your own risk!")
-                dialog.exec()
-                self.progressShow()
+    def loadROM(self, fname: str):
+        # reset stuff to prevent conflicts
+        self.tree.setCurrentItem(None)
+        self.field_address.setRange(0,0) # set address to 0 for consistency with the fact that no file is selected
+        self.rom = None
+        self.sdat = None
+        self.treeUpdate()
+        self.tree_patches.clear()
+        self.disable_editing_ui()
 
-            self.treeUpdate()
-            self.progressUpdate(100, "Finishing load")
-            self.enable_editing_ui()
-            self.file_content_text.setDisabled(True)
+        if fname == "" or not os.path.exists(fname): return
+
+        self.progressShow() # progress bar
+        self.progressUpdate(0, "Loading ROM")
+        #self.runTasks([[RunnableDisplayProgress, [], "valueChanged", self.progress.setValue]])
+        pathSep = "/"
+        if fname.find("/") == -1:
+            pathSep = "\\"
+        nameParts = fname.split(pathSep)[len(fname.split(pathSep)) - 1].rsplit(".", 1)
+        self.romToEdit_name = nameParts[0]
+        self.romToEdit_ext = "." + nameParts[1]
+        self.setWindowTitle("Mega Man ZX Editor" + " \"" + self.romToEdit_name + self.romToEdit_ext + "\"")
+        try:
+            self.rom = ndspy.rom.NintendoDSRom.fromFile(fname)
+        except Exception as e:
             self.progressHide()
+            print(e)
+            PyQt6.QtWidgets.QMessageBox.critical(
+            self,
+            "Failed to load ROM",
+            str(e)
+            )
+            self.setWindowTitle("Mega Man ZX Editor")
+            return
+        try:
+            fileID = str(self.rom.filenames).rpartition(".sdat")[0].split()[-2]
+            self.sdat = ndspy.soundArchive.SDAT(self.rom.files[int(fileID)])# manually search for sdat file because getFileByName does not find it when it is in a folder
+            self.sdat.fileID = int(fileID)
+            print("SDAT at " + fileID)
+            #self.sdat.fatLengthsIncludePadding = True
+            self.action_sdat.setEnabled(True)
+        except Exception as e:
+            print(e)
+            self.window_progress.hide()
+            self.sdat = None
+            dialog = PyQt6.QtWidgets.QMessageBox(self)
+            dialog.setWindowTitle("No SDAT")
+            dialog.setWindowIcon(PyQt6.QtGui.QIcon("icons\\exclamation"))
+            dialog.setText("Sound data archive was not found. \n This means that sound data may not be there or may not be in a recognizable format.")
+            dialog.exec()
+            self.progressShow()
+        self.progressUpdate(10, "Loading ARM9")
+        self.treeArm9Update()
+        self.progressUpdate(20, "Loading ARM7")
+        self.treeArm7Update()
+        self.progressUpdate(30, "Loading SDAT")
+        self.treeSdatUpdate()
+        #print(self.rom.filenames)
+        self.progressUpdate(50, "Loading Patches")
+        self.tree_patches_numaplha = None # set to something that isn't displayalphanumeric
+        self.patches_reload()
+        self.progressUpdate(80, "Finishing load")
+        self.temp_path = f"{os.path.curdir}\\temp\\{self.romToEdit_name+self.romToEdit_ext}"
+        self.setWindowTitle("Mega Man ZX Editor" + " <" + self.rom.name.decode() + ", Serial ID " + ''.join(char for char in self.rom.idCode.decode("utf-8") if char.isalnum())  + ", Rev." + str(self.rom.version) + ", Region " + str(self.rom.region) + ">" + " \"" + self.romToEdit_name + self.romToEdit_ext + "\"")
+        if not self.rom.name.decode().replace(" ", "_") in library.patchdata.GameEnum.__members__:
+            print("ROM is NOT supported! Continue at your own risk!")
+            self.window_progress.hide()
+            dialog = PyQt6.QtWidgets.QMessageBox(self)
+            dialog.setWindowTitle("Warning!")
+            dialog.setWindowIcon(PyQt6.QtGui.QIcon("icons\\exclamation"))
+            dialog.setText("Game \"" + self.rom.name.decode() + "\" is NOT supported! Continue at your own risk!")
+            dialog.exec()
+            self.progressShow()
+
+        self.treeUpdate()
+        self.progressUpdate(100, "Finishing load")
+        self.enable_editing_ui()
+        self.file_content_text.setDisabled(True)
+        self.progressHide()
+        
 
     def enable_editing_ui(self):
         #self.button_codeedit.setDisabled(False)
