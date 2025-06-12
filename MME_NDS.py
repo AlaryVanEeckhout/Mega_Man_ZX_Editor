@@ -7,6 +7,7 @@ import argparse
 import ndspy
 #import ndspy.graphics2D
 #import ndspy.model
+import ndspy.lz10
 import ndspy.rom, ndspy.code, ndspy.codeCompression
 import ndspy.soundArchive
 import ndspy.soundSequenceArchive
@@ -1027,7 +1028,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.tabs_tweaks = PyQt6.QtWidgets.QTabWidget(self.page_tweaks)
 
         self.dropdown_tweak_target = PyQt6.QtWidgets.QComboBox(self.page_tweaks)
-        self.dropdown_tweak_target.setGeometry(125, 75, 125, 25)
+        #self.dropdown_tweak_target.setGeometry(125, 75, 125, 25)
         self.dropdown_tweak_target.setToolTip("Choose a target to appy tweaks to")
         self.dropdown_tweak_target.addItems(["Other", "Player", "Player(Hu)", "Player(X)", "Player(Zx)", "Player(Fx)", "Player(Hx)", "Player(Lx)", "Player(Px)", "Player(Ox)"])# order of names is determined by the enum in dataconverter
         #self.dropdown_tweak_target.currentTextChanged.connect(self.tweakTargetCall)
@@ -1375,31 +1376,35 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.set_dialog_button_name(dialog, "&Open", "Save")
         if dialog.exec(): # if you saved a file
             dialog_formatselect = PyQt6.QtWidgets.QDialog(self)
-            dialog_formatselect.setWindowTitle("Choose format")
+            dialog_formatselect.setWindowTitle("Choose format and compression")
             dropdown_formatselect = PyQt6.QtWidgets.QComboBox(dialog_formatselect)
-            dropdown_formatselect.setGeometry(25, 75, 200, 25)
             dropdown_formatselect.addItems(["Raw", "English dialogue"])
-            button_formatselectOK = PyQt6.QtWidgets.QPushButton("OK", dialog_formatselect)
-            button_formatselectOK.setGeometry(175, 150, 50, 25)
-            button_formatselectOK.pressed.connect(lambda: dialog_formatselect.close())
-            button_formatselectOK.pressed.connect(lambda: dialog_formatselect.setResult(1))
+            dropdown_compressselect = PyQt6.QtWidgets.QComboBox(dialog_formatselect)
+            dropdown_compressselect.addItems(["No compression change", "LZ10 compression", "LZ10 decompression"])
+            button_OK = PyQt6.QtWidgets.QPushButton("OK", dialog_formatselect)
+            button_OK.pressed.connect(lambda: dialog_formatselect.close())
+            button_OK.pressed.connect(lambda: dialog_formatselect.setResult(1))
+            dialog_formatselect.setLayout(PyQt6.QtWidgets.QGridLayout())
+            dialog_formatselect.layout().addWidget(dropdown_formatselect)
+            dialog_formatselect.layout().addWidget(dropdown_compressselect)
+            dialog_formatselect.layout().addWidget(button_OK)
             dialog_formatselect.resize(250, 200)
             dialog_formatselect.exec()
             if dialog_formatselect.result():
-                print("Selected: " + dropdown_formatselect.currentText())
+                print("Selected: " + dropdown_formatselect.currentText() + ", " + dropdown_compressselect.currentText())
                 print("Item: " + item.text(0))
                 if item != None:
                     fileData = self.file_fromItem(item)
                     if fileData == [b'', "", None]:
                         print("could not fetch data from tree item")
                         return
-                    elif type(fileData[0]) != bytes:
+                    elif type(fileData[0]) != bytes and type(fileData[0]) != bytearray: # both bytes and bytearray are essentially the same, but need to be checked for separately
                         fileData[0] = fileData[0][1].save()
                         print(fileData[0])
                         if type(fileData[0]) == type((0, 1)):
                             fileData[0] = fileData[0][0]
                     if item.text(2).find("Folder") == -1: # if file
-                        extract(*fileData[:2], path=dialog.selectedFiles()[0], format=dropdown_formatselect.currentText())
+                        extract(*fileData[:2], path=dialog.selectedFiles()[0], format=dropdown_formatselect.currentText(), compress=dropdown_compressselect.currentIndex())
                     else: # if folder
                         folder_path = os.path.join(dialog.selectedFiles()[0] + "/" + w.fileToEdit_name.removesuffix(".Folder"))
                         if os.path.exists(folder_path) == False:
@@ -1410,7 +1415,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         print(item.childCount() - 1)
                         for i in range(item.childCount()):
                             print(item.child(i).text(0))
-                            extract(*self.file_fromItem(item.child(i))[:2], path=dialog.selectedFiles()[0] + "/" + w.fileToEdit_name.removesuffix(".Folder"), format=dropdown_formatselect.currentText())#, w.fileToEdit_name.replace(".Folder", "/")
+                            extract(*self.file_fromItem(item.child(i))[:2], path=dialog.selectedFiles()[0] + "/" + w.fileToEdit_name.removesuffix(".Folder"), format=dropdown_formatselect.currentText(), compress=dropdown_compressselect.currentIndex())#, w.fileToEdit_name.replace(".Folder", "/")
                             #str(w.tree.currentItem().child(i).text(1) + "." + w.tree.currentItem().child(i).text(2)), 
 
     def replacebynameCall(self):
@@ -1480,7 +1485,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         #print(fileExt)
                         # find a way to get attr and replace data at correct index.. maybe it's better to just save ROM and patch
                         #self.rom.files[self.rom.files.index(self.file_fromItem(item)[0])]
-                        supported_list = ["txt", "swar", "sbnk", "ssar", "sseq", "bin", ""]
+                        supported_list = ["txt", "swar", "sbnk", "ssar", "sseq", "cmp", "dec", "bin", ""]
                         fileInfo = self.file_fromItem(item)
                         print(fileName + "." + fileExt)
                         if not any(supported == fileExt.lower() for supported in supported_list): # unknown
@@ -1489,6 +1494,20 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         elif type(fileInfo[2]) != type(None):
                             if fileExt == "txt": # text file
                                 data = bytearray(library.dialoguefile.DialogueFile.convertdata_text_to_bin(fileEdited.decode("utf-8")))
+                            elif fileExt == "cmp":
+                                try:
+                                    data = bytearray(ndspy.lz10.decompress(fileEdited))
+                                except TypeError as e:
+                                    print(e)
+                                    PyQt6.QtWidgets.QMessageBox.critical(
+                                    self,
+                                    "Decompression Failed",
+                                    str(e + "\nConsider trying again without the .cmp file extension.")
+                                    )
+                                    print("Aborted file replacement.")
+                                    return
+                            elif fileExt == "dec":
+                                data = bytearray(ndspy.lz10.compress(fileEdited))
                             else: # raw data
                                 data = bytearray(fileEdited)
 
@@ -2195,27 +2214,44 @@ def saveData_fromGFXView(view: GFXView, palette: list[int]=w.gfx_palette, algori
     #print(saved_data.hex())
     return saved_data
 
-def extract(data: bytes, name="", path="", format=""):
+def extract(data: bytes, name="", path="", format="", compress=0):
+    ext = ""
     if name == "":
         print("Error, tried to extract nameless file!")
         return
+    if compress == 2:
+        try:
+            data = ndspy.lz10.decompress(data)
+        except TypeError as e:
+            print(e)
+            PyQt6.QtWidgets.QMessageBox.critical(
+            w,
+            "Decompression Failed",
+            str(e)
+            )
+            print("Aborted file extraction.")
+            return
+
     print("file " + name + ": " + format)
     print(data[0x65:0xc5])
 
     # create a copy of the file outside ROM
     if format == "" or format == "Raw":
-        with open(os.path.join(path + "/" + name), 'wb') as f:
-            f.write(data)
-            print(os.path.join(path + "/" + name))
-            print("File extracted!")
+        ext = ".bin"
     else:
         if format == "English dialogue":
-                with open(os.path.join(path + "/" + name.split(".")[0] + ".txt"), 'wb') as f: # change export method
-                    f.write(bytes(library.dialoguefile.DialogueFile.convertdata_bin_to_text(data), "utf-8"))
-                    print(os.path.join(path + "/" + name.split(".")[0] + ".txt"))
-                    print("File extracted!")
+            ext = ".txt"
+            data = bytes(library.dialoguefile.DialogueFile.convertdata_bin_to_text(data), "utf-8")
         else:
             print("could not find method for converting to specified format.")
+            return
+    if compress == 1:
+        data = ndspy.lz10.compress(data)
+
+    print(os.path.join(path + "/" + name.split(".")[0] + ext))
+    with open(os.path.join(path + "/" + name.split(".")[0] + ext), 'wb') as f:
+        f.write(data)
+    print("File extracted!")
 #run the app
 app.exec()
 # After execution
