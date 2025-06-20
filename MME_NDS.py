@@ -960,16 +960,16 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.label_vxHeader_quantiser.setText("Quantiser: ")
         self.label_vxHeader_quantiser.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignCenter)
         self.label_vxHeader_quantiser.hide()
-        self.field_vxHeader_quantiser = BetterSpinBox(self.page_explorer)
-        self.field_vxHeader_quantiser.setFont(self.font_caps)
-        self.field_vxHeader_quantiser.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_quantiser.numfill = 8
-        self.field_vxHeader_quantiser.isInt = True
-        self.field_vxHeader_quantiser.hide()
-        self.field_vxHeader_quantiser.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_vxHeader_quantizer = BetterSpinBox(self.page_explorer)
+        self.field_vxHeader_quantizer.setFont(self.font_caps)
+        self.field_vxHeader_quantizer.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_quantizer.numfill = 8
+        self.field_vxHeader_quantizer.isInt = True
+        self.field_vxHeader_quantizer.hide()
+        self.field_vxHeader_quantizer.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_quantiser = PyQt6.QtWidgets.QVBoxLayout()
         self.layout_vxHeader_quantiser.addWidget(self.label_vxHeader_quantiser)
-        self.layout_vxHeader_quantiser.addWidget(self.field_vxHeader_quantiser)
+        self.layout_vxHeader_quantiser.addWidget(self.field_vxHeader_quantizer)
 
         self.label_vxHeader_seekTableOffset = PyQt6.QtWidgets.QLabel(self.page_explorer)
         self.label_vxHeader_seekTableOffset.setText("Seek table offset: ")
@@ -1929,19 +1929,20 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                     elif self.fileDisplayState == "VX":
                         self.file_editor_show("VX")
                         self.field_address.setDisabled(True)
-                        vx_file = library.actimagine.VX(self.rom.files[current_id])
+                        vx_file = library.actimagine.ActImagine()
+                        vx_file.load_vx(self.rom.files[current_id]) # will work if load_vx supports loading directly from bytes
                         #print(self.rom.files[current_id][5:6].hex()+self.rom.files[current_id][4:5].hex())
-                        self.field_vxHeader_length.setValue(vx_file.frame_count)
+                        self.field_vxHeader_length.setValue(vx_file.frames_qty)
                         self.field_vxHeader_width.setValue(vx_file.frame_width)
                         self.field_vxHeader_height.setValue(vx_file.frame_height)
                         self.field_vxHeader_framerate.setValue(vx_file.frame_rate)
-                        self.field_vxHeader_quantiser.setValue(vx_file.quantiser)
-                        self.field_vxHeader_sampleRate.setValue(vx_file.audio_sampleRate)
-                        self.field_vxHeader_streamCount.setValue(vx_file.audio_streamCount)
-                        self.field_vxHeader_frameSizeMax.setValue(vx_file.frame_sizeMax)
-                        self.field_vxHeader_audioExtraDataOffset.setValue(vx_file.audio_extraDataOffset)
-                        self.field_vxHeader_seekTableOffset.setValue(vx_file.seekTable_offset)
-                        self.field_vxHeader_seekTableEntryCount.setValue(vx_file.seekTable_entryCount)
+                        self.field_vxHeader_quantizer.setValue(vx_file.quantizer)
+                        self.field_vxHeader_sampleRate.setValue(vx_file.audio_sample_rate)
+                        self.field_vxHeader_streamCount.setValue(vx_file.audio_streams_qty)
+                        self.field_vxHeader_frameSizeMax.setValue(vx_file.frame_size_max)
+                        self.field_vxHeader_audioExtraDataOffset.setValue(vx_file.audio_extradata_offset)
+                        self.field_vxHeader_seekTableOffset.setValue(vx_file.seek_table_offset)
+                        self.field_vxHeader_seekTableEntryCount.setValue(vx_file.seek_table_entries_qty)
                         self.button_file_save.setDisabled(True)
                     else:
                         self.field_address.setDisabled(True)
@@ -2052,7 +2053,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.label_vxHeader_framerate,
             self.field_vxHeader_sampleRate,
             self.label_vxHeader_sampleRate,
-            self.field_vxHeader_quantiser,
+            self.field_vxHeader_quantizer,
             self.label_vxHeader_quantiser,
             self.field_vxHeader_frameSizeMax,
             self.label_vxHeader_frameSizeMax,
@@ -2099,7 +2100,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 w.rom.files[file_id][0x08:0x0C] = bytearray(int.to_bytes(int(self.field_vxHeader_width.value()), 4, "little"))
                 w.rom.files[file_id][0x0C:0x10] = bytearray(int.to_bytes(int(self.field_vxHeader_height.value()), 4, "little"))
                 w.rom.files[file_id][0x10:0x14] = bytearray(int.to_bytes(int(self.field_vxHeader_framerate.value()*0x10000), 4, "little")) #convert float to 16.16
-                w.rom.files[file_id][0x14:0x18] = bytearray(int.to_bytes(int(self.field_vxHeader_quantiser.value()), 4, "little"))
+                w.rom.files[file_id][0x14:0x18] = bytearray(int.to_bytes(int(self.field_vxHeader_quantizer.value()), 4, "little"))
                 w.rom.files[file_id][0x18:0x1C] = bytearray(int.to_bytes(int(self.field_vxHeader_sampleRate.value()), 4, "little"))
                 w.rom.files[file_id][0x1C:0x20] = bytearray(int.to_bytes(int(self.field_vxHeader_streamCount.value()), 4, "little"))
                 w.rom.files[file_id][0x20:0x24] = bytearray(int.to_bytes(int(self.field_vxHeader_frameSizeMax.value()), 4, "little"))

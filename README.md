@@ -5,7 +5,7 @@
 
 > <img src="https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/blob/main/GitHub-page-content/Showcase-Dialogue-ZXA.png" /><br>Edited dialogue file (talk_m01_en1.bin) in Mega Man ZX Advent
 ## What this is
-This is an attempt at creating a tool that will make editing Mega Man ZX much easier.<br>
+This is a tool I created in an attempt to make editing Mega Man ZX much easier.<br>
 If you need to know where specific assets, values, or code sections are in the game, please see the (unfinished) [wiki page](https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/wiki), as it contains documentation I accumulated on the game.
 ## Progress
 Currently, I am focusing on the USA version of Mega Man ZX. This means that the editor's (full) compatibility with other versions of the game is not guarenteed at the moment (although, it's worth noting that MMZXA has the same dialogue system as MMZX, and as such, the dialogue editor works for both games).<br>
@@ -21,12 +21,12 @@ The editor can edit, export and import english dialogue files and save them to t
 - SDAT Viewer (WIP)
 - ARM Viewer (WIP)
 ### To do
+- VX Export/Import to/from video format*
 - Graphics Editor additional features (exporting and importing)
 - Find actual patches for the game to add to the editor's "patches" tab
 - Find patches and tweaks that are helpful for playtesting purposes
 - OAM Editor*
 - Sound/Music Editor*
-- Movie Editor*
 - Tweaks/Physics Editor*
 - Level Editor*
 - Game Logic Editor*
@@ -42,10 +42,8 @@ Currently, there are no releases, so:
 - Now that you have Python, you can use pip (Package Installer for Python) to install the two following modules:
 - [Download&Install NDSPy](https://pypi.org/project/ndspy/) (using 4.2.0)
 - [Download&Install PyQt6](https://pypi.org/project/PyQt6/) (using 6.8.1)
-<!---
-- [Download&Install NumPy](https://pypi.org/project/numpy/)
-- [Download&Install Pillow v9.3.0 or higher](https://pypi.org/project/Pillow/)
--->
+- [Download&Install NumPy](https://pypi.org/project/numpy/) (submodule dependency)
+- [Download&Install Pillow](https://pypi.org/project/Pillow/) (submodule dependency)
 - This project > Code > Download ZIP
 - Extract the contents of the .zip file wherever you want
 - That's it! Now you can run RunEditor.bat (or run MME_NDS.py directly, from command line)

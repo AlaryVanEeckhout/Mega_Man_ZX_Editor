@@ -1,1 +1,2 @@
-from . import dataconverter, patchdata, init_readwrite, actimagine, dialoguefile
+from . import dataconverter, patchdata, init_readwrite, dialoguefile
+from .actimagine.package import actimagine
