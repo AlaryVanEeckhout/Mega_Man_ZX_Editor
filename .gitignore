@@ -20,3 +20,4 @@
 *.wav
 *.mp4
 #specific files
+export/*
