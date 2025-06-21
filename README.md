@@ -21,21 +21,21 @@ The editor can edit, export and import english dialogue files and save them to t
 - SDAT Viewer (WIP)
 - ARM Viewer (WIP)
 ### To do
-- VX Export/Import to/from video format*
+- VX Export/Import to/from video format
 - Graphics Editor additional features (exporting and importing)
-- Find actual patches for the game to add to the editor's "patches" tab
-- Find patches and tweaks that are helpful for playtesting purposes
-- OAM Editor*
+- Find actual patches for the game to add to the editor's "patches" tab*
+- Find patches and tweaks that are helpful for playtesting purposes*
+- Level Editor*
 - Sound/Music Editor*
 - Tweaks/Physics Editor*
-- Level Editor*
+- OAM Editor*
 - Game Logic Editor*
 <!---
 - 3D Model Viewer and Exporter/Importer*
 - In-game Cutscene Editor*
 -->
 
-*This feature may not be implemented/is not currently prioritized since I haven't looked into it and it looks hard to do at first glance. 
+*This feature may not be implemented/is not currently prioritized since I haven't looked into it and/or it looks/is hard to do. 
 ## Setup for usage
 Currently, there are no releases, so:
 - [Download&Install Python](https://www.python.org/downloads/) (using 3.13.2)
@@ -52,6 +52,7 @@ Currently, there are no releases, so:
 - GUI (PyQt6): https://www.riverbankcomputing.com/software/pyqt/
 - Icons: https://p.yusukekamiyamane.com/
 - appicon.ico: Mega Man ZX devs, taken from [here](https://www.spriters-resource.com/ds_dsi/megamanzx/sheet/180723/) and truncated by me using GIMP
+- This project uses a [submodule](https://github.com/CharlesVanEeckhout/actimagine)
 
 Some parts of code I copied (and modified) from answers to other people who asked for help (for example, on stack overflow) on topics I myself needed help on.
 ### Special Thanks

@@ -303,9 +303,9 @@ class LongTextEdit(PyQt6.QtWidgets.QPlainTextEdit):
     def contextMenuOpen(self): #quick menu to insert special values in dialogue file
         self.context_menu = PyQt6.QtWidgets.QMenu(self)
         self.context_menu.setGeometry(self.cursor().pos().x(), self.cursor().pos().y(), 50, 50)
-        for char_index in range(len(library.dataconverter.SPECIAL_CHARACTER_LIST)):
-            if char_index >= 0xe0 and type(library.dataconverter.SPECIAL_CHARACTER_LIST[char_index]) != type(int()):
-                self.context_menu.addAction(f"{library.dataconverter.StrFromNumber(char_index, w.displayBase, w.displayAlphanumeric).zfill(2)} - {library.dataconverter.SPECIAL_CHARACTER_LIST[char_index][1]}")
+        for char_index in range(len(library.dialoguefile.SPECIAL_CHARACTER_LIST)):
+            if char_index >= 0xe0 and type(library.dialoguefile.SPECIAL_CHARACTER_LIST[char_index]) != type(int()):
+                self.context_menu.addAction(f"{library.dataconverter.StrFromNumber(char_index, w.displayBase, w.displayAlphanumeric).zfill(2)} - {library.dialoguefile.SPECIAL_CHARACTER_LIST[char_index][1]}")
         action2 = self.context_menu.exec()
         if action2 is not None:
             self.insertPlainText(action2.text()[action2.text().find("├"):])
@@ -336,6 +336,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.fileDisplayMode = "Adapt" # Modes: Adapt, Binary, English dialogue, Japanese dialogue, Graphics, Sound, Movie, Code
         self.fileDisplayState = "None" # Same states as mode
         self.gfx_palette = [0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)]
+        self.dialogue_edited = None
         self.resize(self.window_width, self.window_height)
         # Default Preferences
         self.theme_index = 0
@@ -641,7 +642,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.tree.setHeaderLabels(["File ID", "Name", "Type"])
         self.tree.setContextMenuPolicy(PyQt6.QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
         self.tree_called = False
-        self.tree.itemSelectionChanged.connect(self.treeCall)
+        self.tree.itemSelectionChanged.connect(lambda: self.treeCall(addr_reset=True))
 
         self.layout_editzone = PyQt6.QtWidgets.QVBoxLayout()
         self.page_explorer.layout().addItem(self.layout_editzone)
@@ -1823,9 +1824,11 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             #progress.setValue(100)
             #progress.close()
 
-    def treeCall(self, isValueUpdate=False):
+    def treeCall(self, isValueUpdate=False, addr_reset=False):
         #print("Tree")
         #self.clearTasks()
+        if not isValueUpdate:
+            self.dialogue_edited = None
         current_item = self.tree.currentItem()
         self.file_content_text.setReadOnly(False)
         self.field_address.setDisabled(False)
@@ -1848,7 +1851,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             current_ext  = current_item.text(2)
             self.fileToEdit_name = str(current_name + "." + current_ext)
             self.base_address = self.rom.save().index(self.rom.files[current_id])
-            if not isValueUpdate:
+            if addr_reset:
                 self.relative_address = 0
             # set text to current ROM address
             #print(self.relative_address)
@@ -1888,26 +1891,32 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         if not isValueUpdate:
                             self.file_editor_show("Text")
                             self.dropdown_textindex.blockSignals(True)
+                            self.dropdown_textindex.setEnabled(True)
                             self.dropdown_textindex.clear()
-                        try:
-                            dialogue = library.dialoguefile.DialogueFile(self.rom.files[current_id])
-                        except AssertionError:
-                            self.file_content_text.setPlainText("")
-                            self.file_content_text.setReadOnly(True)
-                            self.dropdown_textindex.blockSignals(False)
-                            return
-                        if not isValueUpdate:
-                            for i in range(len(dialogue.text_list)):
+                            try: # put this in if not isValueUpdate
+                                self.dialogue_edited = library.dialoguefile.DialogueFile(self.rom.files[current_id])
+                            except AssertionError:
+                                self.file_content_text.setEnabled(True)
+                                self.dropdown_textindex.blockSignals(False)
+                                self.dropdown_textindex.setDisabled(True)
+                                self.dialogue_edited = library.dialoguefile.DialogueFile.convertdata_bin_to_text(self.rom.files[current_id][self.relative_address:self.relative_address+0xFFFF])
+                                self.file_content_text.setPlainText(self.dialogue_edited)
+                                return
+                            for i in range(len(self.dialogue_edited.text_list)):
                                 self.dropdown_textindex.addItem(str(i))
                             self.dropdown_textindex.blockSignals(False)
+                        else: # when changing text index <- should be before
+                            #self.dialogue_edited.text_list[self.dropdown_textindex.currentIndex()] = self.file_content_text.toPlainText() # keep changes to text
+                            pass
                         textIndex = self.dropdown_textindex.currentIndex()
-                        if dialogue.text_list != []:
-                            self.relative_address = dialogue.textAddress_list[textIndex]
+
+                        if self.dialogue_edited.text_list != []:
+                            self.relative_address = self.dialogue_edited.textAddress_list[textIndex]
                             self.field_address.blockSignals(True)
                             self.field_address.setValue(self.base_address+self.relative_address)
                             self.field_address.setDisabled(True)
                             self.field_address.blockSignals(False)
-                            self.file_content_text.setPlainText(dialogue.text_list[textIndex])
+                            self.file_content_text.setPlainText(self.dialogue_edited.text_list[textIndex])
                         else:
                             self.file_content_text.setPlainText("")
                             self.file_content_text.setReadOnly(True)
@@ -1946,8 +1955,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.button_file_save.setDisabled(True)
                     else:
                         self.field_address.setDisabled(True)
-                        self.file_editor_show("Text")
-                        self.checkbox_textoverwite.hide()
+                        self.file_editor_show("Empty")
                         self.file_content_text.setReadOnly(True)
                         if self.fileDisplayState == "None":
                             file_knowledge = "unknown"
@@ -2008,7 +2016,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 self.treeBaseUpdate(self.tree_arm9Ovltable)
                 self.treeBaseUpdate(self.tree_arm7)
                 self.treeBaseUpdate(self.tree_arm7Ovltable)
-                self.treeCall()
+                self.treeCall(addr_reset=True)
                 self.patches_reload()
             else: #reload everything
                 self.tree.setCurrentItem(None)
@@ -2088,10 +2096,13 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         file_id = int(self.tree.currentItem().text(0))
         if self.fileDisplayRaw == False:
             if self.fileDisplayState == "English dialogue": # if english text
-                dialog = library.dialoguefile.DialogueFile(w.rom.files[file_id])
-                dialog.text_list[w.dropdown_textindex.currentIndex()] = self.file_content_text.toPlainText()
-                #dialog.text_id_list = 
-                w.rom.files[file_id] = dialog.generate_file_binary()
+                if self.dropdown_textindex.isEnabled():
+                    dialog = library.dialoguefile.DialogueFile(self.rom.files[file_id])
+                    dialog.text_list[self.dropdown_textindex.currentIndex()] = self.file_content_text.toPlainText()
+                    #dialog.text_id_list = 
+                    self.rom.files[file_id] = dialog.generate_file_binary()
+                else:
+                    self.rom.files[file_id][self.relative_address:self.relative_address+0xFFFF] = library.dialoguefile.DialogueFile.convertdata_text_to_bin(self.file_content_text.toPlainText())
             elif self.fileDisplayState == "Graphics":
                 rom_save_data = saveData_fromGFXView(self.file_content_gfx, algorithm=list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column, tileWidth=self.tile_width, tileHeight=self.tile_height)
                 w.rom.files[file_id][self.relative_address:self.relative_address+len(rom_save_data)] = rom_save_data
