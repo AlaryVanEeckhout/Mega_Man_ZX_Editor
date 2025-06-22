@@ -1,6 +1,6 @@
 import PyQt6
 import PyQt6.QtGui, PyQt6.QtWidgets, PyQt6.QtCore
-import sys, os, platform
+import sys, os, platform, re
 import argparse
 #import logging, time, random
 #import numpy
@@ -1032,7 +1032,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.dropdown_tweak_target = PyQt6.QtWidgets.QComboBox(self.page_tweaks)
         #self.dropdown_tweak_target.setGeometry(125, 75, 125, 25)
         self.dropdown_tweak_target.setToolTip("Choose a target to appy tweaks to")
-        self.dropdown_tweak_target.addItems(["Other", "Player", "Player(Hu)", "Player(X)", "Player(Zx)", "Player(Fx)", "Player(Hx)", "Player(Lx)", "Player(Px)", "Player(Ox)"])# order of names is determined by the enum in dataconverter
+        self.dropdown_tweak_target.addItems(["Other", "Player", "Player(Hu)", "Player(X)", "Player(Zx)", "Player(Fx)", "Player(Hx)", "Player(Lx)", "Player(Px)", "Player(Ox)"])
         #self.dropdown_tweak_target.currentTextChanged.connect(self.tweakTargetCall)
         self.dropdown_tweak_target.hide()
         self.page_tweaks.layout().addWidget(self.dropdown_tweak_target)
@@ -1393,6 +1393,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             dialog_formatselect.resize(250, 200)
             dialog_formatselect.exec()
             if dialog_formatselect.result():
+                selectedFiles = dialog.selectedFiles()
                 print("Selected: " + dropdown_formatselect.currentText() + ", " + dropdown_compressselect.currentText())
                 print("Item: " + item.text(0))
                 if item != None:
@@ -1406,9 +1407,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         if type(fileData[0]) == type((0, 1)):
                             fileData[0] = fileData[0][0]
                     if item.text(2).find("Folder") == -1: # if file
-                        extract(*fileData[:2], path=dialog.selectedFiles()[0], format=dropdown_formatselect.currentText(), compress=dropdown_compressselect.currentIndex())
+                        extract(*fileData[:2], path=selectedFiles[0], format=dropdown_formatselect.currentText(), compress=dropdown_compressselect.currentIndex())
                     else: # if folder
-                        folder_path = os.path.join(dialog.selectedFiles()[0] + "/" + w.fileToEdit_name.removesuffix(".Folder"))
+                        folder_path = os.path.join(selectedFiles[0] + "/" + w.fileToEdit_name.removesuffix(".Folder"))
                         if os.path.exists(folder_path) == False:
                             print("Folder " + folder_path  + " will be created")
                             os.makedirs(folder_path)
@@ -1417,7 +1418,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         print(item.childCount() - 1)
                         for i in range(item.childCount()):
                             print(item.child(i).text(0))
-                            extract(*self.file_fromItem(item.child(i))[:2], path=dialog.selectedFiles()[0] + "/" + w.fileToEdit_name.removesuffix(".Folder"), format=dropdown_formatselect.currentText(), compress=dropdown_compressselect.currentIndex())#, w.fileToEdit_name.replace(".Folder", "/")
+                            extract(*self.file_fromItem(item.child(i))[:2], path=selectedFiles[0] + "/" + w.fileToEdit_name.removesuffix(".Folder"), format=dropdown_formatselect.currentText(), compress=dropdown_compressselect.currentIndex())#, w.fileToEdit_name.replace(".Folder", "/")
                             #str(w.tree.currentItem().child(i).text(1) + "." + w.tree.currentItem().child(i).text(2)), 
 
     def replacebynameCall(self):
@@ -1431,21 +1432,22 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 )
             self.set_dialog_button_name(dialog, "&Open", "Import")
             if dialog.exec():
+                selectedFiles = dialog.selectedFiles()
                 dialog2 = PyQt6.QtWidgets.QMessageBox()
                 dialog2.setWindowTitle("Import Status")
                 dialog2.setWindowIcon(PyQt6.QtGui.QIcon('icons\\information.png'))
-                dialog2.setText("File \"" + str(dialog.selectedFiles()).split("/")[-1].removesuffix("']") + "\" imported!")
-                if str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']") in str(self.rom.filenames): # if file you're trying to replace is in ROM
-                    with open(*dialog.selectedFiles(), 'rb') as f:
+                dialog2.setText("File \"" + str(selectedFiles[0]).split("/")[-1] + "\" imported!")
+                if str(selectedFiles[0]).split("/")[-1].removesuffix("']") in str(self.rom.filenames): # if file you're trying to replace is in ROM
+                    with open(*selectedFiles, 'rb') as f:
                         fileEdited = f.read()
-                        w.rom.setFileByName(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']"), bytearray(fileEdited))
+                        w.rom.setFileByName(str(f.name).split("/")[-1], bytearray(fileEdited))
                     dialog2.exec()
-                elif str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']").split(".")[0] in [filename[filename.rfind(" ")+1:filename.find(".")] for filename in str(self.rom.filenames).split("\n")]: # if filename of file(without extension) you're trying to replace is in ROM
-                    with open(*dialog.selectedFiles(), 'rb') as f:
+                elif str(selectedFiles[0]).split("/")[-1].split(".")[0] in [filename[filename.rfind(" ")+1:filename.find(".")] for filename in str(self.rom.filenames).split("\n")]: # if filename of file(without extension) you're trying to replace is in ROM
+                    with open(*selectedFiles, 'rb') as f:
                         fileEdited = f.read()
-                        if str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']").split(".")[1] == "txt":
-                            #print(w.rom.filenames.idOf(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']").replace(".txt", ".bin")))
-                            w.rom.files[w.rom.filenames.idOf(str(dialog.selectedFiles()).split("/")[-1].removesuffix("']").replace(".txt", ".bin"))] = bytearray(library.dialoguefile.DialogueFile.convertdata_text_to_bin(fileEdited.decode("utf-8")))
+                        if str(f.name).split("/")[-1].split(".")[1] == "txt":
+                            #print(w.rom.filenames.idOf(str(selectedFiles).split("/")[-1].removesuffix("']").replace(".txt", ".bin")))
+                            w.rom.files[w.rom.filenames.idOf(str(f.name).split("/")[-1].replace(".txt", ".bin"))] = bytearray(library.dialoguefile.DialogueFile.convertdata_text_to_bin(fileEdited.decode("utf-8")))
                             dialog2.exec()
                         else:
                             PyQt6.QtWidgets.QMessageBox.critical(
@@ -1456,7 +1458,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 else:
                     PyQt6.QtWidgets.QMessageBox.critical(
                     self,
-                    "File \"" + str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']") + "\" not found in game files",
+                    "File \"" + str(selectedFiles[0]).split("/")[-1].removesuffix("']") + "\" not found in game files",
                     "Please select a file that has the same name as an existing ROM file."
                     )
                 self.treeCall()
@@ -1470,83 +1472,96 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 "All Files (*)",
                 options=PyQt6.QtWidgets.QFileDialog.Option.DontUseNativeDialog,
                 )
+            dialog.setFileMode(PyQt6.QtWidgets.QFileDialog.FileMode.ExistingFiles) # allow more than one file to be selected
             self.set_dialog_button_name(dialog, "&Open", "Import")
             if dialog.exec(): # if file you're trying to replace is in ROM
+                    selectedFiles = dialog.selectedFiles()
                     dialog2 = PyQt6.QtWidgets.QMessageBox()
                     dialog2.setWindowTitle("Import Status")
                     dialog2.setWindowIcon(PyQt6.QtGui.QIcon('icons\\information.png'))
                     dialog2.setText("File import failed!")
-                    with open(*dialog.selectedFiles(), 'rb') as f:
-                        fileEdited = f.read()
-                        try:
-                            fileName = str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']").split(".")[0]
-                            fileExt = str(dialog.selectedFiles()[0]).split("/")[-1].removesuffix("']").split(".")[1]
-                        except IndexError:
-                            fileName = ""
-                            fileExt = ""
-                        #print(fileExt)
-                        # find a way to get attr and replace data at correct index.. maybe it's better to just save ROM and patch
-                        #self.rom.files[self.rom.files.index(self.file_fromItem(item)[0])]
-                        supported_list = ["txt", "swar", "sbnk", "ssar", "sseq", "cmp", "dec", "bin", ""]
+                    for file in selectedFiles:
                         fileInfo = self.file_fromItem(item)
-                        print(fileName + "." + fileExt)
-                        if not any(supported == fileExt.lower() for supported in supported_list): # unknown
-                            dialog2.exec()
-                            return
-                        elif type(fileInfo[2]) != type(None):
-                            if fileExt == "txt": # text file
-                                data = bytearray(library.dialoguefile.DialogueFile.convertdata_text_to_bin(fileEdited.decode("utf-8")))
-                            elif fileExt == "cmp":
-                                try:
-                                    data = bytearray(ndspy.lz10.decompress(fileEdited))
-                                except TypeError as e:
-                                    print(e)
-                                    PyQt6.QtWidgets.QMessageBox.critical(
-                                    self,
-                                    "Decompression Failed",
-                                    str(e + "\nConsider trying again without the .cmp file extension.")
-                                    )
-                                    print("Aborted file replacement.")
-                                    return
-                            elif fileExt == "dec":
-                                data = bytearray(ndspy.lz10.compress(fileEdited))
-                            else: # raw data
-                                data = bytearray(fileEdited)
+                        with open(file, 'rb') as f:
+                            fileEdited = f.read()
+                            try:
+                                fileName = str(f.name).split("/")[-1].split(".")[0]
+                                fileExt = str(f.name).split("/")[-1].split(".")[1]
+                            except IndexError:
+                                fileName = ""
+                                fileExt = ""
+                            #print(fileExt)
+                            # find a way to get attr and replace data at correct index.. maybe it's better to just save ROM and patch
+                            #self.rom.files[self.rom.files.index(self.file_fromItem(item)[0])]
+                            supported_list = ["txt", "swar", "sbnk", "ssar", "sseq", "cmp", "dec", "bin", ""]
+                            print(selectedFiles)
+                            #print(f.name)
+                            #print(fileName + "." + fileExt)
+                            if not any(supported == fileExt.lower() for supported in supported_list): # unknown
+                                dialog2.exec()
+                                return
+                            elif type(fileInfo[2]) != type(None):
+                                if fileExt == "txt": # english text file
+                                    if fileName.find("en") != -1:
+                                        if re.search(".*(_\d+)$", fileName): # match the indicator that the file is a chunk of the original file
+                                            dialogue = library.dialoguefile.DialogueFile(fileInfo[2][fileInfo[2].index(fileInfo[0])]) # not ideal to create an object each time
+                                            dialogue.text_list[int(fileName.split("_")[-1])] = fileEdited.decode("utf-8")
+                                            data = dialogue.generate_file_binary()
+                                        else:
+                                            data = bytearray(library.dialoguefile.DialogueFile.convertdata_text_to_bin(fileEdited.decode("utf-8")))
+                                    else:
+                                        pass # jp
+                                elif fileExt == "cmp":
+                                    try:
+                                        data = bytearray(ndspy.lz10.decompress(fileEdited))
+                                    except TypeError as e:
+                                        print(e)
+                                        PyQt6.QtWidgets.QMessageBox.critical(
+                                        self,
+                                        "Decompression Failed",
+                                        str(e + "\nConsider trying again without the .cmp file extension.")
+                                        )
+                                        print("Aborted file replacement.")
+                                        return
+                                elif fileExt == "dec":
+                                    data = bytearray(ndspy.lz10.compress(fileEdited))
+                                else: # raw data
+                                    data = bytearray(fileEdited)
 
-                            if type(fileInfo[2]) == bytearray: # other
-                                    fileInfo[2][fileInfo[2].index(fileInfo[0]):fileInfo[2].index(fileInfo[0])+len(fileInfo[0])] = data
+                                if type(fileInfo[2]) == bytearray: # other
+                                        fileInfo[2][fileInfo[2].index(fileInfo[0]):fileInfo[2].index(fileInfo[0])+len(fileInfo[0])] = data
+                                        print(data[:0x15].hex())
+                                elif fileInfo[3] == None: # rom files
+                                    fileInfo[2][fileInfo[2].index(fileInfo[0])] = data
                                     print(data[:0x15].hex())
-                            elif fileInfo[3] == None: # rom files
-                                fileInfo[2][fileInfo[2].index(fileInfo[0])] = data
-                                print(data[:0x15].hex())
-                            elif any(x for x in self.sdat.__dict__.values() if x == fileInfo[3]):
-                                newName = fileName
-                                oldObject = fileInfo[0][1]
-                                newObject = type(oldObject).fromFile(dialog.selectedFiles()[0])
-                                if type(fileInfo[0][1]) == ndspy.soundSequenceArchive.soundSequence.SSEQ: # bankID fix (defaults to 0)
-                                    newObject.bankID = oldObject.bankID
-                                    newObject.volume = oldObject.volume
-                                    newObject.channelPressure = oldObject.channelPressure
-                                    newObject.polyphonicPressure = oldObject.polyphonicPressure
-                                    newObject.playerID = oldObject.playerID
-                                    #for sseq in fileInfo[3]:
-                                    #    if sseq[0] == fileName:
-                                    #        newObject.bankID = sseq[1].bankID
-                                    #        newName = fileInfo[0][0]
-                                print(oldObject)
-                                print(newObject)
-                                fileInfo[3][fileInfo[3].index(fileInfo[0])] = (newName, newObject) 
-                                fileInfo[2][self.sdat.fileID] = self.sdat.save()
-                                self.treeSdatUpdate() # refresh tree to avoid interactions with files that are not in the new state
-                            else: # subfile
-                                for file in fileInfo[2]:
-                                    if fileInfo[0] in file:
-                                        fileInfo[2][fileInfo[2].index(file)][file.index(fileInfo[0]):file.index(fileInfo[0])+len(fileInfo[0])] = data
-                        else:
-                            dialog2.exec()
-                            return
+                                elif any(x for x in self.sdat.__dict__.values() if x == fileInfo[3]):
+                                    newName = fileName
+                                    oldObject = fileInfo[0][1]
+                                    newObject = type(oldObject).fromFile(f.name)
+                                    if type(fileInfo[0][1]) == ndspy.soundSequenceArchive.soundSequence.SSEQ: # bankID fix (defaults to 0)
+                                        newObject.bankID = oldObject.bankID
+                                        newObject.volume = oldObject.volume
+                                        newObject.channelPressure = oldObject.channelPressure
+                                        newObject.polyphonicPressure = oldObject.polyphonicPressure
+                                        newObject.playerID = oldObject.playerID
+                                        #for sseq in fileInfo[3]:
+                                        #    if sseq[0] == fileName:
+                                        #        newObject.bankID = sseq[1].bankID
+                                        #        newName = fileInfo[0][0]
+                                    print(oldObject)
+                                    print(newObject)
+                                    fileInfo[3][fileInfo[3].index(fileInfo[0])] = (newName, newObject) 
+                                    fileInfo[2][self.sdat.fileID] = self.sdat.save()
+                                    self.treeSdatUpdate() # refresh tree to avoid interactions with files that are not in the new state
+                                else: # subfile
+                                    for file in fileInfo[2]:
+                                        if fileInfo[0] in file:
+                                            fileInfo[2][fileInfo[2].index(file)][file.index(fileInfo[0]):file.index(fileInfo[0])+len(fileInfo[0])] = data
+                            else:
+                                dialog2.exec()
+                                return
                             
-                    dialog2.setText("File \"" + str(dialog.selectedFiles()).split("/")[-1].removesuffix("']") + "\" imported!")
+                    dialog2.setText("File \"" + str(selectedFiles[0]).split("/")[-1] + "\" imported!")
                     dialog2.exec()
                     self.treeCall()
     
@@ -1621,8 +1636,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         dialog.setAcceptMode(dialog.AcceptMode.AcceptSave)
         self.set_dialog_button_name(dialog, "&Open", "Save")
         if dialog.exec(): # if you saved a file
-            print(*dialog.selectedFiles())
-            self.rom.saveToFile(*dialog.selectedFiles())
+            selectedFiles = dialog.selectedFiles()
+            print(*selectedFiles)
+            self.rom.saveToFile(*selectedFiles)
             print("ROM modifs saved!")
 
     def testCall(self, isQuick=True):
@@ -1904,6 +1920,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                                 self.dialogue_edited = library.dialoguefile.DialogueFile.convertdata_bin_to_text(self.rom.files[current_id][self.relative_address:self.relative_address+0xFFFF])
                                 self.file_content_text.setPlainText(self.dialogue_edited)
                                 self.button_file_save.setDisabled(True)
+                                self.file_content_text.blockSignals(False)
                                 return
                             for i in range(len(self.dialogue_edited.text_list)):
                                 self.dropdown_textindex.addItem(str(i))
@@ -1911,11 +1928,13 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                             self.dropdown_textindex.blockSignals(False)
                         elif self.dropdown_textindex.isEnabled(): # when text index changed
                             #print(f"index = {self.dropdown_textindex.currentIndex()} prev = {self.dropdown_textindex.previousIndex}")
-                            self.dialogue_edited.text_list[self.dropdown_textindex.previousIndex] = self.file_content_text.toPlainText() # keep changes to text on previous index
-                            self.dropdown_textindex.previousIndex = self.dropdown_textindex.currentIndex()
+                            if self.button_file_save.isEnabled(): # if content was modified
+                                self.dialogue_edited.text_list[self.dropdown_textindex.previousIndex] = self.file_content_text.toPlainText() # keep changes to text on previous index
+                                self.dropdown_textindex.previousIndex = self.dropdown_textindex.currentIndex()
                         else: # forcing text view on non-text file = simple conversion mode
                             self.dialogue_edited = library.dialoguefile.DialogueFile.convertdata_bin_to_text(self.rom.files[current_id][self.relative_address:self.relative_address+0xFFFF])
                             self.file_content_text.setPlainText(self.dialogue_edited)
+                            self.file_content_text.blockSignals(False)
                             return
                         textIndex = self.dropdown_textindex.currentIndex()
 
@@ -1948,7 +1967,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.file_editor_show("VX")
                         self.field_address.setDisabled(True)
                         vx_file = library.actimagine.ActImagine()
-                        vx_file.load_vx(self.rom.files[current_id]) # will work if load_vx supports loading directly from bytes
+                        vx_file.load_vx(self.rom.files[current_id])
                         #print(self.rom.files[current_id][5:6].hex()+self.rom.files[current_id][4:5].hex())
                         self.field_vxHeader_length.setValue(vx_file.frames_qty)
                         self.field_vxHeader_width.setValue(vx_file.frame_width)
@@ -2262,7 +2281,18 @@ def extract(data: bytes, name="", path="", format="", compress=0):
     else:
         if format == "English dialogue":
             ext = ".txt"
-            data = bytes(library.dialoguefile.DialogueFile.convertdata_bin_to_text(data), "utf-8")
+            try: # create multiple text files
+                text_list = library.dialoguefile.DialogueFile(data).text_list
+                data = [""]*len(text_list)
+                for text in text_list:
+                    data[text_list.index(text)] = bytes(text, "utf-8")
+            except AssertionError: # not a real dialogue file
+                data = bytes(library.dialoguefile.DialogueFile.convertdata_bin_to_text(data), "utf-8")
+        elif format == "VX":
+            #ext = ".png"
+            #data = library.actimagine.ActImagine(data).interpret_vx()
+            library.actimagine.ActImagine(data).interpret_vx() # needs to allow specific file location
+            return
         else:
             print("could not find method for converting to specified format.")
             return
@@ -2270,8 +2300,13 @@ def extract(data: bytes, name="", path="", format="", compress=0):
         data = ndspy.lz10.compress(data)
 
     print(os.path.join(path + "/" + name.split(".")[0] + ext))
-    with open(os.path.join(path + "/" + name.split(".")[0] + ext), 'wb') as f:
-        f.write(data)
+    if type(data) == bytes: # one file
+        with open(os.path.join(path + "/" + name.split(".")[0] + ext), 'wb') as f:
+            f.write(data)
+    else: # list of bytes
+        for subdata in data:
+            with open(os.path.join(path + "/" + name.split(".")[0] + "_" + str(data.index(subdata)) + ext), 'wb') as f:
+                f.write(subdata)
     print("File extracted!")
 #run the app
 app.exec()

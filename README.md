@@ -21,7 +21,7 @@ The editor can edit, export and import english dialogue files and save them to t
 - SDAT Viewer (WIP)
 - ARM Viewer (WIP)
 ### To do
-- VX Export/Import to/from video format
+- VX Export/Import to/from video format (Using the actimagine submodule)
 - Graphics Editor additional features (exporting and importing)
 - Find actual patches for the game to add to the editor's "patches" tab*
 - Find patches and tweaks that are helpful for playtesting purposes*
@@ -38,7 +38,7 @@ The editor can edit, export and import english dialogue files and save them to t
 *This feature may not be implemented/is not currently prioritized since I haven't looked into it and/or it looks/is hard to do. 
 ## Setup for usage
 Currently, there are no releases, so:
-- [Download&Install Python](https://www.python.org/downloads/) (using 3.13.2)
+- [Download&Install Python](https://www.python.org/downloads/) (using 3.13.2) <!--- Python 3.10.11 or lower will cause crashes -->
 - Now that you have Python, you can use pip (Package Installer for Python) to install the two following modules:
 - [Download&Install NDSPy](https://pypi.org/project/ndspy/) (using 4.2.0)
 - [Download&Install PyQt6](https://pypi.org/project/PyQt6/) (using 6.8.1)
@@ -52,7 +52,7 @@ Currently, there are no releases, so:
 - GUI (PyQt6): https://www.riverbankcomputing.com/software/pyqt/
 - Icons: https://p.yusukekamiyamane.com/
 - appicon.ico: Mega Man ZX devs, taken from [here](https://www.spriters-resource.com/ds_dsi/megamanzx/sheet/180723/) and truncated by me using GIMP
-- This project uses a [submodule](https://github.com/CharlesVanEeckhout/actimagine)
+- This project uses [a submodule](https://github.com/CharlesVanEeckhout/actimagine)
 
 Some parts of code I copied (and modified) from answers to other people who asked for help (for example, on stack overflow) on topics I myself needed help on.
 ### Special Thanks

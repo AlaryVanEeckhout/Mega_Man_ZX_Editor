@@ -67,7 +67,7 @@ SPECIAL_CHARACTER_LIST[0xfe] = [0, "├END┤"]
 SPECIAL_CHARACTER_LIST[0xff] = [0, "├ENDOFFILE┤"] #end of used file (duplicate text is used to fill the rest of the file)
 
 
-class DialogueFile():
+class DialogueFile:
     def __init__(self, data: bytes, lang: str="en"):
         self.lang = lang
         file_size = int.from_bytes(data[0x00:0x02], "little")
