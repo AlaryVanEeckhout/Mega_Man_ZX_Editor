@@ -1,3 +1,3 @@
-[submodule "library/actimagine"]
-	path = library/actimagine
+[submodule "lib/actimagine"]
+	path = lib/actimagine
 	url = https://github.com/CharlesVanEeckhout/actimagine
