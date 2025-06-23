@@ -70,13 +70,10 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
         self._graphic = PyQt6.QtWidgets.QGraphicsPixmapItem()
         self.scene().addItem(self._graphic)
 
-    def hasGraphic(self):
-        return self.scene().isActive()
-
     def fitInView(self, scale=True):
         rect = PyQt6.QtCore.QRectF(self._graphic.pixmap().rect())
         self.setSceneRect(rect)
-        if self.hasGraphic() and scale:
+        if self.scene().isActive() and scale:
             #print("fit")
             unity = self.transform().mapRect(PyQt6.QtCore.QRectF(0, 0, 1, 1))
             self.scale(1 / unity.width(), 1 / unity.height())
@@ -101,7 +98,7 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
 
     def drawShape(self):
         if self.draw_mode == "pixel":
-                gfx_zone = PyQt6.QtGui.QPixmap(self._graphic.pixmap())
+                gfx_zone = self._graphic.pixmap() # create a pixmap that can be detroyed
                 painter = PyQt6.QtGui.QPainter()
                 #painter.setPen(self.pen)
                 painter.begin(gfx_zone)
@@ -333,7 +330,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.romToEdit_ext = ''
         self.fileToEdit_name = ''
         self.fileDisplayRaw = False # Display file in 'raw'(hex) format. Else, displayed in readable format
-        self.fileDisplayMode = "Adapt" # Modes: Adapt, Binary, English dialogue, Japanese dialogue, Graphics, Sound, Movie, Code
+        self.fileDisplayMode = "Adapt" # Modes: Adapt, Binary, English dialogue, Japanese dialogue, Graphics, Font, Sound, Movie, Code
         self.fileDisplayState = "None" # Same states as mode
         self.gfx_palette = [0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)]
         self.dialogue_edited = None
@@ -1480,8 +1477,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                     dialog2.setWindowTitle("Import Status")
                     dialog2.setWindowIcon(PyQt6.QtGui.QIcon('icons\\information.png'))
                     dialog2.setText("File import failed!")
+                    fileInfo = self.file_fromItem(item)
+                    if str(selectedFiles[0]).split("/")[-1].split(".")[1] == "txt" and re.search(r".*(_\d+)$", str(selectedFiles[0]).split("/")[-1].split(".")[0]): # fileExt and fileName
+                        dialogue = lib.dialogue.DialogueFile(fileInfo[2][fileInfo[2].index(fileInfo[0])]) # object created before loop to improve performance
                     for file in selectedFiles:
-                        fileInfo = self.file_fromItem(item)
                         with open(file, 'rb') as f:
                             fileEdited = f.read()
                             try:
@@ -1503,10 +1502,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                             elif type(fileInfo[2]) != type(None):
                                 if fileExt == "txt": # english text file
                                     if fileName.find("en") != -1:
-                                        if re.search(r".*(_\d+)$", fileName): # match the indicator that the file is a chunk of the original file
-                                            dialogue = lib.dialogue.DialogueFile(fileInfo[2][fileInfo[2].index(fileInfo[0])]) # not ideal to create an object each time
-                                            dialogue.text_list[int(fileName.split("_")[-1])] = fileEdited.decode("utf-8")
-                                            data = dialogue.toBytes()
+                                        if re.search(r".*(_\d+)$", fileName) and dialogue: # match the indicator that the file is a chunk of the original file
+                                            dialogue.text_list[int(fileName.split("_")[-1])] = fileEdited.decode("utf-8") # add file text to object
+                                            if selectedFiles.index(file) == len(selectedFiles)-1: # if at last selected file
+                                                data = dialogue.toBytes() # generate final binary to import (done only once to improve performance)
                                         else:
                                             data = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8")))
                                     else:
@@ -1527,39 +1526,39 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                                     data = bytearray(ndspy.lz10.compress(fileEdited))
                                 else: # raw data
                                     data = bytearray(fileEdited)
-
-                                if type(fileInfo[2]) == bytearray: # other
-                                        fileInfo[2][fileInfo[2].index(fileInfo[0]):fileInfo[2].index(fileInfo[0])+len(fileInfo[0])] = data
-                                        print(data[:0x15].hex())
-                                elif fileInfo[3] == None: # rom files
-                                    fileInfo[2][fileInfo[2].index(fileInfo[0])] = data
-                                    print(data[:0x15].hex())
-                                elif any(x for x in self.sdat.__dict__.values() if x == fileInfo[3]):
-                                    newName = fileName
-                                    oldObject = fileInfo[0][1]
-                                    newObject = type(oldObject).fromFile(f.name)
-                                    if type(fileInfo[0][1]) == ndspy.soundSequenceArchive.soundSequence.SSEQ: # bankID fix (defaults to 0)
-                                        newObject.bankID = oldObject.bankID
-                                        newObject.volume = oldObject.volume
-                                        newObject.channelPressure = oldObject.channelPressure
-                                        newObject.polyphonicPressure = oldObject.polyphonicPressure
-                                        newObject.playerID = oldObject.playerID
-                                        #for sseq in fileInfo[3]:
-                                        #    if sseq[0] == fileName:
-                                        #        newObject.bankID = sseq[1].bankID
-                                        #        newName = fileInfo[0][0]
-                                    print(oldObject)
-                                    print(newObject)
-                                    fileInfo[3][fileInfo[3].index(fileInfo[0])] = (newName, newObject) 
-                                    fileInfo[2][self.sdat.fileID] = self.sdat.save()
-                                    self.treeSdatUpdate() # refresh tree to avoid interactions with files that are not in the new state
-                                else: # subfile
-                                    for file in fileInfo[2]:
-                                        if fileInfo[0] in file:
-                                            fileInfo[2][fileInfo[2].index(file)][file.index(fileInfo[0]):file.index(fileInfo[0])+len(fileInfo[0])] = data
                             else:
                                 dialog2.exec()
                                 return
+
+                    if type(fileInfo[2]) == bytearray: # other
+                            fileInfo[2][fileInfo[2].index(fileInfo[0]):fileInfo[2].index(fileInfo[0])+len(fileInfo[0])] = data
+                            print(data[:0x15].hex())
+                    elif fileInfo[3] == None: # rom files
+                        fileInfo[2][fileInfo[2].index(fileInfo[0])] = data
+                        print(data[:0x15].hex())
+                    elif any(x for x in self.sdat.__dict__.values() if x == fileInfo[3]):
+                        newName = fileName
+                        oldObject = fileInfo[0][1]
+                        newObject = type(oldObject).fromFile(f.name)
+                        if type(fileInfo[0][1]) == ndspy.soundSequenceArchive.soundSequence.SSEQ: # bankID fix (defaults to 0)
+                            newObject.bankID = oldObject.bankID
+                            newObject.volume = oldObject.volume
+                            newObject.channelPressure = oldObject.channelPressure
+                            newObject.polyphonicPressure = oldObject.polyphonicPressure
+                            newObject.playerID = oldObject.playerID
+                            #for sseq in fileInfo[3]:
+                            #    if sseq[0] == fileName:
+                            #        newObject.bankID = sseq[1].bankID
+                            #        newName = fileInfo[0][0]
+                        print(oldObject)
+                        print(newObject)
+                        fileInfo[3][fileInfo[3].index(fileInfo[0])] = (newName, newObject) 
+                        fileInfo[2][self.sdat.fileID] = self.sdat.save()
+                        self.treeSdatUpdate() # refresh tree to avoid interactions with files that are not in the new state
+                    else: # subfile
+                        for file in fileInfo[2]:
+                            if fileInfo[0] in file:
+                                fileInfo[2][fileInfo[2].index(file)][file.index(fileInfo[0]):file.index(fileInfo[0])+len(fileInfo[0])] = data
                             
                     dialog2.setText("File \"" + str(selectedFiles[0]).split("/")[-1] + "\" imported!")
                     dialog2.exec()
@@ -1882,11 +1881,18 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 self.label_file_size.setText(f"Size: {lib.datconv.numToStr(len(self.rom.files[current_id]), self.displayBase, self.displayAlphanumeric).zfill(0)} bytes")
                 if self.fileDisplayRaw == False:
                     if self.fileDisplayMode == "Adapt":
-                            indicator_list_gfx = ["face", "font", "obj_fnt", "title"]
+                            indicator_list_gfx = ["face", "obj_fnt", "title"]
                             if self.rom.name.decode() == "MEGAMANZX" or self.rom.name.decode() == "ROCKMANZX":
                                 indicator_list_gfx.extend(["bbom", "dm23", "elf", "g_", "game_parm", "lmlevel", "miss", "repair", "sec_disk", "sub"])
                             elif self.rom.name.decode() == "MEGAMANZXA" or self.rom.name.decode() == "ROCKMANZXA":
                                 indicator_list_gfx.extend(["cmm_frame_fnt", "cmm_mega_s", "cmm_rock_s", "Is_m", "Is_trans", "Is_txt_fnt", "sub_db", "sub_oth"])
+                            
+                            if current_ext == "vx":
+                                self.fileDisplayState = "VX"
+                            elif current_ext == "sdat":
+                                self.fileDisplayState = "Sound"
+                            elif current_name.find("font") != -1:
+                                self.fileDisplayState = "Font"
                             if (current_name.find("talk") != -1 or current_name.find("m_") != -1):
                                 if current_name.find("en") != -1:
                                     self.fileDisplayState = "English dialogue"
@@ -1894,16 +1900,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                                     self.fileDisplayState = "Japanese dialogue"
                             elif current_ext == "bin" and any(indicator in current_name for indicator in indicator_list_gfx):
                                 self.fileDisplayState = "Graphics"
-                            elif current_ext == "sdat":
-                                self.fileDisplayState = "Sound"
-                            elif current_ext == "vx":
-                                self.fileDisplayState = "VX"
                             else:
                                 self.fileDisplayState = "None"
-                    elif self.fileDisplayMode != "None":
-                        self.fileDisplayState = self.fileDisplayMode
                     else:
-                        self.fileDisplayState = "None"
+                        self.fileDisplayState = self.fileDisplayMode
 
                     if self.fileDisplayState == "English dialogue": # if english text
                         if not isValueUpdate:
@@ -1956,9 +1956,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         draw_tilesQImage_fromBytes(self.file_content_gfx, self.rom.files[current_id][self.relative_address:], algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column, tileWidth=self.tile_width, tileHeight=self.tile_height)
                         if not isValueUpdate: # if entering graphics mode and func is not called to update other stuff
                             self.file_editor_show("Graphics")
+                    elif self.fileDisplayState == "Font":
+                        self.file_editor_show()
                     elif self.fileDisplayState == "Sound":
-                        self.file_editor_show("Text") # placeholder
-                        self.checkbox_textoverwite.hide()
+                        self.file_editor_show("Empty") # placeholder
                         self.file_content_text.setReadOnly(True)
                         self.file_content_text.setPlainText("Sound editor is not yet implemented.\n Right click on this file > open Sound Archive\nor click on the sound icon in the toolbar to open sound archive viewer.")
                         #self.file_editor_show("Sound")
@@ -2224,11 +2225,7 @@ app = PyQt6.QtWidgets.QApplication(sys.argv)
 w = MainWindow()
 
 # Draw contents of tile viewer
-def draw_tilesQImage_fromBytes(view: GFXView, data: bytearray, palette: list[int]=w.gfx_palette, algorithm=lib.datconv.CompressionAlgorithmEnum.ONEBPP, tilesPerRow=4, tilesPerColumn=8, tileWidth=16, tileHeight=8):
-    tileWidth = int(tileWidth)
-    tileHeight = int(tileHeight)
-    tilesPerColumn = int(tilesPerColumn)
-    tilesPerRow = int(tilesPerRow)
+def draw_tilesQImage_fromBytes(view: GFXView, data: bytearray, palette: list[int]=w.gfx_palette, algorithm=lib.datconv.CompressionAlgorithmEnum.ONEBPP, tilesPerRow: int=4, tilesPerColumn: int=8, tileWidth: int=16, tileHeight: int=8):
     painter = PyQt6.QtGui.QPainter()
     gfx_zone = PyQt6.QtGui.QPixmap(tileWidth*tilesPerRow, tileHeight*tilesPerColumn) # get the correct canvas size
     painter.begin(gfx_zone)
@@ -2240,7 +2237,7 @@ def draw_tilesQImage_fromBytes(view: GFXView, data: bytearray, palette: list[int
         pos = PyQt6.QtCore.QPoint(tileWidth*int(tile % tilesPerRow), tileHeight*int(tile / tilesPerRow))
         painter.drawPixmap(pos, gfx) # draw tile at correct pos in canvas
     view._graphic.setPixmap(gfx_zone) # overwrite current canvas with new one
-    return
+    painter.end()
 # Decode contents of tile viewer
 def saveData_fromGFXView(view: GFXView, palette: list[int]=w.gfx_palette, algorithm=lib.datconv.CompressionAlgorithmEnum.ONEBPP, tilesPerRow=8, tilesPerColumn=8, tileWidth=8, tileHeight=8):
     saved_data = bytearray()
