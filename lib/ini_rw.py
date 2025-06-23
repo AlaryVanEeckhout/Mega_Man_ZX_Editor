@@ -1,3 +1,4 @@
+# reader and writer of the preferences.ini file
 import os.path
 import re
 
@@ -12,7 +13,7 @@ PRINTCOLOR_ENDC = '\033[0m'
 PRINTCOLOR_BOLD = '\033[1m'
 PRINTCOLOR_UNDERLINE = '\033[4m'
 
-def write_preferences(obj: object):
+def write(obj: object):
     with open("preferences.ini", "w") as my_file:
         my_file.write(
 f"""[SETTINGS]
@@ -24,7 +25,7 @@ firstLaunch={obj.firstLaunch}"""
         )
     print(info_name + PRINTCOLOR_OKCYAN + "wrote to ini file." + PRINTCOLOR_ENDC)
 
-def load_preferences(obj: object, sec="ALL_SECTIONS", inc: list[str]=[], exc: list[str]=[], property_type="string"):
+def read(obj: object, sec="ALL_SECTIONS", inc: list[str]=[], exc: list[str]=[], property_type="string"): # load preferences into program
     if os.path.exists("preferences.ini"):
         print(info_name + PRINTCOLOR_OKGREEN + "ini file found." + PRINTCOLOR_ENDC)
         print(info_name + "reading values in \"" + property_type + "\" mode.")

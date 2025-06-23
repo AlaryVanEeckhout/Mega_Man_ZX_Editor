@@ -1,3 +1,4 @@
+# dialogue conversion for english (and japanese scripts eventually)
 #https://www.rapidtables.com/code/text/ascii-table.html
 SPECIAL_CHARACTER_LIST: list = ([0])*256
 SPECIAL_CHARACTER_LIST[0x5f] = [0, "⠂"]
@@ -95,7 +96,7 @@ class DialogueFile:
             if data[start] == 0xff:
                 self.text_id_list.append(None)
                 continue
-            text = DialogueFile.convertdata_bin_to_text_until_end(data[start:])
+            text = DialogueFile.binToText_until_end(data[start:])
             if text in self.text_list:
                 self.text_id_list.append(self.text_list.index(text))
                 continue
@@ -104,7 +105,7 @@ class DialogueFile:
             id += 1
 
 
-    def find_matching_paren(s, i, braces=None):
+    def match_paren(s: str, i: int, braces=None): # find index of closing brace for specified opening brace in string
         openers = braces or {"(": ")"}
         closers = {v: k for k, v in openers.items()}
         stack = []
@@ -135,7 +136,7 @@ class DialogueFile:
 
         return result
 
-    def convertdata_bin_to_text_until_end(data: bytearray):
+    def binToText_until_end(data: bytearray):
         chars = []
         i=0
         while i < len(data):# while file not fully read
@@ -164,7 +165,7 @@ class DialogueFile:
         raise Exception("no end found for DialogueFile text")
         
 
-    def convertdata_bin_to_text(data: bytearray):
+    def binToText(data: bytearray):
         chars = []
         i=0
         while i < len(data):# while file not fully read
@@ -190,7 +191,7 @@ class DialogueFile:
         data = ''.join(chars)# join all converted chars into one full string
         return data
 
-    def convertdata_text_to_bin(data: str):
+    def textToBin(data: str):
             file_text = data
             file_data = []
             c=0
@@ -201,7 +202,7 @@ class DialogueFile:
                         c+=len("├0xXX┤")-1
                     else:
                         #special_string = file_text[c:file_text.find("┤", c)+1]
-                        special_string = file_text[c:DialogueFile.find_matching_paren(file_text, c, {"├": "┤"})+1]
+                        special_string = file_text[c:DialogueFile.match_paren(file_text, c, {"├": "┤"})+1]
                         #print("special: " +special_string)
                         #print(special_string.split(' ')[0])
                         for d in range(len(SPECIAL_CHARACTER_LIST)): # iterate through special chars
@@ -237,12 +238,12 @@ class DialogueFile:
             return file_data
 
 
-    def generate_file_binary(self):
+    def toBytes(self):
         text_bin_list = []
         text_bin_id_ptr_list = []
         text_bin_size = 0
         for text in self.text_list:
-            text_bin = DialogueFile.convertdata_text_to_bin(text)
+            text_bin = DialogueFile.textToBin(text)
             text_bin_id_ptr_list.append(text_bin_size)
             text_bin_size += len(text_bin) + 1
             text_bin_list.append(text_bin)

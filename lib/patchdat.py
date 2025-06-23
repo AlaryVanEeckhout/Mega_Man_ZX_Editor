@@ -1,3 +1,4 @@
+# patches database
 import enum
 
 class GameEnum(enum.Enum):

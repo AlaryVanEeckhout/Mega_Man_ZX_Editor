@@ -13,7 +13,7 @@ import ndspy.soundArchive
 import ndspy.soundSequenceArchive
 #import PyQt6.Qt6
 #import PyQt6.Qt6.qsci
-import library
+import lib
 #Global variables
 global EDITOR_VERSION
 EDITOR_VERSION = "0.3.2" # objective, feature, WIP
@@ -266,7 +266,7 @@ class BetterSpinBox(PyQt6.QtWidgets.QDoubleSpinBox):
         #self.setDecimals(16) # cannot do setDecimals here because it will crash the program for... some reason. Have to do it for each instance instead.
         self.numfill = 0
         self.isInt = False
-        self.acceptedSymbols = [".", "{", "}", *library.dataconverter.symbols]
+        self.acceptedSymbols = [".", "{", "}", *lib.datconv.symbols]
         #self.setCorrectionMode(self.CorrectionMode.CorrectToNearestValue)
 
     def fixup(self, str):
@@ -286,14 +286,14 @@ class BetterSpinBox(PyQt6.QtWidgets.QDoubleSpinBox):
 
     def textFromValue(self, value): # ovewrite of existing function with 2 args that determines how value is displayed inside spinbox
         if self.isInt:
-            self.acceptedSymbols = ["{", "}", *library.dataconverter.symbols]
-            return library.dataconverter.StrFromNumber(int(value), self.numbase, self.alphanum).zfill(self.numfill)
+            self.acceptedSymbols = ["{", "}", *lib.datconv.symbols]
+            return lib.datconv.numToStr(int(value), self.numbase, self.alphanum).zfill(self.numfill)
         else:
-            self.acceptedSymbols = [".", "{", "}", *library.dataconverter.symbols]
-            return library.dataconverter.StrFromNumber(value, self.numbase, self.alphanum).zfill(self.numfill)
+            self.acceptedSymbols = [".", "{", "}", *lib.datconv.symbols]
+            return lib.datconv.numToStr(value, self.numbase, self.alphanum).zfill(self.numfill)
     
     def valueFromText(self, text):
-        return float(library.dataconverter.NumFromStr(text, self.numbase))
+        return float(lib.datconv.strToNum(text, self.numbase))
 
 class LongTextEdit(PyQt6.QtWidgets.QPlainTextEdit):
     def __init__(self, *args, **kwargs):
@@ -303,9 +303,9 @@ class LongTextEdit(PyQt6.QtWidgets.QPlainTextEdit):
     def contextMenuOpen(self): #quick menu to insert special values in dialogue file
         self.context_menu = PyQt6.QtWidgets.QMenu(self)
         self.context_menu.setGeometry(self.cursor().pos().x(), self.cursor().pos().y(), 50, 50)
-        for char_index in range(len(library.dialoguefile.SPECIAL_CHARACTER_LIST)):
-            if char_index >= 0xe0 and type(library.dialoguefile.SPECIAL_CHARACTER_LIST[char_index]) != type(int()):
-                self.context_menu.addAction(f"{library.dataconverter.StrFromNumber(char_index, w.displayBase, w.displayAlphanumeric).zfill(2)} - {library.dialoguefile.SPECIAL_CHARACTER_LIST[char_index][1]}")
+        for char_index in range(len(lib.dialogue.SPECIAL_CHARACTER_LIST)):
+            if char_index >= 0xe0 and type(lib.dialogue.SPECIAL_CHARACTER_LIST[char_index]) != type(int()):
+                self.context_menu.addAction(f"{lib.datconv.numToStr(char_index, w.displayBase, w.displayAlphanumeric).zfill(2)} - {lib.dialogue.SPECIAL_CHARACTER_LIST[char_index][1]}")
         action2 = self.context_menu.exec()
         if action2 is not None:
             self.insertPlainText(action2.text()[action2.text().find("├"):])
@@ -352,10 +352,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
     def load_preferences(self):
         #SETTINGS
-        library.init_readwrite.load_preferences(self, "SETTINGS", property_type="int", exc=["displayAlphanumeric"])
-        library.init_readwrite.load_preferences(self, "SETTINGS", property_type="bool", inc=["displayAlphanumeric"])
+        lib.ini_rw.read(self, "SETTINGS", property_type="int", exc=["displayAlphanumeric"])
+        lib.ini_rw.read(self, "SETTINGS", property_type="bool", inc=["displayAlphanumeric"])
         #MISC
-        library.init_readwrite.load_preferences(self, "MISC", property_type="bool")
+        lib.ini_rw.read(self, "MISC", property_type="bool")
         if self.firstLaunch:
             firstLaunch_dialog = PyQt6.QtWidgets.QMessageBox()
             firstLaunch_dialog.setWindowTitle("First Launch")
@@ -713,7 +713,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         #Tile Wifth
         self.tile_width = 8
         self.field_tile_width = BetterSpinBox(self.page_explorer)
-        self.field_tile_width.setStatusTip(f"Set depth to 1bpp and tile width to {library.dataconverter.StrFromNumber(16, self.displayBase, self.displayAlphanumeric)} for JP font")
+        self.field_tile_width.setStatusTip(f"Set depth to 1bpp and tile width to {lib.datconv.numToStr(16, self.displayBase, self.displayAlphanumeric)} for JP font")
         self.field_tile_width.setFont(self.font_caps)
         self.field_tile_width.setValue(self.tile_width)
         self.field_tile_width.numbase = self.displayBase
@@ -1138,9 +1138,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 if item.text(2) == "True":
                     try: # convert dynamically according to base (also arm9 window should update on base change)
                         item_next = tree.itemBelow(item)
-                        data = self.rom.arm9[library.dataconverter.NumFromStr(item.text(0), self.displayBase) - 0x01FFC000 - 0x00004000:library.dataconverter.NumFromStr(item.text(0), self.displayBase) - 0x01FFC000 - 0x00004000 + (library.dataconverter.NumFromStr(item_next.text(0), self.displayBase) - library.dataconverter.NumFromStr(item.text(0), self.displayBase))]
+                        data = self.rom.arm9[lib.datconv.strToNum(item.text(0), self.displayBase) - 0x01FFC000 - 0x00004000:lib.datconv.strToNum(item.text(0), self.displayBase) - 0x01FFC000 - 0x00004000 + (lib.datconv.strToNum(item_next.text(0), self.displayBase) - lib.datconv.strToNum(item.text(0), self.displayBase))]
                     except Exception:
-                        data = self.rom.arm9[library.dataconverter.NumFromStr(item.text(0), self.displayBase) - 0x01FFC000 - 0x00004000:]
+                        data = self.rom.arm9[lib.datconv.strToNum(item.text(0), self.displayBase) - 0x01FFC000 - 0x00004000:]
                 else:
                     print("Explicit ARM9 code-sections are not (yet) supported")
                     return [b'', "", None, None]
@@ -1152,9 +1152,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 if item.text(2) == "True":
                     try:
                         item_next = tree.itemBelow(item)
-                        data = self.rom.arm7[library.dataconverter.NumFromStr(item.text(0), self.displayBase) - 0x02232000 - 0x0014E000:library.dataconverter.NumFromStr(item.text(0), self.displayBase) - 0x02232000 - 0x0014E000 + (library.dataconverter.NumFromStr(item_next.text(0), self.displayBase) - library.dataconverter.NumFromStr(item.text(0), self.displayBase))]
+                        data = self.rom.arm7[lib.datconv.strToNum(item.text(0), self.displayBase) - 0x02232000 - 0x0014E000:lib.datconv.strToNum(item.text(0), self.displayBase) - 0x02232000 - 0x0014E000 + (lib.datconv.strToNum(item_next.text(0), self.displayBase) - lib.datconv.strToNum(item.text(0), self.displayBase))]
                     except Exception:
-                        data = self.rom.arm7[library.dataconverter.NumFromStr(item.text(0), self.displayBase) - 0x02232000 - 0x0014E000]
+                        data = self.rom.arm7[lib.datconv.strToNum(item.text(0), self.displayBase) - 0x02232000 - 0x0014E000]
                 else:
                     print("Explicit ARM7 code-sections are not (yet) supported")
                     return [b'', "", None, None]
@@ -1200,9 +1200,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         if self.displayBase_old != self.displayBase or self.tree_patches_numaplha != self.displayAlphanumeric:
             #self.progress.show()
             self.tree_patches.clear()
-            if self.rom.name.decode().replace(" ", "_") in library.patchdata.GameEnum.__members__:
+            if self.rom.name.decode().replace(" ", "_") in lib.patchdat.GameEnum.__members__:
                 patches = []
-                for patch in library.patchdata.GameEnum[self.rom.name.decode().replace(" ", "_")].value[1]:
+                for patch in lib.patchdat.GameEnum[self.rom.name.decode().replace(" ", "_")].value[1]:
                     #self.progress.setValue(self.progress.value()+12)
                     #PyQt6.QtWidgets.QTreeWidgetItem(None, ["", "<address>", "<patch name>", "<patch type>", "<size>"])
                     if type(patch[2]) == type([]): # if patch contains patches
@@ -1212,7 +1212,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         subPatchMatches = 0
                         for subPatch in patch:
                             if type(subPatch) == type([]):
-                                subPatch_item = PyQt6.QtWidgets.QTreeWidgetItem(None, ["", str(library.dataconverter.StrFromNumber(subPatch[0], self.displayBase, self.displayAlphanumeric).zfill(8)), subPatch[1], "Patch Segment", str(library.dataconverter.StrFromNumber(len(subPatch[3].replace("-", "")), self.displayBase, self.displayAlphanumeric).zfill(1))])
+                                subPatch_item = PyQt6.QtWidgets.QTreeWidgetItem(None, ["", str(lib.datconv.numToStr(subPatch[0], self.displayBase, self.displayAlphanumeric).zfill(8)), subPatch[1], "Patch Segment", str(lib.datconv.numToStr(len(subPatch[3].replace("-", "")), self.displayBase, self.displayAlphanumeric).zfill(1))])
                                 subPatch_item.setToolTip(0, subPatch[3])
                                 subPatch_item.setFlags(patch_item.flags() | PyQt6.QtCore.Qt.ItemFlag.ItemIsUserCheckable)
                                 patch_item.addChild(subPatch_item)
@@ -1223,7 +1223,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                                 else:
                                     subPatch_item.setCheckState(0, PyQt6.QtCore.Qt.CheckState.Unchecked)
                                 self.tree_patches_checkboxes.append(subPatch_item.checkState(0))
-                        patch_item.setText(4, f"{library.dataconverter.StrFromNumber(patch_size, self.displayBase, self.displayAlphanumeric).zfill(1)}")
+                        patch_item.setText(4, f"{lib.datconv.numToStr(patch_size, self.displayBase, self.displayAlphanumeric).zfill(1)}")
                         patch_item.setFlags(patch_item.flags() | PyQt6.QtCore.Qt.ItemFlag.ItemIsUserCheckable)
                         if subPatchMatches == patch_item.childCount(): # Check for already applied patches
                             patch_item.setCheckState(0, PyQt6.QtCore.Qt.CheckState.Checked)
@@ -1233,7 +1233,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                             patch_item.setCheckState(0, PyQt6.QtCore.Qt.CheckState.Unchecked)
                         self.tree_patches_checkboxes.append(patch_item.checkState(0))
                     else:
-                        patch_item = PyQt6.QtWidgets.QTreeWidgetItem(None, ["", str(library.dataconverter.StrFromNumber(patch[0], self.displayBase, self.displayAlphanumeric).zfill(8)), patch[1], patch[2], str(library.dataconverter.StrFromNumber(len(patch[4].replace("-", "")), self.displayBase, self.displayAlphanumeric).zfill(1))])
+                        patch_item = PyQt6.QtWidgets.QTreeWidgetItem(None, ["", str(lib.datconv.numToStr(patch[0], self.displayBase, self.displayAlphanumeric).zfill(8)), patch[1], patch[2], str(lib.datconv.numToStr(len(patch[4].replace("-", "")), self.displayBase, self.displayAlphanumeric).zfill(1))])
                         patch_item.setToolTip(0, str(patch[4]))
                         patches.append(patch_item)
                         patch_item.setFlags(patch_item.flags() | PyQt6.QtCore.Qt.ItemFlag.ItemIsUserCheckable)
@@ -1322,7 +1322,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.progressUpdate(80, "Finishing load")
         self.temp_path = f"{os.path.curdir}\\temp\\{self.romToEdit_name+self.romToEdit_ext}"
         self.setWindowTitle("Mega Man ZX Editor" + " <" + self.rom.name.decode() + ", Serial ID " + ''.join(char for char in self.rom.idCode.decode("utf-8") if char.isalnum())  + ", Rev." + str(self.rom.version) + ", Region " + str(self.rom.region) + ">" + " \"" + self.romToEdit_name + self.romToEdit_ext + "\"")
-        if not self.rom.name.decode().replace(" ", "_") in library.patchdata.GameEnum.__members__:
+        if not self.rom.name.decode().replace(" ", "_") in lib.patchdat.GameEnum.__members__:
             print("ROM is NOT supported! Continue at your own risk!")
             self.window_progress.hide()
             dialog = PyQt6.QtWidgets.QMessageBox(self)
@@ -1447,7 +1447,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         fileEdited = f.read()
                         if str(f.name).split("/")[-1].split(".")[1] == "txt":
                             #print(w.rom.filenames.idOf(str(selectedFiles).split("/")[-1].removesuffix("']").replace(".txt", ".bin")))
-                            w.rom.files[w.rom.filenames.idOf(str(f.name).split("/")[-1].replace(".txt", ".bin"))] = bytearray(library.dialoguefile.DialogueFile.convertdata_text_to_bin(fileEdited.decode("utf-8")))
+                            w.rom.files[w.rom.filenames.idOf(str(f.name).split("/")[-1].replace(".txt", ".bin"))] = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8")))
                             dialog2.exec()
                         else:
                             PyQt6.QtWidgets.QMessageBox.critical(
@@ -1494,8 +1494,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                             # find a way to get attr and replace data at correct index.. maybe it's better to just save ROM and patch
                             #self.rom.files[self.rom.files.index(self.file_fromItem(item)[0])]
                             supported_list = ["txt", "swar", "sbnk", "ssar", "sseq", "cmp", "dec", "bin", ""]
-                            print(selectedFiles)
-                            #print(f.name)
+                            #print(selectedFiles)
+                            print(f.name)
                             #print(fileName + "." + fileExt)
                             if not any(supported == fileExt.lower() for supported in supported_list): # unknown
                                 dialog2.exec()
@@ -1503,12 +1503,12 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                             elif type(fileInfo[2]) != type(None):
                                 if fileExt == "txt": # english text file
                                     if fileName.find("en") != -1:
-                                        if re.search(".*(_\d+)$", fileName): # match the indicator that the file is a chunk of the original file
-                                            dialogue = library.dialoguefile.DialogueFile(fileInfo[2][fileInfo[2].index(fileInfo[0])]) # not ideal to create an object each time
+                                        if re.search(r".*(_\d+)$", fileName): # match the indicator that the file is a chunk of the original file
+                                            dialogue = lib.dialogue.DialogueFile(fileInfo[2][fileInfo[2].index(fileInfo[0])]) # not ideal to create an object each time
                                             dialogue.text_list[int(fileName.split("_")[-1])] = fileEdited.decode("utf-8")
-                                            data = dialogue.generate_file_binary()
+                                            data = dialogue.toBytes()
                                         else:
-                                            data = bytearray(library.dialoguefile.DialogueFile.convertdata_text_to_bin(fileEdited.decode("utf-8")))
+                                            data = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8")))
                                     else:
                                         pass # jp
                                 elif fileExt == "cmp":
@@ -1568,7 +1568,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
     def switch_theme(self, isupdate=False):
         if isupdate == False:
             self.theme_index = self.dropdown_theme.currentIndex()
-            library.init_readwrite.write_preferences(self)
+            lib.ini_rw.write(self)
         else:
             self.dropdown_theme.setCurrentIndex(self.theme_index) # Update dropdown with current option
 
@@ -1621,7 +1621,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 self.treeCall(True) # update gfx colors
         if press:
             #print(button.styleSheet())
-            if color_index < 2**list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()].depth:
+            if color_index < 2**list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()].depth:
                 self.file_content_gfx.pen.setColor(int(button.styleSheet()[button.styleSheet().find(":")+3:button.styleSheet().find(";")], 16))
                     
     
@@ -1669,10 +1669,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             with open(self.temp_path, "r+b") as f:
                     if input_address.text() != "":
                         try:
-                            address = library.dataconverter.NumFromStr(input_address.text(), self.displayBase)
-                            value = library.dataconverter.StrToAlphanumStr(input_value.text(), 16, True)
+                            address = lib.datconv.strToNum(input_address.text(), self.displayBase)
+                            value = lib.datconv.strSetAlnum(input_value.text(), 16, True)
                             f.seek(address)# get to pos for message
-                            value_og = library.dataconverter.StrToAlphanumStr(f.read(len(bytes.fromhex(value))).hex(), self.displayBase, self.displayAlphanumeric)
+                            value_og = lib.datconv.strSetAlnum(f.read(len(bytes.fromhex(value))).hex(), self.displayBase, self.displayAlphanumeric)
                             print(f"successfully wrote {value_og} => {input_value.text().upper()} to {input_address.text().zfill(8)}")
                             f.seek(address)# get to pos
                             f.write(bytes.fromhex(value))# write data
@@ -1680,7 +1680,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                             PyQt6.QtWidgets.QMessageBox.critical(
                                 self,
                                 str(e),
-                                f"Address input must be numeric and must not go over size {library.dataconverter.StrFromNumber(len(self.rom.save()), self.displayBase, self.displayAlphanumeric)}\nValue input must be numeric."
+                                f"Address input must be numeric and must not go over size {lib.datconv.numToStr(len(self.rom.save()), self.displayBase, self.displayAlphanumeric)}\nValue input must be numeric."
                                 )
                             return
         if isQuick or dialog_playtest.result():
@@ -1741,7 +1741,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
         for e in self.rom.loadArm9().sections:
             self.tree_arm9.addTopLevelItem(PyQt6.QtWidgets.QTreeWidgetItem([
-                library.dataconverter.StrToAlphanumStr(str(e).split()[2].removeprefix("0x").removesuffix(":"), self.displayBase, self.displayAlphanumeric).zfill(8), 
+                lib.datconv.strSetAlnum(str(e).split()[2].removeprefix("0x").removesuffix(":"), self.displayBase, self.displayAlphanumeric).zfill(8), 
                 str(e).split()[0].removeprefix("<"), 
                 str(e.implicit)
             ]))
@@ -1752,14 +1752,14 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 overlay = arm9OvlDict[overlayID]
                 self.tree_arm9Ovltable.addTopLevelItem(PyQt6.QtWidgets.QTreeWidgetItem([
                     str(overlay.fileID).zfill(4), 
-                    library.dataconverter.StrFromNumber(overlay.ramAddress, self.displayBase, self.displayAlphanumeric).zfill(8), 
+                    lib.datconv.numToStr(overlay.ramAddress, self.displayBase, self.displayAlphanumeric).zfill(8), 
                     str(overlay.compressed), 
-                    library.dataconverter.StrFromNumber(overlay.compressedSize, self.displayBase, self.displayAlphanumeric), 
-                    library.dataconverter.StrFromNumber(overlay.ramSize, self.displayBase, self.displayAlphanumeric), 
-                    library.dataconverter.StrFromNumber(overlay.bssSize, self.displayBase, self.displayAlphanumeric), 
-                    library.dataconverter.StrFromNumber(overlay.staticInitStart, self.displayBase, self.displayAlphanumeric).zfill(8), 
-                    library.dataconverter.StrFromNumber(overlay.staticInitEnd, self.displayBase, self.displayAlphanumeric).zfill(8), 
-                    library.dataconverter.StrFromNumber(overlay.flags, self.displayBase, self.displayAlphanumeric), 
+                    lib.datconv.numToStr(overlay.compressedSize, self.displayBase, self.displayAlphanumeric), 
+                    lib.datconv.numToStr(overlay.ramSize, self.displayBase, self.displayAlphanumeric), 
+                    lib.datconv.numToStr(overlay.bssSize, self.displayBase, self.displayAlphanumeric), 
+                    lib.datconv.numToStr(overlay.staticInitStart, self.displayBase, self.displayAlphanumeric).zfill(8), 
+                    lib.datconv.numToStr(overlay.staticInitEnd, self.displayBase, self.displayAlphanumeric).zfill(8), 
+                    lib.datconv.numToStr(overlay.flags, self.displayBase, self.displayAlphanumeric), 
                     str(overlay.verifyHash)
                 ]))
 
@@ -1771,7 +1771,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
         for e in self.rom.loadArm7().sections:
             self.tree_arm7.addTopLevelItem(PyQt6.QtWidgets.QTreeWidgetItem([
-                library.dataconverter.StrToAlphanumStr(str(e).split()[2].removeprefix("0x").removesuffix(":"), self.displayBase, self.displayAlphanumeric).zfill(8), 
+                lib.datconv.strSetAlnum(str(e).split()[2].removeprefix("0x").removesuffix(":"), self.displayBase, self.displayAlphanumeric).zfill(8), 
                 str(e).split()[0].removeprefix("<"), 
                 str(e.implicit)
             ]))
@@ -1782,14 +1782,14 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 overlay = arm7OvlDict[overlayID]
                 self.tree_arm7Ovltable.addTopLevelItem(PyQt6.QtWidgets.QTreeWidgetItem([
                     str(overlay.fileID).zfill(4), 
-                    library.dataconverter.StrFromNumber(overlay.ramAddress, self.displayBase, self.displayAlphanumeric).zfill(8), 
+                    lib.datconv.numToStr(overlay.ramAddress, self.displayBase, self.displayAlphanumeric).zfill(8), 
                     str(overlay.compressed), 
-                    library.dataconverter.StrFromNumber(overlay.compressedSize, self.displayBase, self.displayAlphanumeric), 
-                    library.dataconverter.StrFromNumber(overlay.ramSize, self.displayBase, self.displayAlphanumeric), 
-                    library.dataconverter.StrFromNumber(overlay.bssSize, self.displayBase, self.displayAlphanumeric), 
-                    library.dataconverter.StrFromNumber(overlay.staticInitStart, self.displayBase, self.displayAlphanumeric).zfill(8), 
-                    library.dataconverter.StrFromNumber(overlay.staticInitEnd, self.displayBase, self.displayAlphanumeric).zfill(8), 
-                    library.dataconverter.StrFromNumber(overlay.flags, self.displayBase, self.displayAlphanumeric), 
+                    lib.datconv.numToStr(overlay.compressedSize, self.displayBase, self.displayAlphanumeric), 
+                    lib.datconv.numToStr(overlay.ramSize, self.displayBase, self.displayAlphanumeric), 
+                    lib.datconv.numToStr(overlay.bssSize, self.displayBase, self.displayAlphanumeric), 
+                    lib.datconv.numToStr(overlay.staticInitStart, self.displayBase, self.displayAlphanumeric).zfill(8), 
+                    lib.datconv.numToStr(overlay.staticInitEnd, self.displayBase, self.displayAlphanumeric).zfill(8), 
+                    lib.datconv.numToStr(overlay.flags, self.displayBase, self.displayAlphanumeric), 
                     str(overlay.verifyHash)
                 ]))
     
@@ -1862,7 +1862,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                                 "Numeric Base Warning!",
                                 f"Base is not supported for inputting data in spinboxes.\n This means that all spinboxes will revert to base 10 until they are set to a supported base.\n Proceed at your own risk!"
                                 )
-        self.field_tile_width.setStatusTip(f"Set depth to 1bpp and tile width to {library.dataconverter.StrFromNumber(16, self.displayBase, self.displayAlphanumeric)} for JP font")
+        self.field_tile_width.setStatusTip(f"Set depth to 1bpp and tile width to {lib.datconv.numToStr(16, self.displayBase, self.displayAlphanumeric)} for JP font")
         if current_item != None:
             current_id = int(current_item.text(0))
             current_name = current_item.text(1)
@@ -1879,12 +1879,12 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.field_address.setMaximum(self.base_address+len(self.rom.files[current_id]))
             self.field_address.blockSignals(False)
             if self.fileToEdit_name.find(".Folder") == -1:# if it's a file
-                self.label_file_size.setText(f"Size: {library.dataconverter.StrFromNumber(len(self.rom.files[current_id]), self.displayBase, self.displayAlphanumeric).zfill(0)} bytes")
+                self.label_file_size.setText(f"Size: {lib.datconv.numToStr(len(self.rom.files[current_id]), self.displayBase, self.displayAlphanumeric).zfill(0)} bytes")
                 if self.fileDisplayRaw == False:
                     if self.fileDisplayMode == "Adapt":
                             indicator_list_gfx = ["face", "font", "obj_fnt", "title"]
                             if self.rom.name.decode() == "MEGAMANZX" or self.rom.name.decode() == "ROCKMANZX":
-                                indicator_list_gfx.extend(["bbom", "dm23", "elf", "g01", "g03", "g_", "game_parm", "lmlevel", "miss", "repair", "sec_disk", "sub"])
+                                indicator_list_gfx.extend(["bbom", "dm23", "elf", "g_", "game_parm", "lmlevel", "miss", "repair", "sec_disk", "sub"])
                             elif self.rom.name.decode() == "MEGAMANZXA" or self.rom.name.decode() == "ROCKMANZXA":
                                 indicator_list_gfx.extend(["cmm_frame_fnt", "cmm_mega_s", "cmm_rock_s", "Is_m", "Is_trans", "Is_txt_fnt", "sub_db", "sub_oth"])
                             if (current_name.find("talk") != -1 or current_name.find("m_") != -1):
@@ -1912,12 +1912,12 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                             self.dropdown_textindex.setEnabled(True)
                             self.dropdown_textindex.clear()
                             try:
-                                self.dialogue_edited = library.dialoguefile.DialogueFile(self.rom.files[current_id])
+                                self.dialogue_edited = lib.dialogue.DialogueFile(self.rom.files[current_id])
                             except AssertionError:
                                 self.file_content_text.setEnabled(True)
                                 self.dropdown_textindex.blockSignals(False)
                                 self.dropdown_textindex.setDisabled(True)
-                                self.dialogue_edited = library.dialoguefile.DialogueFile.convertdata_bin_to_text(self.rom.files[current_id][self.relative_address:self.relative_address+0xFFFF])
+                                self.dialogue_edited = lib.dialogue.DialogueFile.binToText(self.rom.files[current_id][self.relative_address:self.relative_address+0xFFFF])
                                 self.file_content_text.setPlainText(self.dialogue_edited)
                                 self.button_file_save.setDisabled(True)
                                 self.file_content_text.blockSignals(False)
@@ -1932,7 +1932,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                                 self.dialogue_edited.text_list[self.dropdown_textindex.previousIndex] = self.file_content_text.toPlainText() # keep changes to text on previous index
                                 self.dropdown_textindex.previousIndex = self.dropdown_textindex.currentIndex()
                         else: # forcing text view on non-text file = simple conversion mode
-                            self.dialogue_edited = library.dialoguefile.DialogueFile.convertdata_bin_to_text(self.rom.files[current_id][self.relative_address:self.relative_address+0xFFFF])
+                            self.dialogue_edited = lib.dialogue.DialogueFile.binToText(self.rom.files[current_id][self.relative_address:self.relative_address+0xFFFF])
                             self.file_content_text.setPlainText(self.dialogue_edited)
                             self.file_content_text.blockSignals(False)
                             return
@@ -1950,10 +1950,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                             self.file_content_text.setReadOnly(True)
                     elif self.fileDisplayState == "Graphics":
                         #print(self.dropdown_gfx_depth.currentText()[:1] + " bpp graphics")
-                        if self.gfx_palette.index(self.file_content_gfx.pen.color().rgba()) >= 2**list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()].depth:
+                        if self.gfx_palette.index(self.file_content_gfx.pen.color().rgba()) >= 2**list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()].depth:
                             self.file_content_gfx.pen.setColor(self.gfx_palette[0])
                         self.file_content_gfx.resetScene()
-                        draw_tilesQImage_fromBytes(self.file_content_gfx, self.rom.files[current_id][self.relative_address:], algorithm=list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column, tileWidth=self.tile_width, tileHeight=self.tile_height)
+                        draw_tilesQImage_fromBytes(self.file_content_gfx, self.rom.files[current_id][self.relative_address:], algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column, tileWidth=self.tile_width, tileHeight=self.tile_height)
                         if not isValueUpdate: # if entering graphics mode and func is not called to update other stuff
                             self.file_editor_show("Graphics")
                     elif self.fileDisplayState == "Sound":
@@ -1966,7 +1966,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                     elif self.fileDisplayState == "VX":
                         self.file_editor_show("VX")
                         self.field_address.setDisabled(True)
-                        vx_file = library.actimagine.ActImagine()
+                        vx_file = lib.act.ActImagine()
                         vx_file.load_vx(self.rom.files[current_id])
                         #print(self.rom.files[current_id][5:6].hex()+self.rom.files[current_id][4:5].hex())
                         self.field_vxHeader_length.setValue(vx_file.frames_qty)
@@ -2021,8 +2021,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 text = e.text(t)
                 if any(char.isdigit() for char in text) and text.replace("{", "").replace("}", "").isalnum():
                     if e.treeWidget().headerItem().text(t).lower().find("file id") == -1:
-                        value = library.dataconverter.NumFromStr(text, self.displayBase_old)
-                        newtext = library.dataconverter.StrFromNumber(value, self.displayBase, self.displayAlphanumeric)
+                        value = lib.datconv.strToNum(text, self.displayBase_old)
+                        newtext = lib.datconv.numToStr(value, self.displayBase, self.displayAlphanumeric)
                         zerofill = 8 if e.treeWidget().headerItem().text(t).lower().find("address") != -1 else 0
                         e.setText(t, newtext.zfill(zerofill))
 
@@ -2128,11 +2128,11 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 if self.dropdown_textindex.isEnabled():
                     self.dialogue_edited.text_list[self.dropdown_textindex.currentIndex()] = self.file_content_text.toPlainText()
                     #dialog.text_id_list = 
-                    self.rom.files[file_id] = self.dialogue_edited.generate_file_binary()
+                    self.rom.files[file_id] = self.dialogue_edited.toBytes()
                 else:
-                    self.rom.files[file_id][self.relative_address:self.relative_address+0xFFFF] = library.dialoguefile.DialogueFile.convertdata_text_to_bin(self.file_content_text.toPlainText())
+                    self.rom.files[file_id][self.relative_address:self.relative_address+0xFFFF] = lib.dialogue.DialogueFile.textToBin(self.file_content_text.toPlainText())
             elif self.fileDisplayState == "Graphics":
-                rom_save_data = saveData_fromGFXView(self.file_content_gfx, algorithm=list(library.dataconverter.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column, tileWidth=self.tile_width, tileHeight=self.tile_height)
+                rom_save_data = saveData_fromGFXView(self.file_content_gfx, algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column, tileWidth=self.tile_width, tileHeight=self.tile_height)
                 w.rom.files[file_id][self.relative_address:self.relative_address+len(rom_save_data)] = rom_save_data
             elif self.fileDisplayState == "VX":
                 w.rom.files[file_id][0x04:0x08] = bytearray(int.to_bytes(int(self.field_vxHeader_length.value()), 4, "little"))
@@ -2149,7 +2149,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             elif self.fileDisplayState == "Sound":
                 return
         else:
-            rom_save_data = bytearray.fromhex(library.dataconverter.StrToAlphanumStr(self.file_content_text.toPlainText(), 16, True)) # force to alphanumeric for bytearray conversion
+            rom_save_data = bytearray.fromhex(lib.datconv.strSetAlnum(self.file_content_text.toPlainText(), 16, True)) # force to alphanumeric for bytearray conversion
             w.rom.files[file_id][self.relative_address:self.relative_address+len(rom_save_data)] = rom_save_data
         #print(type(w.rom.files[file_id]))
         print("file changes saved")
@@ -2163,7 +2163,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             os.mkdir("temp")
         self.rom.saveToFile(self.temp_path)# Create temporary ROM to write patch to
         patch_list = []
-        for patch in library.patchdata.GameEnum[self.rom.name.decode().replace(" ", "_")].value[1]: # create a patch list with a consistent format
+        for patch in lib.patchdat.GameEnum[self.rom.name.decode().replace(" ", "_")].value[1]: # create a patch list with a consistent format
             if type(patch[2]) == type([]):
                 patch_list.append(['N/A', patch[0], patch[1], 'N/A', 'N/A'])
                 for subPatch in patch:
@@ -2224,7 +2224,7 @@ app = PyQt6.QtWidgets.QApplication(sys.argv)
 w = MainWindow()
 
 # Draw contents of tile viewer
-def draw_tilesQImage_fromBytes(view: GFXView, data: bytearray, palette: list[int]=w.gfx_palette, algorithm=library.dataconverter.CompressionAlgorithmEnum.ONEBPP, tilesPerRow=4, tilesPerColumn=8, tileWidth=16, tileHeight=8):
+def draw_tilesQImage_fromBytes(view: GFXView, data: bytearray, palette: list[int]=w.gfx_palette, algorithm=lib.datconv.CompressionAlgorithmEnum.ONEBPP, tilesPerRow=4, tilesPerColumn=8, tileWidth=16, tileHeight=8):
     tileWidth = int(tileWidth)
     tileHeight = int(tileHeight)
     tilesPerColumn = int(tilesPerColumn)
@@ -2235,14 +2235,14 @@ def draw_tilesQImage_fromBytes(view: GFXView, data: bytearray, palette: list[int
     for tile in range(tilesPerRow*tilesPerColumn):
         # get data of current tile from bytearray, multiplying tile index by amount of pixels in a tile and by amount of bits per pixel, then dividing by amount of bits per byte
         # that data is then converted into a QImage that is used to create the QPixmap of the tile
-        gfx = PyQt6.QtGui.QPixmap.fromImage(library.dataconverter.convertdata_bin_to_qt(data[int(tile*(tileWidth*tileHeight)*algorithm.depth/8):int(tile*(tileWidth*tileHeight)*algorithm.depth/8+(tileWidth*tileHeight)*algorithm.depth/8)], palette, algorithm, tileWidth, tileHeight))
+        gfx = PyQt6.QtGui.QPixmap.fromImage(lib.datconv.bin_to_qt(data[int(tile*(tileWidth*tileHeight)*algorithm.depth/8):int(tile*(tileWidth*tileHeight)*algorithm.depth/8+(tileWidth*tileHeight)*algorithm.depth/8)], palette, algorithm, tileWidth, tileHeight))
         #print(tile)
         pos = PyQt6.QtCore.QPoint(tileWidth*int(tile % tilesPerRow), tileHeight*int(tile / tilesPerRow))
         painter.drawPixmap(pos, gfx) # draw tile at correct pos in canvas
     view._graphic.setPixmap(gfx_zone) # overwrite current canvas with new one
     return
 # Decode contents of tile viewer
-def saveData_fromGFXView(view: GFXView, palette: list[int]=w.gfx_palette, algorithm=library.dataconverter.CompressionAlgorithmEnum.ONEBPP, tilesPerRow=8, tilesPerColumn=8, tileWidth=8, tileHeight=8):
+def saveData_fromGFXView(view: GFXView, palette: list[int]=w.gfx_palette, algorithm=lib.datconv.CompressionAlgorithmEnum.ONEBPP, tilesPerRow=8, tilesPerColumn=8, tileWidth=8, tileHeight=8):
     saved_data = bytearray()
     #print("pixmap: " + "width=" + str(view._graphic.pixmap().width()) + "   height=" + str(view._graphic.pixmap().height()))
     #print("tiles: " + "horizontal=" +str(tilesPerRow) + "   vertical=" + str(tilesPerColumn))
@@ -2250,7 +2250,7 @@ def saveData_fromGFXView(view: GFXView, palette: list[int]=w.gfx_palette, algori
     for tile in range(tilesPerRow*tilesPerColumn):
         tile_rect = PyQt6.QtCore.QRect((tileWidth*int(tile % tilesPerRow)), (tileHeight*int(tile / tilesPerRow)), tileWidth, tileHeight)
         tile_current = view._graphic.pixmap().copy(tile_rect).toImage()
-        saved_data +=  library.dataconverter.convertdata_qt_to_bin(tile_current, palette, algorithm, tileWidth, tileHeight)
+        saved_data +=  lib.datconv.qt_to_bin(tile_current, palette, algorithm, tileWidth, tileHeight)
     #print(saved_data.hex())
     return saved_data
 
@@ -2282,16 +2282,16 @@ def extract(data: bytes, name="", path="", format="", compress=0):
         if format == "English dialogue":
             ext = ".txt"
             try: # create multiple text files
-                text_list = library.dialoguefile.DialogueFile(data).text_list
+                text_list = lib.dialogue.DialogueFile(data).text_list
                 data = [""]*len(text_list)
                 for text in text_list:
                     data[text_list.index(text)] = bytes(text, "utf-8")
             except AssertionError: # not a real dialogue file
-                data = bytes(library.dialoguefile.DialogueFile.convertdata_bin_to_text(data), "utf-8")
+                data = bytes(lib.dialogue.DialogueFile.binToText(data), "utf-8")
         elif format == "VX":
             #ext = ".png"
-            #data = library.actimagine.ActImagine(data).interpret_vx()
-            library.actimagine.ActImagine(data).interpret_vx() # needs to allow specific file location
+            #data = library.act.ActImagine(data).interpret_vx()
+            lib.act.ActImagine(data).interpret_vx() # needs to allow specific file location
             return
         else:
             print("could not find method for converting to specified format.")
@@ -2312,7 +2312,7 @@ def extract(data: bytes, name="", path="", format="", compress=0):
 app.exec()
 # After execution
 w.firstLaunch = False
-library.init_readwrite.write_preferences(w)
+lib.ini_rw.write(w)
 if os.path.exists(w.temp_path) and w.romToEdit_name != "":
     try:
         os.remove(w.temp_path) # delete temporary ROM

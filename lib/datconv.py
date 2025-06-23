@@ -1,3 +1,4 @@
+# data converter for numeric bases and for graphics
 #import os.path
 #import numpy
 #import PIL, PIL.Image
@@ -16,7 +17,7 @@ def signext(n):
     else:
         return -1
 
-def numberToBase(n, b: int, decimals: int=16):
+def numToBase(n, b: int, decimals: int=16):
     isfract = False
     if n > 0:
         n2 = n - (n//1) # fractional part
@@ -122,55 +123,24 @@ def baseToNum(l: list, b: int):
             val_final += l2[i]*b**(len(l)-1 - i)
     return val_final
 
-def StrFromNumber(n, b: int, alphanum: bool = False): #for convenience
-    return baseToStr(numberToBase(n, b), b, alphanum)
+def numToStr(n, b: int, alphanum: bool = False): #for convenience
+    return baseToStr(numToBase(n, b), b, alphanum)
 
-def NumFromStr(s: str, b: int): #for convenience
+def strToNum(s: str, b: int): #for convenience
     return baseToNum(strToBase(s), b)
 
-def StrToAlphanumStr(s: str, b: int, alphanum: bool = False): #for convenience
+def strSetAlnum(s: str, b: int, alphanum: bool = False): #for convenience
     return baseToStr(strToBase(s), b, alphanum)
 
 def str_subgroups(s: str, n):
     return [s[i:i+n] for i in range(0, len(s), n)]
 
-def bitstring_to_bytes(s: str):
+def bitstrToBytes(s: str):
     b = bytearray()
     l = str_subgroups(s, 8) # separate bitstring into bytes
     for byte in l:
         b.append(int(byte, 2) & 0xff) # convert to hex
     return bytes(b)
-
-def find_matching_paren(s, i, braces=None):
-    openers = braces or {"(": ")"}
-    closers = {v: k for k, v in openers.items()}
-    stack = []
-    result = []
-
-    if s[i] not in openers:
-        raise ValueError(f"char at index {i} was not an opening brace")
-
-    for ii in range(i, len(s)):
-        c = s[ii]
-
-        if c in openers:
-            stack.append([c, ii])
-        elif c in closers:
-            if not stack:
-                raise ValueError(f"tried to close brace without an open at position {i}")
-
-            pair, idx = stack.pop()
-
-            if pair != closers[c]:
-                raise ValueError(f"mismatched brace at position {i}")
-
-            if idx == i:
-                return ii
-    
-    if stack:
-        raise ValueError(f"no closing brace at position {i}")
-
-    return result
 
 class CompressionAlgorithmEnum(enum.Enum):
 
@@ -182,7 +152,7 @@ class CompressionAlgorithmEnum(enum.Enum):
   FOURBPP = enum.auto(), 4
   EIGHTBPP = enum.auto(), 8
 
-def convertdata_bin_to_qt(binary_data: bytearray, palette: list[int]=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], algorithm=CompressionAlgorithmEnum.ONEBPP, tileWidth=8, tileHeight=8): # GBA 4bpp = 4bpp linear reverse order
+def bin_to_qt(binary_data: bytearray, palette: list[int]=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], algorithm=CompressionAlgorithmEnum.ONEBPP, tileWidth=8, tileHeight=8): # GBA 4bpp = 4bpp linear reverse order
     tileWidth = int(tileWidth)
     tileHeight = int(tileHeight)
     #file_bits = bin(int.from_bytes(binary_data))[2:]
@@ -217,7 +187,7 @@ def convertdata_bin_to_qt(binary_data: bytearray, palette: list[int]=[0xff000000
                     image_widget.setPixel(x, y, int(str_subgroups(file_bits, algorithm.depth)[pixel_index], 2))
     return image_widget
 
-def convertdata_qt_to_bin(qimage: PyQt6.QtGui.QImage, palette: list[int]=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], algorithm=CompressionAlgorithmEnum.ONEBPP, tileWidth=8, tileHeight=8): # GBA 4bpp = 4bpp linear reverse order
+def qt_to_bin(qimage: PyQt6.QtGui.QImage, palette: list[int]=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], algorithm=CompressionAlgorithmEnum.ONEBPP, tileWidth=8, tileHeight=8): # GBA 4bpp = 4bpp linear reverse order
     tileWidth = int(tileWidth)
     tileHeight = int(tileHeight)
     binary_data = bytearray()
@@ -231,7 +201,7 @@ def convertdata_qt_to_bin(qimage: PyQt6.QtGui.QImage, palette: list[int]=[0xff00
                     y = int(pixel_index / tileWidth)
                     file_bits += bin(palette.index(qimage.pixelColor(x, y).rgba())).removeprefix('0b').zfill(algorithm.depth)
             file_bits = "".join([file_bits[i:i+8][::-1] for i in range(0, len(file_bits), 8)]) # reverse the order of the bits in each byte
-            binary_data = bytearray(bitstring_to_bytes(file_bits))
+            binary_data = bytearray(bitstrToBytes(file_bits))
         case CompressionAlgorithmEnum.FOURBPP: # NDS/GBA 4bpp
             for pixel_index in range(0, qimage.size().width()*qimage.size().height(), 2):
                 #print(str_subgroups(file_bits, 4)[pixel_index])
@@ -242,7 +212,7 @@ def convertdata_qt_to_bin(qimage: PyQt6.QtGui.QImage, palette: list[int]=[0xff00
                     file_bits += bin(palette.index(qimage.pixelColor(x, y).rgba())).removeprefix('0b').zfill(algorithm.depth)
                     #print(file_bits)
                     #print(bitstring_to_bytes(file_bits).hex())
-                    binary_data += bytearray(bitstring_to_bytes(file_bits))
+                    binary_data += bytearray(bitstrToBytes(file_bits))
         case CompressionAlgorithmEnum.EIGHTBPP: # NDS/GBA 8bpp
             for pixel_index in range(0, qimage.size().width()*qimage.size().height()):
                 #print(str_subgroups(file_bits, 4)[pixel_index])
@@ -250,7 +220,7 @@ def convertdata_qt_to_bin(qimage: PyQt6.QtGui.QImage, palette: list[int]=[0xff00
                     x = int(pixel_index % tileWidth)
                     y = int(pixel_index / tileWidth)
                     file_bits = bin(palette.index(qimage.pixelColor(x, y).rgba())).removeprefix('0b').zfill(algorithm.depth)
-                    binary_data += bytearray(bitstring_to_bytes(file_bits))
+                    binary_data += bytearray(bitstrToBytes(file_bits))
     #print("bits: " + file_bits)
     #print("bytearray: " + binary_data.hex())
     return binary_data
