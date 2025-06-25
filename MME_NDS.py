@@ -16,7 +16,7 @@ import ndspy.soundSequenceArchive
 import lib
 #Global variables
 global EDITOR_VERSION
-EDITOR_VERSION = "0.3.2" # objective, feature, WIP
+EDITOR_VERSION = "0.4.2" # objective, feature, WIP
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-R", "--ROM", help="NDS ROM to open using the editor.", dest="openPath")
@@ -332,6 +332,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.setWindowTitle("Mega Man ZX Editor")
         self.temp_path = f"{os.path.curdir}\\temp\\"
         self.rom = None #ndspy.rom.NintendoDSRom # placeholder definitions
+        self.rom_fat = [] # list of file addresses (see loadFat())
         self.sdat = None #ndspy.soundArchive.SDAT
         self.base_address = 0
         self.relative_address = 0
@@ -343,9 +344,17 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.fileDisplayState = "None" # Same states as mode
         self.widget_set = "Empty" # Empty, Text, Graphics, Font, Sound, VX
         self.GFX_PALETTES = [
-            [0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], #default
+            [0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], # default
             [0xff000000, 0xffffffff]*128, # font
-            [0xff000000+((0x010101*i)%0x1000000) for i in range(256)], #face
+            [0xff639c6b, 0xff426b9c, 0xff42a5c6, 0xff84c6e7, 0xffbdefff, 0xffdeffef, 0xffb58cff, 0xffefc6ff, # generic
+             0xffffdeff, 0xfff70010, 0xfff76310, 0xfff79410, 0xfff7c600, 0xfff7f710, 0xfff7f794, 0xffffffff,
+             0xff7b8463, 0xff102163, 0xff395294, 0xff949cc6, 0xffd6def7, 0xffffffff, 0xff9c0029, 0xfff7394a, # ZX
+             0xffff9484, 0xff108c73, 0xffffce18, 0xffffff8c, 0xffffd6bd, 0xffd68410, 0xff8c4a00, 0xff39e7c6,
+             0xff000000, 0xffc6f7ff, 0xffbdd6ff, 0xffa5adf7, 0xff8c7be7, 0xff7352de, 0xff5a29ce, 0xff4200c6, # PX attacks
+             0xff6b10ce, 0xff8c21de, 0xffb531ef, 0xffde4aff, 0xfff763ff, 0xffff9cff, 0xffffd6ff, 0xffffffff,
+             0xff000000, 0xffc6f7ff, 0xffbdd6ff, 0xffa5adf7, 0xff8c7be7, 0xff7352de, 0xff5a29ce, 0xff4200c6, # PX attacks
+             0xff6b10ce, 0xff8c21de, 0xffb531ef, 0xffde4aff, 0xfff763ff, 0xffff9cff, 0xffffd6ff, 0xffffffff]*4, # sprites
+            [0xff000000+((0x010101*i)%0x1000000) for i in range(256)], # face
         ]
         self.gfx_palette = self.GFX_PALETTES[0]
         self.dialogue_edited = None
@@ -370,12 +379,25 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         lib.ini_rw.read(self, "MISC", property_type="bool")
         if self.firstLaunch:
             firstLaunch_dialog = PyQt6.QtWidgets.QMessageBox()
-            firstLaunch_dialog.setWindowTitle("First Launch")
+            firstLaunch_dialog.setWindowTitle("Mega Man ZX Editor - First Launch")
             firstLaunch_dialog.setWindowIcon(PyQt6.QtGui.QIcon('icons\\information.png'))
-            firstLaunch_dialog.setText("Editor's current features:\n- English dialogue text editor\n- Patcher(no patches available yet)\n- Graphics editor\nWIP:\n- Sound data editor\n- VX file editor")
+            firstLaunch_dialog.setTextFormat(PyQt6.QtCore.Qt.TextFormat.MarkdownText)
+            firstLaunch_dialog.setText(f"""Thank you for trying out Mega Man ZX Editor!
+                                       \rThe current version is {EDITOR_VERSION}."""
+                                       )
+            firstLaunch_dialog.setInformativeText(f"""Editor's current features ({EDITOR_VERSION.split('.')[1]}):
+                                                  \r- English dialogue text editor
+                                                  \r- Patcher(no patches available yet)
+                                                  \r- Graphics editor
+                                                  \r- Font editor
+
+                                                  \rWIP ({EDITOR_VERSION.split('.')[2]}):
+                                                  \r- Sound data editor
+                                                  \r- VX file editor""")
+            #firstLaunch_dialog.setDetailedText("abc")
             firstLaunch_dialog.exec()
 
-    def toggle_widget_icon(self, widget: PyQt6.QtWidgets.QWidget, checkedicon: PyQt6.QtGui.QImage, uncheckedicon: PyQt6.QtGui.QImage):
+    def widgetIcon_update(self, widget: PyQt6.QtWidgets.QWidget, checkedicon: PyQt6.QtGui.QImage, uncheckedicon: PyQt6.QtGui.QImage):
         if widget.isChecked():
             widget.setIcon(checkedicon)
         else:
@@ -433,15 +455,15 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.dialog_about.resize(500, 500)
         self.text_about = PyQt6.QtWidgets.QTextBrowser(self.dialog_about)
         self.text_about.resize(self.dialog_about.width(), self.dialog_about.height())
-        self.text_about.setText(f"""Supports:
-MEGAMANZX (Mega Man ZX)
-MEGAMANZXA (Mega Man ZX Advent)
+        self.text_about.setText(f"""Supports:\
+                                \rMEGAMANZX (Mega Man ZX)\
+                                \rMEGAMANZXA (Mega Man ZX Advent)\
 
-Versionning:
-Editor version: {EDITOR_VERSION} (final objective(s) completed, major functional features, WIP features)
-Python version: 3.13.2 (your version is {platform.python_version()})
-PyQt version: 6.8.1 (your version is {PyQt6.QtCore.PYQT_VERSION_STR})
-NDSPy version: 4.2.0 (your version is {list(ndspy.VERSION)[0]}.{list(ndspy.VERSION)[1]}.{list(ndspy.VERSION)[2]})""")
+                                \rVersionning:\
+                                \rEditor version: {EDITOR_VERSION} (final objective(s) completed, major functional features, WIP features)\
+                                \rPython version: 3.13.2 (your version is {platform.python_version()})\
+                                \rPyQt version: 6.8.1 (your version is {PyQt6.QtCore.PYQT_VERSION_STR})\
+                                \rNDSPy version: 4.2.0 (your version is {list(ndspy.VERSION)[0]}.{list(ndspy.VERSION)[1]}.{list(ndspy.VERSION)[2]})""")
         self.aboutAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\information.png'), '&About', self)
         self.aboutAction.setStatusTip('Show information about the application')
         self.aboutAction.triggered.connect(lambda: self.dialog_about.exec())
@@ -816,8 +838,8 @@ NDSPy version: 4.2.0 (your version is {list(ndspy.VERSION)[0]}.{list(ndspy.VERSI
         for i in range(256): #setup default palette
             setattr(self, f"button_palettepick_{i}", HoldButton(self.page_explorer))
             button_palettepick: HoldButton = getattr(self, f"button_palettepick_{i}")
-            button_palettepick.held.connect(lambda hold, press=None, color_index=i: self.ColorpickCall(color_index, press, hold))
-            button_palettepick.pressed_quick.connect(lambda press, hold=None, color_index=i: self.ColorpickCall(color_index, press, hold))
+            button_palettepick.held.connect(lambda hold, press=None, color_index=i: self.colorpickCall(color_index, press, hold))
+            button_palettepick.pressed_quick.connect(lambda press, hold=None, color_index=i: self.colorpickCall(color_index, press, hold))
             button_palettepick.allow_press = True
             button_palettepick.press_quick_threshold = 1
             button_palettepick.setStyleSheet(f"background-color: #{self.gfx_palette[i]:08x}; color: white;")
@@ -826,7 +848,7 @@ NDSPy version: 4.2.0 (your version is {list(ndspy.VERSION)[0]}.{list(ndspy.VERSI
             button_palettepick.hide()
 
         self.dropdown_gfx_palette = PyQt6.QtWidgets.QComboBox(self.page_explorer)
-        self.dropdown_gfx_palette.addItems(["Default Palette", "Font", "Face"])# order of names is determined by the enum in dataconverter
+        self.dropdown_gfx_palette.addItems(["Default Palette", "Font Palette", "Sprites Palette", "BG Palette"])# order of names is determined by the enum in dataconverter
         self.dropdown_gfx_palette.setToolTip("Choose palette")
         self.dropdown_gfx_palette.setStatusTip("Select the color palette preset that you want to use to render images")
         self.dropdown_gfx_palette.currentIndexChanged.connect(lambda: self.setPalette(self.dropdown_gfx_palette.currentIndex()))# Update gfx with current depth
@@ -1432,6 +1454,14 @@ NDSPy version: 4.2.0 (your version is {list(ndspy.VERSION)[0]}.{list(ndspy.VERSI
         if not filename == ("", ""):
             self.loadROM(filename[0])
 
+    def loadFat(self): # ndspy already does this to load the ROM properly, but does not store any of the info on the fat in the final rom object
+        self.rom_fat.clear()
+        rom = self.rom.save()
+        fat_offset = int.from_bytes(rom[0x48:0x4C], "little") # read from nds header
+        fat_size = int.from_bytes(rom[0x4C:0x50], "little")
+        for i in range(fat_size//8): # 8 bytes for start and end address of each file, so this is like range(fileCount)
+            self.rom_fat.append(int.from_bytes(rom[fat_offset+i*8:fat_offset+i*8+4], "little"))
+
     def loadROM(self, fname: str):
         # reset stuff to prevent conflicts
         self.tree.setCurrentItem(None)
@@ -1456,6 +1486,8 @@ NDSPy version: 4.2.0 (your version is {list(ndspy.VERSION)[0]}.{list(ndspy.VERSI
         self.setWindowTitle("Mega Man ZX Editor" + " \"" + self.romToEdit_name + self.romToEdit_ext + "\"")
         try:
             self.rom = ndspy.rom.NintendoDSRom.fromFile(fname)
+            # create a file attribute table that can be read rapidly because ndspy does not provide any
+            self.loadFat()
         except Exception as e:
             self.progressHide()
             print(e)
@@ -1772,7 +1804,7 @@ NDSPy version: 4.2.0 (your version is {list(ndspy.VERSION)[0]}.{list(ndspy.VERSI
     def display_format_toggleCall(self):
         self.fileDisplayRaw = not self.fileDisplayRaw
         self.displayFormatSubmenu.setDisabled(self.displayFormatSubmenu.isEnabled())
-        self.toggle_widget_icon(self.displayRawAction, PyQt6.QtGui.QIcon('icons\\brain.png'), PyQt6.QtGui.QIcon('icons\\document-binary.png'))
+        self.widgetIcon_update(self.displayRawAction, PyQt6.QtGui.QIcon('icons\\brain.png'), PyQt6.QtGui.QIcon('icons\\document-binary.png'))
         self.treeCall()
 
     def value_update_Call(self, var, val, istreecall=True):
@@ -1782,15 +1814,18 @@ NDSPy version: 4.2.0 (your version is {list(ndspy.VERSION)[0]}.{list(ndspy.VERSI
             self.treeCall(True)
 
     def setPalette(self, index):
-        self.gfx_palette = self.GFX_PALETTES[index]
+        self.dropdown_gfx_palette.setCurrentIndex(index)
+        new_pal = self.GFX_PALETTES[index].copy()
+        self.gfx_palette = new_pal # does not return a shallow copy and modifies the constant directly instead???
         self.file_content_gfx.pen.setColor(self.gfx_palette[0]) # set to first color
         for i in range(256):
             button_palettepick: HoldButton = getattr(self, f"button_palettepick_{i}")
             button_palettepick.setStyleSheet(f"background-color: #{self.gfx_palette[i]:08x}; color: white;")
 
-    def ColorpickCall(self, color_index: int, press=None, hold=None):
+    def colorpickCall(self, color_index: int, press=None, hold=None):
         #print(color_index)
         button: HoldButton = getattr(self, f"button_palettepick_{color_index}")
+        depth = list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()].depth
         if hold:
             dialog = PyQt6.QtWidgets.QColorDialog(self)
             dialog.setOptions(PyQt6.QtWidgets.QColorDialog.ColorDialogOption.DontUseNativeDialog)
@@ -1804,8 +1839,22 @@ NDSPy version: 4.2.0 (your version is {list(ndspy.VERSION)[0]}.{list(ndspy.VERSI
                 self.treeCall(True) # update gfx colors
         if press:
             #print(button.styleSheet())
-            if color_index < 2**list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()].depth:
+            if color_index < 2**depth:
                 self.file_content_gfx.pen.setColor(int(button.styleSheet()[button.styleSheet().find(":")+3:button.styleSheet().find(";")], 16))
+            else: # outside of first subpalette range
+                color_index2 = color_index//(2**depth)*(2**depth)
+                new_pal = self.gfx_palette.copy() # copy to another var to facilitate color swap
+                new_pal[:2**depth] = self.gfx_palette[color_index2:color_index2+(2**depth)] # switch up colors between selected subpalette and 1st subpalette
+                new_pal[color_index2:color_index2+(2**depth)] = self.gfx_palette[:2**depth]
+                self.gfx_palette = new_pal
+                self.file_content_gfx.pen.setColor(self.gfx_palette[color_index%(2**depth)]) # set to first color
+                for i in range(2**depth): # change affected buttons (primary)
+                    button_palettepick: HoldButton = getattr(self, f"button_palettepick_{i}")
+                    button_palettepick.setStyleSheet(f"background-color: #{self.gfx_palette[i]:08x}; color: white;")
+                for i in range(color_index2, color_index2+2**depth): # change affected buttons (selected)
+                    button_palettepick: HoldButton = getattr(self, f"button_palettepick_{i}")
+                    button_palettepick.setStyleSheet(f"background-color: #{self.gfx_palette[i]:08x}; color: white;")
+                self.treeCall(True)
                     
     
     def saveCall(self): #Save to external ROM
@@ -2063,15 +2112,16 @@ NDSPy version: 4.2.0 (your version is {list(ndspy.VERSION)[0]}.{list(ndspy.VERSI
             current_id = int(current_item.text(0))
             current_name = current_item.text(1)
             current_ext  = current_item.text(2)
-            self.fileToEdit_name = str(current_name + "." + current_ext)
-            self.base_address = self.rom.save().index(self.rom.files[current_id])
             if addr_reset:
                 self.relative_address = 0
-            # set text to current ROM address
-            #print(self.relative_address)
-            self.field_address.setMinimum(self.base_address)
+            if not isValueUpdate:
+                self.fileToEdit_name = str(current_name + "." + current_ext)
+                #self.base_address = self.rom.save().index(self.rom.files[current_id]) # find address based on file content. not entirely accurate.
+                self.base_address = self.rom_fat[current_id] # load address from a list that already contains the required info to improve performance
+                # set text to current ROM address
+                #print(self.relative_address)
+                self.field_address.setRange(self.base_address, self.base_address+len(self.rom.files[current_id]))
             self.field_address.setValue(self.base_address+self.relative_address)
-            self.field_address.setMaximum(self.base_address+len(self.rom.files[current_id]))
             if not ".Folder" in self.fileToEdit_name:# if it's a file
                 self.label_file_size.setText(f"Size: {lib.datconv.numToStr(len(self.rom.files[current_id]), self.displayBase, self.displayAlphanumeric).zfill(0)} bytes")
                 if self.fileDisplayRaw == False:
@@ -2167,7 +2217,7 @@ NDSPy version: 4.2.0 (your version is {list(ndspy.VERSION)[0]}.{list(ndspy.VERSI
                             self.label_font_charCount.setText("char count: " + lib.datconv.numToStr(font_file.char_count, self.displayBase, self.displayAlphanumeric))
                             self.label_font_unusedStr.setText("unused string: " + font_file.unused_string)
                             self.setPalette(1)
-                        self.field_address.setMinimum(self.base_address+font_file.CHR_ADDRESS)
+                            self.field_address.setMinimum(self.base_address+font_file.CHR_ADDRESS)
                         self.file_content_gfx.resetScene()
                         self.tile_width = math.ceil(self.field_font_width.value()/8)*8
                         self.tile_height = self.field_font_height.value()
@@ -2348,6 +2398,7 @@ NDSPy version: 4.2.0 (your version is {list(ndspy.VERSION)[0]}.{list(ndspy.VERSI
             w.rom.files[file_id][self.relative_address:self.relative_address+len(save_data)] = save_data
         #print(type(w.rom.files[file_id]))
         print("file changes saved")
+        self.loadFat() # rebuild table to get correct offsets in case file sizes changed
         self.button_file_save.setDisabled(True)
 
     def patch_game(self):# Currently a workaround to having no easy way of writing directly to any address in the ndspy rom object

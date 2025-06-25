@@ -18,6 +18,7 @@ The editor can edit, export and import english dialogue files and save them to t
 - Togglable patches system
 - Playtest button
 - Graphics Editor (WIP)
+- Font Editor
 - SDAT Viewer (WIP)
 - ARM Viewer (WIP)
 ### To do
