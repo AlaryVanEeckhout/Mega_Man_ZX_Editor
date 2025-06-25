@@ -21,3 +21,4 @@
 *.mp4
 #specific files
 export/*
+temp/*

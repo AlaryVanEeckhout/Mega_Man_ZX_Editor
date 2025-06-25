@@ -1,6 +1,6 @@
 import PyQt6
 import PyQt6.QtGui, PyQt6.QtWidgets, PyQt6.QtCore
-import sys, os, platform, re
+import sys, os, platform, re, math
 import argparse
 #import logging, time, random
 #import numpy
@@ -290,7 +290,16 @@ class BetterSpinBox(PyQt6.QtWidgets.QDoubleSpinBox):
             return lib.datconv.numToStr(value, self.numbase, self.alphanum).zfill(self.numfill)
     
     def valueFromText(self, text):
-        return float(lib.datconv.strToNum(text, self.numbase))
+        if self.isInt:
+            return int(lib.datconv.strToNum(text, self.numbase))
+        else:
+            return float(lib.datconv.strToNum(text, self.numbase))
+    
+    def value(self):
+        if self.isInt:
+            return int(super().value())
+        else:
+            return super().value()
 
 class LongTextEdit(PyQt6.QtWidgets.QPlainTextEdit):
     def __init__(self, *args, **kwargs):
@@ -332,7 +341,13 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.fileDisplayRaw = False # Display file in 'raw'(hex) format. Else, displayed in readable format
         self.fileDisplayMode = "Adapt" # Modes: Adapt, Binary, English dialogue, Japanese dialogue, Graphics, Font, Sound, Movie, Code
         self.fileDisplayState = "None" # Same states as mode
-        self.gfx_palette = [0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)]
+        self.widget_set = "Empty" # Empty, Text, Graphics, Font, Sound, VX
+        self.GFX_PALETTES = [
+            [0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], #default
+            [0xff000000, 0xffffffff]*128, # font
+            [0xff000000+((0x010101*i)%0x1000000) for i in range(256)], #face
+        ]
+        self.gfx_palette = self.GFX_PALETTES[0]
         self.dialogue_edited = None
         self.resize(self.window_width, self.window_height)
         # Default Preferences
@@ -418,7 +433,15 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.dialog_about.resize(500, 500)
         self.text_about = PyQt6.QtWidgets.QTextBrowser(self.dialog_about)
         self.text_about.resize(self.dialog_about.width(), self.dialog_about.height())
-        self.text_about.setText(f"Supports:\nMEGAMANZX (Mega Man ZX)\nMEGAMANZXA (Mega Man ZX Advent)\n\nVersionning:\nEditor version: {EDITOR_VERSION} (final objective(s) completed, major functional features, WIP features)\nPython version: 3.13.2 (your version is {platform.python_version()})\nPyQt version: 6.8.1 (your version is {PyQt6.QtCore.PYQT_VERSION_STR})\nNDSPy version: 4.2.0 (your version is {list(ndspy.VERSION)[0]}.{list(ndspy.VERSION)[1]}.{list(ndspy.VERSION)[2]})\n")
+        self.text_about.setText(f"""Supports:
+MEGAMANZX (Mega Man ZX)
+MEGAMANZXA (Mega Man ZX Advent)
+
+Versionning:
+Editor version: {EDITOR_VERSION} (final objective(s) completed, major functional features, WIP features)
+Python version: 3.13.2 (your version is {platform.python_version()})
+PyQt version: 6.8.1 (your version is {PyQt6.QtCore.PYQT_VERSION_STR})
+NDSPy version: 4.2.0 (your version is {list(ndspy.VERSION)[0]}.{list(ndspy.VERSION)[1]}.{list(ndspy.VERSION)[2]})""")
         self.aboutAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\information.png'), '&About', self)
         self.aboutAction.setStatusTip('Show information about the application')
         self.aboutAction.triggered.connect(lambda: self.dialog_about.exec())
@@ -645,6 +668,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.page_explorer.layout().addItem(self.layout_editzone)
         self.layout_editzone_row0 = PyQt6.QtWidgets.QHBoxLayout()
         self.layout_editzone_row1 = PyQt6.QtWidgets.QHBoxLayout()
+        self.layout_editzone_row2 = PyQt6.QtWidgets.QHBoxLayout()
+        self.layout_editzone_row3 = PyQt6.QtWidgets.QHBoxLayout()
         self.layout_colorpick = PyQt6.QtWidgets.QGridLayout()
 
         self.button_file_save = PyQt6.QtWidgets.QPushButton("Save file", self.page_explorer)
@@ -763,7 +788,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.layout_tiles_per_row.addWidget(self.label_tiles_per_row)
         self.layout_tiles_per_row.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignTop)
         #Tiles Per Column
-        self.tiles_per_column = 16
+        self.tiles_per_column = 8
         self.field_tiles_per_column = BetterSpinBox(self.page_explorer)
         self.field_tiles_per_column.setFont(self.font_caps)
         self.field_tiles_per_column.setValue(self.tiles_per_column)
@@ -781,6 +806,12 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.layout_tiles_per_column.addWidget(self.label_tiles_per_column)
         self.layout_tiles_per_column.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignTop)
 
+        self.layout_tile_settings = PyQt6.QtWidgets.QHBoxLayout()
+        self.layout_tile_settings.addItem(self.layout_tile_width)
+        self.layout_tile_settings.addItem(self.layout_tile_height)
+        self.layout_tile_settings.addItem(self.layout_tiles_per_row)
+        self.layout_tile_settings.addItem(self.layout_tiles_per_column)
+
         #Palettes
         for i in range(256): #setup default palette
             setattr(self, f"button_palettepick_{i}", HoldButton(self.page_explorer))
@@ -789,25 +820,107 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             button_palettepick.pressed_quick.connect(lambda press, hold=None, color_index=i: self.ColorpickCall(color_index, press, hold))
             button_palettepick.allow_press = True
             button_palettepick.press_quick_threshold = 1
-            button_palettepick.setStyleSheet(f"background-color: #{self.gfx_palette[i]:00x}; color: white;")
+            button_palettepick.setStyleSheet(f"background-color: #{self.gfx_palette[i]:08x}; color: white;")
             button_palettepick.setMaximumSize(10, 10)
             self.layout_colorpick.addWidget(button_palettepick, int(i/16), int(i%16))
             button_palettepick.hide()
 
-        self.layout_editzone_row1.addItem(self.layout_colorpick)
-        self.layout_editzone_row1.addItem(self.layout_tile_width)
-        self.layout_editzone_row1.addItem(self.layout_tile_height)
-        self.layout_editzone_row1.addItem(self.layout_tiles_per_row)
-        self.layout_editzone_row1.addItem(self.layout_tiles_per_column)
+        self.dropdown_gfx_palette = PyQt6.QtWidgets.QComboBox(self.page_explorer)
+        self.dropdown_gfx_palette.addItems(["Default Palette", "Font", "Face"])# order of names is determined by the enum in dataconverter
+        self.dropdown_gfx_palette.setToolTip("Choose palette")
+        self.dropdown_gfx_palette.setStatusTip("Select the color palette preset that you want to use to render images")
+        self.dropdown_gfx_palette.currentIndexChanged.connect(lambda: self.setPalette(self.dropdown_gfx_palette.currentIndex()))# Update gfx with current depth
+        self.dropdown_gfx_palette.currentIndexChanged.connect(lambda: self.treeCall(True))
+        self.dropdown_gfx_palette.hide()
+
+        self.layout_palette_settings = PyQt6.QtWidgets.QHBoxLayout()
+        self.layout_palette_settings.addStretch() # stretch to allow other widgets to expand properly
+        self.layout_palette_settings.addWidget(self.dropdown_gfx_palette)
+        self.layout_palette_settings.addStretch()
+
+        self.layout_gfx_settings = PyQt6.QtWidgets.QVBoxLayout()
+        self.layout_gfx_settings.addItem(self.layout_tile_settings)
+        self.layout_gfx_settings.addItem(self.layout_palette_settings)
+
+        #Font
+        self.field_font_size = BetterSpinBox(self.page_explorer)
+        self.field_font_size.setFont(self.font_caps)
+        self.field_font_size.isInt = True
+        self.field_font_size.numbase = self.displayBase
+        self.field_font_size.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_font_size.hide()
+        self.label_font_size = PyQt6.QtWidgets.QLabel(self.page_explorer)
+        self.label_font_size.setText("file size")
+        self.label_font_size.hide()
+        self.layout_font_size = PyQt6.QtWidgets.QVBoxLayout()
+        self.layout_font_size.addWidget(self.field_font_size)
+        self.layout_font_size.addWidget(self.label_font_size)
+        self.layout_font_size.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignTop)
+
+        self.field_font_width = BetterSpinBox(self.page_explorer)
+        self.field_font_width.setFont(self.font_caps)
+        self.field_font_width.isInt = True
+        self.field_font_width.numbase = self.displayBase
+        self.field_font_width.valueChanged.connect(lambda: self.treeCall(True))
+        self.field_font_width.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_font_width.hide()
+        self.label_font_width = PyQt6.QtWidgets.QLabel(self.page_explorer)
+        self.label_font_width.setText("char width")
+        self.label_font_width.hide()
+        self.layout_font_width = PyQt6.QtWidgets.QVBoxLayout()
+        self.layout_font_width.addWidget(self.field_font_width)
+        self.layout_font_width.addWidget(self.label_font_width)
+        self.layout_font_width.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignTop)
+
+        self.field_font_height = BetterSpinBox(self.page_explorer)
+        self.field_font_height.setFont(self.font_caps)
+        self.field_font_height.isInt = True
+        self.field_font_height.numbase = self.displayBase
+        self.field_font_height.valueChanged.connect(lambda: self.treeCall(True))
+        self.field_font_height.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_font_height.hide()
+        self.label_font_height = PyQt6.QtWidgets.QLabel(self.page_explorer)
+        self.label_font_height.setText("char height")
+        self.label_font_height.hide()
+        self.layout_font_height = PyQt6.QtWidgets.QVBoxLayout()
+        self.layout_font_height.addWidget(self.field_font_height)
+        self.layout_font_height.addWidget(self.label_font_height)
+        self.layout_font_height.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignTop)
+
+        self.label_font_indexingSpace = PyQt6.QtWidgets.QLabel(self.page_explorer)
+        self.label_font_indexingSpace.setText("indexing space: ")
+        self.label_font_indexingSpace.hide()
+
+        self.label_font_charCount = PyQt6.QtWidgets.QLabel(self.page_explorer)
+        self.label_font_charCount.setText("char count: ")
+        self.label_font_charCount.hide()
+
+        self.label_font_unusedStr = PyQt6.QtWidgets.QLabel(self.page_explorer)
+        self.label_font_unusedStr.setText("unused string: ")
+        self.label_font_unusedStr.hide()
 
         self.layout_editzone_row0.addWidget(self.button_file_save)
         self.layout_editzone_row0.addWidget(self.label_file_size)
         self.layout_editzone_row0.addWidget(self.dropdown_gfx_depth)
         self.layout_editzone_row0.addWidget(self.field_address)
+        
+        self.layout_editzone_row1.addItem(self.layout_colorpick)
+        self.layout_editzone_row1.addItem(self.layout_gfx_settings)
+
+        self.layout_editzone_row2.addItem(self.layout_font_size)
+        self.layout_editzone_row2.addItem(self.layout_font_width)
+        self.layout_editzone_row2.addItem(self.layout_font_height)
+
+        self.layout_editzone_row3.addWidget(self.label_font_indexingSpace)
+        self.layout_editzone_row3.addWidget(self.label_font_charCount)
+        self.layout_editzone_row3.addWidget(self.label_font_unusedStr)
 
         self.layout_editzone.addItem(self.layout_editzone_row0)
         self.layout_editzone.addItem(self.layout_editzone_row1)
+        self.layout_editzone.addItem(self.layout_editzone_row2)
+        self.layout_editzone.addItem(self.layout_editzone_row3)
         self.layout_editzone.addItem(self.file_content)
+
 
         #Sound Data Archive
         self.dialog_sdat = PyQt6.QtWidgets.QMainWindow(self)
@@ -1009,6 +1122,70 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.file_content.addItem(self.layout_vx_frameSize)
         self.file_content.addItem(self.layout_vxHeader_quantiser)
         self.file_content.addItem(self.layout_vx_seekTable)
+
+        # Contents of widget sets
+        self.WIDGETS_EMPTY: list[PyQt6.QtWidgets.QWidget] = [self.file_content_text]
+        self.WIDGETS_HEX: list[PyQt6.QtWidgets.QWidget] = [self.file_content_text, self.checkbox_textoverwite]
+        self.WIDGETS_TEXT: list[PyQt6.QtWidgets.QWidget] = [self.file_content_text, self.checkbox_textoverwite, self.dropdown_textindex]
+        self.WIDGETS_GRAPHIC: list[PyQt6.QtWidgets.QWidget] = [
+            self.file_content_gfx,
+            self.dropdown_gfx_depth,
+            self.dropdown_gfx_palette,
+            self.field_tile_width,
+            self.label_tile_width,
+            self.field_tile_height,
+            self.label_tile_height,
+            self.field_tiles_per_row,
+            self.label_tiles_per_row,
+            self.field_tiles_per_column,
+            self.label_tiles_per_column
+            ]
+        self.WIDGETS_FONT: list[PyQt6.QtWidgets.QWidget] = [
+            self.file_content_gfx,
+            self.field_tiles_per_row,
+            self.label_tiles_per_row,
+            self.field_tiles_per_column,
+            self.label_tiles_per_column,
+            self.field_font_size,
+            self.label_font_size,
+            self.field_font_width,
+            self.label_font_width,
+            self.field_font_height,
+            self.label_font_height,
+            self.label_font_indexingSpace,
+            self.label_font_charCount,
+            self.label_font_unusedStr,
+            self.button_palettepick_0,
+            self.button_palettepick_1
+            ]
+        self.WIDGETS_SOUND: list[PyQt6.QtWidgets.QWidget] = [
+            ]
+        self.WIDGETS_VX: list[PyQt6.QtWidgets.QWidget] = [
+            self.field_vxHeader_length,
+            self.label_vxHeader_length,
+            self.field_vxHeader_width,
+            self.label_vxHeader_width,
+            self.field_vxHeader_height,
+            self.label_vxHeader_height,
+            self.field_vxHeader_streamCount,
+            self.label_vxHeader_streamCount,
+            self.field_vxHeader_framerate,
+            self.label_vxHeader_framerate,
+            self.field_vxHeader_sampleRate,
+            self.label_vxHeader_sampleRate,
+            self.field_vxHeader_quantizer,
+            self.label_vxHeader_quantiser,
+            self.field_vxHeader_frameSizeMax,
+            self.label_vxHeader_frameSizeMax,
+            self.field_vxHeader_audioExtraDataOffset,
+            self.label_vxHeader_audioExtraDataOffset,
+            self.field_vxHeader_seekTableOffset,
+            self.label_vxHeader_seekTableOffset,
+            self.field_vxHeader_seekTableEntryCount,
+            self.label_vxHeader_seekTableEntryCount
+            ]
+        for i in range(256):
+            self.WIDGETS_GRAPHIC.append(getattr(self, f"button_palettepick_{i}"))
 
         # Level Editor(Coming Soon™)
         self.layout_level_editpannel = PyQt6.QtWidgets.QVBoxLayout()
@@ -1271,7 +1448,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.progressUpdate(0, "Loading ROM")
         #self.runTasks([[RunnableDisplayProgress, [], "valueChanged", self.progress.setValue]])
         pathSep = "/"
-        if fname.find("/") == -1:
+        if not "/" in fname:
             pathSep = "\\"
         nameParts = fname.split(pathSep)[len(fname.split(pathSep)) - 1].rsplit(".", 1)
         self.romToEdit_name = nameParts[0]
@@ -1403,7 +1580,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         print(fileData[0])
                         if type(fileData[0]) == type((0, 1)):
                             fileData[0] = fileData[0][0]
-                    if item.text(2).find("Folder") == -1: # if file
+                    if not "Folder" in item.text(2): # if file
                         extract(*fileData[:2], path=selectedFiles[0], format=dropdown_formatselect.currentText(), compress=dropdown_compressselect.currentIndex())
                     else: # if folder
                         folder_path = os.path.join(selectedFiles[0] + "/" + w.fileToEdit_name.removesuffix(".Folder"))
@@ -1501,7 +1678,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                                 return
                             elif type(fileInfo[2]) != type(None):
                                 if fileExt == "txt": # english text file
-                                    if fileName.find("en") != -1:
+                                    if "en" in fileName:
                                         if re.search(r".*(_\d+)$", fileName) and dialogue: # match the indicator that the file is a chunk of the original file
                                             dialogue.text_list[int(fileName.split("_")[-1])] = fileEdited.decode("utf-8") # add file text to object
                                             if selectedFiles.index(file) == len(selectedFiles)-1: # if at last selected file
@@ -1603,6 +1780,13 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         setattr(self, var, val)
         if istreecall:
             self.treeCall(True)
+
+    def setPalette(self, index):
+        self.gfx_palette = self.GFX_PALETTES[index]
+        self.file_content_gfx.pen.setColor(self.gfx_palette[0]) # set to first color
+        for i in range(256):
+            button_palettepick: HoldButton = getattr(self, f"button_palettepick_{i}")
+            button_palettepick.setStyleSheet(f"background-color: #{self.gfx_palette[i]:08x}; color: white;")
 
     def ColorpickCall(self, color_index: int, press=None, hold=None):
         #print(color_index)
@@ -1714,8 +1898,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             if self.rom.files != []:
                 tree_folder: list[PyQt6.QtWidgets.QTreeWidgetItem] = []
                 for f in str(self.rom.filenames).split("\n"):
-                    if f.find("/") == -1: # if file
-                        if f.find("    ") != -1: # if contents of folder
+                    if not "/" in f: # if file
+                        if "    " in f: # if contents of folder
                             tree_folder[f.count("    ") - 1].addChild(PyQt6.QtWidgets.QTreeWidgetItem([f.split(" ")[0], f.split(" ")[-1].split(".")[0], f.split(".")[-1]]))
                         else:
                             tree_files.append(PyQt6.QtWidgets.QTreeWidgetItem([f.split(" ")[0], f.split(" ")[-1].split(".")[0], f.split(".")[-1]]))
@@ -1724,7 +1908,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                             tree_folder[f.count("    ")] = PyQt6.QtWidgets.QTreeWidgetItem([f.split(" ")[0], f.split(" ")[-1].removesuffix("/"), "Folder"])
                         else:
                             tree_folder.append(PyQt6.QtWidgets.QTreeWidgetItem([f.split(" ")[0], f.split(" ")[-1].removesuffix("/"), "Folder"]))
-                        if f.find("    ") == -1:
+                        if not "    " in f:
                             tree_files.append(tree_folder[f.count("    ")])
                         else:
                             tree_folder[f.count("    ") - 1].addChild(tree_folder[f.count("    ")])
@@ -1845,9 +2029,9 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         #self.clearTasks()
         if not isValueUpdate:
             self.dialogue_edited = None
-        current_item = self.tree.currentItem()
         self.file_content_text.setReadOnly(False)
         self.file_content_text.blockSignals(True)
+        self.dropdown_textindex.blockSignals(True)
         self.field_address.setDisabled(False)
         PyQt6.QtCore.qInstallMessageHandler(lambda a, b, c: None) # Silence Invalid base warnings from the following code
         for widget in self.findChildren(BetterSpinBox): # update all widgets of same type with current settings
@@ -1861,7 +2045,20 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                                 "Numeric Base Warning!",
                                 f"Base is not supported for inputting data in spinboxes.\n This means that all spinboxes will revert to base 10 until they are set to a supported base.\n Proceed at your own risk!"
                                 )
-        self.field_tile_width.setStatusTip(f"Set depth to 1bpp and tile width to {lib.datconv.numToStr(16, self.displayBase, self.displayAlphanumeric)} for JP font")
+        for widget in self.findChildren(BetterSpinBox):
+            widget.blockSignals(True) # prevent treeCall from being executed twice in a row. Reduces lag
+        self.treeSubCall(isValueUpdate, addr_reset)
+        if not isValueUpdate:
+            self.file_editor_show(self.widget_set)
+            self.button_file_save.setDisabled(True)
+            self.file_content_gfx.pen.setColor(self.gfx_palette[0])
+        self.file_content_text.blockSignals(False)
+        self.dropdown_textindex.blockSignals(False)
+        for widget in self.findChildren(BetterSpinBox):
+            widget.blockSignals(False) # prevent treeCall from being executed twice in a row. Reduces lag
+
+    def treeSubCall(self, isValueUpdate, addr_reset):
+        current_item = self.tree.currentItem()
         if current_item != None:
             current_id = int(current_item.text(0))
             current_name = current_item.text(1)
@@ -1872,12 +2069,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 self.relative_address = 0
             # set text to current ROM address
             #print(self.relative_address)
-            self.field_address.blockSignals(True) # prevent treeCall from being executed twice in a row. Reduces lag when clicking to view a file's content
             self.field_address.setMinimum(self.base_address)
             self.field_address.setValue(self.base_address+self.relative_address)
             self.field_address.setMaximum(self.base_address+len(self.rom.files[current_id]))
-            self.field_address.blockSignals(False)
-            if self.fileToEdit_name.find(".Folder") == -1:# if it's a file
+            if not ".Folder" in self.fileToEdit_name:# if it's a file
                 self.label_file_size.setText(f"Size: {lib.datconv.numToStr(len(self.rom.files[current_id]), self.displayBase, self.displayAlphanumeric).zfill(0)} bytes")
                 if self.fileDisplayRaw == False:
                     if self.fileDisplayMode == "Adapt":
@@ -1891,12 +2086,12 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                                 self.fileDisplayState = "VX"
                             elif current_ext == "sdat":
                                 self.fileDisplayState = "Sound"
-                            elif current_name.find("font") != -1:
+                            elif "font" in current_name:
                                 self.fileDisplayState = "Font"
-                            if (current_name.find("talk") != -1 or current_name.find("m_") != -1):
-                                if current_name.find("en") != -1:
+                            elif ("talk" in current_name or "m_" in current_name):
+                                if "en" in current_name:
                                     self.fileDisplayState = "English dialogue"
-                                elif current_name.find("jp") != -1:
+                                elif "jp" in current_name:
                                     self.fileDisplayState = "Japanese dialogue"
                             elif current_ext == "bin" and any(indicator in current_name for indicator in indicator_list_gfx):
                                 self.fileDisplayState = "Graphics"
@@ -1907,25 +2102,20 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
                     if self.fileDisplayState == "English dialogue": # if english text
                         if not isValueUpdate:
-                            self.file_editor_show("Text")
-                            self.dropdown_textindex.blockSignals(True)
+                            self.widget_set = "Text"
                             self.dropdown_textindex.setEnabled(True)
                             self.dropdown_textindex.clear()
                             try:
                                 self.dialogue_edited = lib.dialogue.DialogueFile(self.rom.files[current_id])
                             except AssertionError:
                                 self.file_content_text.setEnabled(True)
-                                self.dropdown_textindex.blockSignals(False)
                                 self.dropdown_textindex.setDisabled(True)
                                 self.dialogue_edited = lib.dialogue.DialogueFile.binToText(self.rom.files[current_id][self.relative_address:self.relative_address+0xFFFF])
                                 self.file_content_text.setPlainText(self.dialogue_edited)
-                                self.button_file_save.setDisabled(True)
-                                self.file_content_text.blockSignals(False)
                                 return
                             for i in range(len(self.dialogue_edited.text_list)):
                                 self.dropdown_textindex.addItem(str(i))
                             self.dropdown_textindex.previousIndex = self.dropdown_textindex.currentIndex()
-                            self.dropdown_textindex.blockSignals(False)
                         elif self.dropdown_textindex.isEnabled(): # when text index changed
                             #print(f"index = {self.dropdown_textindex.currentIndex()} prev = {self.dropdown_textindex.previousIndex}")
                             if self.button_file_save.isEnabled(): # if content was modified
@@ -1934,38 +2124,70 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         else: # forcing text view on non-text file = simple conversion mode
                             self.dialogue_edited = lib.dialogue.DialogueFile.binToText(self.rom.files[current_id][self.relative_address:self.relative_address+0xFFFF])
                             self.file_content_text.setPlainText(self.dialogue_edited)
-                            self.file_content_text.blockSignals(False)
                             return
                         textIndex = self.dropdown_textindex.currentIndex()
 
                         if self.dialogue_edited.text_list != []:
                             self.relative_address = self.dialogue_edited.textAddress_list[textIndex]
-                            self.field_address.blockSignals(True)
                             self.field_address.setValue(self.base_address+self.relative_address)
                             self.field_address.setDisabled(True)
-                            self.field_address.blockSignals(False)
                             self.file_content_text.setPlainText(self.dialogue_edited.text_list[textIndex])
                         else:
                             self.file_content_text.setPlainText("")
                             self.file_content_text.setReadOnly(True)
                     elif self.fileDisplayState == "Graphics":
+                        self.widget_set = "Graphics"
+                        if not isValueUpdate: # reset from viewing font
+                            self.tile_width = self.field_tile_width.value()
+                            self.tile_height = self.field_tile_height.value()
+                            self.setPalette(0)
                         #print(self.dropdown_gfx_depth.currentText()[:1] + " bpp graphics")
-                        if self.gfx_palette.index(self.file_content_gfx.pen.color().rgba()) >= 2**list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()].depth:
-                            self.file_content_gfx.pen.setColor(self.gfx_palette[0])
+                        if self.gfx_palette.index(self.file_content_gfx.pen.color().rgba()) >= 2**list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()].depth: # if color out of range
+                            self.file_content_gfx.pen.setColor(self.gfx_palette[0]) # set to first color
                         self.file_content_gfx.resetScene()
-                        draw_tilesQImage_fromBytes(self.file_content_gfx, self.rom.files[current_id][self.relative_address:], algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column, tileWidth=self.tile_width, tileHeight=self.tile_height)
-                        if not isValueUpdate: # if entering graphics mode and func is not called to update other stuff
-                            self.file_editor_show("Graphics")
+                        draw_tilesQImage_fromBytes(self.file_content_gfx,
+                                                   self.rom.files[current_id][self.relative_address:],
+                                                   palette=self.gfx_palette,
+                                                   algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
+                                                   tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column,
+                                                   tileWidth=self.tile_width, tileHeight=self.tile_height)
+                        if not isValueUpdate:
+                            self.file_content_gfx.fitInView()
+                            
                     elif self.fileDisplayState == "Font":
-                        self.file_editor_show()
+                        self.widget_set = "Font"
+                        font_file = lib.font.Font(self.rom.files[current_id])
+                        if not isValueUpdate:
+                            self.relative_address = font_file.CHR_ADDRESS
+                            self.dropdown_gfx_depth.setCurrentIndex(0)
+                            self.field_font_size.setValue(font_file.file_size)
+                            self.field_font_width.setValue(font_file.char_width)
+                            self.field_font_height.setValue(font_file.char_height)
+                            self.label_font_indexingSpace.setText("indexing space: " + lib.datconv.numToStr(font_file.indexing_space, self.displayBase, self.displayAlphanumeric))
+                            self.label_font_charCount.setText("char count: " + lib.datconv.numToStr(font_file.char_count, self.displayBase, self.displayAlphanumeric))
+                            self.label_font_unusedStr.setText("unused string: " + font_file.unused_string)
+                            self.setPalette(1)
+                        self.field_address.setMinimum(self.base_address+font_file.CHR_ADDRESS)
+                        self.file_content_gfx.resetScene()
+                        self.tile_width = math.ceil(self.field_font_width.value()/8)*8
+                        self.tile_height = self.field_font_height.value()
+                        draw_tilesQImage_fromBytes(self.file_content_gfx,
+                                                   self.rom.files[current_id][self.relative_address:self.relative_address+font_file.file_size],
+                                                   palette=self.gfx_palette,
+                                                   algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
+                                                   tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column,
+                                                   tileWidth=self.tile_width, tileHeight=self.tile_height)
+                        if not isValueUpdate:
+                            self.file_content_gfx.fitInView()
+
                     elif self.fileDisplayState == "Sound":
-                        self.file_editor_show("Empty") # placeholder
+                        self.widget_set = "Empty" # placeholder
+                        #self.widget_set = "Sound"
                         self.file_content_text.setReadOnly(True)
                         self.file_content_text.setPlainText("Sound editor is not yet implemented.\n Right click on this file > open Sound Archive\nor click on the sound icon in the toolbar to open sound archive viewer.")
-                        #self.file_editor_show("Sound")
                         self.field_address.setDisabled(True)
                     elif self.fileDisplayState == "VX":
-                        self.file_editor_show("VX")
+                        self.widget_set = "VX"
                         self.field_address.setDisabled(True)
                         vx_file = lib.act.ActImagine()
                         vx_file.load_vx(self.rom.files[current_id])
@@ -1982,8 +2204,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.field_vxHeader_seekTableOffset.setValue(vx_file.seek_table_offset)
                         self.field_vxHeader_seekTableEntryCount.setValue(vx_file.seek_table_entries_qty)
                     else:
+                        self.widget_set = "Empty"
                         self.field_address.setDisabled(True)
-                        self.file_editor_show("Empty")
                         self.file_content_text.setReadOnly(True)
                         if self.fileDisplayState == "None":
                             file_knowledge = "unknown"
@@ -1991,12 +2213,12 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                             file_knowledge = "not supported at the moment"
                         self.file_content_text.setPlainText(f"This file's format is {file_knowledge}.\n Go to [View > Converted formats] to disable file interpretation and view hex data.")
                 else:# if in hex display mode
-                    self.file_editor_show("Text")
+                    self.widget_set = "Hex"
                     self.file_content_text.setPlainText(self.rom.files[current_id][self.relative_address:self.relative_address+self.file_content_text.charcount_page()].hex())
                 self.file_content_text.setDisabled(False)
             else:# if it's a folder
+                self.widget_set = "Empty"
                 self.label_file_size.setText(f"Size: N/A")
-                self.file_editor_show("Empty")
                 self.field_address.setDisabled(True)
                 self.file_content_text.setPlainText("")
                 self.file_content_text.setDisabled(True)
@@ -2004,27 +2226,23 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             self.exportAction.setDisabled(False)
             self.replaceAction.setDisabled(False)
         else:# Nothing is selected, reset edit space
-            self.file_editor_show("Empty")
+            self.widget_set = "Empty"
             self.field_address.setDisabled(True)
             self.label_file_size.setText("Size: N/A")
             self.file_content_text.clear()
             self.file_content_text.setDisabled(True)
             self.exportAction.setDisabled(True)
             self.replaceAction.setDisabled(True)
-        if not isValueUpdate:
-            self.button_file_save.setDisabled(True)
-        self.file_content_text.blockSignals(False)
-
 
     def treeBaseUpdate(self, tree: EditorTree):
         for e in tree.findItems("", PyQt6.QtCore.Qt.MatchFlag.MatchContains | PyQt6.QtCore.Qt.MatchFlag.MatchRecursive):
             for t in range(e.columnCount()):
                 text = e.text(t)
                 if any(char.isdigit() for char in text) and text.replace("{", "").replace("}", "").isalnum():
-                    if e.treeWidget().headerItem().text(t).lower().find("file id") == -1:
+                    if not "file id" in e.treeWidget().headerItem().text(t).lower():
                         value = lib.datconv.strToNum(text, self.displayBase_old)
                         newtext = lib.datconv.numToStr(value, self.displayBase, self.displayAlphanumeric)
-                        zerofill = 8 if e.treeWidget().headerItem().text(t).lower().find("address") != -1 else 0
+                        zerofill = 8 if "address" in e.treeWidget().headerItem().text(t).lower() else 0
                         e.setText(t, newtext.zfill(zerofill))
 
     def reloadCall(self, level=0): # Reload all reloadable content
@@ -2058,54 +2276,12 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 self.patches_reload()
             self.displayBase_old = self.displayBase
 
-    def file_editor_show(self, mode: str):
-        modes = ["Empty", "Text", "Graphics", "Sound", "VX"]
+    def file_editor_show(self, mode: str): # UiComponents
+        modes = ["Empty", "Hex", "Text", "Graphics", "Font", "Sound", "VX"]
+        # Associates each mode with a set of widgets to show or hide
+        widget_sets = [self.WIDGETS_EMPTY, self.WIDGETS_HEX, self.WIDGETS_TEXT, self.WIDGETS_GRAPHIC, self.WIDGETS_FONT, self.WIDGETS_SOUND, self.WIDGETS_VX]
+
         mode_index = modes.index(mode)
-        # Contents of widget sets
-        empty_widgets: list[PyQt6.QtWidgets.QWidget] = [self.file_content_text]
-        text_widgets: list[PyQt6.QtWidgets.QWidget] = [self.file_content_text, self.checkbox_textoverwite, self.dropdown_textindex]
-        graphics_widgets: list[PyQt6.QtWidgets.QWidget] = [
-            self.file_content_gfx,
-            self.dropdown_gfx_depth,
-            self.field_tile_width,
-            self.label_tile_width,
-            self.field_tile_height,
-            self.label_tile_height,
-            self.field_tiles_per_row,
-            self.label_tiles_per_row,
-            self.field_tiles_per_column,
-            self.label_tiles_per_column
-            ]
-        sound_widgets: list[PyQt6.QtWidgets.QWidget] = [
-            ]
-        vx_widgets: list[PyQt6.QtWidgets.QWidget] = [
-            self.field_vxHeader_length,
-            self.label_vxHeader_length,
-            self.field_vxHeader_width,
-            self.label_vxHeader_width,
-            self.field_vxHeader_height,
-            self.label_vxHeader_height,
-            self.field_vxHeader_streamCount,
-            self.label_vxHeader_streamCount,
-            self.field_vxHeader_framerate,
-            self.label_vxHeader_framerate,
-            self.field_vxHeader_sampleRate,
-            self.label_vxHeader_sampleRate,
-            self.field_vxHeader_quantizer,
-            self.label_vxHeader_quantiser,
-            self.field_vxHeader_frameSizeMax,
-            self.label_vxHeader_frameSizeMax,
-            self.field_vxHeader_audioExtraDataOffset,
-            self.label_vxHeader_audioExtraDataOffset,
-            self.field_vxHeader_seekTableOffset,
-            self.label_vxHeader_seekTableOffset,
-            self.field_vxHeader_seekTableEntryCount,
-            self.label_vxHeader_seekTableEntryCount
-            ]
-        for i in range(256):
-            graphics_widgets.append(getattr(self, f"button_palettepick_{i}"))
-        # Associates each mode with a set of widgets to show or hide 
-        widget_sets = [empty_widgets, text_widgets, graphics_widgets, sound_widgets, vx_widgets]
         # Hide all widgets from other modes
         for s in widget_sets:
             if s != widget_sets[mode_index]:
@@ -2118,9 +2294,11 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         if mode == "Graphics":
             # Reset Values
             #self.field_address.setValue(self.base_address)
-            if self.file_content_gfx.sceneRect().width() != 0:
+            if self.file_content_gfx.sceneRect().width() != 0: # disallow division
                 self.file_content_gfx.fitInView()
             #print(f"{len(self.rom.save()):08X}")
+        elif mode == "Font":
+            self.dropdown_gfx_depth.setCurrentIndex(0)
 
     def save_filecontent(self): #Save to virtual ROM
         file_id = int(self.tree.currentItem().text(0))
@@ -2133,8 +2311,24 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 else:
                     self.rom.files[file_id][self.relative_address:self.relative_address+0xFFFF] = lib.dialogue.DialogueFile.textToBin(self.file_content_text.toPlainText())
             elif self.fileDisplayState == "Graphics":
-                rom_save_data = saveData_fromGFXView(self.file_content_gfx, algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()], tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column, tileWidth=self.tile_width, tileHeight=self.tile_height)
-                w.rom.files[file_id][self.relative_address:self.relative_address+len(rom_save_data)] = rom_save_data
+                save_data = saveData_fromGFXView(self.file_content_gfx,
+                                                 palette=self.gfx_palette,
+                                                 algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
+                                                 tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column,
+                                                 tileWidth=self.tile_width, tileHeight=self.tile_height)
+                w.rom.files[file_id][self.relative_address:self.relative_address+len(save_data)] = save_data
+            elif self.fileDisplayState == "Font":
+                save_data = saveData_fromGFXView(self.file_content_gfx,
+                                                 palette=self.gfx_palette,
+                                                 algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
+                                                 tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column,
+                                                 tileWidth=self.tile_width, tileHeight=self.tile_height)
+                w.rom.files[file_id][self.relative_address:self.relative_address+len(save_data)] = save_data
+                w.rom.files[file_id][0x00:0x02] = bytearray(int.to_bytes(int(self.field_font_width.value()), 2, "little"))
+                w.rom.files[file_id][0x02:0x04] = bytearray(int.to_bytes(int(self.field_font_height.value()), 2, "little"))
+                w.rom.files[file_id][0x04:0x08] = bytearray(int.to_bytes(int(self.field_font_width.value()*self.field_font_height.value()/8), 4, "little"))
+                w.rom.files[file_id][0x08:0x0C] = bytearray(int.to_bytes(int(self.field_font_size.value()/self.field_font_width.value()*self.field_font_height.value()/8), 4, "little"))
+                w.rom.files[file_id][0x0C:0x10] = bytearray(int.to_bytes(int(self.field_font_size.value()), 4, "little"))
             elif self.fileDisplayState == "VX":
                 w.rom.files[file_id][0x04:0x08] = bytearray(int.to_bytes(int(self.field_vxHeader_length.value()), 4, "little"))
                 w.rom.files[file_id][0x08:0x0C] = bytearray(int.to_bytes(int(self.field_vxHeader_width.value()), 4, "little"))
@@ -2150,8 +2344,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             elif self.fileDisplayState == "Sound":
                 return
         else:
-            rom_save_data = bytearray.fromhex(lib.datconv.strSetAlnum(self.file_content_text.toPlainText(), 16, True)) # force to alphanumeric for bytearray conversion
-            w.rom.files[file_id][self.relative_address:self.relative_address+len(rom_save_data)] = rom_save_data
+            save_data = bytearray.fromhex(lib.datconv.strSetAlnum(self.file_content_text.toPlainText(), 16, True)) # force to alphanumeric for bytearray conversion
+            w.rom.files[file_id][self.relative_address:self.relative_address+len(save_data)] = save_data
         #print(type(w.rom.files[file_id]))
         print("file changes saved")
         self.button_file_save.setDisabled(True)
@@ -2225,14 +2419,15 @@ app = PyQt6.QtWidgets.QApplication(sys.argv)
 w = MainWindow()
 
 # Draw contents of tile viewer
-def draw_tilesQImage_fromBytes(view: GFXView, data: bytearray, palette: list[int]=w.gfx_palette, algorithm=lib.datconv.CompressionAlgorithmEnum.ONEBPP, tilesPerRow: int=4, tilesPerColumn: int=8, tileWidth: int=16, tileHeight: int=8):
+def draw_tilesQImage_fromBytes(view: GFXView, data: bytearray, palette: list[int]=w.gfx_palette, algorithm=lib.datconv.CompressionAlgorithmEnum.ONEBPP, tilesPerRow: int=w.tiles_per_row, tilesPerColumn: int=w.tiles_per_column, tileWidth: int=w.tile_width, tileHeight: int=w.tile_height):
     painter = PyQt6.QtGui.QPainter()
     gfx_zone = PyQt6.QtGui.QPixmap(tileWidth*tilesPerRow, tileHeight*tilesPerColumn) # get the correct canvas size
+    tile_size = (tileWidth*tileHeight)*algorithm.depth/8
     painter.begin(gfx_zone)
     for tile in range(tilesPerRow*tilesPerColumn):
         # get data of current tile from bytearray, multiplying tile index by amount of pixels in a tile and by amount of bits per pixel, then dividing by amount of bits per byte
         # that data is then converted into a QImage that is used to create the QPixmap of the tile
-        gfx = PyQt6.QtGui.QPixmap.fromImage(lib.datconv.bin_to_qt(data[int(tile*(tileWidth*tileHeight)*algorithm.depth/8):int(tile*(tileWidth*tileHeight)*algorithm.depth/8+(tileWidth*tileHeight)*algorithm.depth/8)], palette, algorithm, tileWidth, tileHeight))
+        gfx = PyQt6.QtGui.QPixmap.fromImage(lib.datconv.bin_to_qt(data[int(tile*tile_size):int(tile*tile_size+tile_size)], palette, algorithm, tileWidth, tileHeight))
         #print(tile)
         pos = PyQt6.QtCore.QPoint(tileWidth*int(tile % tilesPerRow), tileHeight*int(tile / tilesPerRow))
         painter.drawPixmap(pos, gfx) # draw tile at correct pos in canvas
