@@ -152,7 +152,7 @@ class CompressionAlgorithmEnum(enum.Enum):
   FOURBPP = enum.auto(), 4
   EIGHTBPP = enum.auto(), 8
 
-def bin_to_qt(binary_data: bytearray, palette: list[int]=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], algorithm=CompressionAlgorithmEnum.ONEBPP, tileWidth=8, tileHeight=8): # GBA 4bpp = 4bpp linear reverse order
+def binToQt(binary_data: bytearray, palette: list[int]=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], algorithm=CompressionAlgorithmEnum.ONEBPP, tileWidth=8, tileHeight=8): # GBA 4bpp = 4bpp linear reverse order
     tileWidth = int(tileWidth)
     tileHeight = int(tileHeight)
     #file_bits = bin(int.from_bytes(binary_data))[2:]
@@ -160,34 +160,38 @@ def bin_to_qt(binary_data: bytearray, palette: list[int]=[0xff000000+((0x0b7421*
     image_widget = PyQt6.QtGui.QImage(tileWidth, tileHeight, PyQt6.QtGui.QImage.Format.Format_Indexed8)
     image_widget.setColorTable(palette) # 32bit ARGB color format
     image_widget.fill(15)
+    pixel_colors = [] # color indexes to palette
     #print(file_bits)
     
     match algorithm:
         case CompressionAlgorithmEnum.ONEBPP: # For english 8x16 and JP 16x16 fonts
             file_bits = "".join([file_bits[i:i+8][::-1] for i in range(0, len(file_bits), 8)]) # reverse the order of the bits in each byte
-            for pixel_index in range(0, len(str_subgroups(file_bits, algorithm.depth))):
+            pixel_colors = str_subgroups(file_bits, algorithm.depth)
+            for pixel_index in range(0, len(pixel_colors)):
                 if pixel_index < tileWidth*tileHeight:
                     x = int(pixel_index % tileWidth)
                     y = int(pixel_index / tileWidth)
-                    image_widget.setPixel(x, y, int(str_subgroups(file_bits, algorithm.depth)[pixel_index], 2))
+                    image_widget.setPixel(x, y, int(pixel_colors[pixel_index], 2))
         case CompressionAlgorithmEnum.FOURBPP: # NDS/GBA 4bpp
-            for pixel_index in range(0, len(str_subgroups(file_bits, algorithm.depth)), 2):
+            pixel_colors = str_subgroups(file_bits, algorithm.depth)
+            for pixel_index in range(0, len(pixel_colors), 2):
                 #print(str_subgroups(file_bits, 4)[pixel_index])
                 if pixel_index < tileWidth*tileHeight:
                     x = int(pixel_index % tileWidth)
                     y = int(pixel_index / tileWidth)
-                    image_widget.setPixel(x, y, int(str_subgroups(file_bits, algorithm.depth)[pixel_index+1], 2))
-                    image_widget.setPixel(x+1, y, int(str_subgroups(file_bits, algorithm.depth)[pixel_index], 2))
+                    image_widget.setPixel(x, y, int(pixel_colors[pixel_index+1], 2))
+                    image_widget.setPixel(x+1, y, int(pixel_colors[pixel_index], 2))
         case CompressionAlgorithmEnum.EIGHTBPP: # NDS/GBA 8bpp
-            for pixel_index in range(0, len(str_subgroups(file_bits, algorithm.depth))):
+            pixel_colors = str_subgroups(file_bits, algorithm.depth)
+            for pixel_index in range(0, len(pixel_colors)):
                 #print(str_subgroups(file_bits, 4)[pixel_index])
                 if pixel_index < tileWidth*tileHeight:
                     x = int(pixel_index % tileWidth)
                     y = int(pixel_index / tileWidth)
-                    image_widget.setPixel(x, y, int(str_subgroups(file_bits, algorithm.depth)[pixel_index], 2))
+                    image_widget.setPixel(x, y, int(pixel_colors[pixel_index], 2))
     return image_widget
 
-def qt_to_bin(qimage: PyQt6.QtGui.QImage, palette: list[int]=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], algorithm=CompressionAlgorithmEnum.ONEBPP, tileWidth=8, tileHeight=8): # GBA 4bpp = 4bpp linear reverse order
+def qtToBin(qimage: PyQt6.QtGui.QImage, palette: list[int]=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], algorithm=CompressionAlgorithmEnum.ONEBPP, tileWidth=8, tileHeight=8): # GBA 4bpp = 4bpp linear reverse order
     tileWidth = int(tileWidth)
     tileHeight = int(tileHeight)
     binary_data = bytearray()
