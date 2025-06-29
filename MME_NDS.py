@@ -46,10 +46,6 @@ class RunnableDisplayProgress(PyQt6.QtCore.QRunnable):
         print("runnable finish")
 """
 
-class GFXItem(PyQt6.QtWidgets.QGraphicsPixmapItem):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
 class GFXView(PyQt6.QtWidgets.QGraphicsView):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -59,7 +55,7 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
         self.setOptimizationFlag(PyQt6.QtWidgets.QGraphicsView.OptimizationFlag.DontSavePainterState, True)
         scene = PyQt6.QtWidgets.QGraphicsScene()
         self.setScene(scene)
-        self._graphic = GFXItem()
+        self._graphic = PyQt6.QtWidgets.QGraphicsPixmapItem()
         self._graphic.setFlag(PyQt6.QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIgnoresParentOpacity, True)
         self.scene().addItem(self._graphic)
         self.pen = PyQt6.QtGui.QPen()
@@ -2239,10 +2235,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.file_content_gfx.resetScene()
                         draw_tilesQImage_fromBytes(self.file_content_gfx,
                                                    self.rom.files[current_id][self.relative_address:],
-                                                   palette=self.gfx_palette,
                                                    algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
-                                                   tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column,
-                                                   tileWidth=self.tile_width, tileHeight=self.tile_height)
+                                                   grid=True)
                             
                     elif self.fileDisplayState == "Font":
                         self.widget_set = "Font"
@@ -2263,10 +2257,8 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         self.tile_height = self.field_font_height.value()
                         draw_tilesQImage_fromBytes(self.file_content_gfx,
                                                    self.rom.files[current_id][self.relative_address:self.relative_address+self.fileEdited_object.file_size],
-                                                   palette=self.gfx_palette,
                                                    algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
-                                                   tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column,
-                                                   tileWidth=self.tile_width, tileHeight=self.tile_height)
+                                                   grid=True)
 
                     elif self.fileDisplayState == "Sound":
                         self.widget_set = "Empty" # placeholder
@@ -2400,18 +2392,14 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 else:
                     self.rom.files[file_id][self.relative_address:self.relative_address+0xFFFF] = lib.dialogue.DialogueFile.textToBin(self.file_content_text.toPlainText())
             elif self.fileDisplayState == "Graphics":
-                save_data = saveData_fromGFXView(self.file_content_gfx,
-                                                 palette=self.gfx_palette,
-                                                 algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
-                                                 tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column,
-                                                 tileWidth=self.tile_width, tileHeight=self.tile_height)
+                save_data = lib.datconv.qtToBin(self.file_content_gfx._graphic.pixmap().toImage(),
+                                                palette=self.gfx_palette, algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
+                                                tileWidth=self.tile_width, tileHeight=self.tile_height)
                 w.rom.files[file_id][self.relative_address:self.relative_address+len(save_data)] = save_data
             elif self.fileDisplayState == "Font":
-                save_data = saveData_fromGFXView(self.file_content_gfx,
-                                                 palette=self.gfx_palette,
-                                                 algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
-                                                 tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column,
-                                                 tileWidth=self.tile_width, tileHeight=self.tile_height)
+                save_data = lib.datconv.qtToBin(self.file_content_gfx._graphic.pixmap().toImage(),
+                                                palette=self.gfx_palette, algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
+                                                tileWidth=self.tile_width, tileHeight=self.tile_height)
                 w.rom.files[file_id][self.relative_address:self.relative_address+len(save_data)] = save_data
                 w.rom.files[file_id][0x00:0x02] = bytearray(int.to_bytes(int(self.field_font_width.value()), 2, "little"))
                 w.rom.files[file_id][0x02:0x04] = bytearray(int.to_bytes(int(self.field_font_height.value()), 2, "little"))
@@ -2513,37 +2501,16 @@ app = PyQt6.QtWidgets.QApplication(sys.argv)
 w = MainWindow()
 
 # Draw contents of tile viewer
-def draw_tilesQImage_fromBytes(view: GFXView, data: bytearray, palette: list[int]=w.gfx_palette, algorithm=lib.datconv.CompressionAlgorithmEnum.ONEBPP, tilesPerRow: int=w.tiles_per_row, tilesPerColumn: int=w.tiles_per_column, tileWidth: int=w.tile_width, tileHeight: int=w.tile_height, grid: bool=True):
+def draw_tilesQImage_fromBytes(view: GFXView, data: bytearray, algorithm=lib.datconv.CompressionAlgorithmEnum.ONEBPP,  grid: bool=True):
     #print("draw")
-    painter = PyQt6.QtGui.QPainter()
-    gfx_zone = PyQt6.QtGui.QPixmap(tileWidth*tilesPerRow, tileHeight*tilesPerColumn) # get the correct canvas size
-    tile_size = int((tileWidth*tileHeight)*algorithm.depth/8)
-    painter.begin(gfx_zone)
-    painter.setRenderHint(PyQt6.QtGui.QPainter.RenderHint.Antialiasing, False)
-    painter.setRenderHint(PyQt6.QtGui.QPainter.RenderHint.SmoothPixmapTransform, False)
-    painter.setRenderHint(PyQt6.QtGui.QPainter.RenderHint.LosslessImageRendering, False)
-    # get data of current tile from bytearray, multiplying tile index by amount of pixels in a tile and by amount of bits per pixel, then dividing by amount of bits per byte
-    # that data is then converted into a QImage that is used to create the QPixmap of the tile
-    for tile_index in range(tilesPerRow*tilesPerColumn):
-        #print(tile)
-        gfx = lib.datconv.binToQt(data[tile_index*tile_size:tile_index*tile_size+tile_size], palette, algorithm, tileWidth, tileHeight)
-        painter.drawImage(tileWidth*int(tile_index % tilesPerRow), tileHeight*int(tile_index / tilesPerRow), gfx) # draw tile at correct pos in canvas
-    view._graphic.setPixmap(gfx_zone) # overwrite current canvas with new one
-    painter.end()
+    tile_size = int((w.tile_width*w.tile_height)*algorithm.depth/8) # size in bytes
+    gfx = lib.datconv.binToQt(data[:tile_size*w.tiles_per_row*w.tiles_per_column],
+                              palette=w.gfx_palette, algorithm=algorithm,
+                              tilesPerRow=w.tiles_per_row, tilesPerColumn=w.tiles_per_column,
+                              tileWidth=w.tile_width, tileHeight=w.tile_height)
+    view._graphic.setPixmap(PyQt6.QtGui.QPixmap.fromImage(gfx)) # overwrite current canvas with new one
     if grid:
-        view.createGrid(tileWidth, tileHeight)
-# Decode contents of tile viewer
-def saveData_fromGFXView(view: GFXView, palette: list[int]=w.gfx_palette, algorithm=lib.datconv.CompressionAlgorithmEnum.ONEBPP, tilesPerRow=8, tilesPerColumn=8, tileWidth=8, tileHeight=8):
-    saved_data = bytearray()
-    #print("pixmap: " + "width=" + str(view._graphic.pixmap().width()) + "   height=" + str(view._graphic.pixmap().height()))
-    #print("tiles: " + "horizontal=" +str(tilesPerRow) + "   vertical=" + str(tilesPerColumn))
-    #print(str(tilesPerRow*tilesPerColumn) + " tiles to go through")
-    for tile in range(tilesPerRow*tilesPerColumn):
-        tile_rect = PyQt6.QtCore.QRect((tileWidth*int(tile % tilesPerRow)), (tileHeight*int(tile / tilesPerRow)), tileWidth, tileHeight)
-        tile_current = view._graphic.pixmap().copy(tile_rect).toImage()
-        saved_data +=  lib.datconv.qtToBin(tile_current, palette, algorithm, tileWidth, tileHeight)
-    #print(saved_data.hex())
-    return saved_data
+        view.createGrid(w.tile_width, w.tile_height)
 
 def extract(data: bytes, name="", path="", format="", compress=0):
     ext = ""
