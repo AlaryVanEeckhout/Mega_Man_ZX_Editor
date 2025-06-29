@@ -152,11 +152,10 @@ class CompressionAlgorithmEnum(enum.Enum):
   FOURBPP = enum.auto(), 4
   EIGHTBPP = enum.auto(), 8
 
-def binToQt(binary_data: bytearray, palette: list[int]=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], algorithm=CompressionAlgorithmEnum.ONEBPP, tileWidth=8, tileHeight=8): # GBA 4bpp = 4bpp linear reverse order
-    tileWidth = int(tileWidth)
-    tileHeight = int(tileHeight)
+# instead of only returning tiles, should build all tiles to view into QImage
+def binToQt(binary_data: bytearray, palette: list[int]=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], algorithm=CompressionAlgorithmEnum.ONEBPP, tileWidth: int=8, tileHeight: int=8): # GBA 4bpp = 4bpp linear reverse order
     #file_bits = bin(int.from_bytes(binary_data))[2:]
-    file_bits = "".join([bit for byte in binary_data for bit in ("00000000"+(bin(byte)[2:]))[-8:]])
+    file_bits = "".join([bit for byte in binary_data for bit in bin(byte)[2:].zfill(8)])
     image_widget = PyQt6.QtGui.QImage(tileWidth, tileHeight, PyQt6.QtGui.QImage.Format.Format_Indexed8)
     image_widget.setColorTable(palette) # 32bit ARGB color format
     image_widget.fill(15)
@@ -168,27 +167,24 @@ def binToQt(binary_data: bytearray, palette: list[int]=[0xff000000+((0x0b7421*i)
             file_bits = "".join([file_bits[i:i+8][::-1] for i in range(0, len(file_bits), 8)]) # reverse the order of the bits in each byte
             pixel_colors = str_subgroups(file_bits, algorithm.depth)
             for pixel_index in range(0, len(pixel_colors)):
-                if pixel_index < tileWidth*tileHeight:
-                    x = int(pixel_index % tileWidth)
-                    y = int(pixel_index / tileWidth)
-                    image_widget.setPixel(x, y, int(pixel_colors[pixel_index], 2))
+                x = int(pixel_index % tileWidth)
+                y = int(pixel_index / tileWidth)
+                image_widget.setPixel(x, y, int(pixel_colors[pixel_index], 2))
         case CompressionAlgorithmEnum.FOURBPP: # NDS/GBA 4bpp
             pixel_colors = str_subgroups(file_bits, algorithm.depth)
             for pixel_index in range(0, len(pixel_colors), 2):
                 #print(str_subgroups(file_bits, 4)[pixel_index])
-                if pixel_index < tileWidth*tileHeight:
-                    x = int(pixel_index % tileWidth)
-                    y = int(pixel_index / tileWidth)
-                    image_widget.setPixel(x, y, int(pixel_colors[pixel_index+1], 2))
-                    image_widget.setPixel(x+1, y, int(pixel_colors[pixel_index], 2))
+                x = int(pixel_index % tileWidth)
+                y = int(pixel_index / tileWidth)
+                image_widget.setPixel(x, y, int(pixel_colors[pixel_index+1], 2))
+                image_widget.setPixel(x+1, y, int(pixel_colors[pixel_index], 2))
         case CompressionAlgorithmEnum.EIGHTBPP: # NDS/GBA 8bpp
             pixel_colors = str_subgroups(file_bits, algorithm.depth)
             for pixel_index in range(0, len(pixel_colors)):
                 #print(str_subgroups(file_bits, 4)[pixel_index])
-                if pixel_index < tileWidth*tileHeight:
-                    x = int(pixel_index % tileWidth)
-                    y = int(pixel_index / tileWidth)
-                    image_widget.setPixel(x, y, int(pixel_colors[pixel_index], 2))
+                x = int(pixel_index % tileWidth)
+                y = int(pixel_index / tileWidth)
+                image_widget.setPixel(x, y, int(pixel_colors[pixel_index], 2))
     return image_widget
 
 def qtToBin(qimage: PyQt6.QtGui.QImage, palette: list[int]=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], algorithm=CompressionAlgorithmEnum.ONEBPP, tileWidth=8, tileHeight=8): # GBA 4bpp = 4bpp linear reverse order

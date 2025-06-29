@@ -46,13 +46,21 @@ class RunnableDisplayProgress(PyQt6.QtCore.QRunnable):
         print("runnable finish")
 """
 
+class GFXItem(PyQt6.QtWidgets.QGraphicsPixmapItem):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
 class GFXView(PyQt6.QtWidgets.QGraphicsView):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._zoom = 0
         self._zoom_limit = 70
-        self.setScene(PyQt6.QtWidgets.QGraphicsScene())
-        self._graphic = PyQt6.QtWidgets.QGraphicsPixmapItem()
+        self.setOptimizationFlag(PyQt6.QtWidgets.QGraphicsView.OptimizationFlag.DontAdjustForAntialiasing, True)
+        self.setOptimizationFlag(PyQt6.QtWidgets.QGraphicsView.OptimizationFlag.DontSavePainterState, True)
+        scene = PyQt6.QtWidgets.QGraphicsScene()
+        self.setScene(scene)
+        self._graphic = GFXItem()
+        self._graphic.setFlag(PyQt6.QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIgnoresParentOpacity, True)
         self.scene().addItem(self._graphic)
         self.pen = PyQt6.QtGui.QPen()
         self.pen.setColor(PyQt6.QtCore.Qt.GlobalColor.black)
@@ -100,19 +108,17 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
         if self.draw_mode == "pixel":
                 gfx_zone = self._graphic.pixmap() # create a pixmap that can be detroyed
                 painter = PyQt6.QtGui.QPainter()
-                #painter.setPen(self.pen)
                 painter.begin(gfx_zone)
-                pixel_map = PyQt6.QtGui.QPixmap(1, 1)
-                pixel_map.fill(self.pen.color())
+                painter.setPen(self.pen)
 
                 pos = PyQt6.QtCore.QPoint(int(self.end.x()),int(self.end.y()))
-                painter.drawPixmap(pos, pixel_map)
+                painter.drawPoint(pos)
                 
                 pos = PyQt6.QtCore.QPoint(int(self.end_previous.x()),int(self.end_previous.y()))
-                painter.drawPixmap(pos, pixel_map)
+                painter.drawPoint(pos)
 
                 pos = PyQt6.QtCore.QPoint(int(self.end.x()) + int(self.end_previous.x() - self.end.x()),int(self.end.y()) + int(self.end_previous.y() - self.end.y()))
-                painter.drawPixmap(pos, pixel_map)
+                painter.drawPoint(pos)
                 self._graphic.setPixmap(gfx_zone)
                 painter.end() # release resources to prevent crash
                 w.button_file_save.setDisabled(False)
@@ -127,11 +133,10 @@ class GFXView(PyQt6.QtWidgets.QGraphicsView):
 
     def createGrid(self, tileWidth: int=8, tileHeight: int=8):
         if self._graphic.pixmap().isNull(): return
-        pix = self._graphic.pixmap().toImage().copy()
-        pix.invertPixels() # for a contrasting grid color
-        color = pix.scaled(1, 1).pixelColor(0, 0) # get average
+        img = self._graphic.pixmap().toImage().scaled(1, 1, transformMode=PyQt6.QtCore.Qt.TransformationMode.SmoothTransformation) # get average
+        img.invertPixels() # for a contrasting grid color
         #print(color.getRgb())
-        pen = PyQt6.QtGui.QPen(color)
+        pen = PyQt6.QtGui.QPen(img.pixelColor(0, 0))
         pen.setWidthF(0.05) # extra thin line
         pos = [self._graphic.scenePos().x(), self._graphic.scenePos().y()]
         size = [self._graphic.pixmap().size().width(), self._graphic.pixmap().size().height()]
@@ -331,7 +336,7 @@ class LongTextEdit(PyQt6.QtWidgets.QPlainTextEdit):
         self.context_menu = PyQt6.QtWidgets.QMenu(self)
         self.context_menu.setGeometry(self.cursor().pos().x(), self.cursor().pos().y(), 50, 50)
         for char_index in range(len(lib.dialogue.SPECIAL_CHARACTER_LIST)):
-            if char_index >= 0xe0 and type(lib.dialogue.SPECIAL_CHARACTER_LIST[char_index]) != type(int()):
+            if char_index >= 0xe0 and not isinstance(lib.dialogue.SPECIAL_CHARACTER_LIST[char_index], int):
                 self.context_menu.addAction(f"{lib.datconv.numToStr(char_index, w.displayBase, w.displayAlphanumeric).zfill(2)} - {lib.dialogue.SPECIAL_CHARACTER_LIST[char_index][1]}")
         action2 = self.context_menu.exec()
         if action2 is not None:
@@ -523,7 +528,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
 
         self.exitAction = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\door.png'), '&Exit', self)
         self.exitAction.setStatusTip('Exit application')
-        self.exitAction.triggered.connect(self.exitCall)
+        self.exitAction.triggered.connect(self.close)
 
         self.appMenu = self.menu_bar.addMenu('&Application')
         self.appMenu.addActions([self.aboutAction, self.settingsAction, self.exitAction])
@@ -571,7 +576,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.addToolBar(self.toolbar)
 
         self.action_save = PyQt6.QtGui.QAction(PyQt6.QtGui.QIcon('icons\\disk.png'), "Save to ROM", self)
-        self.action_save.setStatusTip("Save changes to the ROM")
+        self.action_save.setStatusTip("Save changes to a ROM file")
         self.action_save.triggered.connect(self.saveCall)
         self.action_save.setDisabled(True)
         self.button_playtest = HoldButton(PyQt6.QtGui.QIcon('icons\\control.png'), "", self)
@@ -714,6 +719,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.layout_editzone_row2 = PyQt6.QtWidgets.QHBoxLayout()
         self.layout_editzone_row3 = PyQt6.QtWidgets.QHBoxLayout()
         self.layout_colorpick = PyQt6.QtWidgets.QGridLayout()
+        self.layout_colorpick.setAlignment(PyQt6.QtCore.Qt.AlignmentFlag.AlignLeft)
 
         self.button_file_save = PyQt6.QtWidgets.QPushButton("Save file", self.page_explorer)
         self.button_file_save.setMaximumWidth(100)
@@ -733,6 +739,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.file_content_text.setDisabled(True)
 
         self.dropdown_textindex = PyQt6.QtWidgets.QComboBox(self.page_explorer)
+        self.dropdown_textindex.setSizePolicy(PyQt6.QtWidgets.QSizePolicy.Policy.Expanding, PyQt6.QtWidgets.QSizePolicy.Policy.Fixed)
         self.dropdown_textindex.currentIndexChanged.connect(lambda: self.treeCall(True))
         self.dropdown_textindex.previousIndex = self.dropdown_textindex.currentIndex()
         self.dropdown_textindex.hide()
@@ -746,7 +753,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.layout_editzone_row1.addWidget(self.dropdown_textindex)
 
         self.file_content_gfx = GFXView(self.page_explorer)
-        self.file_content_gfx.setSizePolicy(PyQt6.QtWidgets.QSizePolicy.Policy.Expanding, PyQt6.QtWidgets.QSizePolicy.Policy.Expanding)
+        self.file_content_gfx.setSizePolicy(PyQt6.QtWidgets.QSizePolicy.Policy.Ignored, PyQt6.QtWidgets.QSizePolicy.Policy.Expanding)
         self.file_content_gfx.hide()
         self.file_content.addWidget(self.file_content_gfx)
         self.file_content.addWidget(self.file_content_text)
@@ -819,6 +826,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         #Tiles Per row
         self.tiles_per_row = 8
         self.field_tiles_per_row = BetterSpinBox(self.page_explorer)
+        self.field_tiles_per_row.setSizePolicy(PyQt6.QtWidgets.QSizePolicy.Policy.Expanding, PyQt6.QtWidgets.QSizePolicy.Policy.Fixed)
         self.field_tiles_per_row.setFont(self.font_caps)
         self.field_tiles_per_row.setValue(self.tiles_per_row)
         self.field_tiles_per_row.setMinimum(1)
@@ -839,6 +847,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         #Tiles Per Column
         self.tiles_per_column = 8
         self.field_tiles_per_column = BetterSpinBox(self.page_explorer)
+        self.field_tiles_per_column.setSizePolicy(PyQt6.QtWidgets.QSizePolicy.Policy.Expanding, PyQt6.QtWidgets.QSizePolicy.Policy.Fixed)
         self.field_tiles_per_column.setFont(self.font_caps)
         self.field_tiles_per_column.setValue(self.tiles_per_column)
         self.field_tiles_per_column.setMinimum(1)
@@ -877,17 +886,15 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
             button_palettepick.hide()
 
         self.dropdown_gfx_palette = PyQt6.QtWidgets.QComboBox(self.page_explorer)
-        self.dropdown_gfx_palette.addItems(["Default Palette", "Font Palette", "Sprites Palette", "BG Palette"])# order of names is determined by the enum in dataconverter
+        self.dropdown_gfx_palette.addItems(["Default Palette", "Font Palette", "Sprites Palette", "BG Palette"]) # order of names is determined by the enum in dataconverter
         self.dropdown_gfx_palette.setToolTip("Choose palette")
         self.dropdown_gfx_palette.setStatusTip("Select the color palette preset that you want to use to render images")
-        self.dropdown_gfx_palette.currentIndexChanged.connect(lambda: self.setPalette(self.dropdown_gfx_palette.currentIndex()))# Update gfx with current depth
+        self.dropdown_gfx_palette.currentIndexChanged.connect(lambda: self.setPalette(self.dropdown_gfx_palette.currentIndex())) # Update gfx with current depth
         self.dropdown_gfx_palette.currentIndexChanged.connect(lambda: self.treeCall(True))
         self.dropdown_gfx_palette.hide()
 
         self.layout_palette_settings = PyQt6.QtWidgets.QHBoxLayout()
-        self.layout_palette_settings.addStretch() # stretch to allow other widgets to expand properly
         self.layout_palette_settings.addWidget(self.dropdown_gfx_palette)
-        self.layout_palette_settings.addStretch()
 
         self.layout_gfx_settings = PyQt6.QtWidgets.QVBoxLayout()
         self.layout_gfx_settings.addItem(self.layout_tile_settings)
@@ -1415,7 +1422,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                             obj2 = category
                             data = file#[1].save()
                             #print(data)
-                            #if type(data) == type((0, 1)):
+                            #if isinstance(data, tuple):
                             #    data = data[0]
         return [data, name, obj, obj2]
         
@@ -1436,13 +1443,13 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 for patch in lib.patchdat.GameEnum[self.rom.name.decode().replace(" ", "_")].value[1]:
                     #self.progress.setValue(self.progress.value()+12)
                     #PyQt6.QtWidgets.QTreeWidgetItem(None, ["", "<address>", "<patch name>", "<patch type>", "<size>"])
-                    if type(patch[2]) == type([]): # if patch contains patches
+                    if isinstance(patch[2], list): # if patch contains patches
                         patch_item = PyQt6.QtWidgets.QTreeWidgetItem(None, ["", "N/A", patch[0], patch[1], "0"])
                         patches.append(patch_item)
                         patch_size = 0
                         subPatchMatches = 0
                         for subPatch in patch:
-                            if type(subPatch) == type([]):
+                            if isinstance(subPatch, list):
                                 subPatch_item = PyQt6.QtWidgets.QTreeWidgetItem(None, ["", str(lib.datconv.numToStr(subPatch[0], self.displayBase, self.displayAlphanumeric).zfill(8)), subPatch[1], "Patch Segment", str(lib.datconv.numToStr(len(subPatch[3].replace("-", "")), self.displayBase, self.displayAlphanumeric).zfill(1))])
                                 subPatch_item.setToolTip(0, subPatch[3])
                                 subPatch_item.setFlags(patch_item.flags() | PyQt6.QtCore.Qt.ItemFlag.ItemIsUserCheckable)
@@ -1642,10 +1649,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                     if fileData == [b'', "", None]:
                         print("could not fetch data from tree item")
                         return
-                    elif type(fileData[0]) != bytes and type(fileData[0]) != bytearray: # both bytes and bytearray are essentially the same, but need to be checked for separately
+                    elif not isinstance(fileData[0], (bytes, bytearray)): # both bytes and bytearray are essentially the same, but need to be checked for separately
                         fileData[0] = fileData[0][1].save()
                         print(fileData[0])
-                        if type(fileData[0]) == type((0, 1)):
+                        if isinstance(fileData[0], tuple):
                             fileData[0] = fileData[0][0]
                     if not "Folder" in item.text(2): # if file
                         extract(*fileData[:2], path=selectedFiles[0], format=dropdown_formatselect.currentText(), compress=dropdown_compressselect.currentIndex())
@@ -1743,7 +1750,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                             if not any(supported == fileExt.lower() for supported in supported_list): # unknown
                                 dialog2.exec()
                                 return
-                            elif type(fileInfo[2]) != type(None):
+                            elif not isinstance(fileInfo[2], None):
                                 if fileExt == "txt": # english text file
                                     if "en" in fileName:
                                         if re.search(r".*(_\d+)$", fileName) and dialogue: # match the indicator that the file is a chunk of the original file
@@ -1774,7 +1781,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                                 dialog2.exec()
                                 return
 
-                    if type(fileInfo[2]) == bytearray: # other
+                    if isinstance(fileInfo[2], bytearray): # other
                             fileInfo[2][fileInfo[2].index(fileInfo[0]):fileInfo[2].index(fileInfo[0])+len(fileInfo[0])] = data
                             print(data[:0x15].hex())
                     elif fileInfo[3] == None: # rom files
@@ -1784,7 +1791,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                         newName = fileName
                         oldObject = fileInfo[0][1]
                         newObject = type(oldObject).fromFile(f.name)
-                        if type(fileInfo[0][1]) == ndspy.soundSequenceArchive.soundSequence.SSEQ: # bankID fix (defaults to 0)
+                        if isinstance(fileInfo[0][1], ndspy.soundSequenceArchive.soundSequence.SSEQ): # bankID fix (defaults to 0)
                             newObject.bankID = oldObject.bankID
                             newObject.volume = oldObject.volume
                             newObject.channelPressure = oldObject.channelPressure
@@ -1832,9 +1839,6 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                 dialog.setWindowIcon(PyQt6.QtGui.QIcon("icons\\exclamation"))
                 dialog.setText("No custom stylesheet was found in location \"theme\\custom_theme.qss\".\nAn empty file has been created there.\nPlease put the contents of your custom stylesheet in it.\nIf you wish to create one yourself but do not know how, refer to this page:\nhttps://doc.qt.io/qtforpython-6.5/overviews/stylesheet-examples.html")
                 dialog.exec()
-
-    def exitCall(self):
-        self.close()
     
     def display_format_toggleCall(self):
         self.fileDisplayRaw = not self.fileDisplayRaw
@@ -1848,10 +1852,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         if istreecall:
             self.treeCall(True)
 
-    def setPalette(self, index):
-        self.dropdown_gfx_palette.setCurrentIndex(index)
+    def setPalette(self, index: int):
+        self.dropdown_gfx_palette.setCurrentIndex(index) # if setPalette wasn't called by the dropdown itself
         new_pal = self.GFX_PALETTES[index].copy()
-        self.gfx_palette = new_pal # does not return a shallow copy and modifies the constant directly instead???
+        self.gfx_palette = new_pal
         self.file_content_gfx.pen.setColor(self.gfx_palette[0]) # set to first color
         for i in range(256):
             button_palettepick: HoldButton = getattr(self, f"button_palettepick_{i}")
@@ -2239,8 +2243,6 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                                                    algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
                                                    tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column,
                                                    tileWidth=self.tile_width, tileHeight=self.tile_height)
-                        if not isValueUpdate:
-                            self.file_content_gfx.fitInView()
                             
                     elif self.fileDisplayState == "Font":
                         self.widget_set = "Font"
@@ -2265,8 +2267,6 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
                                                    algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
                                                    tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column,
                                                    tileWidth=self.tile_width, tileHeight=self.tile_height)
-                        if not isValueUpdate:
-                            self.file_content_gfx.fitInView()
 
                     elif self.fileDisplayState == "Sound":
                         self.widget_set = "Empty" # placeholder
@@ -2380,7 +2380,7 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         for w in widget_sets[mode_index]:
             w.show()
         # case-specific code
-        if mode == "Graphics":
+        if mode == "Graphics" or "Font":
             # Reset Values
             #self.field_address.setValue(self.base_address)
             if self.file_content_gfx.sceneRect().width() != 0: # disallow division
@@ -2453,10 +2453,10 @@ class MainWindow(PyQt6.QtWidgets.QMainWindow):
         self.rom.saveToFile(self.temp_path)# Create temporary ROM to write patch to
         patch_list = []
         for patch in lib.patchdat.GameEnum[self.rom.name.decode().replace(" ", "_")].value[1]: # create a patch list with a consistent format
-            if type(patch[2]) == type([]):
+            if isinstance(patch[2], list):
                 patch_list.append(['N/A', patch[0], patch[1], 'N/A', 'N/A'])
                 for subPatch in patch:
-                    if type(subPatch) == type([]):
+                    if isinstance(subPatch, list):
                         patch_list.append([subPatch[0], subPatch[1], "Patch Segment", subPatch[2], subPatch[3]])
             else:
                 patch_list.append(patch)
@@ -2517,15 +2517,17 @@ def draw_tilesQImage_fromBytes(view: GFXView, data: bytearray, palette: list[int
     #print("draw")
     painter = PyQt6.QtGui.QPainter()
     gfx_zone = PyQt6.QtGui.QPixmap(tileWidth*tilesPerRow, tileHeight*tilesPerColumn) # get the correct canvas size
-    tile_size = (tileWidth*tileHeight)*algorithm.depth/8
+    tile_size = int((tileWidth*tileHeight)*algorithm.depth/8)
     painter.begin(gfx_zone)
-    for tile in range(tilesPerRow*tilesPerColumn):
-        # get data of current tile from bytearray, multiplying tile index by amount of pixels in a tile and by amount of bits per pixel, then dividing by amount of bits per byte
-        # that data is then converted into a QImage that is used to create the QPixmap of the tile
-        gfx = PyQt6.QtGui.QPixmap.fromImage(lib.datconv.binToQt(data[int(tile*tile_size):int(tile*tile_size+tile_size)], palette, algorithm, tileWidth, tileHeight))
+    painter.setRenderHint(PyQt6.QtGui.QPainter.RenderHint.Antialiasing, False)
+    painter.setRenderHint(PyQt6.QtGui.QPainter.RenderHint.SmoothPixmapTransform, False)
+    painter.setRenderHint(PyQt6.QtGui.QPainter.RenderHint.LosslessImageRendering, False)
+    # get data of current tile from bytearray, multiplying tile index by amount of pixels in a tile and by amount of bits per pixel, then dividing by amount of bits per byte
+    # that data is then converted into a QImage that is used to create the QPixmap of the tile
+    for tile_index in range(tilesPerRow*tilesPerColumn):
         #print(tile)
-        pos = PyQt6.QtCore.QPoint(tileWidth*int(tile % tilesPerRow), tileHeight*int(tile / tilesPerRow))
-        painter.drawPixmap(pos, gfx) # draw tile at correct pos in canvas
+        gfx = lib.datconv.binToQt(data[tile_index*tile_size:tile_index*tile_size+tile_size], palette, algorithm, tileWidth, tileHeight)
+        painter.drawImage(tileWidth*int(tile_index % tilesPerRow), tileHeight*int(tile_index / tilesPerRow), gfx) # draw tile at correct pos in canvas
     view._graphic.setPixmap(gfx_zone) # overwrite current canvas with new one
     painter.end()
     if grid:
@@ -2589,7 +2591,7 @@ def extract(data: bytes, name="", path="", format="", compress=0):
         data = ndspy.lz10.compress(data)
 
     print(os.path.join(path + "/" + name.split(".")[0] + ext))
-    if type(data) == bytes: # one file
+    if isinstance(data, bytes): # one file
         with open(os.path.join(path + "/" + name.split(".")[0] + ext), 'wb') as f:
             f.write(data)
     else: # list of bytes
