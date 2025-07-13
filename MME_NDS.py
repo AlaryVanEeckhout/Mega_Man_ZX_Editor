@@ -493,10 +493,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dialog_settings.setLayout(QtWidgets.QGridLayout())
         self.label_theme = QtWidgets.QLabel("Theme", self.dialog_settings)
         self.dropdown_theme = QtWidgets.QComboBox(self.dialog_settings)
-        self.dropdown_theme.activated.connect(lambda: self.switch_theme())
         self.dropdown_theme.addItems(QtWidgets.QStyleFactory.keys())
         self.dropdown_theme.addItem("Custom")
         self.switch_theme(True)# Update theme dropdown with current option
+        self.dropdown_theme.activated.connect(lambda: self.switch_theme())
         self.label_base = QtWidgets.QLabel("Numeric Base", self.dialog_settings)
         self.field_base = QtWidgets.QSpinBox(self.dialog_settings)
         self.field_base.setValue(self.displayBase)
@@ -611,7 +611,6 @@ class MainWindow(QtWidgets.QMainWindow):
         #Tabs
         self.tabs = QtWidgets.QTabWidget(self)
         self.setCentralWidget(self.tabs)
-        self.tabs.currentChanged.connect(self.reloadCall)
 
         self.page_explorer = QtWidgets.QWidget(self.tabs)
         self.page_explorer.setLayout(QtWidgets.QHBoxLayout())
@@ -629,6 +628,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tabs.addTab(self.page_leveleditor, "Level Editor") # Coming Soon™
         self.tabs.addTab(self.page_tweaks, "Tweaks") # Coming Soon™
         self.tabs.addTab(self.page_patches, "Patches") # Coming Soon™
+        self.tabs.currentChanged.connect(self.tabChangeCall)
 
         #  ROM-related
         # ARM
@@ -733,8 +733,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.dropdown_textindex = QtWidgets.QComboBox(self.page_explorer)
         self.dropdown_textindex.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Fixed)
-        self.dropdown_textindex.currentIndexChanged.connect(lambda: self.treeCall(True))
         self.dropdown_textindex.previousIndex = self.dropdown_textindex.currentIndex()
+        self.dropdown_textindex.currentIndexChanged.connect(lambda: self.treeCall(True))
         self.dropdown_textindex.hide()
 
         self.checkbox_textoverwite = QtWidgets.QCheckBox("Overwite\n existing text", self.page_explorer)
@@ -869,13 +869,13 @@ class MainWindow(QtWidgets.QMainWindow):
         for i in range(256): #setup default palette
             setattr(self, f"button_palettepick_{i}", HoldButton(self.page_explorer))
             button_palettepick: HoldButton = getattr(self, f"button_palettepick_{i}")
-            button_palettepick.held.connect(lambda hold, press=None, color_index=i: self.colorpickCall(color_index, press, hold))
-            button_palettepick.pressed_quick.connect(lambda press, hold=None, color_index=i: self.colorpickCall(color_index, press, hold))
             button_palettepick.allow_press = True
             button_palettepick.press_quick_threshold = 1
             button_palettepick.setStyleSheet(f"background-color: #{self.gfx_palette[i]:08x}; color: white;")
             button_palettepick.setMaximumSize(10, 10)
             self.layout_colorpick.addWidget(button_palettepick, int(i/16), int(i%16))
+            button_palettepick.held.connect(lambda hold, press=None, color_index=i: self.colorpickCall(color_index, press, hold))
+            button_palettepick.pressed_quick.connect(lambda press, hold=None, color_index=i: self.colorpickCall(color_index, press, hold))
             button_palettepick.hide()
 
         self.dropdown_gfx_palette = QtWidgets.QComboBox(self.page_explorer)
@@ -1303,13 +1303,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
         # Patches
-        self.tree_patches_numalpha = None # set to something that isn't displayalphanumeric
         self.tree_patches = EditorTree(self.page_patches)
         self.page_patches.layout().addWidget(self.tree_patches)
         self.tree_patches.setColumnCount(4)
         self.tree_patches.setHeaderLabels(["Enabed", "Address", "Name", "Type", "Size"])
         self.tree_patches.itemChanged.connect(self.patch_game)
-        self.tree_patches_checkboxes = []
+        self.tree_patches_checkboxes = [] # stores the state of checkboxes for complex checkbox logic
 
         # Shortcuts
         #QtWidgets.QKeySequenceEdit()
@@ -1428,58 +1427,56 @@ class MainWindow(QtWidgets.QMainWindow):
             )
     
     def patches_reload(self):
-        if self.displayBase_old != self.displayBase or self.tree_patches_numalpha != self.displayAlphanumeric:
-            print("call")
-            self.tree_patches.blockSignals(True)
-            #self.progress.show()
-            self.tree_patches.clear()
-            if self.rom.name.decode().replace(" ", "_") in lib.patchdat.GameEnum.__members__:
-                patches = []
-                for patch in lib.patchdat.GameEnum[self.rom.name.decode().replace(" ", "_")].value[1]:
-                    #self.progress.setValue(self.progress.value()+12)
-                    #QtWidgets.QTreeWidgetItem(None, ["", "<address>", "<patch name>", "<patch type>", "<size>"])
-                    if isinstance(patch[2], list): # if patch contains patches
-                        patch_item = QtWidgets.QTreeWidgetItem(None, ["", "N/A", patch[0], patch[1], "0"])
-                        patches.append(patch_item)
-                        patch_size = 0
-                        subPatchMatches = 0
-                        for subPatch in patch:
-                            if isinstance(subPatch, list):
-                                subPatch_item = QtWidgets.QTreeWidgetItem(None, ["", str(lib.datconv.numToStr(subPatch[0], self.displayBase, self.displayAlphanumeric).zfill(8)), subPatch[1], "Patch Segment", str(lib.datconv.numToStr(len(subPatch[3].replace("-", "")), self.displayBase, self.displayAlphanumeric).zfill(1))])
-                                subPatch_item.setToolTip(0, subPatch[3])
-                                subPatch_item.setFlags(patch_item.flags() | QtCore.Qt.ItemFlag.ItemIsUserCheckable)
-                                patch_item.addChild(subPatch_item)
-                                patch_size += len(subPatch[3].replace("-", ""))
-                                if self.rom.save()[subPatch[0]:subPatch[0]+len(subPatch[3])] == subPatch[3]:
-                                    subPatchMatches += 1
-                                    subPatch_item.setCheckState(0, QtCore.Qt.CheckState.Checked)
-                                else:
-                                    subPatch_item.setCheckState(0, QtCore.Qt.CheckState.Unchecked)
-                                self.tree_patches_checkboxes.append(subPatch_item.checkState(0))
-                        patch_item.setText(4, f"{lib.datconv.numToStr(patch_size, self.displayBase, self.displayAlphanumeric).zfill(1)}")
-                        patch_item.setFlags(patch_item.flags() | QtCore.Qt.ItemFlag.ItemIsUserCheckable)
-                        if subPatchMatches == patch_item.childCount(): # Check for already applied patches
-                            patch_item.setCheckState(0, QtCore.Qt.CheckState.Checked)
-                        elif subPatchMatches > 0:
-                            patch_item.setCheckState(0, QtCore.Qt.CheckState.PartiallyChecked)
-                        else:
-                            patch_item.setCheckState(0, QtCore.Qt.CheckState.Unchecked)
-                        self.tree_patches_checkboxes.append(patch_item.checkState(0))
+        #print("call")
+        self.tree_patches.blockSignals(True)
+        #self.progress.show()
+        self.tree_patches.clear()
+        if self.rom.name.decode().replace(" ", "_") in lib.patchdat.GameEnum.__members__:
+            patches = []
+            for patch in lib.patchdat.GameEnum[self.rom.name.decode().replace(" ", "_")].value[1]:
+                #self.progress.setValue(self.progress.value()+12)
+                #QtWidgets.QTreeWidgetItem(None, ["", "<address>", "<patch name>", "<patch type>", "<size>"])
+                if isinstance(patch[2], list): # if patch contains patches
+                    patch_item = QtWidgets.QTreeWidgetItem(None, ["", "N/A", patch[0], patch[1], "0"])
+                    patches.append(patch_item)
+                    patch_size = 0
+                    subPatchMatches = 0
+                    for subPatch in patch:
+                        if isinstance(subPatch, list):
+                            subPatch_item = QtWidgets.QTreeWidgetItem(None, ["", str(lib.datconv.numToStr(subPatch[0], self.displayBase, self.displayAlphanumeric).zfill(8)), subPatch[1], "Patch Segment", str(lib.datconv.numToStr(len(subPatch[3].replace("-", "")), self.displayBase, self.displayAlphanumeric).zfill(1))])
+                            subPatch_item.setToolTip(0, subPatch[3])
+                            subPatch_item.setFlags(patch_item.flags() | QtCore.Qt.ItemFlag.ItemIsUserCheckable)
+                            patch_item.addChild(subPatch_item)
+                            patch_size += len(subPatch[3].replace("-", ""))
+                            if self.rom.save()[subPatch[0]:subPatch[0]+len(subPatch[3])] == subPatch[3]:
+                                subPatchMatches += 1
+                                subPatch_item.setCheckState(0, QtCore.Qt.CheckState.Checked)
+                            else:
+                                subPatch_item.setCheckState(0, QtCore.Qt.CheckState.Unchecked)
+                            self.tree_patches_checkboxes.append(subPatch_item.checkState(0))
+                    patch_item.setText(4, f"{lib.datconv.numToStr(patch_size, self.displayBase, self.displayAlphanumeric).zfill(1)}")
+                    patch_item.setFlags(patch_item.flags() | QtCore.Qt.ItemFlag.ItemIsUserCheckable)
+                    if subPatchMatches == patch_item.childCount(): # Check for already applied patches
+                        patch_item.setCheckState(0, QtCore.Qt.CheckState.Checked)
+                    elif subPatchMatches > 0:
+                        patch_item.setCheckState(0, QtCore.Qt.CheckState.PartiallyChecked)
                     else:
-                        patch_item = QtWidgets.QTreeWidgetItem(None, ["", str(lib.datconv.numToStr(patch[0], self.displayBase, self.displayAlphanumeric).zfill(8)), patch[1], patch[2], str(lib.datconv.numToStr(len(patch[4].replace("-", "")), self.displayBase, self.displayAlphanumeric).zfill(1))])
-                        patch_item.setToolTip(0, str(patch[4]))
-                        patches.append(patch_item)
-                        patch_item.setFlags(patch_item.flags() | QtCore.Qt.ItemFlag.ItemIsUserCheckable)
-                        if self.rom.save()[patch[0]:patch[0]+len(patch[4])] == patch[4]: # Check for already applied patches
-                            patch_item.setCheckState(0, QtCore.Qt.CheckState.Checked)
-                        else:
-                            patch_item.setCheckState(0, QtCore.Qt.CheckState.Unchecked)
-                        self.tree_patches_checkboxes.append(patch_item.checkState(0))
-                self.tree_patches.addTopLevelItems(patches)
-            self.tree_patches.blockSignals(False)
-            #self.progress.setValue(100)
-            #self.progress.close()
-        self.tree_patches_numalpha = self.displayAlphanumeric
+                        patch_item.setCheckState(0, QtCore.Qt.CheckState.Unchecked)
+                    self.tree_patches_checkboxes.append(patch_item.checkState(0))
+                else:
+                    patch_item = QtWidgets.QTreeWidgetItem(None, ["", str(lib.datconv.numToStr(patch[0], self.displayBase, self.displayAlphanumeric).zfill(8)), patch[1], patch[2], str(lib.datconv.numToStr(len(patch[4].replace("-", "")), self.displayBase, self.displayAlphanumeric).zfill(1))])
+                    patch_item.setToolTip(0, str(patch[4]))
+                    patches.append(patch_item)
+                    patch_item.setFlags(patch_item.flags() | QtCore.Qt.ItemFlag.ItemIsUserCheckable)
+                    if self.rom.save()[patch[0]:patch[0]+len(patch[4])] == patch[4]: # Check for already applied patches
+                        patch_item.setCheckState(0, QtCore.Qt.CheckState.Checked)
+                    else:
+                        patch_item.setCheckState(0, QtCore.Qt.CheckState.Unchecked)
+                    self.tree_patches_checkboxes.append(patch_item.checkState(0))
+            self.tree_patches.addTopLevelItems(patches)
+        self.tree_patches.blockSignals(False)
+        #self.progress.setValue(100)
+        #self.progress.close()
 
     def openCall(self):
         filename = QtWidgets.QFileDialog.getOpenFileName(
@@ -1560,6 +1557,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.progressUpdate(30, "Loading SDAT")
         self.treeSdatUpdate()
         #print(self.rom.filenames)
+        self.progressUpdate(50, "Loading Patches")
+        self.patches_reload()
         self.progressUpdate(80, "Finishing load")
         self.temp_path = f"{os.path.curdir}\\temp\\{self.romToEdit_name+self.romToEdit_ext}"
         self.setWindowTitle("Mega Man ZX Editor" + " <" + self.rom.name.decode() + ", Serial ID " + ''.join(char for char in self.rom.idCode.decode("utf-8") if char.isalnum())  + ", Rev." + str(self.rom.version) + ", Region " + str(self.rom.region) + ">" + " \"" + self.romToEdit_name + self.romToEdit_ext + "\"")
@@ -1576,7 +1575,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.treeUpdate()
         self.progressUpdate(100, "Finishing load")
         self.enable_editing_ui()
-        self.reloadCall()
         self.file_content_text.setDisabled(True)
         self.progressHide()
         
@@ -1905,6 +1903,14 @@ class MainWindow(QtWidgets.QMainWindow):
             print(*selectedFiles)
             self.rom.saveToFile(*selectedFiles)
             print("ROM modifs saved!")
+            # allow user to choose whether or not they want to reload fat
+            reload_dialog = QtWidgets.QMessageBox()
+            reload_dialog.setWindowTitle("Mega Man ZX Editor - Reload from saved ROM")
+            reload_dialog.setWindowIcon(QtGui.QIcon('icons\\question.png'))
+            reload_dialog.setText("Now that the ROM is saved, the FAT may have changed.\n Reload ROM from this file to fetch accurate file addresses?")
+            reload_dialog.setStandardButtons(reload_dialog.StandardButton.Yes | reload_dialog.StandardButton.No)
+            if reload_dialog.exec() == reload_dialog.StandardButton.Yes:
+                self.loadROM(*selectedFiles)
 
     def testCall(self, isQuick=True):
         #print("isQuick: " + str(isQuick))
@@ -2323,14 +2329,16 @@ class MainWindow(QtWidgets.QMainWindow):
                         zerofill = 8 if "address" in e.treeWidget().headerItem().text(t).lower() else 0
                         e.setText(t, newtext.zfill(zerofill))
 
-    def reloadCall(self, level=0): # Reload all reloadable content
+    def reloadCall(self, level: int=0): # Reload all reloadable content
         if hasattr(self.rom, "name"):
             #print("reloadlevel " + str(level))
             if level == 0: #reload only necessary
+                self.treeCall(True) # update for betterspinboxes as well
                 self.treeBaseUpdate(self.tree_arm9)
                 self.treeBaseUpdate(self.tree_arm9Ovltable)
                 self.treeBaseUpdate(self.tree_arm7)
                 self.treeBaseUpdate(self.tree_arm7Ovltable)
+                self.treeBaseUpdate(self.tree_patches)
             elif level == 1: #medium reload
                 self.treeBaseUpdate(self.tree_arm9)
                 self.treeBaseUpdate(self.tree_arm9Ovltable)
@@ -2349,12 +2357,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.displayBase_old = self.displayBase
 
     def tabChangeCall(self):
+        if self.rom == None: return
         if self.tabs.currentIndex() == self.tabs.indexOf(self.page_explorer):
             self.treeCall(True)
-        elif self.tabs.currentIndex() == self.tabs.indexOf(self.page_patches):
-            #print("b" + str(self.displayAlphanumeric))
-            self.patches_reload()
-            #print("a" + str(self.displayAlphanumeric))
 
     def file_editor_show(self, mode: str): # UiComponents
         modes = ["Empty", "Hex", "Text", "Graphics", "Font", "Sound", "VX"]
@@ -2428,7 +2433,7 @@ class MainWindow(QtWidgets.QMainWindow):
             w.rom.files[file_id][self.relative_address:self.relative_address+len(save_data)] = save_data
         #print(type(w.rom.files[file_id]))
         print("file changes saved")
-        self.loadFat() # rebuild table to get correct offsets in case file sizes changed
+        # fat is only recalculated when entire rom is saved, so it keeps outdated values
         self.button_file_save.setDisabled(True)
 
     def patch_game(self):# Currently a workaround to having no easy way of writing directly to any address in the ndspy rom object

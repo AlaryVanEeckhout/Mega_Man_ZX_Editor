@@ -51,7 +51,7 @@ Currently, there are no releases, so:
 ## Credits
 - Filesystem handling: https://ndspy.readthedocs.io/en/latest/
 - GUI (PyQt6): https://www.riverbankcomputing.com/software/pyqt/
-- Icons: https://p.yusukekamiyamane.com/
+- Icons (with shadow): https://p.yusukekamiyamane.com/
 - appicon.ico: Mega Man ZX devs, taken from [here](https://www.spriters-resource.com/ds_dsi/megamanzx/sheet/180723/) and truncated by me using GIMP
 - This project uses [a submodule](https://github.com/CharlesVanEeckhout/actimagine)
 
