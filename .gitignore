@@ -1,6 +1,8 @@
 #ROMs
 *.nds
-#pycache
+*.srl
+#cache
+*.tmp
 *.pyc
 #init
 *.ini

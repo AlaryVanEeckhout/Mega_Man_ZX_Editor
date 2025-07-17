@@ -152,6 +152,31 @@ class CompressionAlgorithmEnum(enum.Enum):
   FOURBPP = enum.auto(), 4
   EIGHTBPP = enum.auto(), 8
 
+def BGR15_to_ARGB32(bgr15_palette: bytes):
+    argb32_palette = []
+    for i in range(0, len(bgr15_palette), 2):
+        bgr15_color = int.from_bytes(bgr15_palette[i:i+2], byteorder='little')
+        #print(f"{bgr15_color:04X}")
+        # bgr15 color is 0b0BBBBBGGGGGRRRRR
+        # we must isolate the bits for each channel
+        r = bgr15_color & 0b11111
+        g = (bgr15_color >> 5) & 0b11111
+        b = (bgr15_color >> 10) & 0b11111
+        argb32_color = 0xff000000 + ((r * 0xff // 0b11111) << 16) + ((g * 0xff // 0b11111) << 8) + (b * 0xff // 0b11111)
+        #print(f"{argb32_color:08X}")
+        argb32_palette.append(argb32_color)
+    return argb32_palette
+
+def ARGB32_to_BGR15(argb32_palette: list[int]):
+    bgr15_palette = bytearray()
+    for argb32_color in argb32_palette:
+        r = (argb32_color >> 16) & 0x00ff
+        g = (argb32_color >> 8) & 0x0000ff
+        b = argb32_color & 0x000000ff
+        bgr15_color = (r * 0b11111 // 0xff) + ((g * 0b11111 // 0xff) << 5) + ((b * 0b11111 // 0xff) << 10)
+        bgr15_palette.extend(bgr15_color.to_bytes(2, byteorder='little'))
+    return bytes(bgr15_palette)
+
 # this fonction works with more than one tile now
 def binToQt(binary_data: bytearray, palette: list[int]=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], algorithm=CompressionAlgorithmEnum.ONEBPP, tilesPerRow: int=8, tilesPerColumn: int=8, tileWidth: int=8, tileHeight: int=8): # GBA 4bpp = 4bpp linear reverse order
     #file_bits = bin(int.from_bytes(binary_data))[2:]
@@ -187,8 +212,10 @@ def binToQt(binary_data: bytearray, palette: list[int]=[0xff000000+((0x0b7421*i)
                     #print(str_subgroups(file_bits, 4)[pixel_index])
                     x = int(j % tileWidth)
                     y = int(j / tileWidth)
+                    x2 = int((j+1) % tileWidth)
+                    y2 = int((j+1) / tileWidth)
                     image_widget.setPixel(tile_x+x, tile_y+y, int(pixel_colors[pixel_index+1], 2))
-                    image_widget.setPixel(tile_x+x+1, tile_y+y, int(pixel_colors[pixel_index], 2))
+                    image_widget.setPixel(tile_x+x2, tile_y+y2, int(pixel_colors[pixel_index], 2))
                     pixel_index += step
         case CompressionAlgorithmEnum.EIGHTBPP: # NDS/GBA 8bpp
             pixel_colors = str_subgroups(file_bits, algorithm.depth) # color indexes to palette
