@@ -57,7 +57,7 @@ class GFXView(QtWidgets.QGraphicsView):
         self._graphic.setFlag(QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIgnoresParentOpacity, True)
         self.scene().addItem(self._graphic)
         self.pen = QtGui.QPen()
-        self.pen.setColor(QtCore.Qt.GlobalColor.black)
+        self.pen.setColor(0x00010101) # grayscale color for indexed images
         self.start = QtCore.QPoint()
         self.end = QtCore.QPoint()
         self.end_previous = QtCore.QPoint()
@@ -100,22 +100,20 @@ class GFXView(QtWidgets.QGraphicsView):
 
     def drawShape(self):
         if self.draw_mode == "pixel":
-                gfx_zone = self._graphic.pixmap() # create a pixmap that can be detroyed
-                painter = QtGui.QPainter()
-                painter.begin(gfx_zone)
-                painter.setPen(self.pen)
+            gfx_zone = self._graphic.pixmap() # create a pixmap that can be used by painter
+            painter = QtGui.QPainter()
+            painter.begin(gfx_zone) # image is auto-converted to Format_Grayscale8 for painting thanks to the NoFormatConversion flag which kept it in Format_Indexed8 until then
+            painter.setPen(self.pen)
 
-                pos = QtCore.QPoint(int(self.end.x()),int(self.end.y()))
-                painter.drawPoint(pos)
-                
-                pos = QtCore.QPoint(int(self.end_previous.x()),int(self.end_previous.y()))
-                painter.drawPoint(pos)
+            pos = QtCore.QLine(int(self.end_previous.x()),int(self.end_previous.y()),int(self.end.x()),int(self.end.y()))
+            painter.drawLine(pos)
 
-                pos = QtCore.QPoint(int(self.end.x()) + int(self.end_previous.x() - self.end.x()),int(self.end.y()) + int(self.end_previous.y() - self.end.y()))
-                painter.drawPoint(pos)
-                self._graphic.setPixmap(gfx_zone)
-                painter.end() # release resources to prevent crash
-                w.button_file_save.setDisabled(False)
+            painter.end() # release resources to prevent crash
+            # unfortunately, toImage does not return a QImage in indexed format, so the format must be corrected manually
+            img = gfx_zone.toImage().convertToFormat(QtGui.QImage.Format.Format_Grayscale8).convertToFormat(QtGui.QImage.Format.Format_Indexed8) # convert from grayscale to indexed
+            img.setColorTable(w.gfx_palette) # re-apply colors
+            self._graphic.setPixmap(QtGui.QPixmap.fromImage(img, QtCore.Qt.ImageConversionFlag.NoFormatConversion))
+            w.button_file_save.setDisabled(False)
         elif self.draw_mode == "rectangle":
             width = abs(self.start.x() - self.end.x())
             height = abs(self.start.y() - self.end.y())
@@ -867,11 +865,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_tile_settings.addItem(self.layout_tiles_per_column)
 
         self.dropdown_gfx_index = QtWidgets.QComboBox(self.page_explorer)
+        self.dropdown_gfx_index.setPlaceholderText("no section entries")
         self.dropdown_gfx_index.setToolTip("Choose index")
         self.dropdown_gfx_index.setStatusTip("Select the object index to go to in gfx file")
         self.dropdown_gfx_index.currentIndexChanged.connect(lambda: self.treeCall(True))
         self.dropdown_gfx_index.hide()
         self.dropdown_gfx_subindex = QtWidgets.QComboBox(self.page_explorer)
+        self.dropdown_gfx_subindex.setPlaceholderText("no sub-entries")
         self.dropdown_gfx_subindex.setToolTip("Choose sub-index")
         self.dropdown_gfx_subindex.setStatusTip("Select the image index to go to in gfx object")
         self.dropdown_gfx_subindex.currentIndexChanged.connect(lambda: self.treeCall(True))
@@ -1877,7 +1877,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if istreecall:
             self.treeCall(True)
 
-    def setPalette(self, palette: list[int], depthUpdate = False):
+    def setPalette(self, palette: list[int]):
         #for i in range(self.dropdown_gfx_depth.count()): # re-enable depth options
         #    self.dropdown_gfx_depth.model().item(i).setEnabled(True)
         try:
@@ -1889,17 +1889,8 @@ class MainWindow(QtWidgets.QMainWindow):
             print("empty palette!")
             self.setPalette(self.GFX_PALETTES[0])
             return
-        if depthUpdate:
-            if len(new_pal) < 16:
-                #self.dropdown_gfx_depth.model().item(1).setEnabled(False)
-                self.dropdown_gfx_depth.setCurrentIndex(0)
-            elif len(new_pal) < 256:
-                #self.dropdown_gfx_depth.model().item(2).setEnabled(False)
-                self.dropdown_gfx_depth.setCurrentIndex(1)
-            else:
-                self.dropdown_gfx_depth.setCurrentIndex(2)
         self.gfx_palette = new_pal
-        self.file_content_gfx.pen.setColor(self.gfx_palette[0]) # set to first color
+        self.file_content_gfx.pen.setColor(0x00010101) # set to first color
         for i in range(256):
             button_palettepick: HoldButton = getattr(self, f"button_palettepick_{i}")
             if i < len(self.gfx_palette):
@@ -1918,8 +1909,6 @@ class MainWindow(QtWidgets.QMainWindow):
             dialog.exec()
             if dialog.selectedColor().isValid():
                 button.setStyleSheet(f"background-color: {dialog.selectedColor().name()}; color: white;")
-                if self.file_content_gfx.pen.color().rgba() == self.gfx_palette[color_index]:
-                    self.file_content_gfx.pen.setColor(dialog.selectedColor().rgba())
                 self.gfx_palette[color_index] = dialog.selectedColor().rgba()
                 if self.dropdown_gfx_palette.currentIndex() == -1:
                     self.button_file_save.setEnabled(True)
@@ -1927,14 +1916,14 @@ class MainWindow(QtWidgets.QMainWindow):
         if press:
             #print(button.styleSheet())
             if color_index < 2**depth:
-                self.file_content_gfx.pen.setColor(int(button.styleSheet()[button.styleSheet().find(":")+3:button.styleSheet().find(";")], 16))
-            else: # outside of first subpalette range
+                self.file_content_gfx.pen.setColor(0xff000000 + color_index * 0x00010101)#int(button.styleSheet()[button.styleSheet().find(":")+3:button.styleSheet().find(";")], 16))
+            elif color_index < len(self.gfx_palette): # outside of first subpalette range, but is an existing color in palette
                 color_index2 = color_index//(2**depth)*(2**depth)
                 new_pal = self.gfx_palette.copy() # copy to another var to facilitate color swap
                 new_pal[:2**depth] = self.gfx_palette[color_index2:color_index2+(2**depth)] # switch up colors between selected subpalette and 1st subpalette
                 new_pal[color_index2:color_index2+(2**depth)] = self.gfx_palette[:2**depth]
                 self.gfx_palette = new_pal
-                self.file_content_gfx.pen.setColor(self.gfx_palette[color_index%(2**depth)]) # set to first color
+                self.file_content_gfx.pen.setColor(0xff000000 + color_index%(2**depth) * 0x00010101) # set to first color
                 for i in range(2**depth): # change affected buttons (primary)
                     button_palettepick: HoldButton = getattr(self, f"button_palettepick_{i}")
                     button_palettepick.setStyleSheet(f"background-color: #{self.gfx_palette[i]:08x}; color: white;")
@@ -2308,15 +2297,10 @@ class MainWindow(QtWidgets.QMainWindow):
                             elif isinstance(self.fileEdited_object, lib.graphic.GraphicSection):
                                 gfxsec = self.fileEdited_object
                             if sender == self.dropdown_gfx_index or sender == self.tree: # if graphic section changed, reload header list
-                                print(f"subindex clear, {gfxsec.entryCount} to build")
                                 self.dropdown_gfx_subindex.clear()
-                                if gfxsec.entryCount > 10000:
-                                    print("uh... that looks like too much")
-                                    return
-                                for i in range(gfxsec.entryCount):
+                                for i in range(len(gfxsec.graphics)):
                                     self.dropdown_gfx_subindex.addItem(str(i))
                                 self.dropdown_gfx_subindex.setCurrentIndex(0)
-                                print("subindex built")
                             if self.dropdown_gfx_subindex.count() > 0:
                                 if sender == self.dropdown_gfx_index or sender == self.dropdown_gfx_subindex or sender == self.tree or sender == self.checkbox_depthUpdate:
                                     header_index = self.dropdown_gfx_subindex.currentIndex()
@@ -2325,11 +2309,29 @@ class MainWindow(QtWidgets.QMainWindow):
                                     self.relative_address = gfxOffset
                                     self.field_address.setRange(self.base_address+gfxOffset, self.base_address + gfxOffset+gfxsec.graphics[header_index].gfx_size)
                                     self.field_address.setValue(self.base_address+self.relative_address)
-                                    self.setPalette(lib.datconv.BGR15_to_ARGB32(self.rom.files[current_id][pal_off:pal_off+gfxsec.graphics[header_index].palette_size]), self.checkbox_depthUpdate.isChecked())
+                                    print(f"size: {gfxsec.graphics[header_index].gfx_size}")
+                                    print(f"unk08: {gfxsec.graphics[header_index].unk08}")
+                                    print(f"unk09: {gfxsec.graphics[header_index].unk09}")
+                                    print(f"unk13: {gfxsec.graphics[header_index].unk13}")
+                                    if self.checkbox_depthUpdate.isChecked():
+                                        if gfxsec.graphics[header_index].depth == 8:
+                                            #self.dropdown_gfx_depth.model().item(1).setEnabled(False)
+                                            self.dropdown_gfx_depth.setCurrentIndex(1)
+                                        elif gfxsec.graphics[header_index].depth == 16:
+                                            #self.dropdown_gfx_depth.model().item(2).setEnabled(False)
+                                            self.dropdown_gfx_depth.setCurrentIndex(2)
+                                        else:
+                                            self.dropdown_gfx_depth.setCurrentIndex(0)
+                                    pal = [0xffffffff]*(gfxsec.graphics[header_index].unk13 & 0xf0)
+                                    pal.extend(lib.datconv.BGR15_to_ARGB32(self.rom.files[current_id][pal_off:pal_off+gfxsec.graphics[header_index].palette_size]))
+                                    self.setPalette(pal)
+                            else:
+                                print("no graphic entries!")
 
                         #print(self.dropdown_gfx_depth.currentText()[:1] + " bpp graphics")
-                        if self.gfx_palette.index(self.file_content_gfx.pen.color().rgba()) >= 2**list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()].depth: # if color out of range
-                            self.file_content_gfx.pen.setColor(self.gfx_palette[0]) # set to first color
+                        # since the pen is in grayscale, we can use r, g or b as color index
+                        if self.file_content_gfx.pen.color().blue() >= 2**list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()].depth: # if color out of range
+                            self.file_content_gfx.pen.setColor(0x00010101) # set to first color
                         self.file_content_gfx.resetScene()
                         draw_tilesQImage_fromBytes(self.file_content_gfx,
                                                    self.rom.files[current_id][self.relative_address:],
@@ -2491,7 +2493,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     self.rom.files[file_id][self.relative_address:self.relative_address+0xFFFF] = lib.dialogue.DialogueFile.textToBin(self.file_content_text.toPlainText())
             elif self.fileDisplayState == "Graphics":
                 save_data = lib.datconv.qtToBin(self.file_content_gfx._graphic.pixmap().toImage(),
-                                                palette=self.gfx_palette, algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
+                                                algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
                                                 tileWidth=self.tile_width, tileHeight=self.tile_height)
                 w.rom.files[file_id][self.relative_address:self.relative_address+len(save_data)] = save_data
                 if self.dropdown_gfx_palette.currentIndex() == -1: # if palette from ROM
@@ -2501,10 +2503,10 @@ class MainWindow(QtWidgets.QMainWindow):
                     elif isinstance(self.fileEdited_object, lib.graphic.GraphicSection):
                         section = self.fileEdited_object
                     offset = section.graphics[header_index].offset_start+0xc+section.graphics[header_index].palette_offset
-                    w.rom.files[file_id][offset:offset+section.graphics[header_index].palette_size] = lib.datconv.ARGB32_to_BGR15(self.gfx_palette) # save to ROM
+                    w.rom.files[file_id][offset:offset+section.graphics[header_index].palette_size] = lib.datconv.ARGB32_to_BGR15(self.gfx_palette[section.graphics[header_index].unk13 & 0xf0:]) # save to ROM
             elif self.fileDisplayState == "Font":
                 save_data = lib.datconv.qtToBin(self.file_content_gfx._graphic.pixmap().toImage(),
-                                                palette=self.gfx_palette, algorithm=lib.datconv.CompressionAlgorithmEnum.ONEBPP,
+                                                algorithm=lib.datconv.CompressionAlgorithmEnum.ONEBPP,
                                                 tileWidth=self.tile_width, tileHeight=self.tile_height)
                 w.rom.files[file_id][self.relative_address:self.relative_address+len(save_data)] = save_data
                 w.rom.files[file_id][0x00:0x02] = bytearray(int.to_bytes(int(self.field_font_width.value()), 2, "little"))
@@ -2606,7 +2608,7 @@ def draw_tilesQImage_fromBytes(view: GFXView, data: bytearray, algorithm=lib.dat
                               palette=w.gfx_palette, algorithm=algorithm,
                               tilesPerRow=w.tiles_per_row, tilesPerColumn=w.tiles_per_column,
                               tileWidth=w.tile_width, tileHeight=w.tile_height)
-    view._graphic.setPixmap(QtGui.QPixmap.fromImage(gfx)) # overwrite current canvas with new one
+    view._graphic.setPixmap(QtGui.QPixmap.fromImage(gfx, QtCore.Qt.ImageConversionFlag.NoFormatConversion)) # overwrite current canvas with new one
     if grid:
         view.createGrid(w.tile_width, w.tile_height)
 

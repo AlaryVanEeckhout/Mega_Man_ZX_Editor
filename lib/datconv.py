@@ -2,7 +2,7 @@
 #import os.path
 #import numpy
 #import PIL, PIL.Image
-import PyQt6.QtGui
+from PyQt6 import QtGui
 #import io
 import enum
 
@@ -170,18 +170,21 @@ def BGR15_to_ARGB32(bgr15_palette: bytes):
 def ARGB32_to_BGR15(argb32_palette: list[int]):
     bgr15_palette = bytearray()
     for argb32_color in argb32_palette:
+        #print(f"argb32: {argb32_color:08X}")
         r = (argb32_color >> 16) & 0x00ff
         g = (argb32_color >> 8) & 0x0000ff
         b = argb32_color & 0x000000ff
-        bgr15_color = (r * 0b11111 // 0xff) + ((g * 0b11111 // 0xff) << 5) + ((b * 0b11111 // 0xff) << 10)
+        bgr15_color = (r * (0b11111+1) // (0xff+1)) + ((g * (0b11111+1) // (0xff+1)) << 5) + ((b * (0b11111+1) // (0xff+1)) << 10)
         bgr15_palette.extend(bgr15_color.to_bytes(2, byteorder='little'))
-    return bytes(bgr15_palette)
+        #print(f"bgr15: {bgr15_color:04X}")
+    print(f"result: {bgr15_palette.hex()}\n length: {len(bgr15_palette)}")
+    return bgr15_palette
 
 # this fonction works with more than one tile now
 def binToQt(binary_data: bytearray, palette: list[int]=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], algorithm=CompressionAlgorithmEnum.ONEBPP, tilesPerRow: int=8, tilesPerColumn: int=8, tileWidth: int=8, tileHeight: int=8): # GBA 4bpp = 4bpp linear reverse order
     #file_bits = bin(int.from_bytes(binary_data))[2:]
     file_bits = "".join([bit for byte in binary_data for bit in bin(byte)[2:].zfill(8)])
-    image_widget = PyQt6.QtGui.QImage(tileWidth*tilesPerRow, tileHeight*tilesPerColumn, PyQt6.QtGui.QImage.Format.Format_Indexed8)
+    image_widget = QtGui.QImage(tileWidth*tilesPerRow, tileHeight*tilesPerColumn, QtGui.QImage.Format.Format_Indexed8)
     image_widget.setColorTable(palette) # 32bit ARGB color format
     image_widget.fill(15)
     pixel_index = 0
@@ -231,8 +234,8 @@ def binToQt(binary_data: bytearray, palette: list[int]=[0xff000000+((0x0b7421*i)
                     pixel_index += step
     return image_widget
 
-# this fonction works with more than one tile now
-def qtToBin(qimage: PyQt6.QtGui.QImage, palette: list[int]=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], algorithm=CompressionAlgorithmEnum.ONEBPP, tileWidth: int=8, tileHeight: int=8): # GBA 4bpp = 4bpp linear reverse order
+# this fonction works with more than one tile now and expects and indexed qimage
+def qtToBin(qimage: QtGui.QImage, algorithm=CompressionAlgorithmEnum.ONEBPP, tileWidth: int=8, tileHeight: int=8): # GBA 4bpp = 4bpp linear reverse order
     tilesPerRow = qimage.size().width()//tileWidth
     tilesPerColumn = qimage.size().height()//tileHeight
 
@@ -249,7 +252,7 @@ def qtToBin(qimage: PyQt6.QtGui.QImage, palette: list[int]=[0xff000000+((0x0b742
                 for j in range(0, tileWidth*tileHeight, step): # iterate through pixels
                     x = int(j % tileWidth)
                     y = int(j / tileWidth)
-                    file_bits += bin(palette.index(qimage.pixelColor(tile_x+x, tile_y+y).rgba()))[2:].zfill(algorithm.depth)
+                    file_bits += bin(qimage.pixelIndex(tile_x+x, tile_y+y))[2:].zfill(algorithm.depth)
                     pixel_index += step
             file_bits = "".join([file_bits[i:i+8][::-1] for i in range(0, len(file_bits), 8)]) # reverse the order of the bits in each byte
             binary_data = bytearray(bitstrToBytes(file_bits))
@@ -262,8 +265,10 @@ def qtToBin(qimage: PyQt6.QtGui.QImage, palette: list[int]=[0xff000000+((0x0b742
                 #print(str_subgroups(file_bits, 4)[pixel_index])
                     x = int(j % tileWidth)
                     y = int(j / tileWidth)
-                    file_bits = bin(palette.index(qimage.pixelColor(tile_x+x+1, tile_y+y).rgba()))[2:].zfill(algorithm.depth)
-                    file_bits += bin(palette.index(qimage.pixelColor(tile_x+x, tile_y+y).rgba()))[2:].zfill(algorithm.depth)
+                    x2 = int((j+1) % tileWidth)
+                    y2 = int((j+1) / tileWidth)
+                    file_bits = bin(qimage.pixelIndex(tile_x+x2, tile_y+y2))[2:].zfill(algorithm.depth)
+                    file_bits += bin(qimage.pixelIndex(tile_x+x, tile_y+y))[2:].zfill(algorithm.depth)
                     #print(file_bits)
                     #print(bitstring_to_bytes(file_bits).hex())
                     binary_data += bytearray(bitstrToBytes(file_bits))
@@ -276,7 +281,7 @@ def qtToBin(qimage: PyQt6.QtGui.QImage, palette: list[int]=[0xff000000+((0x0b742
                 #print(str_subgroups(file_bits, 4)[pixel_index])
                     x = int(j % tileWidth)
                     y = int(j / tileWidth)
-                    file_bits = bin(palette.index(qimage.pixelColor(tile_x+x, tile_y+y).rgba()))[2:].zfill(algorithm.depth)
+                    file_bits = bin(qimage.pixelIndex(tile_x+x, tile_y+y))[2:].zfill(algorithm.depth)
                     binary_data += bytearray(bitstrToBytes(file_bits))
                     pixel_index += step
     #print("bits: " + file_bits)

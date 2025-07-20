@@ -23,6 +23,9 @@ class GraphicSection:
         self.header_size = int.from_bytes(self.data[0x00:0x04], byteorder='little')
         self.entryCount = self.header_size//0x14
         self.graphics: list[GraphicHeader] = []
+        if self.entryCount > 10000:
+            print(f"{self.entryCount} is not a reasonable entry count. aborting...")
+            return
         for g in range(self.entryCount):
             offset = g*0x14 # 0x14 is the size of one GraphicHeader
             self.graphics.append(GraphicHeader(self.data[offset:offset+0x14], self.offset_start+offset, self.offset_start+offset+0x14))
@@ -46,8 +49,10 @@ class GraphicHeader:
         self.gfx_offset = int.from_bytes(self.data[0x00:0x04], byteorder='little') # offset from this address
         self.gfx_size = int.from_bytes(self.data[0x04:0x06], byteorder='little')
         self.ram_gfx_offset = int.from_bytes(self.data[0x06:0x08], byteorder='little')
-        self.unk08 = int.from_bytes(self.data[0x08:0x0A], byteorder='little')
+        self.unk08 = int.from_bytes(self.data[0x08:0x09], byteorder='little') # gfx size related???
+        self.unk09 = int.from_bytes(self.data[0x09:0x0A], byteorder='little') # 1=valid gfx?
         self.ram_palette_offset = int.from_bytes(self.data[0x0A:0x0C], byteorder='little')
         self.palette_offset = int.from_bytes(self.data[0x0C:0x10], byteorder='little') # offset from this address. palettes are usually stored right after the corresponding gfx
         self.palette_size = int.from_bytes(self.data[0x10:0x12], byteorder='little') # usually 0x200? (256 colors)
-        self.unk12 = int.from_bytes(self.data[0x12:0x14], byteorder='little') # palette related. 8, 16, or 264
+        self.depth = int.from_bytes(self.data[0x12:0x13], byteorder='little') # color depth*2
+        self.unk13 = int.from_bytes(self.data[0x13:0x14], byteorder='little') # ?
