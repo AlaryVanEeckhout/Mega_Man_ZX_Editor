@@ -536,19 +536,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.viewAdaptAction.setCheckable(True)
         self.viewAdaptAction.setChecked(True)
         self.viewAdaptAction.triggered.connect(lambda: setattr(self, "fileDisplayMode", "Adapt"))
-        self.viewAdaptAction.triggered.connect(lambda: self.treeCall(False))
+        self.viewAdaptAction.triggered.connect(self.treeCall)
 
         self.viewEndialogAction = QtGui.QAction(QtGui.QIcon('icons\\document-text.png'), '&English Dialogue', self)
         self.viewEndialogAction.setStatusTip('Files will be decrypted as in-game english dialogues.')
         self.viewEndialogAction.setCheckable(True)
         self.viewEndialogAction.triggered.connect(lambda: setattr(self, "fileDisplayMode", "English dialogue"))
-        self.viewEndialogAction.triggered.connect(lambda: self.treeCall(False))
+        self.viewEndialogAction.triggered.connect(self.treeCall)
 
         self.viewGraphicAction = QtGui.QAction(QtGui.QIcon('icons\\appicon.ico'), '&Graphics', self)
         self.viewGraphicAction.setStatusTip('Files will be decrypted as graphics.')
         self.viewGraphicAction.setCheckable(True)
         self.viewGraphicAction.triggered.connect(lambda: setattr(self, "fileDisplayMode", "Graphics"))
-        self.viewGraphicAction.triggered.connect(lambda: self.treeCall(False))
+        self.viewGraphicAction.triggered.connect(self.treeCall)
 
         self.viewFormatsGroup = QtGui.QActionGroup(self) #group for mutually exclusive togglable items
         self.viewFormatsGroup.addAction(self.viewAdaptAction)
@@ -733,7 +733,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_textindex = QtWidgets.QComboBox(self.page_explorer)
         self.dropdown_textindex.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Fixed)
         self.dropdown_textindex.previousIndex = self.dropdown_textindex.currentIndex()
-        self.dropdown_textindex.currentIndexChanged.connect(lambda: self.treeCall(True))
+        self.dropdown_textindex.currentIndexChanged.connect(self.treeCall)
         self.dropdown_textindex.hide()
 
         self.checkbox_textoverwite = QtWidgets.QCheckBox("Overwite\n existing text", self.page_explorer)
@@ -752,7 +752,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.dropdown_gfx_depth = QtWidgets.QComboBox(self.page_explorer)
         self.dropdown_gfx_depth.addItems(["1bpp", "4bpp", "8bpp"])# order of names is determined by the enum in dataconverter
-        self.dropdown_gfx_depth.currentIndexChanged.connect(lambda: self.treeCall(True))# Update gfx with current depth
+        self.dropdown_gfx_depth.currentIndexChanged.connect(self.treeCall)# Update gfx with current depth
         self.dropdown_gfx_depth.hide()
 
         self.font_caps = QtGui.QFont()
@@ -868,19 +868,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_gfx_index.setPlaceholderText("no section entries")
         self.dropdown_gfx_index.setToolTip("Choose index")
         self.dropdown_gfx_index.setStatusTip("Select the object index to go to in gfx file")
-        self.dropdown_gfx_index.currentIndexChanged.connect(lambda: self.treeCall(True))
+        self.dropdown_gfx_index.currentIndexChanged.connect(self.treeCall)
         self.dropdown_gfx_index.hide()
         self.dropdown_gfx_subindex = QtWidgets.QComboBox(self.page_explorer)
         self.dropdown_gfx_subindex.setPlaceholderText("no sub-entries")
         self.dropdown_gfx_subindex.setToolTip("Choose sub-index")
         self.dropdown_gfx_subindex.setStatusTip("Select the image index to go to in gfx object")
-        self.dropdown_gfx_subindex.currentIndexChanged.connect(lambda: self.treeCall(True))
+        self.dropdown_gfx_subindex.currentIndexChanged.connect(self.treeCall)
         self.dropdown_gfx_subindex.hide()
 
         self.checkbox_depthUpdate = QtWidgets.QCheckBox(self.page_explorer)
         self.checkbox_depthUpdate.setStatusTip("Update depth to match palette size")
         self.checkbox_depthUpdate.setChecked(True)
-        self.checkbox_depthUpdate.checkStateChanged.connect(lambda: self.treeCall(True))
+        self.checkbox_depthUpdate.checkStateChanged.connect(self.treeCall)
         self.checkbox_depthUpdate.hide()
 
         self.label_depthUpdate = QtWidgets.QLabel(self.page_explorer)
@@ -911,7 +911,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_gfx_palette.setToolTip("Choose palette")
         self.dropdown_gfx_palette.setStatusTip("Select the color palette preset that you want to use to render images")
         self.dropdown_gfx_palette.currentIndexChanged.connect(lambda: self.setPalette(self.GFX_PALETTES[self.dropdown_gfx_palette.currentIndex()])) # Update gfx with current depth
-        self.dropdown_gfx_palette.currentIndexChanged.connect(lambda: self.treeCall(True))
+        self.dropdown_gfx_palette.currentIndexChanged.connect(self.treeCall)
         self.dropdown_gfx_palette.hide()
 
         self.layout_palette_settings = QtWidgets.QHBoxLayout()
@@ -944,7 +944,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_font_width.isInt = True
         self.field_font_width.numbase = self.displayBase
         self.field_font_width.setStatusTip("Make sure that this is an even number to prevent the game from crashing")
-        self.field_font_width.valueChanged.connect(lambda: self.treeCall(True))
+        self.field_font_width.valueChanged.connect(self.treeCall)
         self.field_font_width.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.field_font_width.valueChanged.connect(self.file_content_gfx.fitInView)
         self.field_font_width.hide()
@@ -961,7 +961,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_font_height.setMinimum(0)
         self.field_font_height.isInt = True
         self.field_font_height.numbase = self.displayBase
-        self.field_font_height.valueChanged.connect(lambda: self.treeCall(True))
+        self.field_font_height.valueChanged.connect(self.treeCall)
         self.field_font_height.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.field_font_height.valueChanged.connect(self.file_content_gfx.fitInView)
         self.field_font_height.hide()
@@ -1209,6 +1209,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.file_content.addItem(self.layout_vxHeader_quantiser)
         self.file_content.addItem(self.layout_vx_seekTable)
 
+        # File callers
+        self.FILEOPEN_WIDGETS: list[QtWidgets.QWidget] = [self.tree, self.viewAdaptAction, self.viewEndialogAction, self.viewGraphicAction, self.displayRawAction]
         # Contents of widget sets
         self.WIDGETS_EMPTY: list[QtWidgets.QWidget] = [self.file_content_text]
         self.WIDGETS_HEX: list[QtWidgets.QWidget] = [self.file_content_text, self.checkbox_textoverwite]
@@ -1875,7 +1877,7 @@ class MainWindow(QtWidgets.QMainWindow):
         #print(f"{self.field_address.value():08X}" + " - " + f"{self.base_address:08X}")
         setattr(self, var, val)
         if istreecall:
-            self.treeCall(True)
+            self.treeCall()
 
     def setPalette(self, palette: list[int]):
         #for i in range(self.dropdown_gfx_depth.count()): # re-enable depth options
@@ -1912,7 +1914,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.gfx_palette[color_index] = dialog.selectedColor().rgba()
                 if self.dropdown_gfx_palette.currentIndex() == -1:
                     self.button_file_save.setEnabled(True)
-                self.treeCall(True) # update gfx colors
+                self.treeCall() # update gfx colors
         if press:
             #print(button.styleSheet())
             if color_index < 2**depth:
@@ -1930,7 +1932,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 for i in range(color_index2, color_index2+2**depth): # change affected buttons (selected)
                     button_palettepick: HoldButton = getattr(self, f"button_palettepick_{i}")
                     button_palettepick.setStyleSheet(f"background-color: #{self.gfx_palette[i]:08x}; color: white;")
-                self.treeCall(True)
+                self.treeCall()
                     
     
     def saveCall(self): #Save to external ROM
@@ -2157,10 +2159,12 @@ class MainWindow(QtWidgets.QMainWindow):
             #progress.setValue(100)
             #progress.close()
 
-    def treeCall(self, isValueUpdate=False, addr_reset=False):
+    def treeCall(self, addr_reset=False):
         #print("Tree")
         #self.clearTasks()
-        if not isValueUpdate:
+        sender = self.sender()
+        #print(self.sender())
+        if sender in self.FILEOPEN_WIDGETS:
             self.fileEdited_object = None # change this into a generic file object
         self.file_content_text.setReadOnly(False)
         self.file_content_text.blockSignals(True)
@@ -2182,8 +2186,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                 )
         for widget in self.findChildren(BetterSpinBox):
             widget.blockSignals(True) # prevent treeCall from being executed twice in a row. Reduces lag
-        self.treeSubCall(isValueUpdate, addr_reset)
-        if not isValueUpdate:
+        self.treeSubCall(addr_reset)
+        if sender in self.FILEOPEN_WIDGETS:
             self.file_editor_show(self.widget_set)
             self.button_file_save.setDisabled(True)
         self.file_content_text.blockSignals(False)
@@ -2193,7 +2197,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for widget in self.findChildren(QtWidgets.QComboBox):
             widget.blockSignals(False)
 
-    def treeSubCall(self, isValueUpdate, addr_reset):
+    def treeSubCall(self, addr_reset):
         sender = self.sender()
         current_item = self.tree.currentItem()
         if current_item != None:
@@ -2202,7 +2206,7 @@ class MainWindow(QtWidgets.QMainWindow):
             current_ext  = current_item.text(2)
             if addr_reset:
                 self.relative_address = 0
-            if not isValueUpdate:
+            if sender in self.FILEOPEN_WIDGETS:
                 self.fileToEdit_name = str(current_name + "." + current_ext)
                 #self.base_address = self.rom.save().index(self.rom.files[current_id]) # find address based on file content. not entirely accurate.
                 self.base_address = self.rom_fat[current_id] # load address from a list that already contains the required info to improve performance
@@ -2240,7 +2244,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
                     if self.fileDisplayState == "English dialogue": # if english text
                         self.widget_set = "Text"
-                        if not isValueUpdate:
+                        if sender in self.FILEOPEN_WIDGETS:
                             self.dropdown_textindex.setEnabled(True)
                             self.dropdown_textindex.clear()
                             try:
@@ -2275,7 +2279,7 @@ class MainWindow(QtWidgets.QMainWindow):
                             self.file_content_text.setReadOnly(True)
                     elif self.fileDisplayState == "Graphics":
                         self.widget_set = "Graphics"
-                        if not isValueUpdate: # reset from viewing font
+                        if sender in self.FILEOPEN_WIDGETS: # reset from viewing font
                             self.tile_width = self.field_tile_width.value()
                             self.tile_height = self.field_tile_height.value()
                             self.dropdown_gfx_index.clear()
@@ -2296,13 +2300,13 @@ class MainWindow(QtWidgets.QMainWindow):
                                 gfxsec = lib.graphic.GraphicSection.fromParent(self.fileEdited_object, self.dropdown_gfx_index.currentIndex())
                             elif isinstance(self.fileEdited_object, lib.graphic.GraphicSection):
                                 gfxsec = self.fileEdited_object
-                            if sender == self.dropdown_gfx_index or sender == self.tree: # if graphic section changed, reload header list
+                            if sender == self.dropdown_gfx_index or sender in self.FILEOPEN_WIDGETS: # if graphic section changed, reload header list
                                 self.dropdown_gfx_subindex.clear()
                                 for i in range(len(gfxsec.graphics)):
                                     self.dropdown_gfx_subindex.addItem(str(i))
                                 self.dropdown_gfx_subindex.setCurrentIndex(0)
                             if self.dropdown_gfx_subindex.count() > 0:
-                                if sender == self.dropdown_gfx_index or sender == self.dropdown_gfx_subindex or sender == self.tree or sender == self.checkbox_depthUpdate:
+                                if sender == self.dropdown_gfx_index or sender == self.dropdown_gfx_subindex or sender in self.FILEOPEN_WIDGETS or sender == self.checkbox_depthUpdate:
                                     header_index = self.dropdown_gfx_subindex.currentIndex()
                                     gfxOffset = gfxsec.graphics[header_index].offset_start + gfxsec.graphics[header_index].gfx_offset
                                     pal_off = gfxsec.graphics[header_index].offset_start + gfxsec.graphics[header_index].palette_offset+0xc
@@ -2326,7 +2330,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                     pal.extend(lib.datconv.BGR15_to_ARGB32(self.rom.files[current_id][pal_off:pal_off+gfxsec.graphics[header_index].palette_size]))
                                     self.setPalette(pal)
                             else:
-                                print("no graphic entries!")
+                                print(f"{gfxsec.entryCount} graphic entries!")
+                                #print(f"data: {gfxsec.data.hex()}")
 
                         #print(self.dropdown_gfx_depth.currentText()[:1] + " bpp graphics")
                         # since the pen is in grayscale, we can use r, g or b as color index
@@ -2339,7 +2344,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                                    grid=True)
                     elif self.fileDisplayState == "Font":
                         self.widget_set = "Font"
-                        if not isValueUpdate:
+                        if sender in self.FILEOPEN_WIDGETS:
                             self.fileEdited_object = lib.font.Font(self.rom.files[current_id])
                             self.relative_address = self.fileEdited_object.CHR_ADDRESS
                             self.field_font_size.setValue(self.fileEdited_object.file_size)
@@ -2366,7 +2371,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         self.field_address.setDisabled(True)
                     elif self.fileDisplayState == "VX":
                         self.widget_set = "VX"
-                        if not isValueUpdate:
+                        if sender in self.FILEOPEN_WIDGETS:
                             self.field_address.setDisabled(True)
                             self.fileEdited_object = lib.act.ActImagine()
                             self.fileEdited_object.load_vx(self.rom.files[current_id])
@@ -2429,7 +2434,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if hasattr(self.rom, "name"):
             #print("reloadlevel " + str(level))
             if level == 0: #reload only necessary
-                self.treeCall(True) # update for betterspinboxes as well
+                self.treeCall() # update for betterspinboxes as well
                 self.treeBaseUpdate(self.tree_arm9)
                 self.treeBaseUpdate(self.tree_arm9Ovltable)
                 self.treeBaseUpdate(self.tree_arm7)
@@ -2455,7 +2460,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def tabChangeCall(self):
         if self.rom == None: return
         if self.tabs.currentIndex() == self.tabs.indexOf(self.page_explorer):
-            self.treeCall(True)
+            self.treeCall()
 
     def file_editor_show(self, mode: str): # UiComponents
         modes = ["Empty", "Hex", "Text", "Graphics", "Font", "Sound", "VX"]

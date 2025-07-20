@@ -1,3 +1,5 @@
+import bisect
+
 class File:
     def __init__(self, data: bytes):
         self.data = data
@@ -22,6 +24,7 @@ class GraphicSection:
             self.offset_end = end
         self.header_size = int.from_bytes(self.data[0x00:0x04], byteorder='little')
         self.entryCount = self.header_size//0x14
+        print(f"{self.entryCount} entries")
         self.graphics: list[GraphicHeader] = []
         if self.entryCount > 10000:
             print(f"{self.entryCount} is not a reasonable entry count. aborting...")
@@ -34,8 +37,10 @@ class GraphicSection:
         #print(f"index: {index}")
         assert index >= 0
         offset_start = file.address_list[index]
-        if index < len(file.address_list)-1:
-            offset_end = file.address_list[index+1]
+        indexAdd = bisect.bisect_left(file.address_list[index:], offset_start+1)
+        if index < len(file.address_list)-indexAdd:
+            offset_end = file.address_list[index+indexAdd] #hmm... how to deal with duplicate addresses?
+            #print(f"{offset_start} : {file.address_list[bisect.bisect_left(file.address_list, offset_start+1)]}")
         else:
             offset_end = file.fileSize
         return GraphicSection(file.data[offset_start:offset_end], offset_start, offset_end)
