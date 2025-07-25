@@ -1,4 +1,4 @@
-from PyQt6 import QtGui, QtWidgets, QtCore #Qt6, Qt6.qsci
+from PyQt6 import QtGui, QtWidgets, QtCore#, QtMultimedia #Qt6, Qt6.qsci
 import sys, os, platform, re, math
 import argparse
 #import logging, time, random
@@ -11,10 +11,9 @@ import ndspy.rom, ndspy.code, ndspy.codeCompression
 import ndspy.soundArchive
 import ndspy.soundSequenceArchive
 import lib
-import lib.graphic
 #Global variables
 global EDITOR_VERSION
-EDITOR_VERSION = "0.4.2" # objective, feature, WIP
+EDITOR_VERSION = "0.4.3" # objective, feature, WIP
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-R", "--ROM", help="NDS ROM to open using the editor.", dest="openPath")
@@ -301,10 +300,10 @@ class BetterSpinBox(QtWidgets.QDoubleSpinBox):
 
     def textFromValue(self, value): # ovewrite of existing function with 2 args that determines how value is displayed inside spinbox
         if self.isInt:
-            self.acceptedSymbols = ["{", "}", *lib.datconv.symbols]
+            self.acceptedSymbols = ["-", "{", "}", *lib.datconv.symbols]
             return lib.datconv.numToStr(int(value), self.numbase, self.alphanum).zfill(self.numfill)
         else:
-            self.acceptedSymbols = [".", "{", "}", *lib.datconv.symbols]
+            self.acceptedSymbols = ["-", ".", "{", "}", *lib.datconv.symbols]
             return lib.datconv.numToStr(value, self.numbase, self.alphanum).zfill(self.numfill)
     
     def valueFromText(self, text):
@@ -339,6 +338,113 @@ class LongTextEdit(QtWidgets.QPlainTextEdit):
             super(LongTextEdit, self).mousePressEvent(event)
             if event.button() == QtCore.Qt.MouseButton.RightButton: # execute different code if right click
                 self.contextMenuOpen()
+
+class LabeledSlider(QtWidgets.QWidget): # https://stackoverflow.com/a/54819051
+    def __init__(self, parent, minimum, maximum, interval=1, orientation=QtCore.Qt.Orientation.Horizontal, labels=None):
+        super(LabeledSlider, self).__init__(parent=parent)
+
+        levels=range(minimum, maximum+interval, interval)
+        if labels is not None:
+            if not isinstance(labels, (tuple, list)):
+                raise Exception("<labels> is a list or tuple.")
+            if len(labels) != len(levels):
+                raise Exception("Size of <labels> doesn't match levels.")
+            self.levels=list(zip(levels,labels))
+        else:
+            self.levels=list(zip(levels,map(str,levels)))
+
+        if orientation==QtCore.Qt.Orientation.Horizontal:
+            self.setLayout(QtWidgets.QVBoxLayout(self))
+        elif orientation==QtCore.Qt.Orientation.Vertical:
+            self.setLayout(QtWidgets.QHBoxLayout(self))
+        else:
+            raise Exception("<orientation> wrong.")
+
+        # gives some space to print labels
+        self.left_margin=10
+        self.top_margin=10
+        self.right_margin=10
+        self.bottom_margin=10
+
+        self.layout().setContentsMargins(self.left_margin,self.top_margin,
+                self.right_margin,self.bottom_margin)
+
+        self.sl=QtWidgets.QSlider(orientation, self)
+        self.sl.setMinimum(minimum)
+        self.sl.setMaximum(maximum)
+        self.sl.setValue(minimum)
+        if orientation==QtCore.Qt.Orientation.Horizontal:
+            self.sl.setTickPosition(QtWidgets.QSlider.TickPosition.TicksBelow)
+            self.sl.setMinimumWidth(300) # just to make it easier to read
+        else:
+            self.sl.setTickPosition(QtWidgets.QSlider.TickPosition.TicksLeft)
+            self.sl.setMinimumHeight(300) # just to make it easier to read
+        self.sl.setTickInterval(interval)
+        self.sl.setSingleStep(1)
+
+        self.layout().addWidget(self.sl)
+
+    def setLabels(self, labels: list[str]):
+        for i in range(len(self.levels)):
+            self.levels[i] = (self.levels[i][0], labels[i])
+        self.repaint()
+
+    def paintEvent(self, e):
+
+        super(LabeledSlider,self).paintEvent(e)
+
+        style=self.sl.style()
+        painter=QtGui.QPainter(self)
+        st_slider=QtWidgets.QStyleOptionSlider()
+        st_slider.initFrom(self.sl)
+        st_slider.orientation=self.sl.orientation()
+
+        length=style.pixelMetric(QtWidgets.QStyle.PixelMetric.PM_SliderLength, st_slider, self.sl)
+        available=style.pixelMetric(QtWidgets.QStyle.PixelMetric.PM_SliderSpaceAvailable, st_slider, self.sl)
+
+        for v, v_str in self.levels:
+
+            # get the size of the label
+            rect=painter.drawText(QtCore.QRect(), QtCore.Qt.TextFlag.TextDontPrint, v_str)
+
+            if self.sl.orientation()==QtCore.Qt.Orientation.Horizontal:
+                # I assume the offset is half the length of slider, therefore
+                # + length//2
+                x_loc=QtWidgets.QStyle.sliderPositionFromValue(self.sl.minimum(),
+                        self.sl.maximum(), v, available)+length//2
+
+                # left bound of the text = center - half of text width + L_margin
+                left=x_loc-rect.width()//2+self.left_margin
+                bottom=self.rect().bottom()
+
+                # enlarge margins if clipping
+                if v==self.sl.minimum():
+                    if left<=0:
+                        self.left_margin=rect.width()//2-x_loc
+                    if self.bottom_margin<=rect.height():
+                        self.bottom_margin=rect.height()
+
+                    self.layout().setContentsMargins(self.left_margin, self.top_margin, self.right_margin, self.bottom_margin)
+
+                if v==self.sl.maximum() and rect.width()//2>=self.right_margin:
+                    self.right_margin=rect.width()//2
+                    self.layout().setContentsMargins(self.left_margin, self.top_margin, self.right_margin, self.bottom_margin)
+
+            else:
+                y_loc=QtWidgets.QStyle.sliderPositionFromValue(self.sl.minimum(), self.sl.maximum(), v, available, upsideDown=True)
+
+                bottom=y_loc+length//2+rect.height()//2+self.top_margin-3
+                # there is a 3 px offset that I can't attribute to any metric
+
+                left=self.left_margin-rect.width()
+                if left<=0:
+                    self.left_margin=rect.width()+2
+                    self.layout().setContentsMargins(self.left_margin, self.top_margin, self.right_margin, self.bottom_margin)
+
+            pos=QtCore.QPoint(left, bottom)
+            painter.drawText(pos, v_str)
+
+        return
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -411,7 +517,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
                                                   \rWIP ({EDITOR_VERSION.split('.')[2]}):
                                                   \r- Sound data editor
-                                                  \r- VX file editor""")
+                                                  \r- VX file editor
+                                                  \r- OAM editor""")
             #firstLaunch_dialog.setDetailedText("abc")
             firstLaunch_dialog.exec()
 
@@ -536,19 +643,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.viewAdaptAction.setCheckable(True)
         self.viewAdaptAction.setChecked(True)
         self.viewAdaptAction.triggered.connect(lambda: setattr(self, "fileDisplayMode", "Adapt"))
-        self.viewAdaptAction.triggered.connect(self.treeCall)
+        self.viewAdaptAction.triggered.connect(lambda: self.treeCall())
 
         self.viewEndialogAction = QtGui.QAction(QtGui.QIcon('icons\\document-text.png'), '&English Dialogue', self)
         self.viewEndialogAction.setStatusTip('Files will be decrypted as in-game english dialogues.')
         self.viewEndialogAction.setCheckable(True)
         self.viewEndialogAction.triggered.connect(lambda: setattr(self, "fileDisplayMode", "English dialogue"))
-        self.viewEndialogAction.triggered.connect(self.treeCall)
+        self.viewEndialogAction.triggered.connect(lambda: self.treeCall())
 
         self.viewGraphicAction = QtGui.QAction(QtGui.QIcon('icons\\appicon.ico'), '&Graphics', self)
         self.viewGraphicAction.setStatusTip('Files will be decrypted as graphics.')
         self.viewGraphicAction.setCheckable(True)
         self.viewGraphicAction.triggered.connect(lambda: setattr(self, "fileDisplayMode", "Graphics"))
-        self.viewGraphicAction.triggered.connect(self.treeCall)
+        self.viewGraphicAction.triggered.connect(lambda: self.treeCall())
 
         self.viewFormatsGroup = QtGui.QActionGroup(self) #group for mutually exclusive togglable items
         self.viewFormatsGroup.addAction(self.viewAdaptAction)
@@ -733,7 +840,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_textindex = QtWidgets.QComboBox(self.page_explorer)
         self.dropdown_textindex.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Fixed)
         self.dropdown_textindex.previousIndex = self.dropdown_textindex.currentIndex()
-        self.dropdown_textindex.currentIndexChanged.connect(self.treeCall)
+        self.dropdown_textindex.currentIndexChanged.connect(lambda: self.treeCall())
         self.dropdown_textindex.hide()
 
         self.checkbox_textoverwite = QtWidgets.QCheckBox("Overwite\n existing text", self.page_explorer)
@@ -752,7 +859,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.dropdown_gfx_depth = QtWidgets.QComboBox(self.page_explorer)
         self.dropdown_gfx_depth.addItems(["1bpp", "4bpp", "8bpp"])# order of names is determined by the enum in dataconverter
-        self.dropdown_gfx_depth.currentIndexChanged.connect(self.treeCall)# Update gfx with current depth
+        self.dropdown_gfx_depth.currentIndexChanged.connect(lambda: self.treeCall())# Update gfx with current depth
         self.dropdown_gfx_depth.hide()
 
         self.font_caps = QtGui.QFont()
@@ -777,7 +884,7 @@ class MainWindow(QtWidgets.QMainWindow):
         #Tile Wifth
         self.tile_width = 8
         self.field_tile_width = BetterSpinBox(self.page_explorer)
-        self.field_tile_width.setStatusTip(f"Set depth to 1bpp and tile width to {lib.datconv.numToStr(16, self.displayBase, self.displayAlphanumeric)} for JP font")
+        self.field_tile_width.setStatusTip(f"Set tile width to {lib.datconv.numToStr(16, self.displayBase, self.displayAlphanumeric)} or {lib.datconv.numToStr(32, self.displayBase, self.displayAlphanumeric)} for some ZXA sprites")
         self.field_tile_width.setFont(self.font_caps)
         self.field_tile_width.setValue(self.tile_width)
         self.field_tile_width.setMinimum(1)
@@ -868,19 +975,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_gfx_index.setPlaceholderText("no section entries")
         self.dropdown_gfx_index.setToolTip("Choose index")
         self.dropdown_gfx_index.setStatusTip("Select the object index to go to in gfx file")
-        self.dropdown_gfx_index.currentIndexChanged.connect(self.treeCall)
+        self.dropdown_gfx_index.currentIndexChanged.connect(lambda: self.treeCall())
         self.dropdown_gfx_index.hide()
         self.dropdown_gfx_subindex = QtWidgets.QComboBox(self.page_explorer)
         self.dropdown_gfx_subindex.setPlaceholderText("no sub-entries")
         self.dropdown_gfx_subindex.setToolTip("Choose sub-index")
         self.dropdown_gfx_subindex.setStatusTip("Select the image index to go to in gfx object")
-        self.dropdown_gfx_subindex.currentIndexChanged.connect(self.treeCall)
+        self.dropdown_gfx_subindex.currentIndexChanged.connect(lambda: self.treeCall())
         self.dropdown_gfx_subindex.hide()
 
         self.checkbox_depthUpdate = QtWidgets.QCheckBox(self.page_explorer)
         self.checkbox_depthUpdate.setStatusTip("Update depth to match palette size")
         self.checkbox_depthUpdate.setChecked(True)
-        self.checkbox_depthUpdate.checkStateChanged.connect(self.treeCall)
+        self.checkbox_depthUpdate.checkStateChanged.connect(lambda: self.treeCall())
         self.checkbox_depthUpdate.hide()
 
         self.label_depthUpdate = QtWidgets.QLabel(self.page_explorer)
@@ -911,7 +1018,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_gfx_palette.setToolTip("Choose palette")
         self.dropdown_gfx_palette.setStatusTip("Select the color palette preset that you want to use to render images")
         self.dropdown_gfx_palette.currentIndexChanged.connect(lambda: self.setPalette(self.GFX_PALETTES[self.dropdown_gfx_palette.currentIndex()])) # Update gfx with current depth
-        self.dropdown_gfx_palette.currentIndexChanged.connect(self.treeCall)
+        self.dropdown_gfx_palette.currentIndexChanged.connect(lambda: self.treeCall())
         self.dropdown_gfx_palette.hide()
 
         self.layout_palette_settings = QtWidgets.QHBoxLayout()
@@ -921,6 +1028,117 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_gfx_settings.addItem(self.layout_tile_settings)
         self.layout_gfx_settings.addItem(self.layout_other_settings)
         self.layout_gfx_settings.addItem(self.layout_palette_settings)
+
+        #OAM
+        self.dropdown_oam_entry = QtWidgets.QComboBox(self.page_explorer)
+        self.dropdown_oam_entry.setPlaceholderText("no oam entries")
+        self.dropdown_oam_entry.setToolTip("Choose entry")
+        self.dropdown_oam_entry.setStatusTip("Select the OAM entry to load")
+        self.dropdown_oam_entry.currentIndexChanged.connect(lambda: self.treeCall())
+        self.dropdown_oam_entry.hide()
+
+        self.dropdown_oam_anim = QtWidgets.QComboBox(self.page_explorer)
+        self.dropdown_oam_anim.setPlaceholderText("no animation entries")
+        self.dropdown_oam_anim.setToolTip("Choose animation")
+        self.dropdown_oam_anim.setStatusTip("Select the animation to load")
+        self.dropdown_oam_anim.currentIndexChanged.connect(lambda: self.treeCall())
+        self.dropdown_oam_anim.hide()
+
+        self.dropdown_oam_frame = QtWidgets.QComboBox(self.page_explorer)
+        self.dropdown_oam_frame.setPlaceholderText("no animation frames")
+        self.dropdown_oam_frame.setToolTip("Choose frame")
+        self.dropdown_oam_frame.setStatusTip("Select the animation frame to load")
+        self.dropdown_oam_frame.currentIndexChanged.connect(lambda: self.treeCall())
+        self.dropdown_oam_frame.hide()
+
+        self.dropdown_oam_obj = QtWidgets.QComboBox(self.page_explorer) #temporary until gfx interface implemented
+        self.dropdown_oam_obj.setPlaceholderText("no objects")
+        self.dropdown_oam_obj.setToolTip("Choose object")
+        self.dropdown_oam_obj.setStatusTip("Select the object to edit")
+        self.dropdown_oam_obj.currentIndexChanged.connect(lambda: self.treeCall())
+        self.dropdown_oam_obj.hide()
+
+        self.field_objTileId = BetterSpinBox(self.page_explorer)
+        self.field_objTileId.setToolTip("Tile Id")
+        self.field_objTileId.isInt = True
+        self.field_objTileId.setRange(0, 0xFF)
+        self.field_objTileId.numbase = self.displayBase
+        self.field_objTileId.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_objTileId.hide()
+
+        self.slider_objTileIdAdd = LabeledSlider(self.page_explorer, 0, 3, interval=1, orientation=QtCore.Qt.Orientation.Horizontal, labels=["0", "100", "200", "300"])
+        self.slider_objTileIdAdd.setMaximumHeight(60)
+        self.slider_objTileIdAdd.setToolTip("additionnal tile id x100")
+        self.slider_objTileIdAdd.sl.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.slider_objTileIdAdd.hide()
+
+        self.checkbox_objFlipH = QtWidgets.QCheckBox(self.page_explorer)
+        self.checkbox_objFlipH.setText("Flip H")
+        self.checkbox_objFlipH.checkStateChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.checkbox_objFlipH.hide()
+
+        self.checkbox_objFlipV = QtWidgets.QCheckBox(self.page_explorer)
+        self.checkbox_objFlipV.setText("Flip V")
+        self.checkbox_objFlipV.checkStateChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.checkbox_objFlipV.hide()
+
+        self.slider_objSizeIndex = LabeledSlider(self.page_explorer, 0, 3, interval=1, orientation=QtCore.Qt.Orientation.Horizontal, labels=["1x1", "2x2", "4x4", "8x8"])
+        self.slider_objSizeIndex.setMaximumHeight(60)
+        self.slider_objSizeIndex.setToolTip("size increment")
+        self.slider_objSizeIndex.sl.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.slider_objSizeIndex.hide()
+
+        self.radio_objShapeSquare = QtWidgets.QRadioButton()
+        self.radio_objShapeSquare.setText("Square")
+        self.radio_objShapeSquare.toggled.connect(lambda:{True: self.slider_objSizeIndex.setLabels(["1x1", "2x2", "4x4", "8x8"]), False: None}[self.radio_objShapeSquare.isChecked()])
+        self.radio_objShapeSquare.toggled.connect(lambda: self.button_file_save.setEnabled(True))
+        self.radio_objShapeSquare.hide()
+        self.radio_objShapeWide = QtWidgets.QRadioButton()
+        self.radio_objShapeWide.setText("Wide")
+        self.radio_objShapeWide.toggled.connect(lambda:{True: self.slider_objSizeIndex.setLabels(["2x1", "4x1", "4x2", "8x4"]), False: None}[self.radio_objShapeSquare.isChecked()])
+        self.radio_objShapeWide.toggled.connect(lambda: self.button_file_save.setEnabled(True))
+        self.radio_objShapeWide.hide()
+        self.radio_objShapeTall = QtWidgets.QRadioButton()
+        self.radio_objShapeTall.setText("Tall")
+        self.radio_objShapeTall.toggled.connect(lambda:{True: self.slider_objSizeIndex.setLabels(["1x2", "1x4", "2x4", "4x8"]), False: None}[self.radio_objShapeSquare.isChecked()])
+        self.radio_objShapeTall.toggled.connect(lambda: self.button_file_save.setEnabled(True))
+        self.radio_objShapeTall.hide()
+
+        self.group_oam_objShape = QtWidgets.QGroupBox(self.page_explorer)
+        self.group_oam_objShape.setTitle("Shape")
+        self.group_oam_objShape.setLayout(QtWidgets.QVBoxLayout())
+        self.group_oam_objShape.layout().addWidget(self.radio_objShapeSquare)
+        self.group_oam_objShape.layout().addWidget(self.radio_objShapeWide)
+        self.group_oam_objShape.layout().addWidget(self.radio_objShapeTall)
+        self.group_oam_objShape.hide()
+
+        self.field_objX = BetterSpinBox(self.page_explorer)
+        self.field_objX.setToolTip("X")
+        self.field_objX.isInt = True
+        self.field_objX.setRange(-128, 127)
+        self.field_objX.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_objX.hide()
+        self.field_objY = BetterSpinBox(self.page_explorer)
+        self.field_objY.setToolTip("Y")
+        self.field_objY.isInt = True
+        self.field_objY.setRange(-128, 127)
+        self.field_objY.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_objY.hide()
+
+        self.layout_oam_navigation = QtWidgets.QGridLayout()
+        self.layout_oam_navigation.addWidget(self.dropdown_oam_entry, 0, 0)
+        self.layout_oam_navigation.addWidget(self.dropdown_oam_anim, 0, 1)
+        self.layout_oam_navigation.addWidget(self.dropdown_oam_frame, 1, 0)
+        self.layout_oam_navigation.addWidget(self.dropdown_oam_obj, 1, 1)
+        self.layout_oam_objProperties = QtWidgets.QGridLayout()
+        self.layout_oam_objProperties.addWidget(self.field_objTileId, 0, 0)
+        self.layout_oam_objProperties.addWidget(self.slider_objTileIdAdd, 0, 1)
+        self.layout_oam_objProperties.addWidget(self.checkbox_objFlipH, 1, 0)
+        self.layout_oam_objProperties.addWidget(self.checkbox_objFlipV, 2, 0)
+        self.layout_oam_objProperties.addWidget(self.slider_objSizeIndex, 3, 0)
+        self.layout_oam_objProperties.addWidget(self.group_oam_objShape, 3, 1)
+        self.layout_oam_objProperties.addWidget(self.field_objX, 4, 0)
+        self.layout_oam_objProperties.addWidget(self.field_objY, 4, 1)
 
         #Font
         self.field_font_size = BetterSpinBox(self.page_explorer)
@@ -944,7 +1162,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_font_width.isInt = True
         self.field_font_width.numbase = self.displayBase
         self.field_font_width.setStatusTip("Make sure that this is an even number to prevent the game from crashing")
-        self.field_font_width.valueChanged.connect(self.treeCall)
+        self.field_font_width.valueChanged.connect(lambda: self.treeCall())
         self.field_font_width.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.field_font_width.valueChanged.connect(self.file_content_gfx.fitInView)
         self.field_font_width.hide()
@@ -961,7 +1179,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_font_height.setMinimum(0)
         self.field_font_height.isInt = True
         self.field_font_height.numbase = self.displayBase
-        self.field_font_height.valueChanged.connect(self.treeCall)
+        self.field_font_height.valueChanged.connect(lambda: self.treeCall())
         self.field_font_height.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.field_font_height.valueChanged.connect(self.file_content_gfx.fitInView)
         self.field_font_height.hide()
@@ -992,10 +1210,12 @@ class MainWindow(QtWidgets.QMainWindow):
         
         self.layout_editzone_row1.addItem(self.layout_colorpick)
         self.layout_editzone_row1.addItem(self.layout_gfx_settings)
+        self.layout_editzone_row1.addItem(self.layout_oam_navigation)
 
         self.layout_editzone_row2.addItem(self.layout_font_size)
         self.layout_editzone_row2.addItem(self.layout_font_width)
         self.layout_editzone_row2.addItem(self.layout_font_height)
+        self.layout_editzone_row2.addItem(self.layout_oam_objProperties)
 
         self.layout_editzone_row3.addWidget(self.label_font_indexingSpace)
         self.layout_editzone_row3.addWidget(self.label_font_charCount)
@@ -1231,6 +1451,23 @@ class MainWindow(QtWidgets.QMainWindow):
             self.label_tiles_per_row,
             self.field_tiles_per_column,
             self.label_tiles_per_column
+            ]
+        self.WIDGETS_OAM: list[QtWidgets.QWidget] = [
+            self.dropdown_oam_entry,
+            self.dropdown_oam_anim,
+            self.dropdown_oam_frame,
+            self.dropdown_oam_obj,
+            self.field_objTileId,
+            self.slider_objTileIdAdd,
+            self.checkbox_objFlipH,
+            self.checkbox_objFlipV,
+            self.slider_objSizeIndex,
+            self.group_oam_objShape,
+            self.radio_objShapeSquare,
+            self.radio_objShapeWide,
+            self.radio_objShapeTall,
+            self.field_objX,
+            self.field_objY
             ]
         self.WIDGETS_FONT: list[QtWidgets.QWidget] = [
             self.file_content_gfx,
@@ -1882,15 +2119,16 @@ class MainWindow(QtWidgets.QMainWindow):
     def setPalette(self, palette: list[int]):
         #for i in range(self.dropdown_gfx_depth.count()): # re-enable depth options
         #    self.dropdown_gfx_depth.model().item(i).setEnabled(True)
+        new_pal = palette.copy()
+        if new_pal == []:
+            print("empty palette!")
+            if not self.gfx_palette in self.GFX_PALETTES:
+                self.setPalette(self.GFX_PALETTES[0])
+            return
         try:
             self.dropdown_gfx_palette.setCurrentIndex(self.GFX_PALETTES.index(palette)) # if setPalette wasn't called by the dropdown itself
         except ValueError:
             self.dropdown_gfx_palette.setCurrentIndex(-1) # dynamically generated palette
-        new_pal = palette.copy()
-        if new_pal == []:
-            print("empty palette!")
-            self.setPalette(self.GFX_PALETTES[0])
-            return
         self.gfx_palette = new_pal
         self.file_content_gfx.pen.setColor(0x00010101) # set to first color
         for i in range(256):
@@ -2167,10 +2405,6 @@ class MainWindow(QtWidgets.QMainWindow):
         if sender in self.FILEOPEN_WIDGETS:
             self.fileEdited_object = None # change this into a generic file object
         self.file_content_text.setReadOnly(False)
-        self.file_content_text.blockSignals(True)
-        self.file_content_gfx.blockSignals(True)
-        for widget in self.findChildren(QtWidgets.QComboBox):
-            widget.blockSignals(True)
         self.field_address.setDisabled(False)
         QtCore.qInstallMessageHandler(lambda a, b, c: None) # Silence Invalid base warnings from the following code
         for widget in self.findChildren(BetterSpinBox): # update all widgets of same type with current settings
@@ -2184,18 +2418,14 @@ class MainWindow(QtWidgets.QMainWindow):
                                 "Numeric Base Warning!",
                                 f"Base is not supported for inputting data in spinboxes.\n This means that all spinboxes will revert to base 10 until they are set to a supported base.\n Proceed at your own risk!"
                                 )
-        for widget in self.findChildren(BetterSpinBox):
+        for widget in self.findChildren(QtWidgets.QWidget):
             widget.blockSignals(True) # prevent treeCall from being executed twice in a row. Reduces lag
         self.treeSubCall(addr_reset)
         if sender in self.FILEOPEN_WIDGETS:
             self.file_editor_show(self.widget_set)
             self.button_file_save.setDisabled(True)
-        self.file_content_text.blockSignals(False)
-        self.file_content_gfx.blockSignals(False)
-        for widget in self.findChildren(BetterSpinBox):
+        for widget in self.findChildren(QtWidgets.QWidget):
             widget.blockSignals(False) # prevent treeCall from being executed twice in a row. Reduces lag
-        for widget in self.findChildren(QtWidgets.QComboBox):
-            widget.blockSignals(False)
 
     def treeSubCall(self, addr_reset):
         sender = self.sender()
@@ -2222,7 +2452,7 @@ class MainWindow(QtWidgets.QMainWindow):
                             if self.rom.name.decode() == "MEGAMANZX" or self.rom.name.decode() == "ROCKMANZX":
                                 indicator_list_gfx.extend(["bbom", "dm23", "elf", "g_", "game_parm", "lmlevel", "miss", "repair", "sec_disk", "sub"])
                             elif self.rom.name.decode() == "MEGAMANZXA" or self.rom.name.decode() == "ROCKMANZXA":
-                                indicator_list_gfx.extend(["cmm_frame_fnt", "cmm_mega_s", "cmm_rock_s", "Is_m", "Is_trans", "Is_txt_fnt", "sub_db", "sub_oth"])
+                                indicator_list_gfx.extend(["cmm_frame_fnt", "cmm_mega_s", "cmm_rock_s", "ls_", "sub_db", "sub_oth"])
                             
                             if current_ext == "vx":
                                 self.fileDisplayState = "VX"
@@ -2237,6 +2467,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                     self.fileDisplayState = "Japanese dialogue"
                             elif current_ext == "bin" and any(indicator in current_name for indicator in indicator_list_gfx):
                                 self.fileDisplayState = "Graphics"
+                            elif current_ext == "bin" and any(indicator.replace("fnt", "dat") in current_name for indicator in indicator_list_gfx):
+                                self.fileDisplayState = "OAM"
                             else:
                                 self.fileDisplayState = "None"
                     else:
@@ -2256,7 +2488,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.file_content_text.setPlainText(self.fileEdited_object)
                                 return
                             for i in range(len(self.fileEdited_object.text_list)):
-                                self.dropdown_textindex.addItem(str(i))
+                                self.dropdown_textindex.addItem(f"message {i}")
                             self.dropdown_textindex.previousIndex = self.dropdown_textindex.currentIndex()
                         elif self.dropdown_textindex.isEnabled(): # when text index changed
                             #print(f"index = {self.dropdown_textindex.currentIndex()} prev = {self.dropdown_textindex.previousIndex}")
@@ -2282,12 +2514,17 @@ class MainWindow(QtWidgets.QMainWindow):
                         if sender in self.FILEOPEN_WIDGETS: # reset from viewing font
                             self.tile_width = self.field_tile_width.value()
                             self.tile_height = self.field_tile_height.value()
+                            if current_name == "face": # for convenience
+                                self.tiles_per_column = 7
+                                self.tiles_per_row = 6
+                                self.field_tiles_per_column.setValue(self.tiles_per_column)
+                                self.field_tiles_per_row.setValue(self.tiles_per_row)
                             self.dropdown_gfx_index.clear()
                             self.dropdown_gfx_subindex.clear()
                             try:
                                 self.fileEdited_object = lib.graphic.File(self.rom.files[current_id])
                                 for i in range(len(self.fileEdited_object.address_list)):
-                                    self.dropdown_gfx_index.addItem(str(i))
+                                    self.dropdown_gfx_index.addItem(f"entry {i}")
                                 self.dropdown_gfx_index.setCurrentIndex(0)
                             except AssertionError:
                                 try:
@@ -2303,7 +2540,7 @@ class MainWindow(QtWidgets.QMainWindow):
                             if sender == self.dropdown_gfx_index or sender in self.FILEOPEN_WIDGETS: # if graphic section changed, reload header list
                                 self.dropdown_gfx_subindex.clear()
                                 for i in range(len(gfxsec.graphics)):
-                                    self.dropdown_gfx_subindex.addItem(str(i))
+                                    self.dropdown_gfx_subindex.addItem(f"image {i}")
                                 self.dropdown_gfx_subindex.setCurrentIndex(0)
                             if self.dropdown_gfx_subindex.count() > 0:
                                 if sender == self.dropdown_gfx_index or sender == self.dropdown_gfx_subindex or sender in self.FILEOPEN_WIDGETS or sender == self.checkbox_depthUpdate:
@@ -2313,16 +2550,15 @@ class MainWindow(QtWidgets.QMainWindow):
                                     self.relative_address = gfxOffset
                                     self.field_address.setRange(self.base_address+gfxOffset, self.base_address + gfxOffset+gfxsec.graphics[header_index].gfx_size)
                                     self.field_address.setValue(self.base_address+self.relative_address)
+                                    print(f"{gfxsec.entryCount} entries")
                                     print(f"size: {gfxsec.graphics[header_index].gfx_size}")
                                     print(f"unk08: {gfxsec.graphics[header_index].unk08}")
                                     print(f"unk09: {gfxsec.graphics[header_index].unk09}")
-                                    print(f"unk13: {gfxsec.graphics[header_index].unk13}")
+                                    print(f"unk13 & 0F: {gfxsec.graphics[header_index].unk13 & 0x0f}")
                                     if self.checkbox_depthUpdate.isChecked():
                                         if gfxsec.graphics[header_index].depth == 8:
-                                            #self.dropdown_gfx_depth.model().item(1).setEnabled(False)
                                             self.dropdown_gfx_depth.setCurrentIndex(1)
                                         elif gfxsec.graphics[header_index].depth == 16:
-                                            #self.dropdown_gfx_depth.model().item(2).setEnabled(False)
                                             self.dropdown_gfx_depth.setCurrentIndex(2)
                                         else:
                                             self.dropdown_gfx_depth.setCurrentIndex(0)
@@ -2342,6 +2578,57 @@ class MainWindow(QtWidgets.QMainWindow):
                                                    self.rom.files[current_id][self.relative_address:],
                                                    algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
                                                    grid=True)
+                    elif self.fileDisplayState == "OAM":
+                        self.widget_set = "OAM"
+                        self.field_address.setDisabled(True)
+                        if sender in self.FILEOPEN_WIDGETS:
+                            self.fileEdited_object = lib.oam.File(self.rom.files[current_id])
+                            self.dropdown_oam_entry.clear()
+                            for i in range(self.fileEdited_object.entryCount):
+                                self.dropdown_oam_entry.addItem(f"entry {i}")
+                            self.dropdown_oam_entry.setCurrentIndex(0)
+                        oamsec = lib.oam.OAMSection(self.fileEdited_object, self.dropdown_oam_entry.currentIndex() if self.dropdown_oam_entry.currentIndex() != -1 else 0)
+                        try:
+                            frame = oamsec.offsetTable[
+                                self.dropdown_oam_anim.currentIndex() if self.dropdown_oam_anim.currentIndex() != -1 else 0][
+                                    self.dropdown_oam_frame.currentIndex() if self.dropdown_oam_frame.currentIndex() != -1 else 0]
+                        except IndexError as e:
+                            print(e)
+                            frame = []
+                        #print(f"{:02X}")
+                        #print(oamsec.data[oamsec.offsetTable_offset:oamsec.offsetTable_offset+0x04].hex())
+                        if sender in [self.dropdown_oam_entry, *self.FILEOPEN_WIDGETS]:
+                            self.dropdown_oam_anim.clear()
+                            for i in range(len(oamsec.offsetTable)):
+                                self.dropdown_oam_anim.addItem(f"animation {i}")
+                            self.dropdown_oam_anim.setCurrentIndex(0)
+                        if sender in [self.dropdown_oam_entry, self.dropdown_oam_anim, *self.FILEOPEN_WIDGETS]:
+                            self.dropdown_oam_frame.clear()
+                            if len(oamsec.offsetTable) > 0:
+                                for i in range(len(oamsec.offsetTable[self.dropdown_oam_anim.currentIndex()])):
+                                    self.dropdown_oam_frame.addItem(f"frame {i}")
+                                self.dropdown_oam_frame.setCurrentIndex(0)
+                        if frame != []:
+                            if sender in [self.dropdown_oam_entry, self.dropdown_oam_anim, self.dropdown_oam_frame, *self.FILEOPEN_WIDGETS]:
+                                self.dropdown_oam_obj.clear()
+                                for i in range(frame[1]):
+                                    self.dropdown_oam_obj.addItem(f"object {i}")
+                                self.dropdown_oam_obj.setCurrentIndex(0)
+                            if sender in [self.dropdown_oam_obj, self.dropdown_oam_entry, self.dropdown_oam_anim, self.dropdown_oam_frame, *self.FILEOPEN_WIDGETS]:
+                                #print(f"{frame[0]:02X}")
+                                #print(f"frame: {self.dropdown_oam_frame.currentIndex()}")
+                                offset = oamsec.offsetTable_offset + frame[0] + self.dropdown_oam_obj.currentIndex()*0x04
+                                self.relative_address = self.fileEdited_object.address_list[self.dropdown_oam_entry.currentIndex()] + offset
+                                self.field_address.setValue(self.relative_address + self.base_address)
+                                obj = lib.oam.Object(oamsec.data[offset:offset+0x04])
+                                self.field_objTileId.setValue(obj.tileId)
+                                self.slider_objTileIdAdd.sl.setValue(obj.tileId_add)
+                                self.checkbox_objFlipH.setChecked(obj.flip_h)
+                                self.checkbox_objFlipV.setChecked(obj.flip_v)
+                                self.slider_objSizeIndex.sl.setValue(obj.sizeIndex)
+                                self.group_oam_objShape.findChildren(QtWidgets.QRadioButton)[obj.shape].setChecked(True)
+                                self.field_objX.setValue(obj.x)
+                                self.field_objY.setValue(obj.y)
                     elif self.fileDisplayState == "Font":
                         self.widget_set = "Font"
                         if sender in self.FILEOPEN_WIDGETS:
@@ -2463,9 +2750,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.treeCall()
 
     def file_editor_show(self, mode: str): # UiComponents
-        modes = ["Empty", "Hex", "Text", "Graphics", "Font", "Sound", "VX"]
+        modes = ["Empty", "Hex", "Text", "Graphics", "OAM", "Font", "Sound", "VX"]
         # Associates each mode with a set of widgets to show or hide
-        widget_sets = [self.WIDGETS_EMPTY, self.WIDGETS_HEX, self.WIDGETS_TEXT, self.WIDGETS_GRAPHIC, self.WIDGETS_FONT, self.WIDGETS_SOUND, self.WIDGETS_VX]
+        widget_sets = [self.WIDGETS_EMPTY, self.WIDGETS_HEX, self.WIDGETS_TEXT, self.WIDGETS_GRAPHIC, self.WIDGETS_OAM, self.WIDGETS_FONT, self.WIDGETS_SOUND, self.WIDGETS_VX]
 
         mode_index = modes.index(mode)
         # Hide all widgets from other modes
@@ -2509,6 +2796,33 @@ class MainWindow(QtWidgets.QMainWindow):
                         section = self.fileEdited_object
                     offset = section.graphics[header_index].offset_start+0xc+section.graphics[header_index].palette_offset
                     w.rom.files[file_id][offset:offset+section.graphics[header_index].palette_size] = lib.datconv.ARGB32_to_BGR15(self.gfx_palette[section.graphics[header_index].unk13 & 0xf0:]) # save to ROM
+            elif self.fileDisplayState == "OAM":
+                if -1 in [self.dropdown_oam_entry.currentIndex(), self.dropdown_oam_anim.currentIndex(),
+                          self.dropdown_oam_frame.currentIndex(), self.dropdown_oam_obj.currentIndex()]:
+                    print("no valid object to save!")
+                    return
+                section = lib.oam.OAMSection(self.fileEdited_object, self.dropdown_oam_entry.currentIndex())
+                frame = section.offsetTable[self.dropdown_oam_anim.currentIndex()][self.dropdown_oam_frame.currentIndex()]
+                save_data = bytearray()
+                for obj_index in range(frame[1]):
+                    offset = section.offsetTable_offset + frame[0] + obj_index*0x04
+                    obj = lib.oam.Object(section.data[offset:offset+0x04])
+                    obj.tileId = self.field_objTileId.value()
+                    obj.tileId_add = self.slider_objTileIdAdd.sl.value()
+                    obj.flip_h = self.checkbox_objFlipH.isChecked()
+                    obj.flip_v = self.checkbox_objFlipV.isChecked()
+                    obj.sizeIndex = self.slider_objSizeIndex.sl.value()
+                    children = self.group_oam_objShape.findChildren(QtWidgets.QRadioButton)
+                    for child in children:
+                        if child.isChecked():
+                            shapeIndex = children.index(child)
+                    obj.shape = shapeIndex
+                    obj.x = self.field_objX.value()
+                    obj.y = self.field_objY.value()
+                    save_data += obj.toBytes()
+                offset2 = section.offset_start + section.offsetTable_offset + frame[0]
+                w.rom.files[file_id][offset2:offset2+frame[1]*0x04] = save_data
+
             elif self.fileDisplayState == "Font":
                 save_data = lib.datconv.qtToBin(self.file_content_gfx._graphic.pixmap().toImage(),
                                                 algorithm=lib.datconv.CompressionAlgorithmEnum.ONEBPP,

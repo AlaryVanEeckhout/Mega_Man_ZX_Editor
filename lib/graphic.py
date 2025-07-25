@@ -3,11 +3,11 @@ import bisect
 class File:
     def __init__(self, data: bytes):
         self.data = data
-        self.entryCount = int.from_bytes(data[0x00:0x04], byteorder='little') # entries start at 0x04
+        self.entryCount = int.from_bytes(self.data[0x00:0x04], byteorder='little') # entries start at 0x04
         self.address_list = []
-        self.fileSize = int.from_bytes(data[0x04+self.entryCount*4:self.entryCount*4+0x08], byteorder='little')
+        self.fileSize = int.from_bytes(self.data[0x04+self.entryCount*4:self.entryCount*4+0x08], byteorder='little')
         for index in range(self.entryCount): 
-            self.address_list.append(int.from_bytes(data[0x04+index*4:index*4+0x08], byteorder="little") & 0xFFFFFF) # 4 bytes per entry
+            self.address_list.append(int.from_bytes(self.data[0x04+index*4:index*4+0x08], byteorder="little")) # 4 bytes per entry
             assert self.address_list[index] & 0xFFFFFF < self.fileSize
             if index > 0:
                 assert self.address_list[index] & 0xFFFFFF >= self.address_list[index-1] & 0xFFFFFF
@@ -24,7 +24,6 @@ class GraphicSection:
             self.offset_end = end
         self.header_size = int.from_bytes(self.data[0x00:0x04], byteorder='little')
         self.entryCount = self.header_size//0x14
-        print(f"{self.entryCount} entries")
         self.graphics: list[GraphicHeader] = []
         if self.entryCount > 10000:
             print(f"{self.entryCount} is not a reasonable entry count. aborting...")
@@ -55,9 +54,9 @@ class GraphicHeader:
         self.gfx_size = int.from_bytes(self.data[0x04:0x06], byteorder='little')
         self.ram_gfx_offset = int.from_bytes(self.data[0x06:0x08], byteorder='little')
         self.unk08 = int.from_bytes(self.data[0x08:0x09], byteorder='little') # gfx size related???
-        self.unk09 = int.from_bytes(self.data[0x09:0x0A], byteorder='little') # 1=valid gfx?
+        self.unk09 = int.from_bytes(self.data[0x09:0x0A], byteorder='little') # gfx format indicator?
         self.ram_palette_offset = int.from_bytes(self.data[0x0A:0x0C], byteorder='little')
         self.palette_offset = int.from_bytes(self.data[0x0C:0x10], byteorder='little') # offset from this address. palettes are usually stored right after the corresponding gfx
-        self.palette_size = int.from_bytes(self.data[0x10:0x12], byteorder='little') # usually 0x200? (256 colors)
-        self.depth = int.from_bytes(self.data[0x12:0x13], byteorder='little') # color depth*2
-        self.unk13 = int.from_bytes(self.data[0x13:0x14], byteorder='little') # ?
+        self.palette_size = int.from_bytes(self.data[0x10:0x12], byteorder='little') # in bytes (color count * 2)
+        self.depth = int.from_bytes(self.data[0x12:0x13], byteorder='little') # color depth * 2
+        self.unk13 = int.from_bytes(self.data[0x13:0x14], byteorder='little') # palette shift?
