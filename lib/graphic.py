@@ -52,7 +52,8 @@ class GraphicHeader:
         self.offset_end = end
         self.gfx_offset = int.from_bytes(self.data[0x00:0x04], byteorder='little') # offset from this address
         self.gfx_size = int.from_bytes(self.data[0x04:0x06], byteorder='little')
-        self.ram_gfx_offset = int.from_bytes(self.data[0x06:0x08], byteorder='little')
+        self.unk06 = int.from_bytes(self.data[0x06:0x07], byteorder='little') # certain values cause gfx and/or palette not to load
+        self.oam_tile_offset = int.from_bytes(self.data[0x07:0x08], byteorder='little') # as oam tile id
         self.unk08 = int.from_bytes(self.data[0x08:0x09], byteorder='little') # gfx size related???
         self.unk09 = int.from_bytes(self.data[0x09:0x0A], byteorder='little') # gfx format indicator?
         self.ram_palette_offset = int.from_bytes(self.data[0x0A:0x0C], byteorder='little')

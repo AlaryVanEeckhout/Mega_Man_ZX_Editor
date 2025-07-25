@@ -22,5 +22,6 @@
 *.wav
 *.mp4
 #specific files
+devtools/*
 export/*
 temp/*
