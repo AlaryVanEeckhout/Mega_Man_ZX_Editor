@@ -36,7 +36,7 @@ class OAMSection:
         for i in range(self.offsetTable_offset, self.offsetTable_offset+self.offsetTable_size, 4):
             if i > 0:
                 if self.data[i:i+0x02] < self.data[i-0x04:i-0x04+0x02]: # if current offset smaller than prev offset
-                    self.offsetTable.append(table_small.copy()) # add current table to animation list
+                    self.offsetTable.append(table_small.copy()) # add current table to "animation" list (need to find how animations are really defined)
                     #print(f"start: {self.offsetTable}")
                     table_small.clear()
             obj_ptr = int.from_bytes(self.data[i:i+0x02], byteorder='little')
@@ -58,9 +58,13 @@ class Object:
         self.y = int.from_bytes(self.data[0x03:0x04], byteorder='little', signed=True)
 
     def getWidth(self):
+        assert self.shape < len(SPRITE_WIDTHS)
+        assert self.sizeIndex < len(SPRITE_WIDTHS[self.shape])
         return SPRITE_WIDTHS[self.shape][self.sizeIndex]
     
     def getHeight(self):
+        assert self.shape < len(SPRITE_HEIGHTS)
+        assert self.sizeIndex < len(SPRITE_HEIGHTS[self.shape])
         return SPRITE_HEIGHTS[self.shape][self.sizeIndex]
 
     def toBytes(self):
