@@ -1,6 +1,7 @@
 import bisect
 SPRITE_WIDTHS = ((1,2,4,8),(2,4,4,8),(1,1,2,4)) # in tiles
 SPRITE_HEIGHTS = ((1,2,4,8),(1,1,2,4),(2,4,4,8))
+SPRITE_DIMENSIONS = (("1x1", "2x2", "4x4", "8x8"), ("2x1", "4x1", "4x2", "8x4"), ("1x2", "1x4", "2x4", "4x8"))
 
 class File:
     def __init__(self, data: bytes):
@@ -40,16 +41,18 @@ class OAMSection:
                     #print(f"start: {self.offsetTable}")
                     table_small.clear()
             obj_ptr = int.from_bytes(self.data[i:i+0x02], byteorder='little')
-            obj_cnt = int.from_bytes(self.data[i+0x02:i+0x04], byteorder='little')
+            obj_cnt = int.from_bytes(self.data[i+0x02:i+0x03], byteorder='little')
+            obj_unk = int.from_bytes(self.data[i+0x03:i+0x04], byteorder='little')
             #print(f"pointer: {obj_ptr:02X}; count: {obj_cnt:02X};")
-            table_small.append([obj_ptr, obj_cnt]) # add frame data to frame list
+            table_small.append([obj_ptr, obj_cnt, obj_unk]) # add frame data to frame list
 
 class Object:
     def __init__(self, data: bytes):
         self.data = data
         self.tileId = int.from_bytes(self.data[0x00:0x01], byteorder='little')
         attributes = int.from_bytes(self.data[0x01:0x02], byteorder='little')
-        self.tileId_add = (attributes & 0x03) # * 100
+        self.tileId_add = (attributes & 0x03) * 0x100
+        self.tileId += self.tileId_add
         self.flip_h: bool = (attributes & 0x04) >> 2
         self.flip_v: bool = (attributes & 0x08) >> 3
         self.sizeIndex = (attributes & 0x30) >> 4 # sub-index in SPRITE_WIDTHS and SPRITE_HEIGHTS
@@ -58,18 +61,17 @@ class Object:
         self.y = int.from_bytes(self.data[0x03:0x04], byteorder='little', signed=True)
 
     def getWidth(self):
-        assert self.shape < len(SPRITE_WIDTHS)
-        assert self.sizeIndex < len(SPRITE_WIDTHS[self.shape])
+        assert self.shape < len(SPRITE_WIDTHS) # shape 3 is "Prohibited"
         return SPRITE_WIDTHS[self.shape][self.sizeIndex]
     
     def getHeight(self):
         assert self.shape < len(SPRITE_HEIGHTS)
-        assert self.sizeIndex < len(SPRITE_HEIGHTS[self.shape])
         return SPRITE_HEIGHTS[self.shape][self.sizeIndex]
 
     def toBytes(self):
         data = bytearray()
-        attributes = (self.tileId_add) + (self.flip_h << 2) + (self.flip_v << 3) + (self.sizeIndex << 4) + (self.shape << 6)
+        self.tileId -= self.tileId_add
+        attributes = (self.tileId_add//0x100) + (self.flip_h << 2) + (self.flip_v << 3) + (self.sizeIndex << 4) + (self.shape << 6)
         data += int.to_bytes(self.tileId, 1, byteorder="little") + int.to_bytes(attributes, 1, byteorder="little")
         data += int.to_bytes(self.x, 1, byteorder="little", signed=True) + int.to_bytes(self.y, 1, byteorder="little", signed=True)
         print(data.hex())
