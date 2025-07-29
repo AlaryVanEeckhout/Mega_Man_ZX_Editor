@@ -35,16 +35,17 @@ class OAMSection:
         self.offsetTable = []
         table_small = []
         for i in range(self.offsetTable_offset, self.offsetTable_offset+self.offsetTable_size, 4):
-            if i > 0:
-                if self.data[i:i+0x02] < self.data[i-0x04:i-0x04+0x02]: # if current offset smaller than prev offset
-                    self.offsetTable.append(table_small.copy()) # add current table to "animation" list (need to find how animations are really defined)
-                    #print(f"start: {self.offsetTable}")
-                    table_small.clear()
-            obj_ptr = int.from_bytes(self.data[i:i+0x02], byteorder='little')
-            obj_cnt = int.from_bytes(self.data[i+0x02:i+0x03], byteorder='little')
-            obj_unk = int.from_bytes(self.data[i+0x03:i+0x04], byteorder='little')
+            #if i > 0:
+            #    if self.data[i:i+0x02] < self.data[i-0x04:i-0x04+0x02]: # if current offset smaller than prev offset
+            #        self.offsetTable.append(table_small.copy()) # add current table to "animation" list (need to find how animations are really defined)
+            #        #print(f"start: {self.offsetTable}")
+            #        table_small.clear()
+            obj_ptr = int.from_bytes(self.data[i:i+0x02], byteorder='little')  # oam pointer
+            obj_cnt = int.from_bytes(self.data[i+0x02:i+0x03], byteorder='little') # object count
+            obj_sec = int.from_bytes(self.data[i+0x03:i+0x04], byteorder='little') # id of gfx section, apparently
             #print(f"pointer: {obj_ptr:02X}; count: {obj_cnt:02X};")
-            table_small.append([obj_ptr, obj_cnt, obj_unk]) # add frame data to frame list
+            table_small.append([obj_ptr, obj_cnt, obj_sec]) # add frame data to frame list
+        self.offsetTable.append(table_small.copy())
 
 class Object:
     def __init__(self, data: bytes):

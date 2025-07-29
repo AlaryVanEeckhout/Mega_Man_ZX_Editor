@@ -2216,7 +2216,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def OAM_updateItemGFX(self, obj_index: int, item: OAMObjectItem | None=None): # creates and returns an item if none specified
         gfxsec: lib.graphic.GraphicSection = self.fileEdited_object.gfxsec
+        if len(gfxsec.graphics) <= 0:
+            print("no graphics in section!")
+            return
         depth = gfxsec.graphics[0].depth//2
+        indexingFactor = 1 # I guess this is changed based on the size of assembled gfx
+        # in 4bpp, oam tile id * indexingFactor = vram tile id
+        # in 8bpp, oam tile id * indexingFactor//2 = vram tile id
         obj: lib.oam.Object = self.fileEdited_object.objs[obj_index]
         if item != None:
             obj.tileId = self.field_objTileId.value()
@@ -2227,12 +2233,22 @@ class MainWindow(QtWidgets.QMainWindow):
             obj.shape = self.buttonGroup_oam_objShape.checkedId()
             obj.x = self.field_objX.value()
             obj.y = self.field_objY.value()
-        index_img = 0 # find a way to get correct image index
+        index_img = self.fileEdited_object.frame[2]
+        if index_img >= len(gfxsec.graphics):
+            print(f"Graphic Section {index_img} does not exist!")
+            return
+        if gfxsec.graphics[index_img].oam_tile_indexing == 0:
+            indexingFactor = 1
+        elif gfxsec.graphics[index_img].oam_tile_indexing == 0x18:
+            indexingFactor = 4
+        else:
+            print(f"unhandled tile indexing mode: {gfxsec.graphics[index_img].oam_tile_indexing}")
         pal_off = gfxsec.graphics[index_img].offset_start + gfxsec.graphics[index_img].palette_offset+0xc
         pal = [0xffffffff]*(gfxsec.graphics[index_img].unk13 & 0xf0)
         pal.extend(lib.datconv.BGR15_to_ARGB32(self.fileEdited_object.auxfile.data[pal_off:pal_off+gfxsec.graphics[index_img].palette_size]))
         tileId = gfxsec.graphics[index_img].oam_tile_offset + obj.tileId
-        gfxOffset = gfxsec.graphics[index_img].offset_start + gfxsec.graphics[index_img].gfx_offset + (tileId*2*8*8) # multiply tileId by 2 to get vram tile
+        # multiply oam tile id by indexingFactor and 4bpp tile size to get vram tile id
+        gfxOffset = gfxsec.graphics[index_img].offset_start + gfxsec.graphics[index_img].gfx_offset + int(tileId*indexingFactor*32) # 8*8pixels*4bpp/8bits = 32bytes
         #print(f"offset: {gfxOffset:04X}")
         #print(f"tile {tileId:02X}")
         try:
@@ -2245,6 +2261,9 @@ class MainWindow(QtWidgets.QMainWindow):
             print(f"shape: {obj.shape}  size: {obj.sizeIndex}")
             return
         colorTable = obj_img.colorTable()
+        if len(colorTable) <= 0:
+            print("empty palette!")
+            return
         colorTable[0] -= 0xff000000 # remove alpha from first color
         obj_img.setColorTable(colorTable)
         if item == None:
@@ -2698,17 +2717,18 @@ class MainWindow(QtWidgets.QMainWindow):
                                     self.field_address.setValue(self.base_address+self.relative_address)
                                     print(f"{gfxsec.entryCount} entries")
                                     print(f"oam tile offset: {gfxsec.graphics[header_index].oam_tile_offset:02X}")
-                                    print(f"unk06: {gfxsec.graphics[header_index].unk06:02X}")
+                                    print(f"oam_tile_indexing: {gfxsec.graphics[header_index].oam_tile_indexing:02X}")
                                     print(f"unk08: {gfxsec.graphics[header_index].unk08:02X}")
                                     print(f"unk09: {gfxsec.graphics[header_index].unk09:02X}")
                                     print(f"unk13 & 0F: {gfxsec.graphics[header_index].unk13 & 0x0f:02X}")
                                     if self.checkbox_depthUpdate.isChecked():
-                                        if gfxsec.graphics[header_index].depth == 8:
+                                        if gfxsec.graphics[header_index].depth//2 == 4:
                                             self.dropdown_gfx_depth.setCurrentIndex(1)
-                                        elif gfxsec.graphics[header_index].depth == 16:
+                                        elif gfxsec.graphics[header_index].depth//2 == 8:
                                             self.dropdown_gfx_depth.setCurrentIndex(2)
                                         else:
-                                            self.dropdown_gfx_depth.setCurrentIndex(0)
+                                            print(f"unrecognized depth {gfxsec.graphics[header_index].depth}")
+                                            self.dropdown_gfx_depth.setCurrentIndex(1)
                                     pal = [0xffffffff]*(gfxsec.graphics[header_index].unk13 & 0xf0)
                                     pal.extend(lib.datconv.BGR15_to_ARGB32(self.rom.files[current_id][pal_off:pal_off+gfxsec.graphics[header_index].palette_size]))
                                     self.setPalette(pal)
@@ -2742,6 +2762,8 @@ class MainWindow(QtWidgets.QMainWindow):
                             self.fileEdited_object.oamsec = lib.oam.OAMSection(self.fileEdited_object,
                                                                                self.dropdown_oam_entry.currentIndex() if self.dropdown_oam_entry.currentIndex() != -1 else 0)
                             self.fileEdited_object.gfxsec = lib.graphic.GraphicSection.fromParent(self.fileEdited_object.auxfile, self.dropdown_oam_entry.currentIndex())
+                            print(f"offset: {self.fileEdited_object.oamsec.offset_start}")
+                            print(f"header items: {[f"{header_item:02X}" for header_item in self.fileEdited_object.oamsec.header_items]}")
 
                             self.dropdown_oam_anim.clear()
                             for i in range(len(self.fileEdited_object.oamsec.offsetTable)):
@@ -2758,6 +2780,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.fileEdited_object.frame = self.fileEdited_object.oamsec.offsetTable[
                                     self.dropdown_oam_anim.currentIndex() if self.dropdown_oam_anim.currentIndex() != -1 else 0][
                                         self.dropdown_oam_frame.currentIndex() if self.dropdown_oam_frame.currentIndex() != -1 else 0]
+                                #print(f"section id: {self.fileEdited_object.frame[2]}")
                             except IndexError:
                                 print(f"invalid frame!\nanim: {self.dropdown_oam_anim.currentIndex()}\nframe:{self.dropdown_oam_frame.currentIndex()}")
                                 self.fileEdited_object.frame = []
