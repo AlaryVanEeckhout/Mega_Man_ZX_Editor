@@ -183,7 +183,8 @@ def ARGB32_to_BGR15(argb32_palette: list[int]):
 # this fonction works with more than one tile now
 def binToQt(binary_data: bytearray, palette: list[int]=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], algorithm=CompressionAlgorithmEnum.ONEBPP, tilesPerRow: int=8, tilesPerColumn: int=8, tileWidth: int=8, tileHeight: int=8): # GBA 4bpp = 4bpp linear reverse order
     #file_bits = bin(int.from_bytes(binary_data))[2:]
-    file_bits = "".join([bit for byte in binary_data for bit in bin(byte)[2:].zfill(8)])
+    # take only the data that will be used for the qt widget and convert to bitstring
+    file_bits = "".join([bit for byte in binary_data[:tilesPerRow*tilesPerColumn*tileWidth*tileHeight*algorithm.depth//8] for bit in bin(byte)[2:].zfill(8)])
     image_widget = QtGui.QImage(tileWidth*tilesPerRow, tileHeight*tilesPerColumn, QtGui.QImage.Format.Format_Indexed8)
     image_widget.setColorTable(palette) # 32bit ARGB color format
     image_widget.fill(15)

@@ -47,8 +47,8 @@ class View(QtWidgets.QGraphicsView):
         super().__init__(*args, **kwargs)
         self._zoom = 0
         self._zoom_limit = 70
-        self.setOptimizationFlag(QtWidgets.QGraphicsView.OptimizationFlag.DontAdjustForAntialiasing, True)
-        self.setOptimizationFlag(QtWidgets.QGraphicsView.OptimizationFlag.DontSavePainterState, True)
+        self.setOptimizationFlags(QtWidgets.QGraphicsView.OptimizationFlag.DontAdjustForAntialiasing |
+                                  QtWidgets.QGraphicsView.OptimizationFlag.DontSavePainterState)
         scene = QtWidgets.QGraphicsScene()
         self.setScene(scene)
         self.setMouseTracking(True)
@@ -119,6 +119,7 @@ class View(QtWidgets.QGraphicsView):
 class GFXView(View):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.setInteractive(False)
         self._zoom = 0
         self._zoom_limit = 70
         self.setOptimizationFlag(QtWidgets.QGraphicsView.OptimizationFlag.DontAdjustForAntialiasing, True)
@@ -232,6 +233,7 @@ class GFXView(View):
 class OAMView(View):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing, True) # prevent weird scaling artifacts on overlapping items
         self.setSceneRect(QtCore.QRectF(-128, -128, 256, 256)) # dimensions correspond to max positions of object
         self.item_current: OAMObjectItem | None = None
 
@@ -248,9 +250,26 @@ class OAMView(View):
         self._zoom = 0
 
 class OAMObjectItem(QtWidgets.QGraphicsPixmapItem):
-    def __init__(self, *args, id=0, **kwargs):
+    def __init__(self, *args, id=0, editable=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.obj_id = id
+        self.editable = editable
+        if editable:
+            self.setFlags(QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIsSelectable |
+                        QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIsMovable |
+                        QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemSendsGeometryChanges)
+
+    def itemChange(self, change: QtWidgets.QGraphicsPixmapItem.GraphicsItemChange, value: QtCore.QVariant):
+        if change == QtWidgets.QGraphicsPixmapItem.GraphicsItemChange.ItemPositionChange and self.scene():
+            if QtWidgets.QApplication.mouseButtons() == QtCore.Qt.MouseButton.LeftButton:
+                rect = w.file_content_oam.sceneRect()
+                x = min(max(rect.left(), value.x()), rect.right())
+                y = min(max(rect.top(), value.y()), rect.bottom())
+                return QtCore.QPointF(int(x), int(y))
+            else:
+                return value
+        else:
+            return super().itemChange(change, value)
     
     def setSelected(self, selected):
         if selected:
@@ -259,19 +278,21 @@ class OAMObjectItem(QtWidgets.QGraphicsPixmapItem):
     
     def mousePressEvent(self, event):
         super().mousePressEvent(event)
-        w.dropdown_oam_obj.setCurrentIndex(self.obj_id)
-        w.treeCall()
+        if self.editable:
+            w.dropdown_oam_obj.setCurrentIndex(self.obj_id)
+            w.treeCall()
 
     def mouseMoveEvent(self, event):
         super().mouseMoveEvent(event)
-        # prevent drag from emitting valueChanged signal, because it affects item position in turn
-        w.field_objX.blockSignals(True)
-        w.field_objY.blockSignals(True)
-        w.field_objX.setValue(int(self.scenePos().x()))
-        w.field_objY.setValue(int(self.scenePos().y()))
-        w.field_objX.blockSignals(False)
-        w.field_objY.blockSignals(False)
-        w.button_file_save.setEnabled(True)
+        if self.editable:
+            # prevent drag from emitting valueChanged signal, because it affects item position in turn
+            w.field_objX.blockSignals(True)
+            w.field_objY.blockSignals(True)
+            w.field_objX.setValue(self.scenePos().x())
+            w.field_objY.setValue(self.scenePos().y())
+            w.field_objX.blockSignals(False)
+            w.field_objY.blockSignals(False)
+            w.button_file_save.setEnabled(True)
 
 
 class EditorTree(QtWidgets.QTreeWidget):
@@ -347,6 +368,35 @@ class HoldButton(QtWidgets.QPushButton): #change class to use pyqt signals inste
         #self.pressed_quick.emit(False)
         self.counter = -1
 
+class PlayButton(QtWidgets.QPushButton):
+    frameRequested = QtCore.pyqtSignal(bool)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.rate = 16
+        self.counter = 0
+        self.timer = QtCore.QTimer(self)
+        self.timer.timeout.connect(self.on_timeout)
+        self.pressed.connect(self.on_press)
+        self.icon_play = QtGui.QIcon('icons\\control.png')
+        self.icon_pause = QtGui.QIcon('icons\\control-pause.png')
+        self.setIcon(self.icon_play)
+
+    def on_timeout(self):
+        self.counter += 1
+        self.frameRequested.emit(True)
+
+    def on_press(self):
+        if self.timer.isActive():
+            self.timer.stop()
+            self.setIcon(self.icon_play)
+        else:
+            self.timer.start(self.rate)
+            self.setIcon(self.icon_pause)
+    
+    def autoPause(self):
+        self.timer.stop()
+        self.counter = 0
+        self.setIcon(self.icon_play)
     
 class BetterSpinBox(QtWidgets.QDoubleSpinBox):
     def __init__(self, *args, **kwargs):
@@ -453,10 +503,8 @@ class LabeledSlider(QtWidgets.QWidget): # https://stackoverflow.com/a/54819051
         self.sl.setValue(minimum)
         if orientation==QtCore.Qt.Orientation.Horizontal:
             self.sl.setTickPosition(QtWidgets.QSlider.TickPosition.TicksBelow)
-            self.sl.setMinimumWidth(300) # just to make it easier to read
         else:
             self.sl.setTickPosition(QtWidgets.QSlider.TickPosition.TicksLeft)
-            self.sl.setMinimumHeight(300) # just to make it easier to read
         self.sl.setTickInterval(interval)
         self.sl.setSingleStep(1)
 
@@ -1112,37 +1160,95 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_oam_entry.setPlaceholderText("no oam entries")
         self.dropdown_oam_entry.setToolTip("Choose entry")
         self.dropdown_oam_entry.setStatusTip("Select the OAM entry to load")
-        self.dropdown_oam_entry.currentIndexChanged.connect(lambda: self.treeCall())
+        self.dropdown_oam_entry.currentIndexChanged.connect(lambda: self.treeCall(addr_disabled=True))
         self.dropdown_oam_entry.hide()
 
-        self.dropdown_oam_anim = QtWidgets.QComboBox(self.page_explorer)
+        self.tabs_oam = QtWidgets.QTabWidget(self.page_explorer)
+        self.tabs_oam.hide()
+        self.page_oam_frames = QtWidgets.QWidget(self.tabs_oam)
+        self.page_oam_frames.setLayout(QtWidgets.QGridLayout())
+        self.page_oam_anims = QtWidgets.QWidget(self.tabs_oam)
+        self.page_oam_anims.setLayout(QtWidgets.QGridLayout())
+        self.tabs_oam.addTab(self.page_oam_frames, "Frames")
+        self.tabs_oam.addTab(self.page_oam_anims, "Animations")
+        self.tabs_oam.currentChanged.connect(lambda: self.treeCall(addr_disabled=True))
+
+        self.dropdown_oam_anim = QtWidgets.QComboBox(self.page_oam_anims)
         self.dropdown_oam_anim.setPlaceholderText("no animation entries")
         self.dropdown_oam_anim.setToolTip("Choose animation")
         self.dropdown_oam_anim.setStatusTip("Select the animation to load")
-        self.dropdown_oam_anim.currentIndexChanged.connect(lambda: self.treeCall())
-        self.dropdown_oam_anim.hide()
+        self.dropdown_oam_anim.currentIndexChanged.connect(lambda: self.treeCall(addr_disabled=True))
 
-        self.dropdown_oam_frame = QtWidgets.QComboBox(self.page_explorer)
-        self.dropdown_oam_frame.setPlaceholderText("no animation frames")
-        self.dropdown_oam_frame.setToolTip("Choose frame")
-        self.dropdown_oam_frame.setStatusTip("Select the animation frame to load")
-        self.dropdown_oam_frame.currentIndexChanged.connect(lambda: self.treeCall())
-        self.dropdown_oam_frame.hide()
+        self.dropdown_oam_animFrame = QtWidgets.QComboBox(self.page_explorer)
+        self.dropdown_oam_animFrame.setPlaceholderText("no animation frames")
+        self.dropdown_oam_animFrame.setToolTip("Choose frame")
+        self.dropdown_oam_animFrame.setStatusTip("Select the animation frame to load")
+        self.dropdown_oam_animFrame.currentIndexChanged.connect(lambda: self.treeCall(addr_disabled=True))
 
-        self.dropdown_oam_obj = QtWidgets.QComboBox(self.page_explorer) #temporary until gfx interface implemented
+        self.field_oam_animFrameId = BetterSpinBox(self.page_oam_anims)
+        self.field_oam_animFrameId.setToolTip("Frame Id")
+        self.field_oam_animFrameId.setStatusTip("Frame index as seen in the frame editing tab")
+        self.field_oam_animFrameId.isInt = True
+        self.field_oam_animFrameId.setRange(0, 0xFF)
+        self.field_oam_animFrameId.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_oam_animFrameId.valueChanged.connect(lambda: self.treeCall(addr_disabled=True))
+
+        self.field_oam_animFrameDuration = BetterSpinBox(self.page_oam_anims)
+        self.field_oam_animFrameDuration.setToolTip("Duration (Frames)")
+        self.field_oam_animFrameDuration.setStatusTip("Duration of current frame; After the first frame, 0xFE and 0xFF are treated as loop and end")
+        self.field_oam_animFrameDuration.isInt = True
+        self.field_oam_animFrameDuration.setRange(0, 0xFF)
+        self.field_oam_animFrameDuration.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_oam_animFrameDuration.valueChanged.connect(lambda: self.treeCall(addr_disabled=True))
+
+        self.checkbox_oam_animLoop = QtWidgets.QCheckBox(self.page_oam_anims)
+        self.checkbox_oam_animLoop.setText("Loop")
+        self.checkbox_oam_animLoop.setToolTip("Loop")
+        self.checkbox_oam_animLoop.setStatusTip("Enable/Disable animation loop point")
+        self.checkbox_oam_animLoop.checkStateChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.checkbox_oam_animLoop.checkStateChanged.connect(lambda: self.field_oam_animLoopStart.setEnabled(self.checkbox_oam_animLoop.isChecked()))
+
+        self.field_oam_animLoopStart = BetterSpinBox(self.page_oam_anims)
+        self.field_oam_animLoopStart.setToolTip("Loop Start")
+        self.field_oam_animLoopStart.setStatusTip("Frame index to jump to at the end of animation")
+        self.field_oam_animLoopStart.isInt = True
+        self.field_oam_animLoopStart.setRange(0, 0xFF)
+        self.field_oam_animLoopStart.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+
+        self.button_oam_animToStart = QtWidgets.QPushButton(self.page_oam_anims)
+        self.button_oam_animToStart.setIcon(QtGui.QIcon("icons\\control-skip-180.png"))
+        self.button_oam_animToStart.setToolTip("To Start")
+        self.button_oam_animToStart.pressed.connect(lambda: self.button_oam_animPlay.autoPause())
+        self.button_oam_animToStart.pressed.connect(lambda: self.dropdown_oam_animFrame.setCurrentIndex(0))
+
+        self.button_oam_animPlay = PlayButton(self.page_oam_anims)
+        self.button_oam_animPlay.setToolTip("Play/Pause")
+        self.button_oam_animPlay.frameRequested.connect(self.OAM_playAnimFrame)
+
+        self.button_oam_animToEnd = QtWidgets.QPushButton(self.page_oam_anims)
+        self.button_oam_animToEnd.setIcon(QtGui.QIcon("icons\\control-skip.png"))
+        self.button_oam_animToEnd.setToolTip("To End")
+        self.button_oam_animToEnd.pressed.connect(lambda: self.button_oam_animPlay.autoPause())
+        self.button_oam_animToEnd.pressed.connect(lambda: self.dropdown_oam_animFrame.setCurrentIndex(self.dropdown_oam_animFrame.count()-1))
+
+        self.dropdown_oam_objFrame = QtWidgets.QComboBox(self.page_explorer)
+        self.dropdown_oam_objFrame.setPlaceholderText("no OAM frames")
+        self.dropdown_oam_objFrame.setToolTip("Choose frame")
+        self.dropdown_oam_objFrame.setStatusTip("Select the OAM frame to load")
+        self.dropdown_oam_objFrame.currentIndexChanged.connect(lambda: self.treeCall(addr_disabled=True))
+
+        self.dropdown_oam_obj = QtWidgets.QComboBox(self.page_oam_frames) #temporary until gfx interface implemented
         self.dropdown_oam_obj.previousIndex = 0
         self.dropdown_oam_obj.setPlaceholderText("no objects")
         self.dropdown_oam_obj.setToolTip("Choose object")
         self.dropdown_oam_obj.setStatusTip("Select the object to edit")
-        self.dropdown_oam_obj.currentIndexChanged.connect(lambda: self.treeCall())
-        self.dropdown_oam_obj.hide()
+        self.dropdown_oam_obj.currentIndexChanged.connect(lambda: self.treeCall(addr_disabled=True))
 
-        self.button_oam_objSelect = QtWidgets.QPushButton(self.page_explorer)
+        self.button_oam_objSelect = QtWidgets.QPushButton(self.page_oam_frames)
         self.button_oam_objSelect.setText("Select current object")
-        self.button_oam_objSelect.pressed.connect(lambda: self.treeCall())
-        self.button_oam_objSelect.hide()
+        self.button_oam_objSelect.pressed.connect(lambda: self.treeCall(addr_disabled=True))
 
-        self.field_objTileId = BetterSpinBox(self.page_explorer)
+        self.field_objTileId = BetterSpinBox(self.page_oam_frames)
         self.field_objTileId.setToolTip("Tile Id (OAM)")
         self.field_objTileId.setStatusTip("OAM tile id is half the value of VRAM tile id")
         self.field_objTileId.isInt = True
@@ -1150,72 +1256,61 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_objTileId.numbase = self.displayBase
         self.field_objTileId.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.field_objTileId.valueChanged.connect(lambda: self.OAM_updateItemGFX(self.dropdown_oam_obj.currentIndex(), self.file_content_oam.item_current))
-        self.field_objTileId.hide()
 
-        self.checkbox_objFlipH = QtWidgets.QCheckBox(self.page_explorer)
+        self.checkbox_objFlipH = QtWidgets.QCheckBox(self.page_oam_frames)
         self.checkbox_objFlipH.setText("Flip H")
         self.checkbox_objFlipH.checkStateChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.checkbox_objFlipH.checkStateChanged.connect(lambda: self.file_content_oam.item_current.setPixmap(
             self.file_content_oam.item_current.pixmap().transformed(QtGui.QTransform().scale(-1,1))))
-        self.checkbox_objFlipH.hide()
 
-        self.checkbox_objFlipV = QtWidgets.QCheckBox(self.page_explorer)
+        self.checkbox_objFlipV = QtWidgets.QCheckBox(self.page_oam_frames)
         self.checkbox_objFlipV.setText("Flip V")
         self.checkbox_objFlipV.checkStateChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.checkbox_objFlipV.checkStateChanged.connect(lambda: self.file_content_oam.item_current.setPixmap(
             self.file_content_oam.item_current.pixmap().transformed(QtGui.QTransform().scale(1,-1))))
-        self.checkbox_objFlipV.hide()
 
-        self.slider_objSizeIndex = LabeledSlider(self.page_explorer, 0, 3, interval=1, orientation=QtCore.Qt.Orientation.Horizontal, labels=["1x1", "2x2", "4x4", "8x8"])
-        self.slider_objSizeIndex.setMaximumHeight(60)
+        self.slider_objSizeIndex = LabeledSlider(self.page_oam_frames, 0, 3, interval=1, orientation=QtCore.Qt.Orientation.Horizontal, labels=["1x1", "2x2", "4x4", "8x8"])
+        self.slider_objSizeIndex.setMaximumSize(260, 60)
         self.slider_objSizeIndex.setToolTip("size increment")
         self.slider_objSizeIndex.sl.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.slider_objSizeIndex.sl.valueChanged.connect(lambda: self.OAM_updateItemGFX(self.dropdown_oam_obj.currentIndex(), self.file_content_oam.item_current))
-        self.slider_objSizeIndex.hide()
 
         self.radio_objShapeSquare = QtWidgets.QRadioButton()
         self.radio_objShapeSquare.setText("Square")
         self.radio_objShapeSquare.toggled.connect(lambda: self.button_file_save.setEnabled(True))
-        self.radio_objShapeSquare.hide()
         self.radio_objShapeWide = QtWidgets.QRadioButton()
         self.radio_objShapeWide.setText("Wide")
         self.radio_objShapeWide.toggled.connect(lambda: self.button_file_save.setEnabled(True))
-        self.radio_objShapeWide.hide()
         self.radio_objShapeTall = QtWidgets.QRadioButton()
         self.radio_objShapeTall.setText("Tall")
         self.radio_objShapeTall.toggled.connect(lambda: self.button_file_save.setEnabled(True))
-        self.radio_objShapeTall.hide()
 
-        self.buttonGroup_oam_objShape = QtWidgets.QButtonGroup()
+        self.buttonGroup_oam_objShape = QtWidgets.QButtonGroup(self.page_oam_frames)
         self.buttonGroup_oam_objShape.addButton(self.radio_objShapeSquare, 0)
         self.buttonGroup_oam_objShape.addButton(self.radio_objShapeWide, 1)
         self.buttonGroup_oam_objShape.addButton(self.radio_objShapeTall, 2)
         self.buttonGroup_oam_objShape.idReleased.connect(lambda: self.slider_objSizeIndex.setLabels(lib.oam.SPRITE_DIMENSIONS[self.buttonGroup_oam_objShape.checkedId()]))
         self.buttonGroup_oam_objShape.idReleased.connect(lambda: self.OAM_updateItemGFX(self.dropdown_oam_obj.currentIndex(), self.file_content_oam.item_current))
 
-        self.group_oam_objShape = QtWidgets.QGroupBox(self.page_explorer)
-        self.group_oam_objShape.setMinimumWidth(325)
+        self.group_oam_objShape = QtWidgets.QGroupBox(self.page_oam_frames)
         self.group_oam_objShape.setTitle("Shape")
         self.group_oam_objShape.setLayout(QtWidgets.QVBoxLayout())
         self.group_oam_objShape.layout().addWidget(self.radio_objShapeSquare)
         self.group_oam_objShape.layout().addWidget(self.radio_objShapeWide)
         self.group_oam_objShape.layout().addWidget(self.radio_objShapeTall)
-        self.group_oam_objShape.hide()
 
-        self.field_objX = BetterSpinBox(self.page_explorer)
+        self.field_objX = BetterSpinBox(self.page_oam_frames)
         self.field_objX.setToolTip("X")
         self.field_objX.isInt = True
         self.field_objX.setRange(-128, 127)
         self.field_objX.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.field_objX.valueChanged.connect(lambda: self.file_content_oam.item_current.setX(self.field_objX.value()))
-        self.field_objX.hide()
-        self.field_objY = BetterSpinBox(self.page_explorer)
+        self.field_objY = BetterSpinBox(self.page_oam_frames)
         self.field_objY.setToolTip("Y")
         self.field_objY.isInt = True
         self.field_objY.setRange(-128, 127)
         self.field_objY.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.field_objY.valueChanged.connect(lambda: self.file_content_oam.item_current.setY(self.field_objY.value()))
-        self.field_objY.hide()
 
         self.file_content_oam = OAMView(self.page_explorer)
         self.file_content_oam.setSizePolicy(QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Expanding)
@@ -1224,18 +1319,25 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.layout_oam_navigation = QtWidgets.QGridLayout()
         self.layout_oam_navigation.addWidget(self.dropdown_oam_entry, 0, 0)
-        self.layout_oam_navigation.addWidget(self.dropdown_oam_anim, 0, 1)
-        self.layout_oam_navigation.addWidget(self.dropdown_oam_frame, 1, 0)
-        self.layout_oam_navigation.addWidget(self.dropdown_oam_obj, 1, 1)
-        self.layout_oam_navigation.addWidget(self.button_oam_objSelect, 1, 2)
-        self.layout_oam_objProperties = QtWidgets.QGridLayout()
-        self.layout_oam_objProperties.addWidget(self.field_objTileId, 0, 0, 1, 2)
-        self.layout_oam_objProperties.addWidget(self.checkbox_objFlipH, 1, 0)
-        self.layout_oam_objProperties.addWidget(self.checkbox_objFlipV, 2, 0)
-        self.layout_oam_objProperties.addWidget(self.slider_objSizeIndex, 3, 0)
-        self.layout_oam_objProperties.addWidget(self.group_oam_objShape, 3, 1)
-        self.layout_oam_objProperties.addWidget(self.field_objX, 4, 0)
-        self.layout_oam_objProperties.addWidget(self.field_objY, 4, 1)
+        self.page_oam_anims.layout().addWidget(self.dropdown_oam_anim, 0, 0, 1, 2)
+        self.page_oam_anims.layout().addWidget(self.dropdown_oam_animFrame, 0, 2)
+        self.page_oam_anims.layout().addWidget(self.field_oam_animFrameId, 1, 2)
+        self.page_oam_anims.layout().addWidget(self.field_oam_animFrameDuration, 2, 2)
+        self.page_oam_anims.layout().addWidget(self.checkbox_oam_animLoop, 1, 0)
+        self.page_oam_anims.layout().addWidget(self.field_oam_animLoopStart, 2, 0)
+        self.page_oam_anims.layout().addWidget(self.button_oam_animToStart, 3, 0)
+        self.page_oam_anims.layout().addWidget(self.button_oam_animPlay, 3, 1)
+        self.page_oam_anims.layout().addWidget(self.button_oam_animToEnd, 3, 2)
+        self.page_oam_frames.layout().addWidget(self.dropdown_oam_objFrame, 0, 0)
+        self.page_oam_frames.layout().addWidget(self.dropdown_oam_obj, 0, 1)
+        self.page_oam_frames.layout().addWidget(self.button_oam_objSelect, 0, 2)
+        self.page_oam_frames.layout().addWidget(self.field_objTileId, 1, 0, 1, 3)
+        self.page_oam_frames.layout().addWidget(self.checkbox_objFlipH, 2, 0)
+        self.page_oam_frames.layout().addWidget(self.checkbox_objFlipV, 3, 0)
+        self.page_oam_frames.layout().addWidget(self.slider_objSizeIndex, 4, 0)
+        self.page_oam_frames.layout().addWidget(self.group_oam_objShape, 4, 1, 1, 2)
+        self.page_oam_frames.layout().addWidget(self.field_objX, 5, 0)
+        self.page_oam_frames.layout().addWidget(self.field_objY, 5, 1, 1, 2)
 
         #Font
         self.field_font_size = BetterSpinBox(self.page_explorer)
@@ -1312,7 +1414,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_editzone_row2.addItem(self.layout_font_size)
         self.layout_editzone_row2.addItem(self.layout_font_width)
         self.layout_editzone_row2.addItem(self.layout_font_height)
-        self.layout_editzone_row2.addItem(self.layout_oam_objProperties)
+        self.layout_editzone_row2.addWidget(self.tabs_oam)
 
         self.layout_editzone_row3.addWidget(self.label_font_indexingSpace)
         self.layout_editzone_row3.addWidget(self.label_font_charCount)
@@ -1551,21 +1653,8 @@ class MainWindow(QtWidgets.QMainWindow):
             ]
         self.WIDGETS_OAM: list[QtWidgets.QWidget] = [
             self.file_content_oam,
-            self.dropdown_oam_entry,
-            self.dropdown_oam_anim,
-            self.dropdown_oam_frame,
-            self.dropdown_oam_obj,
-            self.button_oam_objSelect,
-            self.field_objTileId,
-            self.checkbox_objFlipH,
-            self.checkbox_objFlipV,
-            self.slider_objSizeIndex,
-            self.group_oam_objShape,
-            self.radio_objShapeSquare,
-            self.radio_objShapeWide,
-            self.radio_objShapeTall,
-            self.field_objX,
-            self.field_objY
+            self.tabs_oam,
+            self.dropdown_oam_entry
             ]
         self.WIDGETS_FONT: list[QtWidgets.QWidget] = [
             self.file_content_gfx,
@@ -2222,7 +2311,7 @@ class MainWindow(QtWidgets.QMainWindow):
         depth = gfxsec.graphics[0].depth//2
         indexingFactor = 1 # I guess this is changed based on the size of assembled gfx
         # in 4bpp, oam tile id * indexingFactor = vram tile id
-        # in 8bpp, oam tile id * indexingFactor//2 = vram tile id
+        # in 8bpp, oam tile id * indexingFactor // 2 = vram tile id
         obj: lib.oam.Object = self.fileEdited_object.objs[obj_index]
         if item != None:
             obj.tileId = self.field_objTileId.value()
@@ -2251,8 +2340,8 @@ class MainWindow(QtWidgets.QMainWindow):
         gfxOffset = gfxsec.graphics[index_img].offset_start + gfxsec.graphics[index_img].gfx_offset + int(tileId*indexingFactor*32) # 8*8pixels*4bpp/8bits = 32bytes
         #print(f"offset: {gfxOffset:04X}")
         #print(f"tile {tileId:02X}")
-        try:
-            obj_img = lib.datconv.binToQt(self.fileEdited_object.auxfile.data[gfxOffset:gfxOffset+gfxsec.graphics[index_img].gfx_size], pal,
+        try: #gfxOffset+gfxsec.graphics[index_img].gfx_size
+            obj_img = lib.datconv.binToQt(self.fileEdited_object.auxfile.data[gfxOffset:], pal,
                                                 *[member for member in lib.datconv.CompressionAlgorithmEnum if member.depth == depth],
                                                 obj.getWidth(),
                                                 obj.getHeight())
@@ -2267,9 +2356,7 @@ class MainWindow(QtWidgets.QMainWindow):
         colorTable[0] -= 0xff000000 # remove alpha from first color
         obj_img.setColorTable(colorTable)
         if item == None:
-            obj_item = OAMObjectItem(QtGui.QPixmap.fromImage(obj_img), id=obj_index)
-            obj_item.setFlag(QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIsMovable)
-            obj_item.setFlag(QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIsSelectable)
+            obj_item = OAMObjectItem(QtGui.QPixmap.fromImage(obj_img), id=obj_index, editable=(self.tabs_oam.currentWidget()==self.page_oam_frames))
         else:
             obj_item = item
             obj_item.setPixmap(QtGui.QPixmap.fromImage(obj_img))
@@ -2278,6 +2365,24 @@ class MainWindow(QtWidgets.QMainWindow):
         obj_item.setPos(obj.x, obj.y)
         if item == None:
             return obj_item
+        
+    def OAM_playAnimFrame(self):
+        if self.fileDisplayState != "OAM": # prevents crash when loading another file
+            self.button_oam_animPlay.autoPause()
+            return
+        anim: lib.oam.Animation = self.fileEdited_object.oamsec_anim
+        frame_index = self.dropdown_oam_animFrame.currentIndex()
+        frame = anim.frames[frame_index]
+        if self.button_oam_animPlay.counter >= frame[1]:
+            #print(f"{self.button_oam_animPlay.counter} vs {frame[1]}")
+            self.button_oam_animPlay.counter = 0
+            if frame_index < self.dropdown_oam_animFrame.count()-1:
+                self.dropdown_oam_animFrame.setCurrentIndex(frame_index+1)
+            else:
+                if self.checkbox_oam_animLoop.isChecked():
+                    self.dropdown_oam_animFrame.setCurrentIndex(self.field_oam_animLoopStart.value())
+                else: # pause anim
+                    self.button_oam_animPlay.autoPause()
 
     def setPalette(self, palette: list[int]):
         #for i in range(self.dropdown_gfx_depth.count()): # re-enable depth options
@@ -2561,7 +2666,7 @@ class MainWindow(QtWidgets.QMainWindow):
             #progress.setValue(100)
             #progress.close()
 
-    def treeCall(self, addr_reset=False):
+    def treeCall(self, addr_reset=False, addr_disabled=False):
         #print("Tree")
         #self.clearTasks()
         sender = self.sender()
@@ -2569,7 +2674,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if sender in self.FILEOPEN_WIDGETS:
             self.fileEdited_object = None # change this into a generic file object
         self.file_content_text.setReadOnly(False)
-        self.field_address.setDisabled(False)
+        self.field_address.setDisabled(addr_disabled)
         QtCore.qInstallMessageHandler(lambda a, b, c: None) # Silence Invalid base warnings from the following code
         for widget in self.findChildren(BetterSpinBox): # update all widgets of same type with current settings
             widget.alphanum = self.displayAlphanumeric
@@ -2747,8 +2852,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                                    grid=True)
                     elif self.fileDisplayState == "OAM":
                         self.widget_set = "OAM"
-                        self.field_address.setDisabled(True)
                         if sender in self.FILEOPEN_WIDGETS:
+                            self.field_address.setDisabled(True)
                             self.fileEdited_object = lib.oam.File(self.rom.files[current_id])
                             self.fileEdited_object.auxfile = lib.graphic.File(self.rom.getFileByName(current_name.replace("dat", "fnt")+".bin"))
                             self.fileEdited_object.objs = []
@@ -2757,7 +2862,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.dropdown_oam_entry.addItem(f"entry {i}")
                             self.dropdown_oam_entry.setCurrentIndex(0)
                         #print(f"{:02X}")
-                        #print(oamsec.data[oamsec.offsetTable_offset:oamsec.offsetTable_offset+0x04].hex())
+                        #print(oamsec.data[oamsec.frameTable_offset:oamsec.frameTable_offset+0x04].hex())
                         if sender in [self.dropdown_oam_entry, *self.FILEOPEN_WIDGETS]:
                             self.fileEdited_object.oamsec = lib.oam.OAMSection(self.fileEdited_object,
                                                                                self.dropdown_oam_entry.currentIndex() if self.dropdown_oam_entry.currentIndex() != -1 else 0)
@@ -2766,37 +2871,67 @@ class MainWindow(QtWidgets.QMainWindow):
                             print(f"header items: {[f"{header_item:02X}" for header_item in self.fileEdited_object.oamsec.header_items]}")
 
                             self.dropdown_oam_anim.clear()
-                            for i in range(len(self.fileEdited_object.oamsec.offsetTable)):
+                            for i in range(len(self.fileEdited_object.oamsec.animTable)):
                                 self.dropdown_oam_anim.addItem(f"animation {i}")
                             self.dropdown_oam_anim.setCurrentIndex(0)
+
+                            self.dropdown_oam_objFrame.clear()
+                            if len(self.fileEdited_object.oamsec.frameTable) > 0:
+                                for i in range(len(self.fileEdited_object.oamsec.frameTable)):
+                                    self.dropdown_oam_objFrame.addItem(f"frame {i}")
+                                self.dropdown_oam_objFrame.setCurrentIndex(0)
                         if sender in [self.dropdown_oam_entry, self.dropdown_oam_anim, *self.FILEOPEN_WIDGETS]:
-                            self.dropdown_oam_frame.clear()
-                            if len(self.fileEdited_object.oamsec.offsetTable) > 0:
-                                for i in range(len(self.fileEdited_object.oamsec.offsetTable[self.dropdown_oam_anim.currentIndex()])):
-                                    self.dropdown_oam_frame.addItem(f"frame {i}")
-                                self.dropdown_oam_frame.setCurrentIndex(0)
-                        if len(self.fileEdited_object.oamsec.offsetTable) > 0:
+                            self.fileEdited_object.oamsec_anim = lib.oam.Animation(self.fileEdited_object.oamsec, self.dropdown_oam_anim.currentIndex())
+                            self.checkbox_oam_animLoop.setChecked(self.fileEdited_object.oamsec_anim.isLooping)
+                            self.field_oam_animLoopStart.setEnabled(self.fileEdited_object.oamsec_anim.isLooping)
+                            self.button_oam_animPlay.autoPause()
+                            if self.fileEdited_object.oamsec_anim.isLooping:
+                                self.field_oam_animLoopStart.setValue(self.fileEdited_object.oamsec_anim.loopStart)
+                            else:
+                                self.field_oam_animLoopStart.setValue(0)
+                            self.dropdown_oam_animFrame.clear()
+                            if len(self.fileEdited_object.oamsec_anim.frames) > 0:
+                                for i in range(len(self.fileEdited_object.oamsec_anim.frames)-1):
+                                    self.dropdown_oam_animFrame.addItem(f"frame {i}")
+                                self.dropdown_oam_animFrame.previousIndex = 0
+                                self.dropdown_oam_animFrame.setCurrentIndex(0)
+                        
+                        if sender in [self.dropdown_oam_animFrame, self.dropdown_oam_entry, self.dropdown_oam_anim, *self.FILEOPEN_WIDGETS]:
+                            if (self.dropdown_oam_animFrame.previousIndex != self.dropdown_oam_animFrame.currentIndex() and self.button_file_save.isEnabled()):
+                                self.fileEdited_object.oamsec_anim.frames[self.dropdown_oam_animFrame.previousIndex] = [
+                                    self.field_oam_animFrameId.value(),
+                                    self.field_oam_animFrameDuration.value()]
+                            self.field_oam_animFrameId.setValue(self.fileEdited_object.oamsec_anim.frames[self.dropdown_oam_animFrame.currentIndex()][0])
+                            self.field_oam_animFrameDuration.setValue(self.fileEdited_object.oamsec_anim.frames[self.dropdown_oam_animFrame.currentIndex()][1])
+                            self.dropdown_oam_animFrame.previousIndex = self.dropdown_oam_animFrame.currentIndex()
+                        if len(self.fileEdited_object.oamsec.frameTable) > 0:
                             try:
-                                self.fileEdited_object.frame = self.fileEdited_object.oamsec.offsetTable[
-                                    self.dropdown_oam_anim.currentIndex() if self.dropdown_oam_anim.currentIndex() != -1 else 0][
-                                        self.dropdown_oam_frame.currentIndex() if self.dropdown_oam_frame.currentIndex() != -1 else 0]
+                                if self.tabs_oam.currentWidget() == self.page_oam_frames:
+                                    self.fileEdited_object.frame = self.fileEdited_object.oamsec.frameTable[
+                                            self.dropdown_oam_objFrame.currentIndex() if self.dropdown_oam_objFrame.currentIndex() != -1 else 0]
+                                elif self.tabs_oam.currentWidget() == self.page_oam_anims:
+                                    self.fileEdited_object.frame = self.fileEdited_object.oamsec.frameTable[
+                                            self.field_oam_animFrameId.value() if self.field_oam_animFrameId.isEnabled() else 0]
                                 #print(f"section id: {self.fileEdited_object.frame[2]}")
                             except IndexError:
-                                print(f"invalid frame!\nanim: {self.dropdown_oam_anim.currentIndex()}\nframe:{self.dropdown_oam_frame.currentIndex()}")
+                                print(f"invalid frame!\nanim: {self.dropdown_oam_anim.currentIndex()}\nframe:{self.dropdown_oam_objFrame.currentIndex()}")
                                 self.fileEdited_object.frame = []
                         else:
                             self.fileEdited_object.frame = []
                         if self.fileEdited_object.frame != []:
-                            if sender in [self.dropdown_oam_entry, self.dropdown_oam_anim, self.dropdown_oam_frame, self.button_reload, *self.FILEOPEN_WIDGETS]:
-                                self.button_file_save.setDisabled(True)
-                                self.dropdown_oam_obj.clear()
-                                self.fileEdited_object.objs.clear()
+                            if sender in [self.dropdown_oam_entry, self.dropdown_oam_anim, self.dropdown_oam_animFrame, self.field_oam_animFrameId,
+                                          self.dropdown_oam_objFrame, self.tabs_oam, self.button_reload, *self.FILEOPEN_WIDGETS]:
                                 self.file_content_oam.scene().clear()
                                 sceneRect = self.file_content_oam.sceneRect()
                                 crosshairPen = QtGui.QPen()
                                 crosshairPen.setWidthF(0.05) # extra thin line
+                                self.file_content_oam.scene().addRect(sceneRect)
                                 self.file_content_oam.scene().addLine(sceneRect.left(), 0, sceneRect.right(), 0, crosshairPen)
                                 self.file_content_oam.scene().addLine(0, sceneRect.top(), 0, sceneRect.bottom(), crosshairPen)
+                                if not isinstance(sender, BetterSpinBox) and sender != self.dropdown_oam_animFrame:
+                                    self.button_file_save.setDisabled(True)
+                                self.fileEdited_object.objs.clear()
+                                self.dropdown_oam_obj.clear()
                                 #print("start")
                                 item_list = []
                                 for i in range(self.fileEdited_object.frame[1]):
@@ -2804,7 +2939,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                         print("Object limit reached! Proceed at your own risk!")
                                         break
                                     self.dropdown_oam_obj.addItem(f"object {i}")
-                                    obj_offset = self.fileEdited_object.oamsec.offsetTable_offset + self.fileEdited_object.frame[0] + i*0x04
+                                    obj_offset = self.fileEdited_object.oamsec.frameTable_offset + self.fileEdited_object.frame[0] + i*0x04
                                     self.fileEdited_object.objs.append(lib.oam.Object(self.fileEdited_object.oamsec.data[obj_offset:obj_offset+0x04]))
                                     obj_item = self.OAM_updateItemGFX(i)
                                     item_list.append(obj_item)
@@ -2817,10 +2952,11 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.file_content_oam.item_current = item_list[-1]
                                 self.dropdown_oam_obj.previousIndex = 0
                                 self.dropdown_oam_obj.setCurrentIndex(0)
-                                
-                            if sender in [self.button_oam_objSelect, self.dropdown_oam_obj, self.dropdown_oam_entry, self.dropdown_oam_anim, self.dropdown_oam_frame, self.file_content_oam.scene(), *self.FILEOPEN_WIDGETS]:
+
+                            if sender in [self.button_oam_objSelect, self.dropdown_oam_obj, self.dropdown_oam_entry, self.dropdown_oam_objFrame, self.tabs_oam, self.file_content_oam.scene(), *self.FILEOPEN_WIDGETS]:
                                 #print(f"{frame[0]:02X}")
-                                #print(f"frame: {self.dropdown_oam_frame.currentIndex()}")
+                                #print(f"frame: {self.dropdown_oam_objFrame.currentIndex()}")
+                                if self.tabs_oam.currentWidget()!=self.page_oam_frames:return
                                 if self.dropdown_oam_obj.currentIndex() == -1: return
                                 if self.dropdown_oam_obj.previousIndex != self.dropdown_oam_obj.currentIndex() and self.button_file_save.isEnabled(): # save state of previous object
                                     obj_prev = self.fileEdited_object.objs[self.dropdown_oam_obj.previousIndex]
@@ -2831,7 +2967,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                     obj_prev.shape = self.buttonGroup_oam_objShape.checkedId()
                                     obj_prev.x = self.field_objX.value()
                                     obj_prev.y = self.field_objY.value()
-                                offset = self.fileEdited_object.oamsec.offsetTable_offset + self.fileEdited_object.frame[0] + self.dropdown_oam_obj.currentIndex()*0x04
+                                offset = self.fileEdited_object.oamsec.frameTable_offset + self.fileEdited_object.frame[0] + self.dropdown_oam_obj.currentIndex()*0x04
                                 self.relative_address = self.fileEdited_object.address_list[self.dropdown_oam_entry.currentIndex()] + offset
                                 self.field_address.setValue(self.relative_address + self.base_address)
                                 obj = self.fileEdited_object.objs[self.dropdown_oam_obj.currentIndex()]#lib.oam.Object(oamsec.data[offset:offset+0x04])
@@ -3018,31 +3154,50 @@ class MainWindow(QtWidgets.QMainWindow):
                     offset = section.graphics[header_index].offset_start+0xc+section.graphics[header_index].palette_offset
                     w.rom.files[file_id][offset:offset+section.graphics[header_index].palette_size] = lib.datconv.ARGB32_to_BGR15(self.gfx_palette[section.graphics[header_index].unk13 & 0xf0:]) # save to ROM
             elif self.fileDisplayState == "OAM":
-                if -1 in [self.dropdown_oam_entry.currentIndex(), self.dropdown_oam_anim.currentIndex(),
-                          self.dropdown_oam_frame.currentIndex(), self.dropdown_oam_obj.currentIndex()]:
-                    print("no valid object to save!")
-                    return
-                section = self.fileEdited_object.oamsec
-                frame = self.fileEdited_object.frame
-                save_data = bytearray()
-                for obj_index in range(self.dropdown_oam_obj.count()):
-                    offset = section.offsetTable_offset + frame[0] + obj_index*0x04
-                    obj = lib.oam.Object(section.data[offset:offset+0x04])
-                    if obj_index == self.dropdown_oam_obj.currentIndex(): # save current changes
-                        obj.tileId = self.field_objTileId.value()
-                        obj.tileId_add = self.field_objTileId.value() & 0x300
-                        obj.flip_h = self.checkbox_objFlipH.isChecked()
-                        obj.flip_v = self.checkbox_objFlipV.isChecked()
-                        obj.sizeIndex = self.slider_objSizeIndex.sl.value()
-                        obj.shape = self.buttonGroup_oam_objShape.checkedId()
-                        obj.x = self.field_objX.value()
-                        obj.y = self.field_objY.value()
-                    else: # save cached changes
-                        obj = self.fileEdited_object.objs[obj_index]
-                    save_data += obj.toBytes()
-                offset2 = section.offset_start + section.offsetTable_offset + frame[0]
-                w.rom.files[file_id][offset2:offset2+frame[1]*0x04] = save_data
-                # update data attribute of oamsec for obj loading
+                if self.tabs_oam.currentWidget()==self.page_oam_frames:
+                    if -1 in [self.dropdown_oam_entry.currentIndex(),  self.dropdown_oam_objFrame.currentIndex(),
+                            self.dropdown_oam_obj.currentIndex()]:
+                        print("no valid object to save!")
+                        return
+                    section = self.fileEdited_object.oamsec
+                    frame = self.fileEdited_object.frame
+                    save_data = bytearray()
+                    for obj_index in range(self.dropdown_oam_obj.count()):
+                        offset = section.frameTable_offset + frame[0] + obj_index*0x04
+                        obj = lib.oam.Object(section.data[offset:offset+0x04])
+                        if obj_index == self.dropdown_oam_obj.currentIndex(): # save current changes
+                            obj.tileId = self.field_objTileId.value()
+                            obj.tileId_add = self.field_objTileId.value() & 0x300
+                            obj.flip_h = self.checkbox_objFlipH.isChecked()
+                            obj.flip_v = self.checkbox_objFlipV.isChecked()
+                            obj.sizeIndex = self.slider_objSizeIndex.sl.value()
+                            obj.shape = self.buttonGroup_oam_objShape.checkedId()
+                            obj.x = self.field_objX.value()
+                            obj.y = self.field_objY.value()
+                        else: # save cached changes
+                            obj = self.fileEdited_object.objs[obj_index]
+                        save_data += obj.toBytes()
+                    offset2 = section.offset_start + section.frameTable_offset + frame[0]
+                    w.rom.files[file_id][offset2:offset2+frame[1]*0x04] = save_data
+                elif self.tabs_oam.currentWidget()==self.page_oam_anims:
+                    if -1 in [self.dropdown_oam_entry.currentIndex(), self.dropdown_oam_anim.currentIndex(),
+                            self.dropdown_oam_animFrame.currentIndex()]:
+                        print("no valid animation data to save!")
+                        return
+                    section = self.fileEdited_object.oamsec
+                    anim = self.fileEdited_object.oamsec_anim
+                    anim.isLooping = self.checkbox_oam_animLoop.isChecked()
+                    anim.loopStart = self.field_oam_animLoopStart.value()
+                    anim.frames[self.dropdown_oam_animFrame.currentIndex()] = [
+                        self.field_oam_animFrameId.value(),
+                        self.field_oam_animFrameDuration.value()
+                    ]
+                    save_data = anim.toBytes()
+                    print(save_data.hex())
+                    save_offset =  self.fileEdited_object.oamsec.offset_start+self.fileEdited_object.oamsec.animTable_offset+anim.frames_offset
+                    print(w.rom.files[file_id][save_offset:save_offset+len(anim.frames)*0x02].hex())
+                    w.rom.files[file_id][save_offset:save_offset+len(anim.frames)*0x02] = save_data
+                # update data of oamsec
                 self.fileEdited_object.oamsec = lib.oam.OAMSection(self.fileEdited_object, self.dropdown_oam_entry.currentIndex())
 
             elif self.fileDisplayState == "Font":

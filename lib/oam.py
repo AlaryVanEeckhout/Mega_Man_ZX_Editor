@@ -29,23 +29,53 @@ class OAMSection:
         self.header_items = []
         for i in range(0, self.header_size, 4):
             self.header_items.append(int.from_bytes(self.data[i:i+0x04], byteorder='little'))
-        self.offsetTable_offset = self.header_size+0x04
-        self.constant = int.from_bytes(self.data[self.header_size:self.offsetTable_offset], byteorder='little')
-        self.offsetTable_size = int.from_bytes(self.data[self.offsetTable_offset:self.offsetTable_offset+0x02], byteorder='little')
-        self.offsetTable = []
-        table_small = []
-        for i in range(self.offsetTable_offset, self.offsetTable_offset+self.offsetTable_size, 4):
-            #if i > 0:
-            #    if self.data[i:i+0x02] < self.data[i-0x04:i-0x04+0x02]: # if current offset smaller than prev offset
-            #        self.offsetTable.append(table_small.copy()) # add current table to "animation" list (need to find how animations are really defined)
-            #        #print(f"start: {self.offsetTable}")
-            #        table_small.clear()
+        self.frameTable_constant = int.from_bytes(self.data[self.header_items[0]:self.header_items[0]+0x04], byteorder='little')
+        self.frameTable_offset = self.header_items[0]+self.frameTable_constant # relative to section
+        self.frameTable_size = int.from_bytes(self.data[self.frameTable_offset:self.frameTable_offset+0x02], byteorder='little')
+        self.frameTable = []
+        for i in range(self.frameTable_offset, self.frameTable_offset+self.frameTable_size, 4):
             obj_ptr = int.from_bytes(self.data[i:i+0x02], byteorder='little')  # oam pointer
             obj_cnt = int.from_bytes(self.data[i+0x02:i+0x03], byteorder='little') # object count
             obj_sec = int.from_bytes(self.data[i+0x03:i+0x04], byteorder='little') # id of gfx section, apparently
             #print(f"pointer: {obj_ptr:02X}; count: {obj_cnt:02X};")
-            table_small.append([obj_ptr, obj_cnt, obj_sec]) # add frame data to frame list
-        self.offsetTable.append(table_small.copy())
+            self.frameTable.append([obj_ptr, obj_cnt, obj_sec]) # add frame data to frame list
+        self.animTable_constant = int.from_bytes(self.data[self.header_items[1]:self.header_items[1]+0x04], byteorder='little')
+        self.animTable_offset = self.header_items[1]+self.animTable_constant
+        self.animTable_size = int.from_bytes(self.data[self.animTable_offset:self.animTable_offset+0x02], byteorder='little')
+        self.animTable = []
+        for i in range(self.animTable_offset, self.animTable_offset+self.animTable_size, 2):
+            self.animTable.append(int.from_bytes(self.data[i:i+0x02], byteorder='little'))
+        self.paletteTable = []
+        self.unkTable = []
+        if len(self.header_items) == 4: # if palette and unk exist
+            self.paletteTable_offset = self.header_items[2]
+            self.unkTable_offset = self.header_items[3]
+
+class Animation:
+    def __init__(self, oam: OAMSection, index: int):
+        self.index = index
+        self.isLooping = False
+        self.loopStart = 0
+        # relative to animation
+        self.frames_offset = int.from_bytes(oam.data[oam.animTable_offset+self.index*0x02:oam.animTable_offset+self.index*0x02+0x02], byteorder='little')
+        self.frames = []
+        for i in range(oam.animTable_offset+self.frames_offset, oam.offset_end, 2):
+            fIndex = int.from_bytes(oam.data[i:i+0x01], byteorder='little')
+            fDuration = int.from_bytes(oam.data[i+0x01:i+0x02], byteorder='little')
+            if len(self.frames) > 0 and (fDuration in [0xFF, 0xFE]): # animation end marker
+                if fDuration == 0xFE:
+                    self.isLooping = True
+                self.loopStart = fIndex
+                self.frames.append([fIndex, fDuration])
+                break
+            else:
+                self.frames.append([fIndex, fDuration])
+        print(self.frames)
+    
+    def toBytes(self):
+        self.frames[-1] = [self.loopStart, 0xFE if self.isLooping else 0xFF]
+        data = bytearray([e for l in self.frames for e in l])
+        return data
 
 class Object:
     def __init__(self, data: bytes):
