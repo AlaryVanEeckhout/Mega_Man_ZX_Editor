@@ -23,11 +23,11 @@ The editor can edit, export and import english dialogue files and save them to t
 - ARM Viewer (WIP)
 - OAM Editor (WIP)
 ### To do
+- Level Editor
 - Graphics Editor additional features (exporting and importing)
 - VX Export/Import to/from video format (Using the actimagine submodule)
 - Find actual patches for the game to add to the editor's "patches" tab*
 - Find patches and tweaks that are helpful for playtesting purposes*
-- Level Editor*
 - Sound/Music Editor*
 - Tweaks/Physics Editor*
 - Game Logic Editor*

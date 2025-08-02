@@ -249,6 +249,11 @@ class OAMView(View):
             self.scale(factor, factor)
         self._zoom = 0
 
+class LevelView(View):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing, True)
+
 class OAMObjectItem(QtWidgets.QGraphicsPixmapItem):
     def __init__(self, *args, id=0, editable=False, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1703,16 +1708,19 @@ class MainWindow(QtWidgets.QMainWindow):
         for i in range(256):
             self.WIDGETS_GRAPHIC.append(getattr(self, f"button_palettepick_{i}"))
 
-        # Level Editor(Coming Soon™)
+        # Level Editor(WIP)
         self.layout_level_editpannel = QtWidgets.QVBoxLayout()
 
         self.dropdown_editor_area = QtWidgets.QComboBox(self.page_leveleditor)
         self.dropdown_editor_area.setToolTip("Choose an area to modify")
-        self.gfx_scene_level = GFXView()
+        self.dropdown_editor_area.currentIndexChanged.connect(self.loadLevel)
+        self.gfx_scene_level = LevelView(self.page_leveleditor)
+        self.gfx_scene_tileset = View(self.page_leveleditor)
 
 
         self.page_leveleditor.layout().addItem(self.layout_level_editpannel)
         self.layout_level_editpannel.addWidget(self.dropdown_editor_area)
+        self.layout_level_editpannel.addWidget(self.gfx_scene_tileset)
 
         self.page_leveleditor.layout().addWidget(self.gfx_scene_level)
 
@@ -2049,7 +2057,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_tweak_target.show()
         self.field_address.show()
         self.label_file_size.show()
+        self.dropdown_editor_area.blockSignals(True)
         self.dropdown_editor_area.addItems([item.text(1) for item in self.tree.findItems("^[a-z][0-9][0-9]", QtCore.Qt.MatchFlag.MatchRegularExpression, 1)])
+        for w in self.findChildren(QtWidgets.QWidget):
+            w.blockSignals(False)
 
     def disable_editing_ui(self):
         #self.button_codeedit.setDisabled(False)
@@ -2062,6 +2073,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_tweak_target.hide()
         self.field_address.hide()
         self.label_file_size.hide()
+        for w in self.findChildren(QtWidgets.QWidget):
+            w.blockSignals(True)
+        self.gfx_scene_level.scene().clear()
+        self.gfx_scene_tileset.scene().clear()
         self.dropdown_editor_area.clear()
 
     def exportCall(self, item: QtWidgets.QTreeWidgetItem):
@@ -3062,6 +3077,63 @@ class MainWindow(QtWidgets.QMainWindow):
             self.exportAction.setDisabled(True)
             self.replaceAction.setDisabled(True)
 
+    def loadTileset(self, level: lib.level.Level, gfx: bytearray, pal: list[int]):
+        self.gfx_scene_tileset.scene().clear()
+        tile_index = 0
+        metaTile_index = 0
+        self.gfx_scene_tileset.metaTiles = []
+        for metaTile in level.metaTiles:
+            pixmap = QtGui.QPixmap(16, 16)
+            painter = QtGui.QPainter()
+            painter.begin(pixmap)
+            for tile in metaTile:
+                flipH = (tile[1] & 0x04) >> 2
+                flipV = (tile[1] & 0x08) >> 3
+                painter.drawImage(QtCore.QRectF(8*(tile_index%2), 8*(tile_index//2), 8, 8), lib.datconv.binToQt(gfx[64*tile[0]:], pal, lib.datconv.CompressionAlgorithmEnum.EIGHTBPP, 1, 1).mirrored(flipH, flipV))
+                tile_index += 1
+            metaTileItem = QtWidgets.QGraphicsPixmapItem(pixmap)
+            metaTileItem.setFlags(QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIsSelectable)
+            metaTileItem.setPos(17*(metaTile_index%8), 17*(metaTile_index//8))
+            self.gfx_scene_tileset.scene().addItem(metaTileItem)
+            self.gfx_scene_tileset.metaTiles.append(metaTileItem)
+            painter.end()
+            tile_index = 0
+            metaTile_index += 1
+        self.gfx_scene_tileset.fitInView()
+
+    def loadScreen(self, level: lib.level.Level, screen_id: int, x: float=0, y: float=0):
+        print(f"screen {screen_id}")
+        metaTile_index = 0
+        screen = level.screens[screen_id]
+        for metaTile in screen:
+            item = QtWidgets.QGraphicsPixmapItem()
+            item.setPixmap(self.gfx_scene_tileset.metaTiles[metaTile].pixmap())
+            item.setPos(x + 16*(metaTile_index%16),y + 16*(metaTile_index//16))
+            self.gfx_scene_level.scene().addItem(item)
+            metaTile_index += 1
+
+    def loadLevel(self):
+        file = lib.level.File(self.rom.getFileByName(self.dropdown_editor_area.currentText()+".bin"))
+        print(f"level offset: {file.level_offset:02X}")
+        print(f"gfx offset: {file.gfx_offset:02X}")
+        print(f"pal offset: {file.pal_offset:02X}")
+        level = lib.level.Level(file.data[file.level_offset:file.gfx_offset])
+        try:
+            gfx = lib.graphic.GraphicHeader(ndspy.lz10.decompress(file.data[file.gfx_offset:file.pal_offset]), file.gfx_offset, file.pal_offset)
+        except TypeError:
+            print("no compressed graphics found")
+            gfx = lib.graphic.GraphicHeader(file.data[file.gfx_offset:file.pal_offset], file.gfx_offset, file.pal_offset)
+            return
+        pal_sec = lib.level.PaletteSection(file.data[file.pal_offset:])
+        pal = lib.datconv.BGR15_to_ARGB32(pal_sec.data[pal_sec.palettes[0].palOffset:pal_sec.palettes[0].palOffset+pal_sec.palettes[0].palSize])
+        if len(level.metaTiles) > 500:
+            print("too many tiles to load (will take too much time)")
+            return
+        self.loadTileset(level, gfx.data[gfx.gfx_offset:], pal)
+        self.gfx_scene_level.scene().clear()
+        for i in range(len(level.screens)):
+            self.loadScreen(level, i, i*16*17)
+
     def treeBaseUpdate(self, tree: EditorTree):
         for e in tree.findItems("", QtCore.Qt.MatchFlag.MatchContains | QtCore.Qt.MatchFlag.MatchRecursive):
             for t in range(e.columnCount()):
@@ -3235,6 +3307,9 @@ class MainWindow(QtWidgets.QMainWindow):
         print("file changes saved")
         # fat is only recalculated when entire rom is saved, so it keeps outdated values
         self.button_file_save.setDisabled(True)
+    
+    def save_level(self):
+        print("not implemented")
 
     def patch_game(self):# Currently a workaround to having no easy way of writing directly to any address in the ndspy rom object
         #print("call")
