@@ -11,18 +11,20 @@ class File:
 class Level: # LZ10 compressed
     def __init__(self, data: bytes):
         self.data = ndspy.lz10.decompress(data)
+        d = ndspy.lz10.compress(self.data)
+        ndspy.lz10.decompress(d)
         self.metaTiles_offset = int.from_bytes(self.data[0x00:0x04], byteorder='little')
-        self.layout_offset = int.from_bytes(self.data[0x04:0x08], byteorder='little')
+        self.collision_offset = int.from_bytes(self.data[0x04:0x08], byteorder='little')
         self.screens_offset = int.from_bytes(self.data[0x08:0x0C], byteorder='little')
-        self.metaTiles: list[list[list[int]]] = []
-        for i in range(self.metaTiles_offset, self.layout_offset, 8):
-            self.metaTiles.append([[int.from_bytes(self.data[i:i+0x01], byteorder='little'), int.from_bytes(self.data[i+0x01:i+0x02], byteorder='little')],
-                                   [int.from_bytes(self.data[i+0x02:i+0x03], byteorder='little'), int.from_bytes(self.data[i+0x03:i+0x04], byteorder='little')],
-                                   [int.from_bytes(self.data[i+0x04:i+0x05], byteorder='little'), int.from_bytes(self.data[i+0x05:i+0x06], byteorder='little')],
-                                   [int.from_bytes(self.data[i+0x06:i+0x07], byteorder='little'), int.from_bytes(self.data[i+0x07:i+0x08], byteorder='little')]])
-        self.layout: list[list[int]] = []
-        for i in range(self.layout_offset, self.screens_offset, 2):
-            self.layout.append([int.from_bytes(self.data[i:i+0x01], byteorder='little'),
+        self.metaTiles: list[list[int]] = []
+        for i in range(self.metaTiles_offset, self.collision_offset, 8):
+            self.metaTiles.append([int.from_bytes(self.data[i:i+0x02], byteorder='little'),
+                                   int.from_bytes(self.data[i+0x02:i+0x04], byteorder='little'),
+                                   int.from_bytes(self.data[i+0x04:i+0x06], byteorder='little'),
+                                   int.from_bytes(self.data[i+0x06:i+0x08], byteorder='little')])
+        self.collision: list[list[int]] = []
+        for i in range(self.collision_offset, self.screens_offset, 2):
+            self.collision.append([int.from_bytes(self.data[i:i+0x01], byteorder='little'),
                                 int.from_bytes(self.data[i+0x01:i+0x02], byteorder='little')])
         self.screens: list[list[int]] = []
         screenTiles: list[int] = []
@@ -35,7 +37,16 @@ class Level: # LZ10 compressed
             screenTile_index += 1
 
     def toBytes(self):
-        # convert tiles, layout and screens back to bytes
+        print(f"orgininal: {len(self.data)}")
+        self.data = bytearray()
+        self.data += int.to_bytes(self.metaTiles_offset, 4, 'little')
+        self.data += int.to_bytes(self.collision_offset, 4, 'little')
+        self.data += int.to_bytes(self.screens_offset, 4, 'little')
+        # convert tiles, collision and screens back to bytes
+        self.data.extend([byte for metaTile in self.metaTiles for tile in metaTile for byte in [(tile & 0xFF00) >> 8, tile & 0xFF]])
+        self.data.extend([byte for metaTile in self.collision for byte in metaTile])
+        self.data.extend([byte for screen in self.screens for metaTileId in screen for byte in [(metaTileId & 0xFF00) >> 8, metaTileId & 0xFF]])
+        print(f"final: {len(self.data)}")
         return ndspy.lz10.compress(self.data)
 
 class PaletteSection:

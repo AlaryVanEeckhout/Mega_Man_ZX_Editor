@@ -120,6 +120,7 @@ class GFXView(View):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setInteractive(False)
+        self.setCursor(QtGui.QCursor(QtCore.Qt.CursorShape.CrossCursor))
         self._zoom = 0
         self._zoom_limit = 70
         self.setOptimizationFlag(QtWidgets.QGraphicsView.OptimizationFlag.DontAdjustForAntialiasing, True)
@@ -127,7 +128,6 @@ class GFXView(View):
         scene = QtWidgets.QGraphicsScene()
         self.setScene(scene)
         self._graphic = QtWidgets.QGraphicsPixmapItem()
-        self._graphic.setFlag(QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIgnoresParentOpacity, True)
         self.scene().addItem(self._graphic)
         self.pen = QtGui.QPen()
         self.pen.setColor(0x00010101) # grayscale color for indexed images
@@ -253,6 +253,31 @@ class LevelView(View):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing, True)
+
+    def mouseMoveEvent(self, event):
+        item_target = self.itemAt(event.pos())
+        if self.mousePressed and isinstance(item_target, LevelTileItem):
+            item_target.tileReplace()
+        return super().mouseMoveEvent(event)
+
+class LevelTileItem(QtWidgets.QGraphicsPixmapItem):
+    def __init__(self, *args, index=0, id=0, screen=0, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.index = index
+        self.id = id
+        self.screen = screen
+    
+    def mousePressEvent(self, event):
+        self.tileReplace()
+        return super().mousePressEvent(event)
+
+    def tileReplace(self):
+        newItems = w.gfx_scene_tileset.scene().selectedItems()
+        if len(newItems) > 0:
+            print(f"tile {self.index} of screen {self.screen} = {w.gfx_scene_tileset.metaTiles.index(newItems[0])}")
+            self.setPixmap(newItems[0].pixmap())
+            self.id = w.gfx_scene_tileset.metaTiles.index(newItems[0])
+            w.button_level_save.setEnabled(True)
 
 class OAMObjectItem(QtWidgets.QGraphicsPixmapItem):
     def __init__(self, *args, id=0, editable=False, **kwargs):
@@ -613,6 +638,7 @@ class MainWindow(QtWidgets.QMainWindow):
         ]
         self.gfx_palette = self.GFX_PALETTES[0]
         self.fileEdited_object = None
+        self.levelEdited_object = None
         self.resize(self.window_width, self.window_height)
         # Default Preferences
         self.theme_index = 0
@@ -1711,15 +1737,26 @@ class MainWindow(QtWidgets.QMainWindow):
         # Level Editor(WIP)
         self.layout_level_editpannel = QtWidgets.QVBoxLayout()
 
-        self.dropdown_editor_area = QtWidgets.QComboBox(self.page_leveleditor)
-        self.dropdown_editor_area.setToolTip("Choose an area to modify")
-        self.dropdown_editor_area.currentIndexChanged.connect(self.loadLevel)
+        self.button_level_save = QtWidgets.QPushButton("Save level", self.page_leveleditor)
+        self.button_level_save.setMaximumWidth(100)
+        self.button_level_save.setToolTip("save this level's changes")
+        self.button_level_save.pressed.connect(self.save_level)
+        self.button_level_save.setDisabled(True)
+
+        self.dropdown_level_area = QtWidgets.QComboBox(self.page_leveleditor)
+        self.dropdown_level_area.setToolTip("Choose an area to modify")
+        self.dropdown_level_area.currentIndexChanged.connect(self.loadLevel)
+        self.dropdown_metaTile_collision = QtWidgets.QComboBox(self.page_leveleditor)
+        self.dropdown_metaTile_collision.setToolTip("Choose collision to apply")
+        self.dropdown_metaTile_collision.addItems(["0 - Air", "1 - Solid"])
         self.gfx_scene_level = LevelView(self.page_leveleditor)
         self.gfx_scene_tileset = View(self.page_leveleditor)
 
 
         self.page_leveleditor.layout().addItem(self.layout_level_editpannel)
-        self.layout_level_editpannel.addWidget(self.dropdown_editor_area)
+        self.layout_level_editpannel.addWidget(self.button_level_save)
+        self.layout_level_editpannel.addWidget(self.dropdown_level_area)
+        self.layout_level_editpannel.addWidget(self.dropdown_metaTile_collision)
         self.layout_level_editpannel.addWidget(self.gfx_scene_tileset)
 
         self.page_leveleditor.layout().addWidget(self.gfx_scene_level)
@@ -2057,8 +2094,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_tweak_target.show()
         self.field_address.show()
         self.label_file_size.show()
-        self.dropdown_editor_area.blockSignals(True)
-        self.dropdown_editor_area.addItems([item.text(1) for item in self.tree.findItems("^[a-z][0-9][0-9]", QtCore.Qt.MatchFlag.MatchRegularExpression, 1)])
+        self.dropdown_level_area.blockSignals(True)
+        self.dropdown_level_area.addItems([item.text(1) for item in self.tree.findItems("^[a-z][0-9][0-9]", QtCore.Qt.MatchFlag.MatchRegularExpression, 1)])
         for w in self.findChildren(QtWidgets.QWidget):
             w.blockSignals(False)
 
@@ -2077,7 +2114,7 @@ class MainWindow(QtWidgets.QMainWindow):
             w.blockSignals(True)
         self.gfx_scene_level.scene().clear()
         self.gfx_scene_tileset.scene().clear()
-        self.dropdown_editor_area.clear()
+        self.dropdown_level_area.clear()
 
     def exportCall(self, item: QtWidgets.QTreeWidgetItem):
         dialog = QtWidgets.QFileDialog(
@@ -3087,9 +3124,9 @@ class MainWindow(QtWidgets.QMainWindow):
             painter = QtGui.QPainter()
             painter.begin(pixmap)
             for tile in metaTile:
-                flipH = (tile[1] & 0x04) >> 2
-                flipV = (tile[1] & 0x08) >> 3
-                painter.drawImage(QtCore.QRectF(8*(tile_index%2), 8*(tile_index//2), 8, 8), lib.datconv.binToQt(gfx[64*tile[0]:], pal, lib.datconv.CompressionAlgorithmEnum.EIGHTBPP, 1, 1).mirrored(flipH, flipV))
+                flipH = (tile & 0x0400) >> (8+2)
+                flipV = (tile & 0x0800) >> (8+3)
+                painter.drawImage(QtCore.QRectF(8*(tile_index%2), 8*(tile_index//2), 8, 8), lib.datconv.binToQt(gfx[64*(tile & 0x00FF):], pal, lib.datconv.CompressionAlgorithmEnum.EIGHTBPP, 1, 1).mirrored(flipH, flipV))
                 tile_index += 1
             metaTileItem = QtWidgets.QGraphicsPixmapItem(pixmap)
             metaTileItem.setFlags(QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIsSelectable)
@@ -3106,17 +3143,21 @@ class MainWindow(QtWidgets.QMainWindow):
         metaTile_index = 0
         screen = level.screens[screen_id]
         for metaTile in screen:
-            item = QtWidgets.QGraphicsPixmapItem()
+            item = LevelTileItem(index=metaTile_index, id=metaTile, screen=screen_id)
             item.setPixmap(self.gfx_scene_tileset.metaTiles[metaTile].pixmap())
             item.setPos(x + 16*(metaTile_index%16),y + 16*(metaTile_index//16))
+            item.setAcceptDrops
             self.gfx_scene_level.scene().addItem(item)
             metaTile_index += 1
 
     def loadLevel(self):
-        file = lib.level.File(self.rom.getFileByName(self.dropdown_editor_area.currentText()+".bin"))
+        self.button_level_save.setDisabled(True)
+        self.levelEdited_object = lib.level.File(self.rom.getFileByName(self.dropdown_level_area.currentText()+".bin"))
+        file = self.levelEdited_object
         print(f"level offset: {file.level_offset:02X}")
         print(f"gfx offset: {file.gfx_offset:02X}")
         print(f"pal offset: {file.pal_offset:02X}")
+        print(f"leveldata size: {len(file.data[file.level_offset:file.gfx_offset])}")
         level = lib.level.Level(file.data[file.level_offset:file.gfx_offset])
         try:
             gfx = lib.graphic.GraphicHeader(ndspy.lz10.decompress(file.data[file.gfx_offset:file.pal_offset]), file.gfx_offset, file.pal_offset)
@@ -3309,7 +3350,22 @@ class MainWindow(QtWidgets.QMainWindow):
         self.button_file_save.setDisabled(True)
     
     def save_level(self):
-        print("not implemented")
+        level = lib.level.Level(self.levelEdited_object.data[self.levelEdited_object.level_offset:self.levelEdited_object.gfx_offset])
+        for metaTile in self.gfx_scene_level.findChildren(LevelTileItem):
+            level.screens[metaTile.screen][metaTile.index] = metaTile.id
+        # find level file in rom
+        fileID = self.rom.filenames.idOf(self.dropdown_level_area.currentText()+".bin")
+        # replace level data
+        #print(f"test 0: {len(self.rom.files[fileID][self.levelEdited_object.level_offset:self.levelEdited_object.gfx_offset])}")
+        #print(f"test 0: {len(self.levelEdited_object.data[self.levelEdited_object.level_offset:self.levelEdited_object.gfx_offset])}")
+        self.rom.files[fileID][self.levelEdited_object.level_offset:self.levelEdited_object.gfx_offset] = bytearray(level.toBytes())
+        #print(f"test 1: {len(bytearray(level.toBytes()))}")
+        #ndspy.lz10.decompress(bytearray(level.toBytes()))
+        #print("test 1 successful")
+        #print(f"test 2: {len(self.rom.files[fileID][self.levelEdited_object.level_offset:self.levelEdited_object.gfx_offset])}")
+        #ndspy.lz10.decompress(self.rom.files[fileID][self.levelEdited_object.level_offset:self.levelEdited_object.gfx_offset])
+        #print("test 2 successful")
+        print(f"Level data {self.dropdown_level_area.currentText()} has been saved!")
 
     def patch_game(self):# Currently a workaround to having no easy way of writing directly to any address in the ndspy rom object
         #print("call")
