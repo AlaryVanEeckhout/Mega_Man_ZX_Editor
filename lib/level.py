@@ -3,16 +3,29 @@ class File:
     def __init__(self, data: bytes):
         self.data = data
         self.entryCount = int.from_bytes(self.data[0x00:0x04], byteorder='little') # entries start at 0x04
-        self.level_offset = int.from_bytes(self.data[0x04:0x08], byteorder='little') & 0x00FFFFFF
-        self.gfx_offset = int.from_bytes(self.data[0x08:0x0C], byteorder='little') & 0x00FFFFFF
-        self.pal_offset = int.from_bytes(self.data[0x0C:0x10], byteorder='little') & 0x00FFFFFF
+        self.level_offset_rom = int.from_bytes(self.data[0x04:0x08], byteorder='little')
+        self.level_offset_indicator = self.level_offset_rom & 0xFF000000
+        self.level_offset_rom = self.level_offset_rom & 0x00FFFFFF
+        self.gfx_offset_rom = int.from_bytes(self.data[0x08:0x0C], byteorder='little')
+        self.gfx_offset_indicator = self.gfx_offset_rom & 0xFF000000
+        self.gfx_offset_rom = self.gfx_offset_rom & 0x00FFFFFF
+        self.pal_offset_rom = int.from_bytes(self.data[0x0C:0x10], byteorder='little')
+        self.pal_offset_indicator = self.pal_offset_rom & 0xFF000000
+        self.pal_offset_rom = self.pal_offset_rom & 0x00FFFFFF
         self.fileSize = int.from_bytes(self.data[0x04+self.entryCount*0x04:self.entryCount*0x04+0x08], byteorder='little')
+
+    def headerToBytes(self):
+        self.data = bytearray()
+        self.data += int.to_bytes(self.entryCount, 4, 'little')
+        self.data += int.to_bytes(self.level_offset_rom + self.level_offset_indicator, 4, 'little')
+        self.data += int.to_bytes(self.gfx_offset_rom + self.gfx_offset_indicator, 4, 'little')
+        self.data += int.to_bytes(self.pal_offset_rom + self.pal_offset_indicator, 4, 'little')
+        self.data += int.to_bytes(self.fileSize, 4, 'little')
+        return bytes(self.data)
 
 class Level: # LZ10 compressed
     def __init__(self, data: bytes):
         self.data = ndspy.lz10.decompress(data)
-        d = ndspy.lz10.compress(self.data)
-        ndspy.lz10.decompress(d)
         self.metaTiles_offset = int.from_bytes(self.data[0x00:0x04], byteorder='little')
         self.collision_offset = int.from_bytes(self.data[0x04:0x08], byteorder='little')
         self.screens_offset = int.from_bytes(self.data[0x08:0x0C], byteorder='little')
@@ -37,17 +50,15 @@ class Level: # LZ10 compressed
             screenTile_index += 1
 
     def toBytes(self):
-        print(f"orgininal: {len(self.data)}")
         self.data = bytearray()
         self.data += int.to_bytes(self.metaTiles_offset, 4, 'little')
         self.data += int.to_bytes(self.collision_offset, 4, 'little')
         self.data += int.to_bytes(self.screens_offset, 4, 'little')
         # convert tiles, collision and screens back to bytes
-        self.data.extend([byte for metaTile in self.metaTiles for tile in metaTile for byte in [(tile & 0xFF00) >> 8, tile & 0xFF]])
+        self.data.extend([byte for metaTile in self.metaTiles for tile in metaTile for byte in [tile & 0xFF, (tile & 0xFF00) >> 8]])
         self.data.extend([byte for metaTile in self.collision for byte in metaTile])
-        self.data.extend([byte for screen in self.screens for metaTileId in screen for byte in [(metaTileId & 0xFF00) >> 8, metaTileId & 0xFF]])
-        print(f"final: {len(self.data)}")
-        return ndspy.lz10.compress(self.data)
+        self.data.extend([byte for screen in self.screens for metaTileId in screen for byte in [metaTileId & 0xFF, (metaTileId & 0xFF00) >> 8]])
+        return ndspy.lz10.compress(self.data) # compression is not as efficient. Resulting file is bigger
 
 class PaletteSection:
     def __init__(self, data: bytes):
@@ -57,8 +68,10 @@ class PaletteSection:
             self.data = data
         self.palCount = int.from_bytes(self.data[0x00:0x04], 'little')
         self.palettes: list[PaletteHeader] = []
+        assert self.palCount < 0xFF
         for i in range(self.palCount):
             self.palettes.append(PaletteHeader(self.data[0x04+i*0x18:i*0x18+0x1C]))
+            print()
         
 
     def toBytes(self):

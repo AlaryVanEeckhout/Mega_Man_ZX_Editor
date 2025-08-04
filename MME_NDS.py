@@ -274,7 +274,7 @@ class LevelTileItem(QtWidgets.QGraphicsPixmapItem):
     def tileReplace(self):
         newItems = w.gfx_scene_tileset.scene().selectedItems()
         if len(newItems) > 0:
-            print(f"tile {self.index} of screen {self.screen} = {w.gfx_scene_tileset.metaTiles.index(newItems[0])}")
+            #print(f"tile {self.index} of screen {self.screen} = {w.gfx_scene_tileset.metaTiles.index(newItems[0])}")
             self.setPixmap(newItems[0].pixmap())
             self.id = w.gfx_scene_tileset.metaTiles.index(newItems[0])
             w.button_level_save.setEnabled(True)
@@ -3139,7 +3139,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.gfx_scene_tileset.fitInView()
 
     def loadScreen(self, level: lib.level.Level, screen_id: int, x: float=0, y: float=0):
-        print(f"screen {screen_id}")
+        #print(f"screen {screen_id}")
         metaTile_index = 0
         screen = level.screens[screen_id]
         for metaTile in screen:
@@ -3152,20 +3152,22 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def loadLevel(self):
         self.button_level_save.setDisabled(True)
-        self.levelEdited_object = lib.level.File(self.rom.getFileByName(self.dropdown_level_area.currentText()+".bin"))
+        fileID = self.rom.filenames.idOf(self.dropdown_level_area.currentText()+".bin")
+        print("Load level")
+        self.levelEdited_object = lib.level.File(self.rom.files[fileID])
         file = self.levelEdited_object
-        print(f"level offset: {file.level_offset:02X}")
-        print(f"gfx offset: {file.gfx_offset:02X}")
-        print(f"pal offset: {file.pal_offset:02X}")
-        print(f"leveldata size: {len(file.data[file.level_offset:file.gfx_offset])}")
-        level = lib.level.Level(file.data[file.level_offset:file.gfx_offset])
+        print(f"level offset: {file.level_offset_rom:02X}")
+        print(f"gfx offset: {file.gfx_offset_rom:02X}")
+        print(f"pal offset: {file.pal_offset_rom:02X}")
+        print(f"leveldata size: {len(file.data[file.level_offset_rom:file.gfx_offset_rom])}")
+        level = lib.level.Level(file.data[file.level_offset_rom:file.gfx_offset_rom])
         try:
-            gfx = lib.graphic.GraphicHeader(ndspy.lz10.decompress(file.data[file.gfx_offset:file.pal_offset]), file.gfx_offset, file.pal_offset)
+            gfx = lib.graphic.GraphicHeader(ndspy.lz10.decompress(file.data[file.gfx_offset_rom:file.pal_offset_rom]), file.gfx_offset_rom, file.pal_offset_rom)
         except TypeError:
             print("no compressed graphics found")
-            gfx = lib.graphic.GraphicHeader(file.data[file.gfx_offset:file.pal_offset], file.gfx_offset, file.pal_offset)
+            gfx = lib.graphic.GraphicHeader(file.data[file.gfx_offset_rom:file.pal_offset_rom], file.gfx_offset_rom, file.pal_offset_rom)
             return
-        pal_sec = lib.level.PaletteSection(file.data[file.pal_offset:])
+        pal_sec = lib.level.PaletteSection(file.data[file.pal_offset_rom:])
         pal = lib.datconv.BGR15_to_ARGB32(pal_sec.data[pal_sec.palettes[0].palOffset:pal_sec.palettes[0].palOffset+pal_sec.palettes[0].palSize])
         if len(level.metaTiles) > 500:
             print("too many tiles to load (will take too much time)")
@@ -3350,22 +3352,31 @@ class MainWindow(QtWidgets.QMainWindow):
         self.button_file_save.setDisabled(True)
     
     def save_level(self):
-        level = lib.level.Level(self.levelEdited_object.data[self.levelEdited_object.level_offset:self.levelEdited_object.gfx_offset])
-        for metaTile in self.gfx_scene_level.findChildren(LevelTileItem):
+        level = lib.level.Level(self.levelEdited_object.data[self.levelEdited_object.level_offset_rom:self.levelEdited_object.gfx_offset_rom])
+        gfx = lib.graphic.GraphicHeader(ndspy.lz10.decompress(self.levelEdited_object.data[self.levelEdited_object.gfx_offset_rom:self.levelEdited_object.pal_offset_rom]),
+                                        self.levelEdited_object.gfx_offset_rom, self.levelEdited_object.pal_offset_rom)
+        
+        for metaTile in [item for item in self.gfx_scene_level.items() if isinstance(item, LevelTileItem)]:
             level.screens[metaTile.screen][metaTile.index] = metaTile.id
         # find level file in rom
         fileID = self.rom.filenames.idOf(self.dropdown_level_area.currentText()+".bin")
-        # replace level data
-        #print(f"test 0: {len(self.rom.files[fileID][self.levelEdited_object.level_offset:self.levelEdited_object.gfx_offset])}")
-        #print(f"test 0: {len(self.levelEdited_object.data[self.levelEdited_object.level_offset:self.levelEdited_object.gfx_offset])}")
-        self.rom.files[fileID][self.levelEdited_object.level_offset:self.levelEdited_object.gfx_offset] = bytearray(level.toBytes())
-        #print(f"test 1: {len(bytearray(level.toBytes()))}")
-        #ndspy.lz10.decompress(bytearray(level.toBytes()))
-        #print("test 1 successful")
-        #print(f"test 2: {len(self.rom.files[fileID][self.levelEdited_object.level_offset:self.levelEdited_object.gfx_offset])}")
-        #ndspy.lz10.decompress(self.rom.files[fileID][self.levelEdited_object.level_offset:self.levelEdited_object.gfx_offset])
-        #print("test 2 successful")
+        level_bin = bytearray(level.toBytes())
+        level_bin += bytearray((-len(level_bin)) & 3) # 4-byte padding
+        gfx_bin = ndspy.lz10.compress(gfx.data)
+        gfx_bin += bytearray((-len(gfx_bin)) & 3)
+
+        self.rom.files[fileID][self.levelEdited_object.gfx_offset_rom:self.levelEdited_object.pal_offset_rom] = gfx_bin
+        self.rom.files[fileID][self.levelEdited_object.level_offset_rom:self.levelEdited_object.gfx_offset_rom] = level_bin
+
+        self.levelEdited_object.gfx_offset_rom = self.levelEdited_object.level_offset_rom + len(level_bin)
+        self.levelEdited_object.pal_offset_rom = self.levelEdited_object.gfx_offset_rom + len(gfx_bin)
+        self.levelEdited_object.fileSize = len(self.rom.files[fileID])
+        self.rom.files[fileID][:self.levelEdited_object.level_offset_rom] = self.levelEdited_object.headerToBytes()
         print(f"Level data {self.dropdown_level_area.currentText()} has been saved!")
+        self.levelEdited_object = lib.level.File(self.rom.files[fileID]) # update data
+        #print(f"{len(self.rom.files[fileID][self.levelEdited_object.level_offset_rom:self.levelEdited_object.gfx_offset_rom])} {self.levelEdited_object.level_offset_rom}")
+        #print(f"{len(self.rom.files[fileID][self.levelEdited_object.gfx_offset_rom:self.levelEdited_object.pal_offset_rom])} {self.levelEdited_object.gfx_offset_rom}")
+        #print(f"{len(self.rom.files[fileID][self.levelEdited_object.pal_offset_rom:])} {self.levelEdited_object.pal_offset_rom}")
 
     def patch_game(self):# Currently a workaround to having no easy way of writing directly to any address in the ndspy rom object
         #print("call")
