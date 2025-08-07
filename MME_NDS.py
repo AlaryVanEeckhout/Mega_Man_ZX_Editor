@@ -55,6 +55,7 @@ class View(QtWidgets.QGraphicsView):
         self.mousePressed = False
 
     def fitInView(self, scale=True):
+        if self.sceneRect().isEmpty(): return
         rect = QtCore.QRectF(0, 0, 0, 0)
         for item in self.items():
             if isinstance(item, QtWidgets.QGraphicsLineItem): continue
@@ -960,6 +961,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # File explorer
         self.tree = EditorTree(self.page_explorer)
+        self.tree.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self.page_explorer.layout().addWidget(self.tree, 0)
         self.tree.setMaximumWidth(450)
         self.tree.setColumnCount(3)
@@ -1746,17 +1748,100 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_level_area = QtWidgets.QComboBox(self.page_leveleditor)
         self.dropdown_level_area.setToolTip("Choose an area to modify")
         self.dropdown_level_area.currentIndexChanged.connect(self.loadLevel)
-        self.dropdown_metaTile_collision = QtWidgets.QComboBox(self.page_leveleditor)
-        self.dropdown_metaTile_collision.setToolTip("Choose collision to apply")
-        self.dropdown_metaTile_collision.addItems(["0 - Air", "1 - Solid"])
+
+        self.dropdown_metaTile_collisionShape = QtWidgets.QComboBox(self.page_leveleditor)
+        self.dropdown_metaTile_collisionShape.setToolTip("Choose collision geometry to apply")
+        self.dropdown_metaTile_collisionShape.addItems(["00 - Air",
+                                                        "01 - Solid",
+                                                        "02 - lower 2x1 slope /",
+                                                        "03 - upper 2x1 slope /",
+                                                        "04 - lower 4x1 slope /",
+                                                        "05 - lower middle 4x1 slope /",
+                                                        "06 - upper middle 4x1 slope /",
+                                                        "07 - upper 4x1 slope /",
+                                                        "08 - upper 2x1 slope \\",
+                                                        "09 - lower 2x1 slope \\",
+                                                        "0A - upper 4x1 slope \\",
+                                                        "0B - upper middle 4x1 slope \\",
+                                                        "0C - lower middle 4x1 slope \\",
+                                                        "0D - lower 4x1 slope \\",
+                                                        "0E - ladder end",
+                                                        "0F - ladder"])
+        self.dropdown_metaTile_collisionShape
+        for i in range(self.dropdown_metaTile_collisionShape.count(), 0x100):
+            self.dropdown_metaTile_collisionShape.addItem(f"{i:02X} - ???")
+        self.dropdown_metaTile_collisionShape.currentIndexChanged.connect(self.changeTileShape)
+        self.dropdown_metaTile_collisionShape.setDisabled(True)
+
+        self.checkbox_metaTile_attrSpike = QtWidgets.QCheckBox(self.page_leveleditor)
+        self.checkbox_metaTile_attrSpike.setText("Spike")
+        self.checkbox_metaTile_attrSpike.checkStateChanged.connect(self.changeTileAttrSpike)
+        self.checkbox_metaTile_attrSpike.setDisabled(True)
+        self.checkbox_metaTile_attrWater = QtWidgets.QCheckBox(self.page_leveleditor)
+        self.checkbox_metaTile_attrWater.setText("Underwater")
+        self.checkbox_metaTile_attrWater.checkStateChanged.connect(self.changeTileAttrWater)
+        self.checkbox_metaTile_attrWater.setDisabled(True)
+        self.checkbox_metaTile_attrNoCeilHang = QtWidgets.QCheckBox(self.page_leveleditor)
+        self.checkbox_metaTile_attrNoCeilHang.setText("No ceiling hang")
+        self.checkbox_metaTile_attrNoCeilHang.checkStateChanged.connect(self.changeTileAttrNoCeilHang)
+        self.checkbox_metaTile_attrNoCeilHang.setDisabled(True)
+        self.checkbox_metaTile_attrNoWalljump = QtWidgets.QCheckBox(self.page_leveleditor)
+        self.checkbox_metaTile_attrNoWalljump.setText("No walljump")
+        self.checkbox_metaTile_attrNoWalljump.checkStateChanged.connect(self.changeTileAttrNoWalljump)
+        self.checkbox_metaTile_attrNoWalljump.setDisabled(True)
+        self.checkbox_metaTile_attrSand = QtWidgets.QCheckBox(self.page_leveleditor)
+        self.checkbox_metaTile_attrSand.setText("Quicksand")
+        self.checkbox_metaTile_attrSand.checkStateChanged.connect(self.changeTileAttrSand)
+        self.checkbox_metaTile_attrSand.setDisabled(True)
+        self.radio_metaTile_attrNone = QtWidgets.QRadioButton(self.page_leveleditor)
+        self.radio_metaTile_attrNone.setText("Normal")
+        self.radio_metaTile_attrConveyR = QtWidgets.QRadioButton(self.page_leveleditor)
+        self.radio_metaTile_attrConveyR.setText("Conveyor >>")
+        self.radio_metaTile_attrConveyL = QtWidgets.QRadioButton(self.page_leveleditor)
+        self.radio_metaTile_attrConveyL.setText("Conveyor <<")
+        self.radio_metaTile_attrIce = QtWidgets.QRadioButton(self.page_leveleditor)
+        self.radio_metaTile_attrIce.setText("Ice")
+        self.buttonGroup_metaTile_attrConvey = QtWidgets.QButtonGroup(self.page_leveleditor)
+        self.buttonGroup_metaTile_attrConvey.addButton(self.radio_metaTile_attrNone, 0)
+        self.buttonGroup_metaTile_attrConvey.addButton(self.radio_metaTile_attrConveyR, 1)
+        self.buttonGroup_metaTile_attrConvey.addButton(self.radio_metaTile_attrConveyL, 2)
+        self.buttonGroup_metaTile_attrConvey.addButton(self.radio_metaTile_attrIce, 3)
+        self.buttonGroup_metaTile_attrConvey.idReleased.connect(self.changeTileAttrConvey)
+        self.group_metaTile_attrConvey = QtWidgets.QGroupBox(self.page_leveleditor)
+        self.group_metaTile_attrConvey.setTitle("Grounded movement")
+        self.group_metaTile_attrConvey.setLayout(QtWidgets.QVBoxLayout())
+        self.group_metaTile_attrConvey.layout().addWidget(self.radio_metaTile_attrNone)
+        self.group_metaTile_attrConvey.layout().addWidget(self.radio_metaTile_attrConveyR)
+        self.group_metaTile_attrConvey.layout().addWidget(self.radio_metaTile_attrConveyL)
+        self.group_metaTile_attrConvey.layout().addWidget(self.radio_metaTile_attrIce)
+        self.group_metaTile_attrConvey.setDisabled(True)
+        self.checkbox_metaTile_attrPlat = QtWidgets.QCheckBox(self.page_leveleditor)
+        self.checkbox_metaTile_attrPlat.setText("Platform (top collision only)")
+        self.checkbox_metaTile_attrPlat.checkStateChanged.connect(self.changeTileAttrPlat)
+        self.checkbox_metaTile_attrPlat.setDisabled(True)
+
+        self.layout_metaTile_attr = QtWidgets.QGridLayout()
+        self.layout_metaTile_attr.setContentsMargins(10, 10, 0, 10)
+        self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrSpike, 0, 0)
+        self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrWater, 1, 0)
+        self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrNoCeilHang, 2, 0)
+        self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrNoWalljump, 3, 0)
+        self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrSand, 4, 0)
+        self.layout_metaTile_attr.addWidget(self.group_metaTile_attrConvey, 0, 1, 6, 1)
+        self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrPlat, 5, 0)
+
+        self.layout_metaTile_collision = QtWidgets.QHBoxLayout()
+        self.layout_metaTile_collision.addWidget(self.dropdown_metaTile_collisionShape)
+        self.layout_metaTile_collision.addItem(self.layout_metaTile_attr)
+
         self.gfx_scene_level = LevelView(self.page_leveleditor)
         self.gfx_scene_tileset = View(self.page_leveleditor)
-
+        self.gfx_scene_tileset.scene().selectionChanged.connect(self.loadTileProperties)
 
         self.page_leveleditor.layout().addItem(self.layout_level_editpannel)
         self.layout_level_editpannel.addWidget(self.button_level_save)
         self.layout_level_editpannel.addWidget(self.dropdown_level_area)
-        self.layout_level_editpannel.addWidget(self.dropdown_metaTile_collision)
+        self.layout_level_editpannel.addItem(self.layout_metaTile_collision)
         self.layout_level_editpannel.addWidget(self.gfx_scene_tileset)
 
         self.page_leveleditor.layout().addWidget(self.gfx_scene_level)
@@ -3114,12 +3199,91 @@ class MainWindow(QtWidgets.QMainWindow):
             self.exportAction.setDisabled(True)
             self.replaceAction.setDisabled(True)
 
-    def loadTileset(self, level: lib.level.Level, gfx: bytearray, pal: list[int]):
+    def loadTileProperties(self):
+        if not self.gfx_scene_tileset.scene().isActive() or len(self.gfx_scene_tileset.scene().selectedItems()) == 0: return
+        metaTile_index = self.gfx_scene_tileset.metaTiles.index(*self.gfx_scene_tileset.scene().selectedItems())
+        attr = self.levelEdited_object.level.collision[metaTile_index][1]
+        for i in range(self.layout_metaTile_attr.count()):
+            self.layout_metaTile_attr.itemAt(i).widget().blockSignals(True)
+        
+        self.dropdown_metaTile_collisionShape.blockSignals(True)
+        self.dropdown_metaTile_collisionShape.setCurrentIndex(self.levelEdited_object.level.collision[metaTile_index][0])
+        self.dropdown_metaTile_collisionShape.blockSignals(False)
+        self.dropdown_metaTile_collisionShape.setEnabled(True)
+
+        self.checkbox_metaTile_attrSpike.setChecked((attr & 0b00000001))
+        self.checkbox_metaTile_attrWater.setChecked((attr & 0b00000010) >> 1)
+        self.checkbox_metaTile_attrNoCeilHang.setChecked((attr & 0b00000100) >> 2)
+        self.checkbox_metaTile_attrNoWalljump.setChecked((attr & 0b00001000) >> 3)
+        self.checkbox_metaTile_attrSand.setChecked((attr & 0b00010000) >> 4)
+        self.group_metaTile_attrConvey.findChildren(QtWidgets.QRadioButton)[(attr & 0b01100000) >> 5].setChecked(True)
+        self.checkbox_metaTile_attrPlat.setChecked((attr & 0b10000000) >> 7)
+
+        for i in range(self.layout_metaTile_attr.count()):
+            self.layout_metaTile_attr.itemAt(i).widget().blockSignals(False)
+            self.layout_metaTile_attr.itemAt(i).widget().setEnabled(True)
+
+    def changeTileShape(self):
+        if not self.gfx_scene_tileset.scene().isActive() or len(self.gfx_scene_tileset.scene().selectedItems()) == 0: return
+        self.button_level_save.setEnabled(True)
+        metaTile_index = self.gfx_scene_tileset.metaTiles.index(*self.gfx_scene_tileset.scene().selectedItems())
+        self.levelEdited_object.level.collision[metaTile_index][0] = self.dropdown_metaTile_collisionShape.currentIndex()
+
+    def changeTileAttrSpike(self):
+        if not self.gfx_scene_tileset.scene().isActive() or len(self.gfx_scene_tileset.scene().selectedItems()) == 0: return
+        self.button_level_save.setEnabled(True)
+        metaTile_index = self.gfx_scene_tileset.metaTiles.index(*self.gfx_scene_tileset.scene().selectedItems())
+        self.levelEdited_object.level.collision[metaTile_index][1] = \
+            (self.levelEdited_object.level.collision[metaTile_index][1] & 0b11111110) + self.checkbox_metaTile_attrSpike.isChecked()
+
+    def changeTileAttrWater(self):
+        if not self.gfx_scene_tileset.scene().isActive() or len(self.gfx_scene_tileset.scene().selectedItems()) == 0: return
+        self.button_level_save.setEnabled(True)
+        metaTile_index = self.gfx_scene_tileset.metaTiles.index(*self.gfx_scene_tileset.scene().selectedItems())
+        self.levelEdited_object.level.collision[metaTile_index][1] = \
+            (self.levelEdited_object.level.collision[metaTile_index][1] & 0b11111101) + (self.checkbox_metaTile_attrWater.isChecked() << 1)
+
+    def changeTileAttrNoCeilHang(self):
+        if not self.gfx_scene_tileset.scene().isActive() or len(self.gfx_scene_tileset.scene().selectedItems()) == 0: return
+        self.button_level_save.setEnabled(True)
+        metaTile_index = self.gfx_scene_tileset.metaTiles.index(*self.gfx_scene_tileset.scene().selectedItems())
+        self.levelEdited_object.level.collision[metaTile_index][1] = \
+            (self.levelEdited_object.level.collision[metaTile_index][1] & 0b11111011) + (self.checkbox_metaTile_attrNoCeilHang.isChecked() << 2)
+
+    def changeTileAttrNoWalljump(self):
+        if not self.gfx_scene_tileset.scene().isActive() or len(self.gfx_scene_tileset.scene().selectedItems()) == 0: return
+        self.button_level_save.setEnabled(True)
+        metaTile_index = self.gfx_scene_tileset.metaTiles.index(*self.gfx_scene_tileset.scene().selectedItems())
+        self.levelEdited_object.level.collision[metaTile_index][1] = \
+            (self.levelEdited_object.level.collision[metaTile_index][1] & 0b11110111) + (self.checkbox_metaTile_attrNoWalljump.isChecked() << 3)
+
+    def changeTileAttrSand(self):
+        if not self.gfx_scene_tileset.scene().isActive() or len(self.gfx_scene_tileset.scene().selectedItems()) == 0: return
+        self.button_level_save.setEnabled(True)
+        metaTile_index = self.gfx_scene_tileset.metaTiles.index(*self.gfx_scene_tileset.scene().selectedItems())
+        self.levelEdited_object.level.collision[metaTile_index][1] = \
+            (self.levelEdited_object.level.collision[metaTile_index][1] & 0b11101111) + (self.checkbox_metaTile_attrSand.isChecked() << 4)
+    
+    def changeTileAttrConvey(self):
+        if not self.gfx_scene_tileset.scene().isActive() or len(self.gfx_scene_tileset.scene().selectedItems()) == 0: return
+        self.button_level_save.setEnabled(True)
+        metaTile_index = self.gfx_scene_tileset.metaTiles.index(*self.gfx_scene_tileset.scene().selectedItems())
+        self.levelEdited_object.level.collision[metaTile_index][1] = \
+            (self.levelEdited_object.level.collision[metaTile_index][1] & 0b10011111) + (self.buttonGroup_metaTile_attrConvey.checkedId() << 5)
+
+    def changeTileAttrPlat(self):
+        if not self.gfx_scene_tileset.scene().isActive() or len(self.gfx_scene_tileset.scene().selectedItems()) == 0: return
+        self.button_level_save.setEnabled(True)
+        metaTile_index = self.gfx_scene_tileset.metaTiles.index(*self.gfx_scene_tileset.scene().selectedItems())
+        self.levelEdited_object.level.collision[metaTile_index][1] = \
+            (self.levelEdited_object.level.collision[metaTile_index][1] & 0b01111111) + (self.checkbox_metaTile_attrPlat.isChecked() << 7)
+
+    def loadTileset(self, gfx: bytearray, pal: list[int]):
         self.gfx_scene_tileset.scene().clear()
         tile_index = 0
         metaTile_index = 0
         self.gfx_scene_tileset.metaTiles = []
-        for metaTile in level.metaTiles:
+        for metaTile in self.levelEdited_object.level.metaTiles:
             pixmap = QtGui.QPixmap(16, 16)
             painter = QtGui.QPainter()
             painter.begin(pixmap)
@@ -3138,10 +3302,10 @@ class MainWindow(QtWidgets.QMainWindow):
             metaTile_index += 1
         self.gfx_scene_tileset.fitInView()
 
-    def loadScreen(self, level: lib.level.Level, screen_id: int, x: float=0, y: float=0):
+    def loadScreen(self, screen_id: int, x: float=0, y: float=0):
         #print(f"screen {screen_id}")
         metaTile_index = 0
-        screen = level.screens[screen_id]
+        screen = self.levelEdited_object.level.screens[screen_id]
         for metaTile in screen:
             item = LevelTileItem(index=metaTile_index, id=metaTile, screen=screen_id)
             item.setPixmap(self.gfx_scene_tileset.metaTiles[metaTile].pixmap())
@@ -3160,7 +3324,6 @@ class MainWindow(QtWidgets.QMainWindow):
         print(f"gfx offset: {file.gfx_offset_rom:02X}")
         print(f"pal offset: {file.pal_offset_rom:02X}")
         print(f"leveldata size: {len(file.data[file.level_offset_rom:file.gfx_offset_rom])}")
-        level = lib.level.Level(file.data[file.level_offset_rom:file.gfx_offset_rom])
         try:
             gfx = lib.graphic.GraphicHeader(ndspy.lz10.decompress(file.data[file.gfx_offset_rom:file.pal_offset_rom]), file.gfx_offset_rom, file.pal_offset_rom)
         except TypeError:
@@ -3169,13 +3332,13 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         pal_sec = lib.level.PaletteSection(file.data[file.pal_offset_rom:])
         pal = lib.datconv.BGR15_to_ARGB32(pal_sec.data[pal_sec.palettes[0].palOffset:pal_sec.palettes[0].palOffset+pal_sec.palettes[0].palSize])
-        if len(level.metaTiles) > 500:
+        if len(file.level.metaTiles) > 500:
             print("too many tiles to load (will take too much time)")
             return
-        self.loadTileset(level, gfx.data[gfx.gfx_offset:], pal)
+        self.loadTileset(gfx.data[gfx.gfx_offset:], pal)
         self.gfx_scene_level.scene().clear()
-        for i in range(len(level.screens)):
-            self.loadScreen(level, i, i*16*17)
+        for i in range(len(file.level.screens)):
+            self.loadScreen(i, i*16*17)
 
     def treeBaseUpdate(self, tree: EditorTree):
         for e in tree.findItems("", QtCore.Qt.MatchFlag.MatchContains | QtCore.Qt.MatchFlag.MatchRecursive):
@@ -3352,7 +3515,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.button_file_save.setDisabled(True)
     
     def save_level(self):
-        level = lib.level.Level(self.levelEdited_object.data[self.levelEdited_object.level_offset_rom:self.levelEdited_object.gfx_offset_rom])
+        self.button_level_save.setDisabled(True)
+        level = self.levelEdited_object.level
         gfx = lib.graphic.GraphicHeader(ndspy.lz10.decompress(self.levelEdited_object.data[self.levelEdited_object.gfx_offset_rom:self.levelEdited_object.pal_offset_rom]),
                                         self.levelEdited_object.gfx_offset_rom, self.levelEdited_object.pal_offset_rom)
         

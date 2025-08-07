@@ -13,6 +13,7 @@ class File:
         self.pal_offset_indicator = self.pal_offset_rom & 0xFF000000
         self.pal_offset_rom = self.pal_offset_rom & 0x00FFFFFF
         self.fileSize = int.from_bytes(self.data[0x04+self.entryCount*0x04:self.entryCount*0x04+0x08], byteorder='little')
+        self.level = Level(self.data[self.level_offset_rom:self.gfx_offset_rom])
 
     def headerToBytes(self):
         self.data = bytearray()
@@ -30,15 +31,15 @@ class Level: # LZ10 compressed
         self.collision_offset = int.from_bytes(self.data[0x04:0x08], byteorder='little')
         self.screens_offset = int.from_bytes(self.data[0x08:0x0C], byteorder='little')
         self.metaTiles: list[list[int]] = []
-        for i in range(self.metaTiles_offset, self.collision_offset, 8):
+        for i in range(self.metaTiles_offset, self.collision_offset, 8): # 4 tiles in metaTile
             self.metaTiles.append([int.from_bytes(self.data[i:i+0x02], byteorder='little'),
                                    int.from_bytes(self.data[i+0x02:i+0x04], byteorder='little'),
                                    int.from_bytes(self.data[i+0x04:i+0x06], byteorder='little'),
                                    int.from_bytes(self.data[i+0x06:i+0x08], byteorder='little')])
         self.collision: list[list[int]] = []
-        for i in range(self.collision_offset, self.screens_offset, 2):
+        for i in range(self.collision_offset, self.screens_offset, 2): # collision shape and attributes
             self.collision.append([int.from_bytes(self.data[i:i+0x01], byteorder='little'),
-                                int.from_bytes(self.data[i+0x01:i+0x02], byteorder='little')])
+                                   int.from_bytes(self.data[i+0x01:i+0x02], byteorder='little')])
         self.screens: list[list[int]] = []
         screenTiles: list[int] = []
         screenTile_index = 0
@@ -71,7 +72,6 @@ class PaletteSection:
         assert self.palCount < 0xFF
         for i in range(self.palCount):
             self.palettes.append(PaletteHeader(self.data[0x04+i*0x18:i*0x18+0x1C]))
-            print()
         
 
     def toBytes(self):
