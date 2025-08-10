@@ -1,19 +1,13 @@
+from lib import common
 import bisect
+
 SPRITE_WIDTHS = ((1,2,4,8),(2,4,4,8),(1,1,2,4)) # in tiles
 SPRITE_HEIGHTS = ((1,2,4,8),(1,1,2,4),(2,4,4,8))
 SPRITE_DIMENSIONS = (("1x1", "2x2", "4x4", "8x8"), ("2x1", "4x1", "4x2", "8x4"), ("1x2", "1x4", "2x4", "4x8"))
 
-class File:
-    def __init__(self, data: bytes):
-        self.data = data
-        self.entryCount = int.from_bytes(data[0x00:0x04], byteorder='little') # entries start at 0x04
-        self.address_list = []
-        self.fileSize = int.from_bytes(data[0x04+self.entryCount*4:self.entryCount*4+0x08], byteorder='little')
-        for index in range(self.entryCount): 
-            self.address_list.append(int.from_bytes(data[0x04+index*4:index*4+0x08], byteorder="little")) # 4 bytes per entry
-            assert self.address_list[index] < self.fileSize
-            if index > 0:
-                assert self.address_list[index] >= self.address_list[index-1]
+class File(common.File):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 class OAMSection:
     def __init__(self, file: File, index: int):

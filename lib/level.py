@@ -1,18 +1,16 @@
+
+from lib import common
 import ndspy.lz10
-class File:
-    def __init__(self, data: bytes):
-        self.data = data
-        self.entryCount = int.from_bytes(self.data[0x00:0x04], byteorder='little') # entries start at 0x04
-        self.level_offset_rom = int.from_bytes(self.data[0x04:0x08], byteorder='little')
-        self.level_offset_indicator = self.level_offset_rom & 0xFF000000
-        self.level_offset_rom = self.level_offset_rom & 0x00FFFFFF
-        self.gfx_offset_rom = int.from_bytes(self.data[0x08:0x0C], byteorder='little')
-        self.gfx_offset_indicator = self.gfx_offset_rom & 0xFF000000
-        self.gfx_offset_rom = self.gfx_offset_rom & 0x00FFFFFF
-        self.pal_offset_rom = int.from_bytes(self.data[0x0C:0x10], byteorder='little')
-        self.pal_offset_indicator = self.pal_offset_rom & 0xFF000000
-        self.pal_offset_rom = self.pal_offset_rom & 0x00FFFFFF
-        self.fileSize = int.from_bytes(self.data[0x04+self.entryCount*0x04:self.entryCount*0x04+0x08], byteorder='little')
+
+class File(common.File):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.level_offset_rom = self.address_list[0] & 0x00FFFFFF
+        self.level_offset_indicator = self.address_list[0] & 0xFF000000
+        self.gfx_offset_rom = self.address_list[1] & 0x00FFFFFF
+        self.gfx_offset_indicator = self.address_list[1] & 0xFF000000
+        self.pal_offset_rom = self.address_list[2] & 0x00FFFFFF
+        self.pal_offset_indicator = self.address_list[2] & 0xFF000000
         self.level = Level(self.data[self.level_offset_rom:self.gfx_offset_rom])
 
     def headerToBytes(self):
