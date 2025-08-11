@@ -253,12 +253,33 @@ class TilesetView(View):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.item_spacing = 1
+        self.item_columns = 8
+        self.item_first = None # first selected item
+        self.scene().selectionChanged.connect(self.selectionChange)
+
+    def mousePressEvent(self, event: QtGui.QMouseEvent):
+        item_dest = self.itemAt(event.pos())
+        if event.modifiers() == QtCore.Qt.KeyboardModifier.ShiftModifier and not None in [self.item_first, item_dest]:
+            #print(self.item_first.pos(), item_dest.pos())
+            select_rect = QtCore.QRectF(self.item_first.pos(), item_dest.pos())
+            select_rect.setHeight(1 if select_rect.height() == 0 else select_rect.height())
+            select_rect.setWidth(1 if select_rect.width() == 0 else select_rect.width())
+            items = [item for item in self.scene().items() if item.sceneBoundingRect().intersects(select_rect)]
+            for item in items:
+                item.setSelected(True)
+        else:
+            super().mousePressEvent(event)
+    
+    def selectionChange(self):
+        #print(self.scene().selectedItems())
+        if len(self.scene().selectedItems()) == 1:
+            self.item_first = self.scene().selectedItems()[0]
 
 class LevelView(View):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing, True)
-        self.tileGroups: list[list[LevelTileItem]] = []
+        self.tileGroups: list[list[list[LevelTileItem]]] = []
 
     def mousePressEvent(self, event):
         super().mousePressEvent(event)
@@ -269,9 +290,20 @@ class LevelView(View):
         self.tileDraw(event)
 
     def tileDraw(self, event: QtGui.QMouseEvent):
-        item_target = self.itemAt(event.pos())
-        if self.mousePressed and isinstance(item_target, LevelTileItem):
-            item_target.tileReplace()
+        if self.mousePressed and len(w.gfx_scene_tileset.scene().selectedItems()) > 0:
+            sItem_event = w.gfx_scene_tileset.item_first
+            for sItem in w.gfx_scene_tileset.scene().selectedItems():
+                sItem_delta = sItem.pos().toPoint()-sItem_event.pos().toPoint()
+                sItem_delta_spacing = QtCore.QPoint(sItem_delta.x()//16, sItem_delta.y()//16)
+                item_target = self.itemAt(event.pos()+sItem_delta-sItem_delta_spacing)
+                if isinstance(item_target, LevelTileItem):
+                    for item in item_target.tileGroup:
+                        item.tileReplace(sItem)
+
+class TilesetItem(QtWidgets.QGraphicsPixmapItem):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setFlags(QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIsSelectable)
 
 class LevelTileItem(QtWidgets.QGraphicsPixmapItem):
     def __init__(self, *args, index=0, id=0, screen=0, **kwargs):
@@ -279,15 +311,14 @@ class LevelTileItem(QtWidgets.QGraphicsPixmapItem):
         self.index = index
         self.id = id
         self.screen = screen
-        self.tileGroup = None
+        self.tileGroup: list[LevelTileItem] = None
 
-    def tileReplace(self):
-        newItems = w.gfx_scene_tileset.scene().selectedItems()
-        if len(newItems) > 0:
-            #print(f"tile {self.index} of screen {self.screen} = {w.gfx_scene_tileset.metaTiles.index(newItems[0])}")
-            self.setPixmap(newItems[0].pixmap())
-            self.id = w.gfx_scene_tileset.metaTiles.index(newItems[0])
-            w.button_level_save.setEnabled(True)
+    def tileReplace(self, item: QtWidgets.QGraphicsPixmapItem):
+        if item == None: return
+        #print(f"tile {self.index} of screen {self.screen} = {w.gfx_scene_tileset.metaTiles.index(item)}")
+        self.setPixmap(item.pixmap())
+        self.id = w.gfx_scene_tileset.metaTiles.index(item)
+        w.button_level_save.setEnabled(True)
 
 class OAMObjectItem(QtWidgets.QGraphicsPixmapItem):
     def __init__(self, *args, id=0, editable=False, **kwargs):
@@ -3239,17 +3270,19 @@ class MainWindow(QtWidgets.QMainWindow):
     def changeTileShape(self):
         if not self.gfx_scene_tileset.scene().isActive() or len(self.gfx_scene_tileset.scene().selectedItems()) == 0: return
         self.button_level_save.setEnabled(True)
-        metaTile_index = self.gfx_scene_tileset.metaTiles.index(*self.gfx_scene_tileset.scene().selectedItems())
-        self.levelEdited_object.level.collision[metaTile_index][0] = self.dropdown_metaTile_collisionShape.currentIndex()
+        for item in self.gfx_scene_tileset.scene().selectedItems():
+            metaTile_index = self.gfx_scene_tileset.metaTiles.index(item)
+            self.levelEdited_object.level.collision[metaTile_index][0] = self.dropdown_metaTile_collisionShape.currentIndex()
 
     def changeTileAttr(self, bitmask: int, val: bool):
         if not self.gfx_scene_tileset.scene().isActive() or len(self.gfx_scene_tileset.scene().selectedItems()) == 0: return
         self.button_level_save.setEnabled(True)
-        metaTile_index = self.gfx_scene_tileset.metaTiles.index(*self.gfx_scene_tileset.scene().selectedItems())
-        bitstring = bin(bitmask).removeprefix("0b").zfill(8)
-        shiftL = len(bitstring)-1 - bitstring.rindex('0')
-        self.levelEdited_object.level.collision[metaTile_index][1] = \
-            (self.levelEdited_object.level.collision[metaTile_index][1] & bitmask) + (val << shiftL)
+        for item in self.gfx_scene_tileset.scene().selectedItems():
+            metaTile_index = self.gfx_scene_tileset.metaTiles.index(item)
+            bitstring = bin(bitmask).removeprefix("0b").zfill(8)
+            shiftL = len(bitstring)-1 - bitstring.rindex('0')
+            self.levelEdited_object.level.collision[metaTile_index][1] = \
+                (self.levelEdited_object.level.collision[metaTile_index][1] & bitmask) + (val << shiftL)
 
     def loadTileset(self, gfx: bytearray, pal: list[int]):
         self.gfx_scene_tileset.scene().clear()
@@ -3265,9 +3298,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 flipV = (tile & 0x0800) >> (8+3)
                 painter.drawImage(QtCore.QRectF(8*(tile_index%2), 8*(tile_index//2), 8, 8), lib.datconv.binToQt(gfx[64*(tile & 0x00FF):], pal, lib.datconv.CompressionAlgorithmEnum.EIGHTBPP, 1, 1).mirrored(flipH, flipV))
                 tile_index += 1
-            metaTileItem = QtWidgets.QGraphicsPixmapItem(pixmap)
-            metaTileItem.setFlags(QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIsSelectable)
-            metaTileItem.setPos((16+self.gfx_scene_tileset.item_spacing)*(metaTile_index%8), (16+self.gfx_scene_tileset.item_spacing)*(metaTile_index//8))
+            metaTileItem = TilesetItem(pixmap)
+            metaTileItem.setPos((16+self.gfx_scene_tileset.item_spacing)*(metaTile_index%self.gfx_scene_tileset.item_columns), (16+self.gfx_scene_tileset.item_spacing)*(metaTile_index//self.gfx_scene_tileset.item_columns))
             self.gfx_scene_tileset.scene().addItem(metaTileItem)
             self.gfx_scene_tileset.metaTiles.append(metaTileItem)
             painter.end()
@@ -3502,8 +3534,9 @@ class MainWindow(QtWidgets.QMainWindow):
         level = self.levelEdited_object.level
         gfx = lib.graphic.GraphicHeader(ndspy.lz10.decompress(self.levelEdited_object.data[self.levelEdited_object.gfx_offset_rom:self.levelEdited_object.pal_offset_rom]),
                                         self.levelEdited_object.gfx_offset_rom, self.levelEdited_object.pal_offset_rom)
-        
-        for metaTile in [item for item in self.gfx_scene_level.items() if isinstance(item, LevelTileItem)]:
+        # cycle through unique tiles and save them
+        #print(len([group[0] for screen in self.gfx_scene_level.tileGroups for group in screen if group != []]))
+        for metaTile in [group[0] for screen in self.gfx_scene_level.tileGroups for group in screen if group != []]:
             level.screens[metaTile.screen][metaTile.index] = metaTile.id
         # find level file in rom
         fileID = self.rom.filenames.idOf(self.dropdown_level_area.currentText()+".bin")
@@ -3643,7 +3676,7 @@ def extract(data: bytes, name="", path="", format="", compress=0):
         data = ndspy.lz10.compress(data)
 
     print(os.path.join(path + "/" + name.split(".")[0] + ext))
-    if isinstance(data, bytes): # one file
+    if isinstance(data, (bytes, bytearray)): # one file
         with open(os.path.join(path + "/" + name.split(".")[0] + ext), 'wb') as f:
             f.write(data)
     else: # list of bytes
