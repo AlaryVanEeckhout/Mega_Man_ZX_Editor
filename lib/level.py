@@ -6,12 +6,12 @@ class File(common.File):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.level_offset_rom = self.address_list[0] & 0x00FFFFFF
-        self.level_offset_indicator = self.address_list[0] & 0xFF000000
+        self.level_offset_indicator = self.address_list[0] & 0xFF000000 # compression indicator
         self.gfx_offset_rom = self.address_list[1] & 0x00FFFFFF
         self.gfx_offset_indicator = self.address_list[1] & 0xFF000000
         self.pal_offset_rom = self.address_list[2] & 0x00FFFFFF
         self.pal_offset_indicator = self.address_list[2] & 0xFF000000
-        self.level = Level(self.data[self.level_offset_rom:self.gfx_offset_rom])
+        self.level = Level(self.data[self.level_offset_rom:self.gfx_offset_rom], self.level_offset_indicator == 0x80000000)
 
     def headerToBytes(self):
         self.data = bytearray()
@@ -23,8 +23,11 @@ class File(common.File):
         return bytes(self.data)
 
 class Level: # LZ10 compressed
-    def __init__(self, data: bytes):
-        self.data = ndspy.lz10.decompress(data)
+    def __init__(self, data: bytes, compressed: bool=True):
+        if compressed:
+            self.data = ndspy.lz10.decompress(data)
+        else:
+            self.data = data
         self.metaTiles_offset = int.from_bytes(self.data[0x00:0x04], byteorder='little')
         self.collision_offset = int.from_bytes(self.data[0x04:0x08], byteorder='little')
         self.screens_offset = int.from_bytes(self.data[0x08:0x0C], byteorder='little')
@@ -36,6 +39,7 @@ class Level: # LZ10 compressed
                                    int.from_bytes(self.data[i+0x06:i+0x08], byteorder='little')])
         self.collision: list[list[int]] = []
         for i in range(self.collision_offset, self.screens_offset, 2): # collision shape and attributes
+            assert (i-self.collision_offset)//2 < len(self.metaTiles)
             self.collision.append([int.from_bytes(self.data[i:i+0x01], byteorder='little'),
                                    int.from_bytes(self.data[i+0x01:i+0x02], byteorder='little')])
         self.screens: list[list[int]] = []
@@ -47,6 +51,7 @@ class Level: # LZ10 compressed
                 self.screens.append(screenTiles.copy())
                 screenTiles.clear()
             screenTile_index += 1
+        #print(len(self.metaTiles),len(self.collision))
 
     def toBytes(self):
         self.data = bytearray()
@@ -61,15 +66,27 @@ class Level: # LZ10 compressed
 
 class PaletteSection:
     def __init__(self, data: bytes):
+        self.animated = False
         try:
             self.data = ndspy.lz10.decompress(data)
         except TypeError:
+            print("Animated palette?")
             self.data = data
+            self.animated = True
+            
         self.palCount = int.from_bytes(self.data[0x00:0x04], 'little')
-        self.palettes: list[PaletteHeader] = []
         assert self.palCount < 0xFF
-        for i in range(self.palCount):
-            self.palettes.append(PaletteHeader(self.data[0x04+i*0x18:i*0x18+0x1C]))
+        self.palettes: list[PaletteHeader] = []
+
+        if self.animated:
+            self.paletteOffsets = []
+            for i in range(self.palCount):
+                self.paletteOffsets.append(int.from_bytes(self.data[0x04+i*0x04:0x08+i*0x04], 'little'))
+                self.palettes.append(PaletteHeader(self.data[self.paletteOffsets[i]:self.paletteOffsets[i]+0x18]))
+            self.palettes_offset = self.paletteOffsets[-1]+0x18+0x4
+        else:
+            for i in range(self.palCount):
+                self.palettes.append(PaletteHeader(self.data[0x04+i*0x18:i*0x18+0x1C]))
         
 
     def toBytes(self):

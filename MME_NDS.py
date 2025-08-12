@@ -3289,22 +3289,25 @@ class MainWindow(QtWidgets.QMainWindow):
         tile_index = 0
         metaTile_index = 0
         self.gfx_scene_tileset.metaTiles = []
+        pixmap = QtGui.QPixmap(16, 16)
+        painter = QtGui.QPainter()
+        painter.begin(pixmap)
         for metaTile in self.levelEdited_object.level.metaTiles:
-            pixmap = QtGui.QPixmap(16, 16)
-            painter = QtGui.QPainter()
-            painter.begin(pixmap)
             for tile in metaTile:
+                #print(f"{tile & 0xF000:04X}")
                 flipH = (tile & 0x0400) >> (8+2)
                 flipV = (tile & 0x0800) >> (8+3)
-                painter.drawImage(QtCore.QRectF(8*(tile_index%2), 8*(tile_index//2), 8, 8), lib.datconv.binToQt(gfx[64*(tile & 0x00FF):], pal, lib.datconv.CompressionAlgorithmEnum.EIGHTBPP, 1, 1).mirrored(flipH, flipV))
+                tile_id = (tile & 0x03FF)
+                # what is tile & 0xF000?
+                painter.drawImage(QtCore.QRectF(8*(tile_index%2), 8*(tile_index//2), 8, 8), lib.datconv.binToQt(gfx[64*(tile_id):], pal, lib.datconv.CompressionAlgorithmEnum.EIGHTBPP, 1, 1).mirrored(flipH, flipV))
                 tile_index += 1
             metaTileItem = TilesetItem(pixmap)
             metaTileItem.setPos((16+self.gfx_scene_tileset.item_spacing)*(metaTile_index%self.gfx_scene_tileset.item_columns), (16+self.gfx_scene_tileset.item_spacing)*(metaTile_index//self.gfx_scene_tileset.item_columns))
             self.gfx_scene_tileset.scene().addItem(metaTileItem)
             self.gfx_scene_tileset.metaTiles.append(metaTileItem)
-            painter.end()
             tile_index = 0
             metaTile_index += 1
+        painter.end()
         self.gfx_scene_tileset.fitInView()
 
     def initScreens(self):
@@ -3339,16 +3342,25 @@ class MainWindow(QtWidgets.QMainWindow):
         print(f"pal offset: {file.pal_offset_rom:02X}")
         print(f"leveldata size: {len(file.data[file.level_offset_rom:file.gfx_offset_rom])}")
         try:
+            #gfx_sec = lib.graphic.GraphicSection(ndspy.lz10.decompress(file.data[file.gfx_offset_rom:file.pal_offset_rom]))
+            #gfx = gfx_sec.graphics[0]
             gfx = lib.graphic.GraphicHeader(ndspy.lz10.decompress(file.data[file.gfx_offset_rom:file.pal_offset_rom]), file.gfx_offset_rom, file.pal_offset_rom)
         except TypeError:
-            print("no compressed graphics found")
-            gfx = lib.graphic.GraphicHeader(file.data[file.gfx_offset_rom:file.pal_offset_rom], file.gfx_offset_rom, file.pal_offset_rom)
-            return
+            print("Animated graphics found?")
+            #gfx_sec = lib.graphic.GraphicSection(file.data[file.gfx_offset_rom:file.pal_offset_rom])
+            gfx_pointer = int.from_bytes(file.data[file.gfx_offset_rom:file.gfx_offset_rom+0x04], 'little')
+            gfx = lib.graphic.GraphicHeader(ndspy.lz10.decompress(file.data[file.gfx_offset_rom+gfx_pointer:file.pal_offset_rom]), file.gfx_offset_rom+gfx_pointer, file.pal_offset_rom)
         pal_sec = lib.level.PaletteSection(file.data[file.pal_offset_rom:])
-        pal = lib.datconv.BGR15_to_ARGB32(pal_sec.data[pal_sec.palettes[0].palOffset:pal_sec.palettes[0].palOffset+pal_sec.palettes[0].palSize])
-        if len(file.level.metaTiles) > 500:
-            print("too many tiles to load (will take too much time)")
-            return
+        pal_id = 0
+        if not pal_sec.animated:
+            pal = lib.datconv.BGR15_to_ARGB32(pal_sec.data[pal_sec.palettes[pal_id].palOffset:pal_sec.palettes[pal_id].palOffset+pal_sec.palettes[pal_id].palSize])
+        else:
+            #pal_id = 0
+            # if palette is smaller, errors will cause lag
+            pal = lib.datconv.BGR15_to_ARGB32(pal_sec.data[pal_sec.palettes_offset:pal_sec.palettes_offset+0x200])
+            #pal = self.GFX_PALETTES[3] # use a palette that allows you to see gfx well for now
+        #print(gfx.gfx_offset)
+        #self.loadTileset(gfx_sec.data[gfx.offset_start+gfx.gfx_offset:], pal)
         self.loadTileset(gfx.data[gfx.gfx_offset:], pal)
         self.gfx_scene_level.scene().clear()
         self.initScreens()

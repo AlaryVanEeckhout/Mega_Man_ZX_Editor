@@ -1,5 +1,6 @@
 from lib import common
 import bisect
+import ndspy.lz10
 
 class File(common.File):
     def __init__(self, *args, **kwargs):
@@ -16,6 +17,7 @@ class GraphicSection:
             self.offset_start = start # relative to file
             self.offset_end = end
         self.header_size = int.from_bytes(self.data[0x00:0x04], byteorder='little')
+        #print(f"header size: {self.header_size}")
         self.entryCount = self.header_size//0x14
         self.graphics: list[GraphicHeader] = []
         if self.entryCount > 10000:
