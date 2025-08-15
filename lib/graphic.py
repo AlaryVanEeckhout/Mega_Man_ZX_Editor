@@ -30,10 +30,10 @@ class GraphicSection:
     def fromParent(file: File, index: int):
         #print(f"index: {index}")
         assert index >= 0
-        offset_start = file.address_list[index]
-        indexAdd = bisect.bisect_left(file.address_list[index:], offset_start+1)
+        offset_start = file.address_list[index][0]
+        indexAdd = bisect.bisect_left([addr[0] for addr in file.address_list[index:]], offset_start+1)
         if index < len(file.address_list)-indexAdd:
-            offset_end = file.address_list[index+indexAdd] #hmm... how to deal with duplicate addresses?
+            offset_end = file.address_list[index+indexAdd][0] #hmm... how to deal with duplicate addresses?
             #print(f"{offset_start} : {file.address_list[bisect.bisect_left(file.address_list, offset_start+1)]}")
         else:
             offset_end = file.fileSize

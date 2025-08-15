@@ -5,20 +5,39 @@ import ndspy.lz10
 class File(common.File):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.level_offset_rom = self.address_list[0] & 0x00FFFFFF
-        self.level_offset_indicator = self.address_list[0] & 0xFF000000 # compression indicator
-        self.gfx_offset_rom = self.address_list[1] & 0x00FFFFFF
-        self.gfx_offset_indicator = self.address_list[1] & 0xFF000000
-        self.pal_offset_rom = self.address_list[2] & 0x00FFFFFF
-        self.pal_offset_indicator = self.address_list[2] & 0xFF000000
-        self.level = Level(self.data[self.level_offset_rom:self.gfx_offset_rom], self.level_offset_indicator == 0x80000000)
+        self.level_offset_rom = self.address_list[0][0]
+        self.level_offset_attr = self.address_list[0][1] # compression indicator
+        self.gfx_offset_rom = self.address_list[1][0]
+        self.gfx_offset_attr = self.address_list[1][1]
+        self.pal_offset_rom = self.address_list[2][0]
+        self.pal_offset_attr = self.address_list[2][1]
+        self.level = Level(self.data[self.level_offset_rom:self.gfx_offset_rom], self.level_offset_attr == 0x80)
+        self.levels = [self.level]
+        if self.entryCount == 7:
+            # Model PX and LX scanner map data
+            self.level_radar = Level(self.data[self.address_list[6][0]:], self.address_list[6][1] == 0x80)
+            self.levels.append(self.level_radar)
+            
 
     def headerToBytes(self):
         self.data = bytearray()
         self.data += int.to_bytes(self.entryCount, 4, 'little')
-        self.data += int.to_bytes(self.level_offset_rom + self.level_offset_indicator, 4, 'little')
-        self.data += int.to_bytes(self.gfx_offset_rom + self.gfx_offset_indicator, 4, 'little')
-        self.data += int.to_bytes(self.pal_offset_rom + self.pal_offset_indicator, 4, 'little')
+        self.data += int.to_bytes(self.level_offset_rom, 3, 'little')
+        self.data += int.to_bytes(self.level_offset_attr, 1, 'little')
+        self.data += int.to_bytes(self.gfx_offset_rom, 3, 'little')
+        self.data += int.to_bytes(self.gfx_offset_attr, 1, 'little')
+        self.data += int.to_bytes(self.pal_offset_rom, 3, 'little')
+        self.data += int.to_bytes(self.pal_offset_attr, 1, 'little')
+        if self.entryCount == 7:
+            # placeholder for when the pointers will have unique variable names
+            self.data += int.to_bytes(self.address_list[3][0], 3, 'little')
+            self.data += int.to_bytes(self.address_list[3][1], 1, 'little')
+            self.data += int.to_bytes(self.address_list[4][0], 3, 'little')
+            self.data += int.to_bytes(self.address_list[4][1], 1, 'little')
+            self.data += int.to_bytes(self.address_list[5][0], 3, 'little')
+            self.data += int.to_bytes(self.address_list[5][1], 1, 'little')
+            self.data += int.to_bytes(self.address_list[6][0], 3, 'little')
+            self.data += int.to_bytes(self.address_list[6][1], 1, 'little')
         self.data += int.to_bytes(self.fileSize, 4, 'little')
         return bytes(self.data)
 
@@ -69,7 +88,7 @@ class PaletteSection:
         self.animated = False
         try:
             self.data = ndspy.lz10.decompress(data)
-        except TypeError:
+        except Exception:
             print("Animated palette?")
             self.data = data
             self.animated = True
@@ -82,8 +101,15 @@ class PaletteSection:
             self.paletteOffsets = []
             for i in range(self.palCount):
                 self.paletteOffsets.append(int.from_bytes(self.data[0x04+i*0x04:0x08+i*0x04], 'little'))
-                self.palettes.append(PaletteHeader(self.data[self.paletteOffsets[i]:self.paletteOffsets[i]+0x18]))
-            self.palettes_offset = self.paletteOffsets[-1]+0x18+0x4
+            if self.palCount > 1:
+                self.palOff_delta = self.paletteOffsets[1] - self.paletteOffsets[0]
+            else:
+                self.palOff_delta = 0x18
+            for i in range(self.palCount):
+                # idk how to read this data properly
+                self.palettes.append(PaletteHeader(self.data[self.paletteOffsets[i]:self.paletteOffsets[i+1] if i+1<self.palCount else -1]))
+            # shortcut to get to 1st palette
+            self.palettes_offset = self.paletteOffsets[0]+int.from_bytes(self.data[self.paletteOffsets[0]+0x08:self.paletteOffsets[0]+0x0C], 'little')
         else:
             for i in range(self.palCount):
                 self.palettes.append(PaletteHeader(self.data[0x04+i*0x18:i*0x18+0x1C]))

@@ -11,10 +11,10 @@ class File(common.File):
 
 class OAMSection:
     def __init__(self, file: File, index: int):
-        self.offset_start = file.address_list[index]
-        indexAdd = bisect.bisect_left(file.address_list[index:], self.offset_start+1)
+        self.offset_start = file.address_list[index][0]
+        indexAdd = bisect.bisect_left([addr[0] for addr in file.address_list[index:]], self.offset_start+1)
         if index < len(file.address_list)-indexAdd:
-            self.offset_end = file.address_list[index+indexAdd]
+            self.offset_end = file.address_list[index+indexAdd][0]
         else:
             self.offset_end = file.fileSize
 
