@@ -13,7 +13,7 @@ import ndspy.soundSequenceArchive
 import lib
 #Global variables
 global EDITOR_VERSION
-EDITOR_VERSION = "0.4.3" # objective, feature, WIP
+EDITOR_VERSION = "0.4.4" # objective, feature, WIP
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-R", "--ROM", help="NDS ROM to open using the editor.", dest="openPath")
@@ -292,14 +292,16 @@ class LevelView(View):
     def tileDraw(self, event: QtGui.QMouseEvent):
         if self.mousePressed and len(w.gfx_scene_tileset.scene().selectedItems()) > 0:
             sItem_event = w.gfx_scene_tileset.item_first
+            #QtGui.QPixmap().width()
             for sItem in w.gfx_scene_tileset.scene().selectedItems():
                 sItem_delta = sItem.pos().toPoint()-sItem_event.pos().toPoint()
                 sItem_delta_spacing = QtCore.QPoint(sItem_delta.x()//16, sItem_delta.y()//16)
-                item_target = self.itemAt(event.pos()+sItem_delta-sItem_delta_spacing)
+                sItem_delta_transformed = (sItem_delta-sItem_delta_spacing)*w.gfx_scene_level.transform().m11()
+                item_target = self.itemAt(event.pos()+sItem_delta_transformed)
                 if isinstance(item_target, LevelTileItem):
-                    w.levelEdited_object.levels[self.dropdown_level_type.currentIndex()].screens[item_target.screen][item_target.index] = item_target.id
                     for item in item_target.tileGroup:
                         item.tileReplace(sItem)
+                    w.levelEdited_object.levels[w.dropdown_level_type.currentIndex()].screens[item_target.screen][item_target.index] = item_target.id
 
 class TilesetItem(QtWidgets.QGraphicsPixmapItem):
     def __init__(self, *args, **kwargs):
@@ -717,7 +719,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                                   \rWIP ({EDITOR_VERSION.split('.')[2]}):
                                                   \r- Sound data editor
                                                   \r- VX file editor
-                                                  \r- OAM editor""")
+                                                  \r- OAM editor
+                                                  \r- Level editor""")
             #firstLaunch_dialog.setDetailedText("abc")
             firstLaunch_dialog.exec()
 
@@ -1789,10 +1792,27 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_level_area = QtWidgets.QComboBox(self.page_leveleditor)
         self.dropdown_level_area.setToolTip("Choose an area to modify")
         self.dropdown_level_area.currentIndexChanged.connect(self.loadLevel)
+        self.dropdown_level_area.setDisabled(True)
 
         self.dropdown_level_type = QtWidgets.QComboBox(self.page_leveleditor)
         self.dropdown_level_type.setToolTip("Choose between normal level and scanner map (if applicable)")
         self.dropdown_level_type.currentIndexChanged.connect(self.loadLevel)
+        self.dropdown_level_type.setDisabled(True)
+
+        self.radio_radar_LX = QtWidgets.QRadioButton(self.page_leveleditor)
+        self.radio_radar_LX.setText("Model LX")
+        self.radio_radar_PX = QtWidgets.QRadioButton(self.page_leveleditor)
+        self.radio_radar_PX.setText("Model PX")
+        self.buttonGroup_radar_tilesetType = QtWidgets.QButtonGroup()
+        self.buttonGroup_radar_tilesetType.addButton(self.radio_radar_LX, 2) # rindex to getData
+        self.buttonGroup_radar_tilesetType.addButton(self.radio_radar_PX, 1)
+        self.buttonGroup_radar_tilesetType.idReleased.connect(self.loadLevel)
+        self.group_radar_tilesetType = QtWidgets.QGroupBox(self.page_leveleditor)
+        self.group_radar_tilesetType.setTitle("Radar mode")
+        self.group_radar_tilesetType.setLayout(QtWidgets.QVBoxLayout())
+        self.group_radar_tilesetType.layout().addWidget(self.radio_radar_LX)
+        self.group_radar_tilesetType.layout().addWidget(self.radio_radar_PX)
+        self.group_radar_tilesetType.setDisabled(True)
 
         self.dropdown_metaTile_collisionShape = QtWidgets.QComboBox(self.page_leveleditor)
         self.dropdown_metaTile_collisionShape.setToolTip("Choose collision geometry to apply")
@@ -1900,6 +1920,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_level_area = QtWidgets.QHBoxLayout()
         self.layout_level_area.addWidget(self.dropdown_level_area)
         self.layout_level_area.addWidget(self.dropdown_level_type)
+        self.layout_level_area.addWidget(self.group_radar_tilesetType)
 
         self.layout_metaTile_collision = QtWidgets.QHBoxLayout()
         self.layout_metaTile_collision.addItem(self.layout_metaTile_shape)
@@ -2252,6 +2273,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_file_size.show()
         self.dropdown_level_area.blockSignals(True)
         self.dropdown_level_area.addItems([item.text(1) for item in self.tree.findItems("^[a-z][0-9][0-9]", QtCore.Qt.MatchFlag.MatchRegularExpression, 1)])
+        for i in range(self.layout_level_area.count()):
+            self.layout_level_area.itemAt(i).widget().setEnabled(True)
         for w in self.findChildren(QtWidgets.QWidget):
             w.blockSignals(False)
 
@@ -2266,11 +2289,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_tweak_target.hide()
         self.field_address.hide()
         self.label_file_size.hide()
+        for i in range(self.layout_level_area.count()):
+            self.layout_level_area.itemAt(i).widget().setEnabled(False)
         for w in self.findChildren(QtWidgets.QWidget):
             w.blockSignals(True)
         self.gfx_scene_level.scene().clear()
         self.gfx_scene_tileset.scene().clear()
         self.dropdown_level_area.clear()
+        self.dropdown_level_type.clear()
 
     def exportCall(self, item: QtWidgets.QTreeWidgetItem):
         dialog = QtWidgets.QFileDialog(
@@ -3394,6 +3420,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.levelEdited_object = lib.level.File(self.rom.files[fileID])
         file = self.levelEdited_object
         if self.sender() == self.dropdown_level_area:
+            self.buttonGroup_radar_tilesetType.blockSignals(True)
+            self.radio_radar_PX.setChecked(True)
+            self.buttonGroup_radar_tilesetType.blockSignals(False)
             self.dropdown_level_type.blockSignals(True)
             self.dropdown_level_type.clear()
             self.dropdown_level_type.addItem("Normal Level")
@@ -3401,29 +3430,24 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.dropdown_level_type.addItem("Radar Level")
             self.dropdown_level_type.setCurrentIndex(0)
             self.dropdown_level_type.blockSignals(False)
+        self.group_radar_tilesetType.setEnabled(self.dropdown_level_type.currentIndex() == 1)
         level = file.levels[self.dropdown_level_type.currentIndex()]
         print(f"level offset: {file.level_offset_rom:02X}")
         print(f"gfx offset: {file.gfx_offset_rom:02X}")
         print(f"pal offset: {file.pal_offset_rom:02X}")
         print(f"leveldata size: {len(file.data[file.level_offset_rom:file.gfx_offset_rom])}")
         if level == file.level:
-            try:
-                #gfx_sec = lib.graphic.GraphicSection(ndspy.lz10.decompress(file.data[file.gfx_offset_rom:file.pal_offset_rom]))
-                #gfx = gfx_sec.graphics[0]
+            if file.gfx_offset_attr == 0x80: # if compressed
                 gfx_data = ndspy.lz10.decompress(file.data[file.gfx_offset_rom:file.pal_offset_rom])
-                try:
-                    # should make a class to handle that data programmatically
-                    gfx0_pointer = int.from_bytes(gfx_data[0x00:0x04], 'little')
-                    gfx1_pointer = 0xC+int.from_bytes(gfx_data[0x0C:0x0F], 'little')
-                    gfx = lib.graphic.GraphicHeader(ndspy.lz10.decompress(gfx_data[gfx0_pointer:gfx1_pointer])+gfx_data[gfx1_pointer:], file.gfx_offset_rom, file.gfx_offset_rom)
-                except TypeError:
-                    print("gfx section not compressed")
-                    gfx = lib.graphic.GraphicHeader(gfx_data, file.gfx_offset_rom, file.gfx_offset_rom)
-            except TypeError:
-                print("Animated graphics found?")
-                #gfx_sec = lib.graphic.GraphicSection(file.data[file.gfx_offset_rom:file.pal_offset_rom])
-                gfx_pointer = int.from_bytes(file.data[file.gfx_offset_rom:file.gfx_offset_rom+0x04], 'little')
-                gfx = lib.graphic.GraphicHeader(ndspy.lz10.decompress(file.data[file.gfx_offset_rom+gfx_pointer:file.pal_offset_rom]), file.gfx_offset_rom+gfx_pointer, file.pal_offset_rom)
+            else:
+                gfx_data = file.data[file.gfx_offset_rom:file.pal_offset_rom]
+            try:
+                gfx_table = lib.graphic.GraphicsTable(gfx_data, file.gfx_offset_rom, file.pal_offset_rom)
+                gfx = lib.graphic.GraphicHeader(gfx_table.joinData(), file.gfx_offset_rom, file.pal_offset_rom)
+            except AssertionError:
+                print("No gfx table")
+                gfx = lib.graphic.GraphicHeader(gfx_data, file.gfx_offset_rom, file.pal_offset_rom)
+
             pal_sec = lib.level.PaletteSection(file.data[file.pal_offset_rom:])
             pal_id = 0
             if not pal_sec.animated:
@@ -3434,13 +3458,24 @@ class MainWindow(QtWidgets.QMainWindow):
                 pal = lib.datconv.BGR15_to_ARGB32(pal_sec.data[pal_sec.palettes_offset:pal_sec.palettes_offset+0x200])
                 #pal = self.GFX_PALETTES[3] # use a palette that allows you to see gfx well
         elif level == file.level_radar:
-            file_radar = self.rom.files[self.rom.filenames.idOf("elf_usa.bin")]
-            pointergfx = int.from_bytes(file_radar[0x04:0x08], 'little')
-            pointerpal = int.from_bytes(file_radar[0x08:0x0C], 'little')
-            gfx0_pointer = pointergfx+int.from_bytes(file_radar[pointergfx:pointergfx+0x04], 'little')
-            gfx1_pointer = pointergfx+0x0C+int.from_bytes(file_radar[pointergfx+0x0C:pointergfx+0x10], 'little')
-            # compressed part has redundant tiles at the end and uncompressed part has unused (?) tiles at the start
-            gfx = lib.graphic.GraphicHeader(ndspy.lz10.decompress(file_radar[gfx0_pointer:gfx1_pointer])[:-0x200]+file_radar[gfx1_pointer:pointerpal][0x640:], gfx0_pointer, pointerpal)
+            if self.rom.filenames.idOf("elf_usa.bin") != None:
+                file_radar = self.rom.files[self.rom.filenames.idOf("elf_usa.bin")]
+                pointergfx = int.from_bytes(file_radar[0x04:0x08], 'little')
+                pointerpal = int.from_bytes(file_radar[0x08:0x0C], 'little')
+                gfx_table = lib.graphic.GraphicsTable(file_radar[pointergfx:], pointergfx, pointerpal)
+                # compressed part has redundant tiles at the end
+                gfx = lib.graphic.GraphicHeader(
+                    ndspy.lz10.decompress(gfx_table.getData(0))[:-0x200]+gfx_table.getData(gfx_table.offsetCount-self.buttonGroup_radar_tilesetType.checkedId()),
+                      gfx_table.getAddr(0), pointerpal)
+            else:
+                file_radar = self.rom.files[self.rom.filenames.idOf("ls_map_def.bin")]
+                pointergfx = int.from_bytes(file_radar[0x04:0x08], 'little')
+                pointerpal = int.from_bytes(file_radar[0x08:0x0C], 'little')
+                gfx_table = lib.graphic.GraphicsTable(file_radar[pointergfx:], pointergfx, pointerpal)
+                gfx = lib.graphic.GraphicHeader(
+                    gfx_table.getData(0)[:-0x480]+gfx_table.getData(gfx_table.offsetCount-self.buttonGroup_radar_tilesetType.checkedId())[0x240:],
+                      gfx_table.getAddr(0), pointerpal)
+                #gfx = lib.graphic.GraphicHeader(file_radar[pointergfx:], pointergfx, len(file_radar))
             pal_sec = lib.level.PaletteSection(file_radar[pointerpal:])
             pal = lib.datconv.BGR15_to_ARGB32(pal_sec.data[pal_sec.palettes_offset:pal_sec.palettes_offset+0x200])
         else:
@@ -3453,7 +3488,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.initScreens()
         for i in range(len(level.screens)):
             self.loadScreen(i, i*16*17)
-        self.gfx_scene_level.fitInView()
+        if self.sender() != self.buttonGroup_radar_tilesetType:
+            self.gfx_scene_level.fitInView()
 
     def treeBaseUpdate(self, tree: EditorTree):
         for e in tree.findItems("", QtCore.Qt.MatchFlag.MatchContains | QtCore.Qt.MatchFlag.MatchRecursive):
@@ -3631,7 +3667,8 @@ class MainWindow(QtWidgets.QMainWindow):
     
     def save_level(self):
         self.button_level_save.setDisabled(True)
-        level = self.levelEdited_object.levels[self.dropdown_level_type.currentIndex()]
+        level = self.levelEdited_object.level
+        level_radar = self.levelEdited_object.level_radar
         # cycle through unique tiles and save them
         #print(len([group[0] for screen in self.gfx_scene_level.tileGroups for group in screen if group != []]))
         #for metaTile in [group[0] for screen in self.gfx_scene_level.tileGroups for group in screen if group != []]:
@@ -3643,7 +3680,6 @@ class MainWindow(QtWidgets.QMainWindow):
         gfx_bin = self.levelEdited_object.data[self.levelEdited_object.gfx_offset_rom:self.levelEdited_object.pal_offset_rom]
         gfx_bin += bytearray((-len(gfx_bin)) & 3)
         if self.levelEdited_object.entryCount == 7:
-            print("attempt")
             pal_bin = self.levelEdited_object.data[self.levelEdited_object.pal_offset_rom:self.levelEdited_object.address_list[3][0]]
             pal_bin += bytearray((-len(pal_bin)) & 3)
             bin_03 = self.levelEdited_object.data[self.levelEdited_object.address_list[3][0]:self.levelEdited_object.address_list[4][0]]
@@ -3652,7 +3688,7 @@ class MainWindow(QtWidgets.QMainWindow):
             bin_04 += bytearray((-len(bin_04)) & 3)
             bin_05 = self.levelEdited_object.data[self.levelEdited_object.address_list[5][0]:self.levelEdited_object.address_list[6][0]]
             bin_05 += bytearray((-len(bin_05)) & 3)
-            bin_06 = self.levelEdited_object.data[self.levelEdited_object.address_list[6][0]:]
+            bin_06 = bytearray(level_radar.toBytes())
             bin_06 += bytearray((-len(bin_06)) & 3)
 
         if self.levelEdited_object.entryCount == 7:

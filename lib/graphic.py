@@ -5,6 +5,55 @@ import ndspy.lz10
 class File(common.File):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # this may not apply to all files
+        self.offset_table = self.address_list[0][0]
+        self.offset_palette = self.address_list[1][0]
+        if self.entryCount == 6:
+            self.offset_unk2 = self.address_list[2][0]
+            self.offset_unk3 = self.address_list[3][0]
+            self.offset_extraGfx = self.address_list[4][0]
+
+class GraphicsTable: # possibly the same data structure as what I identified as GraphicsSection?
+    def __init__(self, data: bytes, start:int=0, end:int|None=None):
+        self.ENTRY_SIZE = 0x14
+        if end == None:
+            end = len(data)
+        self.offset_start = start
+        self.offset_end = end
+        self.data = data
+        self.table_size = int.from_bytes(self.data[0x00:0x04], 'little')
+        assert self.table_size % self.ENTRY_SIZE == 0 and self.table_size > self.ENTRY_SIZE
+        self.offsetCount = self.table_size//self.ENTRY_SIZE
+        self.offset_list = []
+        for i in range(0, self.table_size, self.ENTRY_SIZE):
+            self.offset_list.append([ # might be GraphicsHeader?
+                int.from_bytes(self.data[i:i+0x04], 'little'),
+                int.from_bytes(self.data[i+0x04:i+0x08], 'little'),
+                int.from_bytes(self.data[i+0x08:i+0x0C], 'little'),
+                int.from_bytes(self.data[i+0x0C:i+0x10], 'little')])
+            
+    def getAddrOffset(self, index:int):
+        return self.offset_start+index*self.ENTRY_SIZE
+    
+    def getAddr(self, index:int):
+        return self.getAddrOffset(index)+self.offset_list[index][0]
+    
+    def getAddrEnd(self, index:int):
+        return self.getAddrOffset(index)+self.offset_list[index][3]+0x0C
+    
+    def getData(self, index:int):
+        return self.data[self.getAddr(index)-self.offset_start:self.getAddrEnd(index)-self.offset_start]
+    
+    def joinData(self, index_start:int=0, index_end:int|None=None):
+        if index_end == None:
+            index_end = self.offsetCount-1
+        result = bytearray()
+        for i in range(index_start, index_end):
+            try:
+                result += ndspy.lz10.decompress(self.getData(i))
+            except Exception:
+                result += self.getData(i)
+        return result
 
 class GraphicSection:
     def __init__(self, data: bytes, start: int|None=None, end: int|None=None):
@@ -40,7 +89,10 @@ class GraphicSection:
         return GraphicSection(file.data[offset_start:offset_end], offset_start, offset_end)
     
 class GraphicHeader:
-    def __init__(self, data: bytes, start: int, end: int):
+    def __init__(self, data: bytes, start: int|None=None, end: int|None=None):
+        if None in [start, end]:
+            start = 0
+            end = len(data)
         self.SIZE = 0x14
         self.data = data
         self.offset_start = start # relative to file
