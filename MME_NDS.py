@@ -3668,11 +3668,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def save_level(self):
         self.button_level_save.setDisabled(True)
         level = self.levelEdited_object.level
-        level_radar = self.levelEdited_object.level_radar
-        # cycle through unique tiles and save them
-        #print(len([group[0] for screen in self.gfx_scene_level.tileGroups for group in screen if group != []]))
-        #for metaTile in [group[0] for screen in self.gfx_scene_level.tileGroups for group in screen if group != []]:
-        #    level.screens[metaTile.screen][metaTile.index] = metaTile.id
+        
         # find level file in rom
         fileID = self.rom.filenames.idOf(self.dropdown_level_area.currentText()+".bin")
         level_bin = bytearray(level.toBytes())
@@ -3680,6 +3676,7 @@ class MainWindow(QtWidgets.QMainWindow):
         gfx_bin = self.levelEdited_object.data[self.levelEdited_object.gfx_offset_rom:self.levelEdited_object.pal_offset_rom]
         gfx_bin += bytearray((-len(gfx_bin)) & 3)
         if self.levelEdited_object.entryCount == 7:
+            level_radar = self.levelEdited_object.level_radar
             pal_bin = self.levelEdited_object.data[self.levelEdited_object.pal_offset_rom:self.levelEdited_object.address_list[3][0]]
             pal_bin += bytearray((-len(pal_bin)) & 3)
             bin_03 = self.levelEdited_object.data[self.levelEdited_object.address_list[3][0]:self.levelEdited_object.address_list[4][0]]
