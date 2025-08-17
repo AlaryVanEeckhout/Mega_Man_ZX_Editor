@@ -153,7 +153,7 @@ class CompressionAlgorithmEnum(enum.Enum):
   EIGHTBPP = enum.auto(), 8
 
 def BGR15_to_ARGB32(bgr15_palette: bytes):
-    argb32_palette = []
+    argb32_palette: list[int] = []
     for i in range(0, len(bgr15_palette), 2):
         bgr15_color = int.from_bytes(bgr15_palette[i:i+2], byteorder='little')
         #print(f"{bgr15_color:04X}")

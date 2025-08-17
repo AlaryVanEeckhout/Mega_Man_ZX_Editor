@@ -1416,6 +1416,23 @@ class MainWindow(QtWidgets.QMainWindow):
         self.page_oam_frames.layout().addWidget(self.field_objX, 5, 0)
         self.page_oam_frames.layout().addWidget(self.field_objY, 5, 1, 1, 2)
 
+        #Palette Animation
+        self.dropdown_panm_entry = QtWidgets.QComboBox(self.page_explorer)
+        self.dropdown_panm_entry.setPlaceholderText("no animations")
+        self.dropdown_panm_entry.setToolTip("Choose palette animation")
+        self.dropdown_panm_entry.setStatusTip("Palette animations for mavericks. 0=evil; 1=patrol; 2=alert")
+        self.dropdown_panm_entry.currentIndexChanged.connect(lambda: self.treeCall(addr_disabled=True))
+        self.dropdown_panm_entry.hide()
+
+        self.dropdown_panm_frame = QtWidgets.QComboBox(self.page_explorer)
+        self.dropdown_panm_frame.setPlaceholderText("no frames")
+        self.dropdown_panm_frame.setToolTip("Choose animation frame")
+        self.dropdown_panm_frame.setStatusTip("Each frame overwrites two colors from a 16-color palette")
+        self.dropdown_panm_frame.currentIndexChanged.connect(lambda: self.treeCall(addr_disabled=True))
+        self.dropdown_panm_frame.hide()
+
+        self.layout_panm = QtWidgets.QVBoxLayout()
+
         #Font
         self.field_font_size = BetterSpinBox(self.page_explorer)
         self.field_font_size.setFont(self.font_caps)
@@ -1487,6 +1504,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_editzone_row1.addItem(self.layout_colorpick)
         self.layout_editzone_row1.addItem(self.layout_gfx_settings)
         self.layout_editzone_row1.addItem(self.layout_oam_navigation)
+        self.layout_editzone_row1.addWidget(self.dropdown_panm_entry)
+        self.layout_editzone_row1.addWidget(self.dropdown_panm_frame)
 
         self.layout_editzone_row2.addItem(self.layout_font_size)
         self.layout_editzone_row2.addItem(self.layout_font_width)
@@ -1733,6 +1752,26 @@ class MainWindow(QtWidgets.QMainWindow):
             self.tabs_oam,
             self.dropdown_oam_entry
             ]
+        self.WIDGETS_PANM: list[QtWidgets.QWidget] = [
+            self.dropdown_panm_entry,
+            self.dropdown_panm_frame,
+            self.button_palettepick_0,
+            self.button_palettepick_1,
+            self.button_palettepick_2,
+            self.button_palettepick_3,
+            self.button_palettepick_4,
+            self.button_palettepick_5,
+            self.button_palettepick_6,
+            self.button_palettepick_7,
+            self.button_palettepick_8,
+            self.button_palettepick_9,
+            self.button_palettepick_10,
+            self.button_palettepick_11,
+            self.button_palettepick_12,
+            self.button_palettepick_13,
+            self.button_palettepick_14,
+            self.button_palettepick_15
+        ]
         self.WIDGETS_FONT: list[QtWidgets.QWidget] = [
             self.file_content_gfx,
             self.field_tiles_per_row,
@@ -2958,27 +2997,30 @@ class MainWindow(QtWidgets.QMainWindow):
                             elif self.rom.name.decode() == "MEGAMANZXA" or self.rom.name.decode() == "ROCKMANZXA":
                                 indicator_list_gfx.extend(["cmm_frame_fnt", "cmm_mega_s", "cmm_rock_s", "ls_", "sub_db", "sub_oth"])
                             
+                            self.fileDisplayState = "None"
                             if current_ext == "vx":
                                 self.fileDisplayState = "VX"
                             elif current_ext == "sdat":
                                 self.fileDisplayState = "Sound"
-                            elif "font" in current_name:
-                                self.fileDisplayState = "Font"
-                            elif ("talk" in current_name or "m_" in current_name):
-                                if "en" in current_name:
-                                    self.fileDisplayState = "English dialogue"
-                                elif "jp" in current_name:
-                                    self.fileDisplayState = "Japanese dialogue"
-                            elif current_ext == "bin" and any(indicator in current_name for indicator in indicator_list_gfx):
-                                self.fileDisplayState = "Graphics"
-                            elif current_ext == "bin" and any(indicator.replace("fnt", "dat") in current_name for indicator in indicator_list_gfx):
-                                self.fileDisplayState = "OAM"
-                            else:
-                                self.fileDisplayState = "None"
+                            elif current_ext == "bin":
+                                if "font" in current_name:
+                                    self.fileDisplayState = "Font"
+                                elif ("talk" in current_name or "m_" in current_name):
+                                    if "en" in current_name:
+                                        self.fileDisplayState = "English dialogue"
+                                    elif "jp" in current_name:
+                                        self.fileDisplayState = "Japanese dialogue"
+                                elif any(indicator in current_name for indicator in indicator_list_gfx):
+                                    self.fileDisplayState = "Graphics"
+                                elif any(indicator.replace("fnt", "dat") in current_name for indicator in indicator_list_gfx):
+                                    self.fileDisplayState = "OAM"
+                                elif "panm" in current_name:
+                                    self.fileDisplayState = "Palette Animation"
+                                
                     else:
                         self.fileDisplayState = self.fileDisplayMode
 
-                    if self.fileDisplayState == "English dialogue": # if english text
+                    if self.fileDisplayState == "English dialogue":
                         self.widget_set = "Text"
                         if sender in self.FILEOPEN_WIDGETS:
                             self.dropdown_textindex.setEnabled(True)
@@ -3015,7 +3057,8 @@ class MainWindow(QtWidgets.QMainWindow):
                             self.file_content_text.setReadOnly(True)
                     elif self.fileDisplayState == "Graphics":
                         self.widget_set = "Graphics"
-                        if sender in self.FILEOPEN_WIDGETS: # reset from viewing font
+                        if sender in self.FILEOPEN_WIDGETS:
+                            # reset from viewing font
                             self.tile_width = self.field_tile_width.value()
                             self.tile_height = self.field_tile_height.value()
                             if current_name == "face": # for convenience
@@ -3115,7 +3158,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                     self.dropdown_oam_objFrame.addItem(f"frame {i}")
                                 self.dropdown_oam_objFrame.setCurrentIndex(0)
                         if sender in [self.dropdown_oam_entry, self.dropdown_oam_anim, *self.FILEOPEN_WIDGETS]:
-                            self.fileEdited_object.oamsec_anim = lib.oam.Animation(self.fileEdited_object.oamsec, self.dropdown_oam_anim.currentIndex())
+                            self.fileEdited_object.oamsec_anim = lib.oam.Animation.fromParent(self.fileEdited_object.oamsec, self.dropdown_oam_anim.currentIndex())
                             self.checkbox_oam_animLoop.setChecked(self.fileEdited_object.oamsec_anim.isLooping)
                             self.field_oam_animLoopStart.setEnabled(self.fileEdited_object.oamsec_anim.isLooping)
                             self.button_oam_animPlay.autoPause()
@@ -3220,9 +3263,28 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.field_objY.setValue(obj.y)
                         else:
                             print("empty frame!")
+                    elif self.fileDisplayState == "Palette Animation":
+                        self.widget_set = "PAnm"
+                        if sender in self.FILEOPEN_WIDGETS:
+                            self.fileEdited_object = lib.panim.File(self.rom.files[current_id])
+                            self.dropdown_gfx_depth.setCurrentIndex(1)
+                            self.dropdown_panm_entry.clear()
+                            for i in range(self.fileEdited_object.animCount):
+                                self.dropdown_panm_entry.addItem("palette animation "+str(i))
+                            self.dropdown_panm_entry.setCurrentIndex(0)
+                        if sender in [self.dropdown_panm_entry, *self.FILEOPEN_WIDGETS]:
+                            self.dropdown_panm_frame.clear()
+                            for i in range(len(self.fileEdited_object.anims[self.dropdown_panm_entry.currentIndex()].frames)-1):
+                                self.dropdown_panm_frame.addItem("frame "+str(i))
+                            self.dropdown_panm_frame.setCurrentIndex(0)
+                            self.setPalette([color for group in self.fileEdited_object.palettes[self.dropdown_panm_entry.currentIndex()].colors for color in group])
+                        if sender in [self.dropdown_panm_frame, self.dropdown_panm_entry, *self.FILEOPEN_WIDGETS]:
+                            # load some graphic
+                            pass
                     elif self.fileDisplayState == "Font":
                         self.widget_set = "Font"
                         if sender in self.FILEOPEN_WIDGETS:
+                            self.dropdown_gfx_depth.setCurrentIndex(0)
                             self.fileEdited_object = lib.font.Font(self.rom.files[current_id])
                             self.relative_address = self.fileEdited_object.CHR_ADDRESS
                             self.field_font_size.setValue(self.fileEdited_object.file_size)
@@ -3238,9 +3300,8 @@ class MainWindow(QtWidgets.QMainWindow):
                         self.tile_height = self.field_font_height.value()
                         draw_tilesQImage_fromBytes(self.file_content_gfx,
                                                    self.rom.files[current_id][self.relative_address:self.relative_address+self.fileEdited_object.file_size],
-                                                   algorithm=lib.datconv.CompressionAlgorithmEnum.ONEBPP,
+                                                   algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
                                                    grid=True)
-
                     elif self.fileDisplayState == "Sound":
                         self.widget_set = "Empty" # placeholder
                         #self.widget_set = "Sound"
@@ -3536,9 +3597,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.treeCall()
 
     def file_editor_show(self, mode: str): # UiComponents
-        modes = ["Empty", "Hex", "Text", "Graphics", "OAM", "Font", "Sound", "VX"]
+        modes = ["Empty", "Hex", "Text", "Graphics", "OAM", "PAnm", "Font", "Sound", "VX"]
         # Associates each mode with a set of widgets to show or hide
-        widget_sets = [self.WIDGETS_EMPTY, self.WIDGETS_HEX, self.WIDGETS_TEXT, self.WIDGETS_GRAPHIC, self.WIDGETS_OAM, self.WIDGETS_FONT, self.WIDGETS_SOUND, self.WIDGETS_VX]
+        widget_sets = [self.WIDGETS_EMPTY, self.WIDGETS_HEX, self.WIDGETS_TEXT, self.WIDGETS_GRAPHIC, self.WIDGETS_OAM, self.WIDGETS_PANM, self.WIDGETS_FONT, self.WIDGETS_SOUND, self.WIDGETS_VX]
 
         mode_index = modes.index(mode)
         # Hide all widgets from other modes

@@ -46,16 +46,16 @@ class OAMSection:
             self.unkTable_offset = self.header_items[3]
 
 class Animation:
-    def __init__(self, oam: OAMSection, index: int):
-        self.index = index
+    def __init__(self, data: bytes, fStart: int):
+        self.data = data
         self.isLooping = False
         self.loopStart = 0
-        # relative to animation
-        self.frames_offset = int.from_bytes(oam.data[oam.animTable_offset+self.index*0x02:oam.animTable_offset+self.index*0x02+0x02], byteorder='little')
+        # relative to section
+        self.frames_offset = fStart
         self.frames = []
-        for i in range(oam.animTable_offset+self.frames_offset, oam.offset_end, 2):
-            fIndex = int.from_bytes(oam.data[i:i+0x01], byteorder='little')
-            fDuration = int.from_bytes(oam.data[i+0x01:i+0x02], byteorder='little')
+        for i in range(self.frames_offset, len(self.data), 2):
+            fIndex = int.from_bytes(self.data[i:i+0x01], byteorder='little')
+            fDuration = int.from_bytes(self.data[i+0x01:i+0x02], byteorder='little')
             if len(self.frames) > 0 and (fDuration in [0xFF, 0xFE]): # animation end marker
                 if fDuration == 0xFE:
                     self.isLooping = True
@@ -65,6 +65,10 @@ class Animation:
             else:
                 self.frames.append([fIndex, fDuration])
         print(self.frames)
+
+    def fromParent(oam: OAMSection, index: int):
+        frames_offset = oam.animTable_offset+int.from_bytes(oam.data[oam.animTable_offset+index*0x02:oam.animTable_offset+index*0x02+0x02], byteorder='little')
+        return Animation(oam.data, frames_offset)
     
     def toBytes(self):
         self.frames[-1] = [self.loopStart, 0xFE if self.isLooping else 0xFF]
