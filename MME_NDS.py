@@ -1,6 +1,7 @@
 from PyQt6 import QtGui, QtWidgets, QtCore#, QtMultimedia #Qt6, Qt6.qsci
 import sys, os, platform, re, math
 import argparse
+import bisect
 #import logging, time, random
 #import numpy
 import ndspy
@@ -1044,26 +1045,22 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_textindex.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Fixed)
         self.dropdown_textindex.previousIndex = self.dropdown_textindex.currentIndex()
         self.dropdown_textindex.currentIndexChanged.connect(lambda: self.treeCall())
-        self.dropdown_textindex.hide()
 
         self.checkbox_textoverwite = QtWidgets.QCheckBox("Overwite\n existing text", self.page_explorer)
         self.checkbox_textoverwite.setStatusTip("With this enabled, writing text won't change filesize")
         self.checkbox_textoverwite.clicked.connect(lambda: self.file_content_text.setOverwriteMode(not self.file_content_text.overwriteMode()))
-        self.checkbox_textoverwite.hide()
 
         self.layout_editzone_row1.addWidget(self.checkbox_textoverwite)
         self.layout_editzone_row1.addWidget(self.dropdown_textindex)
 
         self.file_content_gfx = GFXView(self.page_explorer)
         self.file_content_gfx.setSizePolicy(QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Expanding)
-        self.file_content_gfx.hide()
         self.file_content.addWidget(self.file_content_gfx)
         self.file_content.addWidget(self.file_content_text)
 
         self.dropdown_gfx_depth = QtWidgets.QComboBox(self.page_explorer)
         self.dropdown_gfx_depth.addItems(["1bpp", "4bpp", "8bpp"])# order of names is determined by the enum in dataconverter
         self.dropdown_gfx_depth.currentIndexChanged.connect(lambda: self.treeCall())# Update gfx with current depth
-        self.dropdown_gfx_depth.hide()
 
         self.font_caps = QtGui.QFont()
         self.font_caps.setCapitalization(QtGui.QFont.Capitalization.AllUppercase)
@@ -1095,11 +1092,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_tile_width.isInt = True
         self.field_tile_width.valueChanged.connect(lambda: self.value_update_Call("tile_width", int(self.field_tile_width.value()), True))
         self.field_tile_width.valueChanged.connect(self.file_content_gfx.fitInView)
-        self.field_tile_width.hide()
 
         self.label_tile_width = QtWidgets.QLabel(self.page_explorer)
         self.label_tile_width.setText(" width")
-        self.label_tile_width.hide()
 
         self.layout_tile_width = QtWidgets.QVBoxLayout()
         self.layout_tile_width.addWidget(self.field_tile_width)
@@ -1115,11 +1110,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_tile_height.isInt = True
         self.field_tile_height.valueChanged.connect(lambda: self.value_update_Call("tile_height", int(self.field_tile_height.value()), True)) 
         self.field_tile_height.valueChanged.connect(self.file_content_gfx.fitInView)
-        self.field_tile_height.hide()
 
         self.label_tile_height = QtWidgets.QLabel(self.page_explorer)
         self.label_tile_height.setText(" height")
-        self.label_tile_height.hide()
 
         self.layout_tile_height = QtWidgets.QVBoxLayout()
         self.layout_tile_height.addWidget(self.field_tile_height)
@@ -1136,11 +1129,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_tiles_per_row.numbase = self.displayBase
         self.field_tiles_per_row.valueChanged.connect(lambda: self.value_update_Call("tiles_per_row", int(self.field_tiles_per_row.value()), True))
         self.field_tiles_per_row.valueChanged.connect(self.file_content_gfx.fitInView)
-        self.field_tiles_per_row.hide()
 
         self.label_tiles_per_row = QtWidgets.QLabel(self.page_explorer)
         self.label_tiles_per_row.setText(" columns")
-        self.label_tiles_per_row.hide()
 
         self.layout_tiles_per_row = QtWidgets.QVBoxLayout()
         self.layout_tiles_per_row.addWidget(self.field_tiles_per_row)
@@ -1157,11 +1148,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_tiles_per_column.numbase = self.displayBase
         self.field_tiles_per_column.valueChanged.connect(lambda: self.value_update_Call("tiles_per_column", int(self.field_tiles_per_column.value()), True))
         self.field_tiles_per_column.valueChanged.connect(self.file_content_gfx.fitInView)
-        self.field_tiles_per_column.hide()
 
         self.label_tiles_per_column = QtWidgets.QLabel(self.page_explorer)
         self.label_tiles_per_column.setText(" rows")
-        self.label_tiles_per_column.hide()
 
         self.layout_tiles_per_column = QtWidgets.QVBoxLayout()
         self.layout_tiles_per_column.addWidget(self.field_tiles_per_column)
@@ -1179,23 +1168,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_gfx_index.setToolTip("Choose index")
         self.dropdown_gfx_index.setStatusTip("Select the object index to go to in gfx file")
         self.dropdown_gfx_index.currentIndexChanged.connect(lambda: self.treeCall())
-        self.dropdown_gfx_index.hide()
         self.dropdown_gfx_subindex = QtWidgets.QComboBox(self.page_explorer)
         self.dropdown_gfx_subindex.setPlaceholderText("no sub-entries")
         self.dropdown_gfx_subindex.setToolTip("Choose sub-index")
         self.dropdown_gfx_subindex.setStatusTip("Select the image index to go to in gfx object")
         self.dropdown_gfx_subindex.currentIndexChanged.connect(lambda: self.treeCall())
-        self.dropdown_gfx_subindex.hide()
 
         self.checkbox_depthUpdate = QtWidgets.QCheckBox(self.page_explorer)
         self.checkbox_depthUpdate.setStatusTip("Update depth to match palette size")
         self.checkbox_depthUpdate.setChecked(True)
         self.checkbox_depthUpdate.checkStateChanged.connect(lambda: self.treeCall())
-        self.checkbox_depthUpdate.hide()
 
         self.label_depthUpdate = QtWidgets.QLabel(self.page_explorer)
         self.label_depthUpdate.setText("Guess correct depth")
-        self.label_depthUpdate.hide()
 
         self.layout_other_settings = QtWidgets.QGridLayout()
         self.layout_other_settings.addWidget(self.checkbox_depthUpdate, 0,0, QtCore.Qt.AlignmentFlag.AlignRight)
@@ -1214,7 +1199,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self.layout_colorpick.addWidget(button_palettepick, int(i/16), int(i%16))
             button_palettepick.held.connect(lambda hold, press=None, color_index=i: self.colorpickCall(color_index, press, hold))
             button_palettepick.pressed_quick.connect(lambda press, hold=None, color_index=i: self.colorpickCall(color_index, press, hold))
-            button_palettepick.hide()
 
         self.dropdown_gfx_palette = QtWidgets.QComboBox(self.page_explorer)
         self.dropdown_gfx_palette.addItems(["Default Palette", "Font Palette", "Sprites Palette", "BG Palette"]) # order of names is determined by the enum in dataconverter
@@ -1222,7 +1206,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_gfx_palette.setStatusTip("Select the color palette preset that you want to use to render images")
         self.dropdown_gfx_palette.currentIndexChanged.connect(lambda: self.setPalette(self.GFX_PALETTES[self.dropdown_gfx_palette.currentIndex()])) # Update gfx with current depth
         self.dropdown_gfx_palette.currentIndexChanged.connect(lambda: self.treeCall())
-        self.dropdown_gfx_palette.hide()
 
         self.layout_palette_settings = QtWidgets.QHBoxLayout()
         self.layout_palette_settings.addWidget(self.dropdown_gfx_palette)
@@ -1238,10 +1221,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_oam_entry.setToolTip("Choose entry")
         self.dropdown_oam_entry.setStatusTip("Select the OAM entry to load")
         self.dropdown_oam_entry.currentIndexChanged.connect(lambda: self.treeCall(addr_disabled=True))
-        self.dropdown_oam_entry.hide()
 
         self.tabs_oam = QtWidgets.QTabWidget(self.page_explorer)
-        self.tabs_oam.hide()
         self.page_oam_frames = QtWidgets.QWidget(self.tabs_oam)
         self.page_oam_frames.setLayout(QtWidgets.QGridLayout())
         self.page_oam_anims = QtWidgets.QWidget(self.tabs_oam)
@@ -1391,7 +1372,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.file_content_oam = OAMView(self.page_explorer)
         self.file_content_oam.setSizePolicy(QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Expanding)
-        self.file_content_oam.hide()
         self.file_content.addWidget(self.file_content_oam)
 
         self.layout_oam_navigation = QtWidgets.QGridLayout()
@@ -1422,16 +1402,62 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_panm_entry.setToolTip("Choose palette animation")
         self.dropdown_panm_entry.setStatusTip("Palette animations for mavericks. 0=evil; 1=patrol; 2=alert")
         self.dropdown_panm_entry.currentIndexChanged.connect(lambda: self.treeCall(addr_disabled=True))
-        self.dropdown_panm_entry.hide()
 
         self.dropdown_panm_frame = QtWidgets.QComboBox(self.page_explorer)
         self.dropdown_panm_frame.setPlaceholderText("no frames")
         self.dropdown_panm_frame.setToolTip("Choose animation frame")
         self.dropdown_panm_frame.setStatusTip("Each frame overwrites two colors from a 16-color palette")
         self.dropdown_panm_frame.currentIndexChanged.connect(lambda: self.treeCall(addr_disabled=True))
-        self.dropdown_panm_frame.hide()
 
-        self.layout_panm = QtWidgets.QVBoxLayout()
+        self.layout_panm = QtWidgets.QGridLayout()
+
+        self.field_panm_frameId = BetterSpinBox(self.page_explorer)
+        self.field_panm_frameId.setToolTip("Frame")
+        self.field_panm_frameId.isInt = True
+        self.field_panm_frameId.setRange(0x00, 0xFF)
+        self.field_panm_frameId.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_panm_frameDuration = BetterSpinBox(self.page_explorer)
+        self.field_panm_frameDuration.setToolTip("Duration")
+        self.field_panm_frameDuration.isInt = True
+        self.field_panm_frameDuration.setRange(0x00, 0xFF)
+        self.field_panm_frameDuration.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.checkbox_panm_loop = QtWidgets.QCheckBox(self.page_explorer)
+        self.checkbox_panm_loop.setText("Loop")
+        self.checkbox_panm_loop.setToolTip("Loop On/Off")
+        self.checkbox_panm_loop.checkStateChanged.connect(lambda: self.field_panm_loopStart.setEnabled(self.checkbox_panm_loop.isChecked()))
+        self.checkbox_panm_loop.checkStateChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_panm_loopStart = BetterSpinBox(self.page_explorer)
+        self.field_panm_loopStart.setToolTip("Loop Start")
+        self.field_panm_loopStart.isInt = True
+        self.field_panm_loopStart.setRange(0x00, 0xFF)
+        self.field_panm_loopStart.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+
+        self.label_panm_colorSlots = QtWidgets.QLabel("Color slots", self.page_explorer)
+        self.label_panm_colorSlots.setMaximumHeight(50)
+        self.label_panm_colorSlots.setAlignment(QtCore.Qt.AlignmentFlag.AlignBottom)
+        self.field_panm_colorSlot0 = BetterSpinBox(self.page_explorer)
+        self.field_panm_colorSlot0.setToolTip("Color Slot 0")
+        self.field_panm_colorSlot0.setStatusTip("The index of the first color to overwrite in a 16-color palette")
+        self.field_panm_colorSlot0.isInt = True
+        self.field_panm_colorSlot0.setRange(0x00, 0xFF)
+        self.field_panm_colorSlot0.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_panm_colorSlot1 = BetterSpinBox(self.page_explorer)
+        self.field_panm_colorSlot1.setStatusTip("The index of the second color to overwrite in a 16-color palette")
+        self.field_panm_colorSlot1.setToolTip("Color Slot 1")
+        self.field_panm_colorSlot1.isInt = True
+        self.field_panm_colorSlot1.setRange(0x00, 0xFF)
+        self.field_panm_colorSlot1.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+
+        self.layout_panm.addWidget(self.dropdown_panm_entry, 0, 0)
+        self.layout_panm.addWidget(self.dropdown_panm_frame, 0, 1)
+        self.layout_panm.addWidget(self.field_panm_frameId, 1, 1)
+        self.layout_panm.addWidget(self.field_panm_frameDuration, 2, 1)
+        self.layout_panm.addWidget(self.checkbox_panm_loop, 1, 0)
+        self.layout_panm.addWidget(self.field_panm_loopStart, 2, 0)
+        self.layout_panm.addWidget(self.label_panm_colorSlots, 3, 0)
+        self.layout_panm.addWidget(self.field_panm_colorSlot0, 4, 0)
+        self.layout_panm.addWidget(self.field_panm_colorSlot1, 5, 0)
+        self.layout_panm.setSpacing(3)
 
         #Font
         self.field_font_size = BetterSpinBox(self.page_explorer)
@@ -1440,10 +1466,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_font_size.isInt = True
         self.field_font_size.numbase = self.displayBase
         self.field_font_size.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
-        self.field_font_size.hide()
         self.label_font_size = QtWidgets.QLabel(self.page_explorer)
         self.label_font_size.setText("file size")
-        self.label_font_size.hide()
         self.layout_font_size = QtWidgets.QVBoxLayout()
         self.layout_font_size.addWidget(self.field_font_size)
         self.layout_font_size.addWidget(self.label_font_size)
@@ -1458,10 +1482,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_font_width.valueChanged.connect(lambda: self.treeCall())
         self.field_font_width.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.field_font_width.valueChanged.connect(self.file_content_gfx.fitInView)
-        self.field_font_width.hide()
         self.label_font_width = QtWidgets.QLabel(self.page_explorer)
         self.label_font_width.setText("char width")
-        self.label_font_width.hide()
         self.layout_font_width = QtWidgets.QVBoxLayout()
         self.layout_font_width.addWidget(self.field_font_width)
         self.layout_font_width.addWidget(self.label_font_width)
@@ -1475,10 +1497,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_font_height.valueChanged.connect(lambda: self.treeCall())
         self.field_font_height.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.field_font_height.valueChanged.connect(self.file_content_gfx.fitInView)
-        self.field_font_height.hide()
         self.label_font_height = QtWidgets.QLabel(self.page_explorer)
         self.label_font_height.setText("char height")
-        self.label_font_height.hide()
         self.layout_font_height = QtWidgets.QVBoxLayout()
         self.layout_font_height.addWidget(self.field_font_height)
         self.layout_font_height.addWidget(self.label_font_height)
@@ -1486,15 +1506,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.label_font_indexingSpace = QtWidgets.QLabel(self.page_explorer)
         self.label_font_indexingSpace.setText("indexing space: ")
-        self.label_font_indexingSpace.hide()
 
         self.label_font_charCount = QtWidgets.QLabel(self.page_explorer)
         self.label_font_charCount.setText("char count: ")
-        self.label_font_charCount.hide()
 
         self.label_font_unusedStr = QtWidgets.QLabel(self.page_explorer)
         self.label_font_unusedStr.setText("unused string: ")
-        self.label_font_unusedStr.hide()
 
         self.layout_editzone_row0.addWidget(self.button_file_save)
         self.layout_editzone_row0.addWidget(self.label_file_size)
@@ -1504,8 +1521,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_editzone_row1.addItem(self.layout_colorpick)
         self.layout_editzone_row1.addItem(self.layout_gfx_settings)
         self.layout_editzone_row1.addItem(self.layout_oam_navigation)
-        self.layout_editzone_row1.addWidget(self.dropdown_panm_entry)
-        self.layout_editzone_row1.addWidget(self.dropdown_panm_frame)
+        self.layout_editzone_row1.addItem(self.layout_panm)
 
         self.layout_editzone_row2.addItem(self.layout_font_size)
         self.layout_editzone_row2.addItem(self.layout_font_width)
@@ -1539,13 +1555,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_vxHeader_length = QtWidgets.QLabel(self.page_explorer)
         self.label_vxHeader_length.setText("Duration(frames): ")
         self.label_vxHeader_length.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label_vxHeader_length.hide()
         self.field_vxHeader_length = BetterSpinBox(self.page_explorer)
         self.field_vxHeader_length.setFont(self.font_caps)
         self.field_vxHeader_length.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
         self.field_vxHeader_length.numfill = 8
         self.field_vxHeader_length.isInt = True
-        self.field_vxHeader_length.hide()
         self.field_vxHeader_length.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_length = QtWidgets.QVBoxLayout()
         self.layout_vxHeader_length.addWidget(self.label_vxHeader_length)
@@ -1554,12 +1568,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_vxHeader_framerate = QtWidgets.QLabel(self.page_explorer)
         self.label_vxHeader_framerate.setText("Frame rate: ")
         self.label_vxHeader_framerate.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label_vxHeader_framerate.hide()
         self.field_vxHeader_framerate = BetterSpinBox(self.page_explorer)
         self.field_vxHeader_framerate.setDecimals(16) # increase precision to allow spinbox to respect range
         self.field_vxHeader_framerate.setRange(0x00000000,65535.9999847412109375) # prevent impossible values (max is ffff.ffff)
         #self.field_vxHeader_framerate.numfill = 8
-        self.field_vxHeader_framerate.hide()
         self.field_vxHeader_framerate.textChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_framerate = QtWidgets.QVBoxLayout()
         self.layout_vxHeader_framerate.addWidget(self.label_vxHeader_framerate)
@@ -1568,13 +1580,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_vxHeader_frameSizeMax = QtWidgets.QLabel(self.page_explorer)
         self.label_vxHeader_frameSizeMax.setText("Maximal frame data size: ")
         self.label_vxHeader_frameSizeMax.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label_vxHeader_frameSizeMax.hide()
         self.field_vxHeader_frameSizeMax = BetterSpinBox(self.page_explorer)
         self.field_vxHeader_frameSizeMax.setFont(self.font_caps)
         self.field_vxHeader_frameSizeMax.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
         self.field_vxHeader_frameSizeMax.numfill = 8
         self.field_vxHeader_frameSizeMax.isInt = True
-        self.field_vxHeader_frameSizeMax.hide()
         self.field_vxHeader_frameSizeMax.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_frameSizeMax = QtWidgets.QVBoxLayout()
         self.layout_vxHeader_frameSizeMax.addWidget(self.label_vxHeader_frameSizeMax)
@@ -1588,13 +1598,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_vxHeader_streamCount = QtWidgets.QLabel(self.page_explorer)
         self.label_vxHeader_streamCount.setText("Audio stream count: ")
         self.label_vxHeader_streamCount.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label_vxHeader_streamCount.hide()
         self.field_vxHeader_streamCount = BetterSpinBox(self.page_explorer)
         self.field_vxHeader_streamCount.setFont(self.font_caps)
         self.field_vxHeader_streamCount.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
         self.field_vxHeader_streamCount.numfill = 8
         self.field_vxHeader_streamCount.isInt = True
-        self.field_vxHeader_streamCount.hide()
         self.field_vxHeader_streamCount.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_streamCount = QtWidgets.QVBoxLayout()
         self.layout_vxHeader_streamCount.addWidget(self.label_vxHeader_streamCount)
@@ -1603,13 +1611,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_vxHeader_sampleRate = QtWidgets.QLabel(self.page_explorer)
         self.label_vxHeader_sampleRate.setText("Sound sample rate(Hz): ")
         self.label_vxHeader_sampleRate.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label_vxHeader_sampleRate.hide()
         self.field_vxHeader_sampleRate = BetterSpinBox(self.page_explorer)
         self.field_vxHeader_sampleRate.setFont(self.font_caps)
         self.field_vxHeader_sampleRate.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
         self.field_vxHeader_sampleRate.numfill = 8
         self.field_vxHeader_sampleRate.isInt = True
-        self.field_vxHeader_sampleRate.hide()
         self.field_vxHeader_sampleRate.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_sampleRate = QtWidgets.QVBoxLayout()
         self.layout_vxHeader_sampleRate.addWidget(self.label_vxHeader_sampleRate)
@@ -1618,13 +1624,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_vxHeader_audioExtraDataOffset = QtWidgets.QLabel(self.page_explorer)
         self.label_vxHeader_audioExtraDataOffset.setText("Extra audio data offset: ")
         self.label_vxHeader_audioExtraDataOffset.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label_vxHeader_audioExtraDataOffset.hide()
         self.field_vxHeader_audioExtraDataOffset = BetterSpinBox(self.page_explorer)
         self.field_vxHeader_audioExtraDataOffset.setFont(self.font_caps)
         self.field_vxHeader_audioExtraDataOffset.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
         self.field_vxHeader_audioExtraDataOffset.numfill = 8
         self.field_vxHeader_audioExtraDataOffset.isInt = True
-        self.field_vxHeader_audioExtraDataOffset.hide()
         self.field_vxHeader_audioExtraDataOffset.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_audioExtraDataOffset = QtWidgets.QVBoxLayout()
         self.layout_vxHeader_audioExtraDataOffset.addWidget(self.label_vxHeader_audioExtraDataOffset)
@@ -1638,13 +1642,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_vxHeader_width = QtWidgets.QLabel(self.page_explorer)
         self.label_vxHeader_width.setText("Frame width(pixels): ")
         self.label_vxHeader_width.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label_vxHeader_width.hide()
         self.field_vxHeader_width = BetterSpinBox(self.page_explorer)
         self.field_vxHeader_width.setFont(self.font_caps)
         self.field_vxHeader_width.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
         self.field_vxHeader_width.numfill = 8
         self.field_vxHeader_width.isInt = True
-        self.field_vxHeader_width.hide()
         self.field_vxHeader_width.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_width = QtWidgets.QVBoxLayout()
         self.layout_vxHeader_width.addWidget(self.label_vxHeader_width)
@@ -1653,13 +1655,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_vxHeader_height = QtWidgets.QLabel(self.page_explorer)
         self.label_vxHeader_height.setText("Frame height(pixels): ")
         self.label_vxHeader_height.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label_vxHeader_height.hide()
         self.field_vxHeader_height = BetterSpinBox(self.page_explorer)
         self.field_vxHeader_height.setFont(self.font_caps)
         self.field_vxHeader_height.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
         self.field_vxHeader_height.numfill = 8
         self.field_vxHeader_height.isInt = True
-        self.field_vxHeader_height.hide()
         self.field_vxHeader_height.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_height = QtWidgets.QVBoxLayout()
         self.layout_vxHeader_height.addWidget(self.label_vxHeader_height)
@@ -1672,13 +1672,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_vxHeader_quantiser = QtWidgets.QLabel(self.page_explorer)
         self.label_vxHeader_quantiser.setText("Quantiser: ")
         self.label_vxHeader_quantiser.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label_vxHeader_quantiser.hide()
         self.field_vxHeader_quantizer = BetterSpinBox(self.page_explorer)
         self.field_vxHeader_quantizer.setFont(self.font_caps)
         self.field_vxHeader_quantizer.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
         self.field_vxHeader_quantizer.numfill = 8
         self.field_vxHeader_quantizer.isInt = True
-        self.field_vxHeader_quantizer.hide()
         self.field_vxHeader_quantizer.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_quantiser = QtWidgets.QVBoxLayout()
         self.layout_vxHeader_quantiser.addWidget(self.label_vxHeader_quantiser)
@@ -1687,13 +1685,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_vxHeader_seekTableOffset = QtWidgets.QLabel(self.page_explorer)
         self.label_vxHeader_seekTableOffset.setText("Seek table offset: ")
         self.label_vxHeader_seekTableOffset.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label_vxHeader_seekTableOffset.hide()
         self.field_vxHeader_seekTableOffset = BetterSpinBox(self.page_explorer)
         self.field_vxHeader_seekTableOffset.setFont(self.font_caps)
         self.field_vxHeader_seekTableOffset.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
         self.field_vxHeader_seekTableOffset.numfill = 8
         self.field_vxHeader_seekTableOffset.isInt = True
-        self.field_vxHeader_seekTableOffset.hide()
         self.field_vxHeader_seekTableOffset.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_seekTableOffset = QtWidgets.QVBoxLayout()
         self.layout_vxHeader_seekTableOffset.addWidget(self.label_vxHeader_seekTableOffset)
@@ -1702,13 +1698,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_vxHeader_seekTableEntryCount = QtWidgets.QLabel(self.page_explorer)
         self.label_vxHeader_seekTableEntryCount.setText("Seek table entry count: ")
         self.label_vxHeader_seekTableEntryCount.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label_vxHeader_seekTableEntryCount.hide()
         self.field_vxHeader_seekTableEntryCount = BetterSpinBox(self.page_explorer)
         self.field_vxHeader_seekTableEntryCount.setFont(self.font_caps)
         self.field_vxHeader_seekTableEntryCount.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
         self.field_vxHeader_seekTableEntryCount.numfill = 8
         self.field_vxHeader_seekTableEntryCount.isInt = True
-        self.field_vxHeader_seekTableEntryCount.hide()
         self.field_vxHeader_seekTableEntryCount.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_seekTableEntryCount = QtWidgets.QVBoxLayout()
         self.layout_vxHeader_seekTableEntryCount.addWidget(self.label_vxHeader_seekTableEntryCount)
@@ -1755,6 +1749,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.WIDGETS_PANM: list[QtWidgets.QWidget] = [
             self.dropdown_panm_entry,
             self.dropdown_panm_frame,
+            self.field_panm_frameId,
+            self.field_panm_frameDuration,
+            self.checkbox_panm_loop,
+            self.field_panm_loopStart,
+            self.label_panm_colorSlots,
+            self.field_panm_colorSlot0,
+            self.field_panm_colorSlot1,
             self.button_palettepick_0,
             self.button_palettepick_1,
             self.button_palettepick_2,
@@ -1818,6 +1819,7 @@ class MainWindow(QtWidgets.QMainWindow):
             ]
         for i in range(256):
             self.WIDGETS_GRAPHIC.append(getattr(self, f"button_palettepick_{i}"))
+        self.file_editor_show("Empty")
 
         # Level Editor(WIP)
         self.layout_level_editpannel = QtWidgets.QVBoxLayout()
@@ -3266,21 +3268,42 @@ class MainWindow(QtWidgets.QMainWindow):
                     elif self.fileDisplayState == "Palette Animation":
                         self.widget_set = "PAnm"
                         if sender in self.FILEOPEN_WIDGETS:
+                            self.layout_colorpick # rearrange palette button layout for this mode
                             self.fileEdited_object = lib.panim.File(self.rom.files[current_id])
                             self.dropdown_gfx_depth.setCurrentIndex(1)
                             self.dropdown_panm_entry.clear()
                             for i in range(self.fileEdited_object.animCount):
                                 self.dropdown_panm_entry.addItem("palette animation "+str(i))
                             self.dropdown_panm_entry.setCurrentIndex(0)
+                            self.dropdown_panm_entry.previousIndex = 0
+                        anim_current = self.fileEdited_object.anims[self.dropdown_panm_entry.currentIndex()]
+                        palette_current = self.fileEdited_object.palettes[self.dropdown_panm_entry.currentIndex()]
                         if sender in [self.dropdown_panm_entry, *self.FILEOPEN_WIDGETS]:
+                            if self.button_file_save.isEnabled():
+                                self.fileEdited_object.anims[self.dropdown_panm_entry.previousIndex].isLooping = self.checkbox_panm_loop.isChecked()
+                                self.fileEdited_object.anims[self.dropdown_panm_entry.previousIndex].loopStart = self.field_panm_loopStart.value()
+                                self.fileEdited_object.palettes[self.dropdown_panm_entry.previousIndex].colorSlot0 = self.field_panm_colorSlot0.value()
+                                self.fileEdited_object.palettes[self.dropdown_panm_entry.previousIndex].colorSlot1 = self.field_panm_colorSlot1.value()
                             self.dropdown_panm_frame.clear()
                             for i in range(len(self.fileEdited_object.anims[self.dropdown_panm_entry.currentIndex()].frames)-1):
                                 self.dropdown_panm_frame.addItem("frame "+str(i))
                             self.dropdown_panm_frame.setCurrentIndex(0)
-                            self.setPalette([color for group in self.fileEdited_object.palettes[self.dropdown_panm_entry.currentIndex()].colors for color in group])
+                            self.setPalette([color for group in self.fileEdited_object.palettes[self.dropdown_panm_entry.currentIndex()].colorTable for color in group])
+                            self.checkbox_panm_loop.setChecked(anim_current.isLooping)
+                            self.field_panm_loopStart.setValue(anim_current.loopStart)
+                            self.field_panm_colorSlot0.setValue(palette_current.colorSlot0)
+                            self.field_panm_colorSlot1.setValue(palette_current.colorSlot1)
                         if sender in [self.dropdown_panm_frame, self.dropdown_panm_entry, *self.FILEOPEN_WIDGETS]:
-                            # load some graphic
-                            pass
+                            frame_current = anim_current.frames[self.dropdown_panm_frame.currentIndex()]
+                            if self.button_file_save.isEnabled():
+                                self.fileEdited_object.anims[self.dropdown_panm_entry.previousIndex].frames[self.dropdown_panm_frame.previousIndex]\
+                                = [self.field_panm_frameId.value(), self.field_panm_frameDuration.value()]
+                            self.field_panm_frameId.setValue(frame_current[0])
+                            self.field_panm_frameDuration.setValue(frame_current[1])
+                            # load some
+                            self.dropdown_panm_frame.previousIndex = self.dropdown_panm_frame.currentIndex()
+                            if sender == self.dropdown_panm_entry:
+                                self.dropdown_panm_entry.previousIndex = self.dropdown_panm_entry.currentIndex()
                     elif self.fileDisplayState == "Font":
                         self.widget_set = "Font"
                         if sender in self.FILEOPEN_WIDGETS:
@@ -3426,7 +3449,7 @@ class MainWindow(QtWidgets.QMainWindow):
             level.collision[metaTile_index][1] = \
                 (level.collision[metaTile_index][1] & bitmask) + (val << shiftL)
 
-    def loadTileset(self, gfx: bytearray, pal: list[int]):
+    def loadTileset(self, gfx: bytearray, pal_sec: lib.level.PaletteSection, gfx_ptrs: list[int]|None=None):
         self.gfx_scene_tileset.scene().clear()
         tile_index = 0
         metaTile_index = 0
@@ -3434,6 +3457,17 @@ class MainWindow(QtWidgets.QMainWindow):
         pixmap = QtGui.QPixmap(16, 16)
         painter = QtGui.QPainter()
         painter.begin(pixmap)
+        pal_list: list[dict] = []
+        pl: dict = {}
+        for i in range(pal_sec.palHeaderCount):
+            pl.clear()
+            for j in range(pal_sec.paletteHeaders[i].palCount):
+                #print(pal_sec.paletteHeaders[i].palettes[j][0])
+                pl[pal_sec.paletteHeaders[i].palettes[j][0]] = (lib.datconv.BGR15_to_ARGB32(
+                        pal_sec.data[pal_sec.paletteOffsets[i]+pal_sec.paletteHeaders[i].palettes[j][1]:
+                                    pal_sec.paletteOffsets[i]+pal_sec.paletteHeaders[i].palettes[j][1]+0x200]))
+            pal_list.append(pl.copy())
+        pal_listId = 0
         for metaTile in self.levelEdited_object.levels[self.dropdown_level_type.currentIndex()].metaTiles:
             for tile in metaTile:
                 #print(f"{tile & 0xF000:04X}")
@@ -3441,8 +3475,20 @@ class MainWindow(QtWidgets.QMainWindow):
                 flipV = (tile & 0x0800) >> (8+3)
                 tile_id = (tile & 0x03FF)
                 # what is tile & 0xF000?
+                tile_pal = (tile & 0xF000) >> (8+4)
+                if gfx_ptrs != None:
+                    pal_listId = max(0, bisect.bisect_left(gfx_ptrs, (64*tile_id))-1)
+                else:
+                    pal_listId = 0
+                #print(pal_listId, tile_pal)
+                try:
+                    pal = pal_list[pal_listId][tile_pal]
+                except:
+                    print("error at", pal_listId, tile_pal)
+                    pal = list(pal_list[pal_listId].values())[0]
                 painter.drawImage(QtCore.QRectF(8*(tile_index%2), 8*(tile_index//2), 8, 8), lib.datconv.binToQt(gfx[64*(tile_id):], pal, lib.datconv.CompressionAlgorithmEnum.EIGHTBPP, 1, 1).mirrored(flipH, flipV))
                 tile_index += 1
+            
             metaTileItem = TilesetItem(pixmap)
             metaTileItem.setPos((16+self.gfx_scene_tileset.item_spacing)*(metaTile_index%self.gfx_scene_tileset.item_columns), (16+self.gfx_scene_tileset.item_spacing)*(metaTile_index//self.gfx_scene_tileset.item_columns))
             self.gfx_scene_tileset.scene().addItem(metaTileItem)
@@ -3478,7 +3524,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.button_level_save.setDisabled(True)
         fileID = self.rom.filenames.idOf(self.dropdown_level_area.currentText()+".bin")
         print("Load level")
-        self.levelEdited_object = lib.level.File(self.rom.files[fileID])
+        try :
+            self.levelEdited_object = lib.level.File(self.rom.files[fileID])
+        except TypeError:
+            self.gfx_scene_level.scene().clear()
+            self.gfx_scene_tileset.scene().clear()
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Load Failed",
+                "This file or its pointers may be corrupted"
+            )
+            return
         file = self.levelEdited_object
         if self.sender() == self.dropdown_level_area:
             self.buttonGroup_radar_tilesetType.blockSignals(True)
@@ -3497,6 +3553,7 @@ class MainWindow(QtWidgets.QMainWindow):
         print(f"gfx offset: {file.gfx_offset_rom:02X}")
         print(f"pal offset: {file.pal_offset_rom:02X}")
         print(f"leveldata size: {len(file.data[file.level_offset_rom:file.gfx_offset_rom])}")
+        gfx_ptrs = None
         if level == file.level:
             if file.gfx_offset_attr == 0x80: # if compressed
                 gfx_data = ndspy.lz10.decompress(file.data[file.gfx_offset_rom:file.pal_offset_rom])
@@ -3504,20 +3561,15 @@ class MainWindow(QtWidgets.QMainWindow):
                 gfx_data = file.data[file.gfx_offset_rom:file.pal_offset_rom]
             try:
                 gfx_table = lib.graphic.GraphicsTable(gfx_data, file.gfx_offset_rom, file.pal_offset_rom)
-                gfx = lib.graphic.GraphicHeader(gfx_table.joinData(), file.gfx_offset_rom, file.pal_offset_rom)
+                table_dat = gfx_table.joinData()
+                gfx = lib.graphic.GraphicHeader(table_dat[0], file.gfx_offset_rom, file.pal_offset_rom)
+                gfx_ptrs = table_dat[1]
             except AssertionError:
                 print("No gfx table")
                 gfx = lib.graphic.GraphicHeader(gfx_data, file.gfx_offset_rom, file.pal_offset_rom)
 
-            pal_sec = lib.level.PaletteSection(file.data[file.pal_offset_rom:])
-            pal_id = 0
-            if not pal_sec.animated:
-                pal = lib.datconv.BGR15_to_ARGB32(pal_sec.data[pal_sec.palettes[pal_id].palOffset:pal_sec.palettes[pal_id].palOffset+pal_sec.palettes[pal_id].palSize])
-            else:
-                #pal_id = 0
-                # if palette is smaller, errors will cause lag
-                pal = lib.datconv.BGR15_to_ARGB32(pal_sec.data[pal_sec.palettes_offset:pal_sec.palettes_offset+0x200])
-                #pal = self.GFX_PALETTES[3] # use a palette that allows you to see gfx well
+            pal_sec = lib.level.PaletteSection(file.data[file.pal_offset_rom:], file.pal_offset_attr == 0x80)
+            #pal = lib.datconv.BGR15_to_ARGB32(pal_sec.data[pal_sec.palettes_offset:pal_sec.palettes_offset+0x200])
         elif level == file.level_radar:
             if self.rom.filenames.idOf("elf_usa.bin") != None:
                 file_radar = self.rom.files[self.rom.filenames.idOf("elf_usa.bin")]
@@ -3537,14 +3589,14 @@ class MainWindow(QtWidgets.QMainWindow):
                     gfx_table.getData(0)[:-0x480]+gfx_table.getData(gfx_table.offsetCount-self.buttonGroup_radar_tilesetType.checkedId())[0x240:],
                       gfx_table.getAddr(0), pointerpal)
                 #gfx = lib.graphic.GraphicHeader(file_radar[pointergfx:], pointergfx, len(file_radar))
-            pal_sec = lib.level.PaletteSection(file_radar[pointerpal:])
-            pal = lib.datconv.BGR15_to_ARGB32(pal_sec.data[pal_sec.palettes_offset:pal_sec.palettes_offset+0x200])
+            pal_sec = lib.level.PaletteSection(file_radar[pointerpal:], False)
+            #pal = lib.datconv.BGR15_to_ARGB32(pal_sec.data[pal_sec.palettes_offset:pal_sec.palettes_offset+0x200])
         else:
             print("invalid level type!")
             return
         #print(gfx.gfx_offset)
         #self.loadTileset(gfx_sec.data[gfx.offset_start+gfx.gfx_offset:], pal)
-        self.loadTileset(gfx.data[gfx.gfx_offset:], pal)
+        self.loadTileset(gfx.data[gfx.gfx_offset:], pal_sec, gfx_ptrs)
         self.gfx_scene_level.scene().clear()
         self.initScreens()
         for i in range(len(level.screens)):
@@ -3614,7 +3666,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if mode == "Graphics" or "Font":
             # Reset Values
             #self.field_address.setValue(self.base_address)
-            if self.file_content_gfx.sceneRect().width() != 0: # disallow division
+            if self.file_content_gfx.sceneRect().width() != 0: # disallow zero div
                 self.file_content_gfx.fitInView()
             #print(f"{len(self.rom.save()):08X}")
         elif mode == "Font":
@@ -3689,6 +3741,20 @@ class MainWindow(QtWidgets.QMainWindow):
                     w.rom.files[file_id][save_offset:save_offset+len(anim.frames)*0x02] = save_data
                 # update data of oamsec
                 self.fileEdited_object.oamsec = lib.oam.OAMSection(self.fileEdited_object, self.dropdown_oam_entry.currentIndex())
+            elif self.fileDisplayState == "Palette Animation":
+                self.fileEdited_object.anims[self.dropdown_panm_entry.currentIndex()].frames[self.dropdown_panm_frame.currentIndex()]\
+                                = [self.field_panm_frameId.value(), self.field_panm_frameDuration.value()]
+                self.fileEdited_object.anims[self.dropdown_panm_entry.currentIndex()].isLooping = self.checkbox_panm_loop.isChecked()
+                self.fileEdited_object.anims[self.dropdown_panm_entry.currentIndex()].loopStart = self.field_panm_loopStart.value()
+                self.fileEdited_object.palettes[self.dropdown_panm_entry.currentIndex()].colorSlot0 = self.field_panm_colorSlot0.value()
+                self.fileEdited_object.palettes[self.dropdown_panm_entry.currentIndex()].colorSlot1 = self.field_panm_colorSlot1.value()
+
+                for colorset_index in range(len(self.fileEdited_object.palettes[self.dropdown_panm_entry.currentIndex()].colorTable)):
+                    self.fileEdited_object.palettes[self.dropdown_panm_entry.currentIndex()].colorTable[colorset_index] = \
+                        self.gfx_palette[colorset_index*2:colorset_index*2+2]
+                save_data = self.fileEdited_object.toBytes()
+                #print(w.rom.files[file_id] == save_data)
+                w.rom.files[file_id][:] = save_data
 
             elif self.fileDisplayState == "Font":
                 save_data = lib.datconv.qtToBin(self.file_content_gfx._graphic.pixmap().toImage(),
@@ -3728,16 +3794,17 @@ class MainWindow(QtWidgets.QMainWindow):
     
     def save_level(self):
         self.button_level_save.setDisabled(True)
-        level = self.levelEdited_object.level
         
         # find level file in rom
         fileID = self.rom.filenames.idOf(self.dropdown_level_area.currentText()+".bin")
-        level_bin = bytearray(level.toBytes())
+        if hasattr(self.levelEdited_object, "level"):
+            level_bin = bytearray(self.levelEdited_object.level.toBytes())
+        else:
+            level_bin = self.levelEdited_object.data[self.levelEdited_object.level_offset_rom:self.levelEdited_object.gfx_offset_rom]
         level_bin += bytearray((-len(level_bin)) & 3) # 4-byte padding
         gfx_bin = self.levelEdited_object.data[self.levelEdited_object.gfx_offset_rom:self.levelEdited_object.pal_offset_rom]
         gfx_bin += bytearray((-len(gfx_bin)) & 3)
         if self.levelEdited_object.entryCount == 7:
-            level_radar = self.levelEdited_object.level_radar
             pal_bin = self.levelEdited_object.data[self.levelEdited_object.pal_offset_rom:self.levelEdited_object.address_list[3][0]]
             pal_bin += bytearray((-len(pal_bin)) & 3)
             bin_03 = self.levelEdited_object.data[self.levelEdited_object.address_list[3][0]:self.levelEdited_object.address_list[4][0]]
@@ -3746,7 +3813,10 @@ class MainWindow(QtWidgets.QMainWindow):
             bin_04 += bytearray((-len(bin_04)) & 3)
             bin_05 = self.levelEdited_object.data[self.levelEdited_object.address_list[5][0]:self.levelEdited_object.address_list[6][0]]
             bin_05 += bytearray((-len(bin_05)) & 3)
-            bin_06 = bytearray(level_radar.toBytes())
+            if hasattr(self.levelEdited_object, "level_radar"):
+                bin_06 = bytearray(self.levelEdited_object.level_radar.toBytes())
+            else:
+                bin_06 = self.levelEdited_object.data[self.levelEdited_object.address_list[6][0]:]
             bin_06 += bytearray((-len(bin_06)) & 3)
 
         if self.levelEdited_object.entryCount == 7:

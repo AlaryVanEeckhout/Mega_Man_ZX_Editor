@@ -27,16 +27,22 @@ class GraphicsTable: # possibly the same data structure as what I identified as 
         self.offset_list = []
         for i in range(0, self.table_size, self.ENTRY_SIZE):
             self.offset_list.append([ # might be GraphicsHeader?
-                int.from_bytes(self.data[i:i+0x04], 'little'),
-                int.from_bytes(self.data[i+0x04:i+0x08], 'little'),
-                int.from_bytes(self.data[i+0x08:i+0x0C], 'little'),
-                int.from_bytes(self.data[i+0x0C:i+0x10], 'little')])
+                int.from_bytes(self.data[i:i+0x04], 'little'), # start
+                int.from_bytes(self.data[i+0x04:i+0x08], 'little'), # size
+                int.from_bytes(self.data[i+0x08:i+0x0C], 'little'), # RAM?
+                int.from_bytes(self.data[i+0x0C:i+0x10], 'little')]) # end
             
     def getAddrOffset(self, index:int):
         return self.offset_start+index*self.ENTRY_SIZE
     
     def getAddr(self, index:int):
         return self.getAddrOffset(index)+self.offset_list[index][0]
+    
+    def getSize(self, index: int):
+        return self.offset_list[index][1]
+    
+    def getRAM(self, index: int):
+        return self.offset_list[index][2]
     
     def getAddrEnd(self, index:int):
         return self.getAddrOffset(index)+self.offset_list[index][3]+0x0C
@@ -48,12 +54,16 @@ class GraphicsTable: # possibly the same data structure as what I identified as 
         if index_end == None:
             index_end = self.offsetCount-1
         result = bytearray()
+        result_indexes = []
         for i in range(index_start, index_end):
+            result_indexes.append(len(result))
             try:
                 result += ndspy.lz10.decompress(self.getData(i))
             except Exception:
                 result += self.getData(i)
-        return result
+            # 0x4FF~0x7FF padding aligns gfx correctly to be read
+            result += bytearray((-len(result)) & 0x4FF)
+        return [result, result_indexes]
 
 class GraphicSection:
     def __init__(self, data: bytes, start: int|None=None, end: int|None=None):

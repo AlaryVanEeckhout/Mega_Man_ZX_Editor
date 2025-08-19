@@ -177,7 +177,7 @@ def ARGB32_to_BGR15(argb32_palette: list[int]):
         bgr15_color = (r * (0b11111+1) // (0xff+1)) + ((g * (0b11111+1) // (0xff+1)) << 5) + ((b * (0b11111+1) // (0xff+1)) << 10)
         bgr15_palette.extend(bgr15_color.to_bytes(2, byteorder='little'))
         #print(f"bgr15: {bgr15_color:04X}")
-    print(f"result: {bgr15_palette.hex()}\n length: {len(bgr15_palette)}")
+    #print(f"result: {bgr15_palette.hex()}\n length: {len(bgr15_palette)}")
     return bgr15_palette
 
 # this fonction works with more than one tile now
