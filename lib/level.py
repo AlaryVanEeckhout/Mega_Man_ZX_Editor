@@ -37,13 +37,13 @@ class File(common.File):
         self.data += int.to_bytes(self.pal_offset_attr, 1, 'little')
         if self.entryCount == 7:
             # placeholder for when the pointers will have unique variable names
-            self.data += int.to_bytes(self.address_list[3][0], 3, 'little')
+            self.data += int.to_bytes(self.address_list[3][0], 3, 'little') # animated palettes
             self.data += int.to_bytes(self.address_list[3][1], 1, 'little')
-            self.data += int.to_bytes(self.address_list[4][0], 3, 'little')
+            self.data += int.to_bytes(self.address_list[4][0], 3, 'little') # animated palettes 2?
             self.data += int.to_bytes(self.address_list[4][1], 1, 'little')
-            self.data += int.to_bytes(self.address_list[5][0], 3, 'little')
+            self.data += int.to_bytes(self.address_list[5][0], 3, 'little') # sprite data?
             self.data += int.to_bytes(self.address_list[5][1], 1, 'little')
-            self.data += int.to_bytes(self.address_list[6][0], 3, 'little')
+            self.data += int.to_bytes(self.address_list[6][0], 3, 'little') # radar
             self.data += int.to_bytes(self.address_list[6][1], 1, 'little')
         self.data += int.to_bytes(self.fileSize, 4, 'little')
         return bytes(self.data)

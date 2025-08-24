@@ -61,8 +61,8 @@ class GraphicsTable: # possibly the same data structure as what I identified as 
                 result += ndspy.lz10.decompress(self.getData(i))
             except Exception:
                 result += self.getData(i)
-            # 0x4FF~0x7FF padding aligns gfx correctly to be read
-            result += bytearray((-len(result)) & 0x4FF)
+            # 0x3800|0x7800 padding aligns gfx correctly to be read
+            result += bytearray((-len(result)) & 0x37FF)
         return [result, result_indexes]
 
 class GraphicSection:

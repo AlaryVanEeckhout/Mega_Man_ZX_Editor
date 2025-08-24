@@ -369,6 +369,58 @@ class OAMObjectItem(QtWidgets.QGraphicsPixmapItem):
             w.field_objY.blockSignals(False)
             w.button_file_save.setEnabled(True)
 
+class GridLayout(QtWidgets.QGridLayout):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._columns = 0 # amount of used columns
+        self._rows = 0
+    
+    def addWidget(self, *args, **kwargs):
+        super().addWidget(*args, **kwargs)
+        item_pos = self.getItemPosition(self.indexOf(args[0]))
+        self._rows = max(self._rows, item_pos[0]+1)
+        self._columns = max(self._columns, item_pos[1]+1)
+    
+    def addItem2(self, *args, **kwargs):
+        super().addItem(*args, **kwargs)
+        item_pos = self.getItemPosition(self.indexOf(args[0]))
+        self._rows = max(self._rows, item_pos[0]+1)
+        self._columns = max(self._columns, item_pos[1]+1)
+    
+    def addLayout(self, *args, **kwargs):
+        super().addLayout(*args, **kwargs)
+        item_pos = self.getItemPosition(self.indexOf(args[0]))
+        self._rows = max(self._rows, item_pos[0]+1)
+        self._columns = max(self._columns, item_pos[1]+1)
+
+    def rearrange(self, columns: int, rows: int=-1):
+        if columns == self._columns and self._rows == rows: return
+        column_index = 0
+        row_index = 0
+        column_target = 0
+        row_target = 0
+        #print(self._rows, rows)
+        #print(self._columns, columns)
+        for item_index in range(self.count()):
+            column_index = item_index%self._columns
+            row_index = item_index//self._columns
+            column_target = item_index%columns
+            row_target = item_index//columns
+            #print(row_index)
+            item = self.itemAtPosition(row_index, column_index)
+            item_target = self.itemAtPosition(row_target, column_target)
+            #print(item.widget().pos()-self.contentsRect().topLeft())
+            if rows != -1 and row_target >= rows:
+                item.widget().hide()
+            else:
+                item.widget().show()
+            if item_target == item:
+                continue
+            else:
+                self.removeItem(item)
+                self.addItem(item, row_target, column_target)
+        self._columns = columns
+        self._rows = row_target+1 if rows == -1 else rows
 
 class EditorTree(QtWidgets.QTreeWidget):
     def __init__(self, *args, **kwargs):
@@ -1021,8 +1073,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_editzone_row1 = QtWidgets.QHBoxLayout()
         self.layout_editzone_row2 = QtWidgets.QHBoxLayout()
         self.layout_editzone_row3 = QtWidgets.QHBoxLayout()
-        self.layout_colorpick = QtWidgets.QGridLayout()
+        self.widget_colorpick = QtWidgets.QWidget(self.page_explorer)
+        self.layout_colorpick = GridLayout()
         self.layout_colorpick.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
+        self.layout_colorpick.setContentsMargins(0,2,5,0)
+        self.layout_colorpick.setSpacing(0)
+        self.widget_colorpick.setLayout(self.layout_colorpick)
 
         self.button_file_save = QtWidgets.QPushButton("Save file", self.page_explorer)
         self.button_file_save.setMaximumWidth(100)
@@ -1079,6 +1135,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_address.hide()
         #notes
         self.label_file_size = QtWidgets.QLabel(self.page_explorer)
+        self.label_file_size.setContentsMargins(5,0,0,0)
         self.label_file_size.setText("Size: N/A")
         self.label_file_size.hide()
         #Tile Wifth
@@ -1518,7 +1575,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_editzone_row0.addWidget(self.dropdown_gfx_depth)
         self.layout_editzone_row0.addWidget(self.field_address)
         
-        self.layout_editzone_row1.addItem(self.layout_colorpick)
+        self.layout_editzone_row1.addWidget(self.widget_colorpick)
         self.layout_editzone_row1.addItem(self.layout_gfx_settings)
         self.layout_editzone_row1.addItem(self.layout_oam_navigation)
         self.layout_editzone_row1.addItem(self.layout_panm)
@@ -1739,7 +1796,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.field_tiles_per_row,
             self.label_tiles_per_row,
             self.field_tiles_per_column,
-            self.label_tiles_per_column
+            self.label_tiles_per_column,
+            self.widget_colorpick
             ]
         self.WIDGETS_OAM: list[QtWidgets.QWidget] = [
             self.file_content_oam,
@@ -1756,22 +1814,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.label_panm_colorSlots,
             self.field_panm_colorSlot0,
             self.field_panm_colorSlot1,
-            self.button_palettepick_0,
-            self.button_palettepick_1,
-            self.button_palettepick_2,
-            self.button_palettepick_3,
-            self.button_palettepick_4,
-            self.button_palettepick_5,
-            self.button_palettepick_6,
-            self.button_palettepick_7,
-            self.button_palettepick_8,
-            self.button_palettepick_9,
-            self.button_palettepick_10,
-            self.button_palettepick_11,
-            self.button_palettepick_12,
-            self.button_palettepick_13,
-            self.button_palettepick_14,
-            self.button_palettepick_15
+            self.widget_colorpick
         ]
         self.WIDGETS_FONT: list[QtWidgets.QWidget] = [
             self.file_content_gfx,
@@ -1788,8 +1831,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.label_font_indexingSpace,
             self.label_font_charCount,
             self.label_font_unusedStr,
-            self.button_palettepick_0,
-            self.button_palettepick_1
+            self.widget_colorpick
             ]
         self.WIDGETS_SOUND: list[QtWidgets.QWidget] = [
             ]
@@ -1817,8 +1859,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self.field_vxHeader_seekTableEntryCount,
             self.label_vxHeader_seekTableEntryCount
             ]
-        for i in range(256):
-            self.WIDGETS_GRAPHIC.append(getattr(self, f"button_palettepick_{i}"))
         self.file_editor_show("Empty")
 
         # Level Editor(WIP)
@@ -2041,9 +2081,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.window_progress.move(self.pos().x() + (self.width() - self.window_progress.width())//2, self.pos().y() + self.height()//2) # center progress bar
         self.progress.setValue(0)
         self.label_progress.setText("")
-        self.window_progress.show() # show progress on task
+        self.window_progress.show()
 
-    def progressUpdate(self, completed: str, status: str=""):
+    def progressUpdate(self, completed: int, status: str=""):
         self.progress.setValue(completed)
         self.label_progress.setText(status)
         app.processEvents()
@@ -2051,7 +2091,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def progressHide(self):
         self.progress.setValue(0)
         self.label_progress.setText("")
-        self.window_progress.close() # show progress on task
+        self.window_progress.close()
 
     """
     def runTasks(self, runnableInfo_list: list[list[QtCore.QRunnable, list[QtCore.Q_ARG], QtCore.pyqtSignal, lambda _: _]]):
@@ -2292,7 +2332,7 @@ class MainWindow(QtWidgets.QMainWindow):
             dialog.setWindowIcon(QtGui.QIcon("icons\\exclamation"))
             dialog.setText("Game \"" + self.rom.name.decode() + "\" is NOT supported! Continue at your own risk!")
             dialog.exec()
-            self.progressShow()
+            self.window_progress.show()
 
         self.treeUpdate()
         self.progressUpdate(100, "Finishing load")
@@ -3060,6 +3100,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     elif self.fileDisplayState == "Graphics":
                         self.widget_set = "Graphics"
                         if sender in self.FILEOPEN_WIDGETS:
+                            self.layout_colorpick.rearrange(16, 16)
                             # reset from viewing font
                             self.tile_width = self.field_tile_width.value()
                             self.tile_height = self.field_tile_height.value()
@@ -3268,7 +3309,6 @@ class MainWindow(QtWidgets.QMainWindow):
                     elif self.fileDisplayState == "Palette Animation":
                         self.widget_set = "PAnm"
                         if sender in self.FILEOPEN_WIDGETS:
-                            self.layout_colorpick # rearrange palette button layout for this mode
                             self.fileEdited_object = lib.panim.File(self.rom.files[current_id])
                             self.dropdown_gfx_depth.setCurrentIndex(1)
                             self.dropdown_panm_entry.clear()
@@ -3279,6 +3319,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         anim_current = self.fileEdited_object.anims[self.dropdown_panm_entry.currentIndex()]
                         palette_current = self.fileEdited_object.palettes[self.dropdown_panm_entry.currentIndex()]
                         if sender in [self.dropdown_panm_entry, *self.FILEOPEN_WIDGETS]:
+                            self.layout_colorpick.rearrange(2, len(palette_current.colorTable)) # rearrange palette button layout for this mode
                             if self.button_file_save.isEnabled():
                                 self.fileEdited_object.anims[self.dropdown_panm_entry.previousIndex].isLooping = self.checkbox_panm_loop.isChecked()
                                 self.fileEdited_object.anims[self.dropdown_panm_entry.previousIndex].loopStart = self.field_panm_loopStart.value()
@@ -3307,6 +3348,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     elif self.fileDisplayState == "Font":
                         self.widget_set = "Font"
                         if sender in self.FILEOPEN_WIDGETS:
+                            self.layout_colorpick.rearrange(2, 1)
                             self.dropdown_gfx_depth.setCurrentIndex(0)
                             self.fileEdited_object = lib.font.Font(self.rom.files[current_id])
                             self.relative_address = self.fileEdited_object.CHR_ADDRESS
