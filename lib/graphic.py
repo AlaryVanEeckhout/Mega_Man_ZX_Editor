@@ -39,10 +39,16 @@ class GraphicsTable: # possibly the same data structure as what I identified as 
         return self.getAddrOffset(index)+self.offset_list[index][0]
     
     def getSize(self, index: int):
-        return self.offset_list[index][1]
+        return self.offset_list[index][1] & 0x0000FFFF
+    
+    def getSize2(self, index: int):
+        return (self.offset_list[index][1] & 0xFFFF0000) >> 10
     
     def getRAM(self, index: int):
-        return self.offset_list[index][2]
+        return self.offset_list[index][2] & 0x00FFFFFF
+    
+    def getRAM2(self, index: int):
+        return (self.offset_list[index][2] & 0xFF000000) >> 18
     
     def getAddrEnd(self, index:int):
         return self.getAddrOffset(index)+self.offset_list[index][3]+0x0C
@@ -58,9 +64,10 @@ class GraphicsTable: # possibly the same data structure as what I identified as 
         for i in range(index_start, index_end):
             result_indexes.append(len(result))
             try:
-                result += ndspy.lz10.decompress(self.getData(i))
+                newData = ndspy.lz10.decompress(self.getData(i))
             except Exception:
-                result += self.getData(i)
+                newData = self.getData(i)
+            result += newData
             # 0x3800|0x7800 padding aligns gfx correctly to be read
             result += bytearray((-len(result)) & 0x37FF)
         return [result, result_indexes]
