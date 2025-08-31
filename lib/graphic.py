@@ -60,9 +60,11 @@ class GraphicsTable: # possibly the same data structure as what I identified as 
         if index_end == None:
             index_end = self.offsetCount-1
         result = bytearray()
-        result_indexes = []
+        result_indexes = [0]
+        newData = bytearray()
         for i in range(index_start, index_end):
-            result_indexes.append(len(result))
+            if len(newData) > 0:
+                result_indexes.append(len(result))
             try:
                 newData = ndspy.lz10.decompress(self.getData(i))
             except Exception:

@@ -1969,7 +1969,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.group_metaTile_gfx.setDisabled(True)
 
         self.field_metaTile_topLeft_id = BetterSpinBox(self.page_leveleditor)
-        self.field_metaTile_topLeft_id.setToolTip("Tile Id")
+        self.field_metaTile_topLeft_id.setToolTip("Tile ID")
         self.field_metaTile_topLeft_id.isInt = True
         self.field_metaTile_topLeft_id.numbase = self.displayBase
         self.field_metaTile_topLeft_id.numfill = 3
@@ -1979,7 +1979,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.checkbox_metaTile_topLeft_flipH.setText("H")
         self.checkbox_metaTile_topLeft_flipH.checkStateChanged.connect(lambda: self.changeTileGfx(0, 0xFFFF-0x0400, self.checkbox_metaTile_topLeft_flipH.isChecked()))
         self.field_metaTile_topLeft_attr = BetterSpinBox(self.page_leveleditor)
-        self.field_metaTile_topLeft_attr.setToolTip("Palette?")
+        self.field_metaTile_topLeft_attr.setToolTip("Palette ID")
         self.field_metaTile_topLeft_attr.isInt = True
         self.field_metaTile_topLeft_attr.numbase = self.displayBase
         self.field_metaTile_topLeft_attr.setRange(0x0000, 0xFFFF)
@@ -1989,7 +1989,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.checkbox_metaTile_topLeft_flipV.checkStateChanged.connect(lambda: self.changeTileGfx(0, 0xFFFF-0x0800, self.checkbox_metaTile_topLeft_flipV.isChecked()))
 
         self.field_metaTile_topRight_id = BetterSpinBox(self.page_leveleditor)
-        self.field_metaTile_topRight_id.setToolTip("Tile Id")
+        self.field_metaTile_topRight_id.setToolTip("Tile ID")
         self.field_metaTile_topRight_id.isInt = True
         self.field_metaTile_topRight_id.numbase = self.displayBase
         self.field_metaTile_topRight_id.numfill = 3
@@ -1999,7 +1999,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.checkbox_metaTile_topRight_flipH.setText("H")
         self.checkbox_metaTile_topRight_flipH.checkStateChanged.connect(lambda: self.changeTileGfx(1, 0xFFFF-0x0400, self.checkbox_metaTile_topRight_flipH.isChecked()))
         self.field_metaTile_topRight_attr = BetterSpinBox(self.page_leveleditor)
-        self.field_metaTile_topRight_attr.setToolTip("Palette?")
+        self.field_metaTile_topRight_attr.setToolTip("Palette ID")
         self.field_metaTile_topRight_attr.isInt = True
         self.field_metaTile_topRight_attr.numbase = self.displayBase
         self.field_metaTile_topRight_attr.setRange(0x0000, 0xFFFF)
@@ -2009,7 +2009,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.checkbox_metaTile_topRight_flipV.checkStateChanged.connect(lambda: self.changeTileGfx(1, 0xFFFF-0x0800, self.checkbox_metaTile_topRight_flipV.isChecked()))
 
         self.field_metaTile_bottomLeft_id = BetterSpinBox(self.page_leveleditor)
-        self.field_metaTile_bottomLeft_id.setToolTip("Tile Id")
+        self.field_metaTile_bottomLeft_id.setToolTip("Tile ID")
         self.field_metaTile_bottomLeft_id.isInt = True
         self.field_metaTile_bottomLeft_id.numbase = self.displayBase
         self.field_metaTile_bottomLeft_id.numfill = 3
@@ -2019,7 +2019,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.checkbox_metaTile_bottomLeft_flipH.setText("H")
         self.checkbox_metaTile_bottomLeft_flipH.checkStateChanged.connect(lambda: self.changeTileGfx(2, 0xFFFF-0x0400, self.checkbox_metaTile_bottomLeft_flipH.isChecked()))
         self.field_metaTile_bottomLeft_attr = BetterSpinBox(self.page_leveleditor)
-        self.field_metaTile_bottomLeft_attr.setToolTip("Palette?")
+        self.field_metaTile_bottomLeft_attr.setToolTip("Palette ID")
         self.field_metaTile_bottomLeft_attr.isInt = True
         self.field_metaTile_bottomLeft_attr.numbase = self.displayBase
         self.field_metaTile_bottomLeft_attr.setRange(0x0000, 0xFFFF)
@@ -2029,7 +2029,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.checkbox_metaTile_bottomLeft_flipV.checkStateChanged.connect(lambda: self.changeTileGfx(2, 0xFFFF-0x0800, self.checkbox_metaTile_bottomLeft_flipV.isChecked()))
 
         self.field_metaTile_bottomRight_id = BetterSpinBox(self.page_leveleditor)
-        self.field_metaTile_bottomRight_id.setToolTip("Tile Id")
+        self.field_metaTile_bottomRight_id.setToolTip("Tile ID")
         self.field_metaTile_bottomRight_id.isInt = True
         self.field_metaTile_bottomRight_id.numbase = self.displayBase
         self.field_metaTile_bottomRight_id.numfill = 3
@@ -2039,7 +2039,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.checkbox_metaTile_bottomRight_flipH.setText("H")
         self.checkbox_metaTile_bottomRight_flipH.checkStateChanged.connect(lambda: self.changeTileGfx(3, 0xFFFF-0x0400, self.checkbox_metaTile_bottomRight_flipH.isChecked()))
         self.field_metaTile_bottomRight_attr = BetterSpinBox(self.page_leveleditor)
-        self.field_metaTile_bottomRight_attr.setToolTip("Palette?")
+        self.field_metaTile_bottomRight_attr.setToolTip("Palette ID")
         self.field_metaTile_bottomRight_attr.isInt = True
         self.field_metaTile_bottomRight_attr.numbase = self.displayBase
         self.field_metaTile_bottomRight_attr.setRange(0x0000, 0xFFFF)
@@ -3693,26 +3693,28 @@ class MainWindow(QtWidgets.QMainWindow):
                         pal_sec.data[pal_sec.paletteOffsets[i]+pal_sec.paletteHeaders[i].palettes[j][1]:
                                     pal_sec.paletteOffsets[i]+pal_sec.paletteHeaders[i].palettes[j][1]+0x200]))
             pal_list.append(pl.copy())
-        pal_listId = 0
+        ptr_index = 0
         for metaTile in self.levelEdited_object.levels[self.dropdown_level_type.currentIndex()].metaTiles:
             for tile in metaTile:
-                #print(f"{tile & 0xF000:04X}")
                 flipH = (tile & 0x0400) >> (8+2)
                 flipV = (tile & 0x0800) >> (8+3)
                 tile_id = (tile & 0x03FF)
-                # what is tile & 0xF000?
                 tile_pal = (tile & 0xF000) >> (8+4)
                 if gfx_ptrs != None:
-                    pal_listId = max(0, bisect.bisect_left(gfx_ptrs, (64*tile_id)+1)-1)
+                    ptr_index = metaTile_index//(192)
+                    pal_index = max(0, bisect.bisect_left(gfx_ptrs, (64*tile_id)+1)-1)
                 else:
-                    pal_listId = 0
-                #print(pal_listId, tile_pal)
+                    ptr_index = 0
+                    pal_index = 0
+                #print(pal_index, tile_pal)
                 try:
-                    pal = pal_list[pal_listId][tile_pal]
+                    pal = pal_list[pal_index][tile_pal]
                 except:
-                    print("palette error at", pal_listId, tile_pal)
-                    pal = list(pal_list[pal_listId].values())[0]
-                painter.drawImage(QtCore.QRectF(8*(tile_index%2), 8*(tile_index//2), 8, 8), lib.datconv.binToQt(gfx[64*tile_id:], pal, lib.datconv.CompressionAlgorithmEnum.EIGHTBPP, 1, 1).mirrored(flipH, flipV))
+                    print("palette error at", pal_index, tile_pal)
+                    pal = list(pal_list[pal_index].values())[0]
+                gfx_bin = gfx[64*tile_id:]
+                #gfx_bin = gfx[gfx_ptrs[ptr_index]+64*tile_id:]
+                painter.drawImage(QtCore.QRectF(8*(tile_index%2), 8*(tile_index//2), 8, 8), lib.datconv.binToQt(gfx_bin, pal, lib.datconv.CompressionAlgorithmEnum.EIGHTBPP, 1, 1).mirrored(flipH, flipV))
                 tile_index += 1
             
             metaTileItem = TilesetItem(pixmap)
@@ -3826,7 +3828,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.gfx_scene_level.scene().clear()
         self.initScreens()
         for i in range(len(level.screens)):
-            self.loadScreen(i, i*16*17)
+            self.loadScreen(i, i*16*16.25)
         if self.sender() != self.buttonGroup_radar_tilesetType:
             self.gfx_scene_level.fitInView()
 
