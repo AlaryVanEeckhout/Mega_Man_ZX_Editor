@@ -42,13 +42,13 @@ class GraphicsTable: # possibly the same data structure as what I identified as 
         return self.offset_list[index][1] & 0x0000FFFF
     
     def getSize2(self, index: int):
-        return (self.offset_list[index][1] & 0xFFFF0000) >> 10
+        return (self.offset_list[index][1] & 0xFFFF0000) >> 0x10
     
     def getRAM(self, index: int):
         return self.offset_list[index][2] & 0x00FFFFFF
     
     def getRAM2(self, index: int):
-        return (self.offset_list[index][2] & 0xFF000000) >> 18
+        return (self.offset_list[index][2] & 0xFF000000) >> 0x18
     
     def getAddrEnd(self, index:int):
         return self.getAddrOffset(index)+self.offset_list[index][3]+0x0C
@@ -58,17 +58,21 @@ class GraphicsTable: # possibly the same data structure as what I identified as 
     
     def joinData(self, index_start:int=0, index_end:int|None=None):
         if index_end == None:
-            index_end = self.offsetCount-1
+            index_end = self.offsetCount
         result = bytearray()
-        result_indexes = [0]
+        result_indexes = []#[0]
         newData = bytearray()
         for i in range(index_start, index_end):
-            if len(newData) > 0:
-                result_indexes.append(len(result))
+            #if len(newData) > 0: result_indexes.append(len(result))
+            result_indexes.append(len(result))
+            print(f"{self.getSize(i):04X}")
+            print(f"{self.getRAM(i):04X}")
             try:
                 newData = ndspy.lz10.decompress(self.getData(i))
-            except Exception:
+                print("cmp")
+            except:
                 newData = self.getData(i)
+                print("d")
             result += newData
             # 0x3800|0x7800 padding aligns gfx correctly to be read
             result += bytearray((-len(result)) & 0x37FF)
@@ -114,8 +118,11 @@ class GraphicHeader:
             end = len(data)
         self.SIZE = 0x14
         self.data = data
+        if not isinstance(data, (bytes, bytearray)):
+            raise TypeError(f"Expected 'bytes' object, got '{type(data).__name__}'")
         self.offset_start = start # relative to file
         self.offset_end = end
+        print(type(self.data))
         self.gfx_offset = int.from_bytes(self.data[0x00:0x04], byteorder='little') # offset from this address
         self.gfx_size = int.from_bytes(self.data[0x04:0x06], byteorder='little')
         self.oam_tile_indexing = int.from_bytes(self.data[0x06:0x07], byteorder='little') # related to tile indexing in oam (0=vram indexes, 0x18=1/4 vram indexes)

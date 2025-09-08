@@ -261,8 +261,20 @@ class TilesetView(View):
         super().__init__(*args, **kwargs)
         self.item_spacing = 1
         self.item_columns = 16
+        self.metaTiles: list[LevelTileItem] = []
         self.item_first = None # first selected item
         self.scene().selectionChanged.connect(self.selectionChange)
+        self.shortcut_left = QtGui.QShortcut(QtGui.QKeySequence("left"), self, lambda: self.moveSelection(-1), context=QtCore.Qt.ShortcutContext.WidgetShortcut)
+        self.shortcut_left = QtGui.QShortcut(QtGui.QKeySequence("right"), self, lambda: self.moveSelection(1), context=QtCore.Qt.ShortcutContext.WidgetShortcut)
+        self.shortcut_left = QtGui.QShortcut(QtGui.QKeySequence("up"), self, lambda: self.moveSelection(-self.item_columns), context=QtCore.Qt.ShortcutContext.WidgetShortcut)
+        self.shortcut_left = QtGui.QShortcut(QtGui.QKeySequence("down"), self, lambda: self.moveSelection(self.item_columns), context=QtCore.Qt.ShortcutContext.WidgetShortcut)
+
+    def moveSelection(self, direction:int):
+        if len(self.scene().selectedItems()) >= 1:
+            self.item_first.setSelected(False)
+            self.item_first = self.metaTiles[min(max(0, self.metaTiles.index(self.item_first)+direction), len(self.metaTiles)-1)]
+            if self.item_first != None:
+                self.item_first.setSelected(True)
 
     def mousePressEvent(self, event: QtGui.QMouseEvent):
         item_dest = self.itemAt(event.pos())
@@ -2213,8 +2225,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_progress.setText("")
         self.window_progress.show()
 
-    def progressUpdate(self, completed: int, status: str=""):
-        self.progress.setValue(completed)
+    def progressUpdate(self, percent: int, status: str=""):
+        self.progress.setValue(percent)
         self.label_progress.setText(status)
         app.processEvents()
 
@@ -2515,17 +2527,21 @@ class MainWindow(QtWidgets.QMainWindow):
                 self,
                 "Save ROM",
                 "",
-                "Folders Only",
+                "*",
                 options=QtWidgets.QFileDialog.Option.DontUseNativeDialog,
                 )
         dialog.setAcceptMode(dialog.AcceptMode.AcceptSave)
-        dialog.setFileMode(dialog.FileMode.Directory)
+        dialog.setFileMode(dialog.FileMode.AnyFile)
         self.set_dialog_button_name(dialog, "&Open", "Save")
         if dialog.exec(): # if you saved a file
+            selectedFiles = dialog.selectedFiles()
+            path = selectedFiles[0][:selectedFiles[0].rfind("/")]
+            name = selectedFiles[0].split("/")[-1]
+            print(path, name)
             dialog_formatselect = QtWidgets.QDialog(self)
             dialog_formatselect.setWindowTitle("Choose format and compression")
             dropdown_formatselect = QtWidgets.QComboBox(dialog_formatselect)
-            dropdown_formatselect.addItems(["Raw", "English dialogue"])
+            dropdown_formatselect.addItems(["Raw", "English dialogue", "VX"])
             dropdown_compressselect = QtWidgets.QComboBox(dialog_formatselect)
             dropdown_compressselect.addItems(["No compression change", "LZ10 compression", "LZ10 decompression"])
             button_OK = QtWidgets.QPushButton("OK", dialog_formatselect)
@@ -2538,7 +2554,6 @@ class MainWindow(QtWidgets.QMainWindow):
             dialog_formatselect.resize(250, 200)
             dialog_formatselect.exec()
             if dialog_formatselect.result():
-                selectedFiles = dialog.selectedFiles()
                 print("Selected: " + dropdown_formatselect.currentText() + ", " + dropdown_compressselect.currentText())
                 print("Item: " + item.text(0))
                 if item != None:
@@ -2552,9 +2567,9 @@ class MainWindow(QtWidgets.QMainWindow):
                         if isinstance(fileData[0], tuple):
                             fileData[0] = fileData[0][0]
                     if not "Folder" in item.text(2): # if file
-                        extract(*fileData[:2], path=selectedFiles[0], format=dropdown_formatselect.currentText(), compress=dropdown_compressselect.currentIndex())
+                        extract(fileData[0], name=name, path=path, format=dropdown_formatselect.currentText(), compress=dropdown_compressselect.currentIndex())
                     else: # if folder
-                        folder_path = os.path.join(selectedFiles[0] + "/" + w.fileToEdit_name.removesuffix(".Folder"))
+                        folder_path = os.path.join(selectedFiles[0]) # here, "file name" specifies folder name instead
                         if os.path.exists(folder_path) == False:
                             print("Folder " + folder_path  + " will be created")
                             os.makedirs(folder_path)
@@ -2563,7 +2578,8 @@ class MainWindow(QtWidgets.QMainWindow):
                         print(item.childCount() - 1)
                         for i in range(item.childCount()):
                             print(item.child(i).text(0))
-                            extract(*self.file_fromItem(item.child(i))[:2], path=selectedFiles[0] + "/" + w.fileToEdit_name.removesuffix(".Folder"), format=dropdown_formatselect.currentText(), compress=dropdown_compressselect.currentIndex())#, w.fileToEdit_name.replace(".Folder", "/")
+                            # file_fromItem gets the name automatically
+                            extract(*self.file_fromItem(item.child(i))[:2], path=folder_path, format=dropdown_formatselect.currentText(), compress=dropdown_compressselect.currentIndex())#, w.fileToEdit_name.replace(".Folder", "/")
                             #str(w.tree.currentItem().child(i).text(1) + "." + w.tree.currentItem().child(i).text(2)), 
 
     def replacebynameCall(self):
@@ -2608,74 +2624,105 @@ class MainWindow(QtWidgets.QMainWindow):
                     )
                 self.treeCall()
 
+    def switch_dialogMode(self, dialog: QtWidgets.QFileDialog):
+        nameFilters = dialog.nameFilters()
+        index = nameFilters.index(dialog.selectedNameFilter())
+        dialog.setFileMode([QtWidgets.QFileDialog.FileMode.ExistingFiles, QtWidgets.QFileDialog.FileMode.Directory][index])
+        dialog.setNameFilters([nameFilters[0], nameFilters[1]]) # setting to directory removes non-directory filters, so fix that
+        dialog.selectNameFilter(dialog.nameFilters()[index]) # resetting filters resets selection, so re-select desired option
+
     def replaceCall(self, item: QtWidgets.QTreeWidgetItem):
         if hasattr(w.rom, "name"):
             dialog = QtWidgets.QFileDialog(
                 self,
                 "Import File",
                 "",
-                "All Files (*)",
+                "All Files (*);;Directories",
                 options=QtWidgets.QFileDialog.Option.DontUseNativeDialog,
                 )
             dialog.setFileMode(QtWidgets.QFileDialog.FileMode.ExistingFiles) # allow more than one file to be selected
+            dialog.filterSelected.connect(lambda: self.switch_dialogMode(dialog))
             self.set_dialog_button_name(dialog, "&Open", "Import")
             if dialog.exec(): # if file you're trying to replace is in ROM
+                    isFolder = dialog.selectedNameFilter() == "Directories"
                     selectedFiles = dialog.selectedFiles()
                     dialog2 = QtWidgets.QMessageBox()
                     dialog2.setWindowTitle("Import Status")
                     dialog2.setWindowIcon(QtGui.QIcon('icons\\information.png'))
                     dialog2.setText("File import failed!")
                     fileInfo = self.file_fromItem(item)
-                    if str(selectedFiles[0]).split("/")[-1].split(".")[1] == "txt" and re.search(r".*(_\d+)$", str(selectedFiles[0]).split("/")[-1].split(".")[0]): # fileExt and fileName
+                    if not isFolder and str(selectedFiles[0]).split("/")[-1].split(".")[1] == "txt" and re.search(r".*(_\d+)$", str(selectedFiles[0]).split("/")[-1].split(".")[0]): # fileExt and fileName
                         dialogue = lib.dialogue.DialogueFile(fileInfo[2][fileInfo[2].index(fileInfo[0])]) # object created before loop to improve performance
                     for file in selectedFiles:
-                        with open(file, 'rb') as f:
-                            fileEdited = f.read()
-                            try:
-                                fileName = str(f.name).split("/")[-1].split(".")[0]
-                                fileExt = str(f.name).split("/")[-1].split(".")[1]
-                            except IndexError:
-                                fileName = ""
-                                fileExt = ""
-                            #print(fileExt)
-                            # find a way to get attr and replace data at correct index.. maybe it's better to just save ROM and patch
-                            #self.rom.files[self.rom.files.index(self.file_fromItem(item)[0])]
-                            supported_list = ["txt", "swar", "sbnk", "ssar", "sseq", "cmp", "dec", "bin", ""]
-                            #print(selectedFiles)
-                            print(f.name)
-                            #print(fileName + "." + fileExt)
-                            if not any(supported == fileExt.lower() for supported in supported_list): # unknown
-                                dialog2.exec()
-                                return
-                            elif not isinstance(fileInfo[2], None):
-                                if fileExt == "txt": # english text file
-                                    if "en" in fileName:
-                                        if re.search(r".*(_\d+)$", fileName) and dialogue: # match the indicator that the file is a chunk of the original file
-                                            dialogue.text_list[int(fileName.split("_")[-1])] = fileEdited.decode("utf-8") # add file text to object
-                                            if selectedFiles.index(file) == len(selectedFiles)-1: # if at last selected file
-                                                data = dialogue.toBytes() # generate final binary to import (done only once to improve performance)
+                        try:
+                            fileName = str(file).split("/")[-1].split(".")[0]
+                            fileExt = str(file).split("/")[-1].split(".")[1]
+                        except IndexError:
+                            fileName = ""
+                            fileExt = ""
+                        if not isFolder:
+                            with open(file, 'rb') as f:
+                                fileEdited = f.read()
+                                #print(fileExt)
+                                # find a way to get attr and replace data at correct index.. maybe it's better to just save ROM and patch
+                                #self.rom.files[self.rom.files.index(self.file_fromItem(item)[0])]
+                                supported_list = ["txt", "swar", "sbnk", "ssar", "sseq", "cmp", "dec", "bin", ""]
+                                #print(selectedFiles)
+                                print(f.name)
+                                #print(fileName + "." + fileExt)
+                                if not any(supported == fileExt.lower() for supported in supported_list): # unknown
+                                    dialog2.exec()
+                                    return
+                                elif not isinstance(fileInfo[2], type(None)):
+                                    if fileExt == "txt": # english text file
+                                        if "en" in fileName:
+                                            if re.search(r".*(_\d+)$", fileName) and dialogue: # match the indicator that the file is a chunk of the original file
+                                                dialogue.text_list[int(fileName.split("_")[-1])] = fileEdited.decode("utf-8") # add file text to object
+                                                if selectedFiles.index(file) == len(selectedFiles)-1: # if at last selected file
+                                                    data = dialogue.toBytes() # generate final binary to import (done only once to improve performance)
+                                            else:
+                                                data = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8")))
                                         else:
-                                            data = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8")))
-                                    else:
-                                        pass # jp
-                                elif fileExt == "cmp":
-                                    try:
-                                        data = bytearray(ndspy.lz10.decompress(fileEdited))
-                                    except TypeError as e:
-                                        print(e)
-                                        QtWidgets.QMessageBox.critical(
-                                        self,
-                                        "Decompression Failed",
-                                        str(e + "\nConsider trying again without the .cmp file extension.")
-                                        )
-                                        print("Aborted file replacement.")
-                                        return
-                                elif fileExt == "dec":
-                                    data = bytearray(ndspy.lz10.compress(fileEdited))
-                                else: # raw data
-                                    data = bytearray(fileEdited)
+                                            pass # jp
+                                    elif fileExt == "cmp":
+                                        try:
+                                            data = bytearray(ndspy.lz10.decompress(fileEdited))
+                                        except TypeError as e:
+                                            print(e)
+                                            QtWidgets.QMessageBox.critical(
+                                            self,
+                                            "Decompression Failed",
+                                            str(e + "\nConsider trying again without the .cmp file extension.")
+                                            )
+                                            print("Aborted file replacement.")
+                                            return
+                                    elif fileExt == "dec":
+                                        data = bytearray(ndspy.lz10.compress(fileEdited))
+                                    else: # raw data
+                                        data = bytearray(fileEdited)
+                                else:
+                                    dialog2.exec()
+                                    return
+                        else:
+                            print("folder import")
+                            if fileExt == "vx":
+                                self.progressShow()
+                                self.progressUpdate(0, "Loading folder")
+                                act = lib.act.ActImagine()
+                                try:
+                                    act.import_vxfolder(file)
+                                except:
+                                    print("This folder is not formatted properly!")
+                                    return
+                                self.progressUpdate(100, "Preparing encoding")
+                                vframe_strategy = lib.keyframeonly_simple.KeyframeOnlySimple() #lib.actEncStrats.keyframeonly_simple.KeyframeOnlySimple()
+                                for i, avframe in enumerate(act.avframes):
+                                    avframe.encode(avframe.vframe.plane_buffers, vframe_strategy)
+                                    self.progressUpdate(int(((i+1)/act.frames_qty)*100), "Encoding VX folder")
+                                data = act.save_vx()
+                                self.progressHide()
                             else:
-                                dialog2.exec()
+                                print("not a special folder")
                                 return
 
                     if isinstance(fileInfo[2], bytearray): # other
@@ -3518,7 +3565,7 @@ class MainWindow(QtWidgets.QMainWindow):
                             self.field_vxHeader_quantizer.setValue(self.fileEdited_object.quantizer)
                             self.field_vxHeader_sampleRate.setValue(self.fileEdited_object.audio_sample_rate)
                             self.field_vxHeader_streamCount.setValue(self.fileEdited_object.audio_streams_qty)
-                            self.field_vxHeader_frameSizeMax.setValue(self.fileEdited_object.frame_size_max)
+                            self.field_vxHeader_frameSizeMax.setValue(self.fileEdited_object.frame_data_size_max)
                             self.field_vxHeader_audioExtraDataOffset.setValue(self.fileEdited_object.audio_extradata_offset)
                             self.field_vxHeader_seekTableOffset.setValue(self.fileEdited_object.seek_table_offset)
                             self.field_vxHeader_seekTableEntryCount.setValue(self.fileEdited_object.seek_table_entries_qty)
@@ -3675,8 +3722,9 @@ class MainWindow(QtWidgets.QMainWindow):
             level.metaTiles[metaTile_index][index] = \
                 (level.metaTiles[metaTile_index][index] & bitmask) + (val << shiftL)
 
-    def loadTileset(self, gfx: bytearray, pal_sec: lib.level.PaletteSection, gfx_ptrs: list[int]|None=None):
+    def loadTileset(self, gfx_table: lib.graphic.GraphicsTable, pal_sec: lib.level.PaletteSection, gfx_ptrs: list[int]|None=None):
         self.gfx_scene_tileset.scene().clear()
+        gfx = lib.graphic.GraphicHeader(gfx_table.joinData()[0])
         tile_index = 0
         metaTile_index = 0
         self.gfx_scene_tileset.metaTiles = []
@@ -3710,9 +3758,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 try:
                     pal = pal_list[pal_index][tile_pal]
                 except:
-                    print("palette error at", pal_index, tile_pal)
+                    #print("palette error at", pal_index, tile_pal)
                     pal = list(pal_list[pal_index].values())[0]
-                gfx_bin = gfx[64*tile_id:]
+                gfx_bin = gfx.data[gfx.gfx_offset:][64*tile_id:]
                 #gfx_bin = gfx[gfx_ptrs[ptr_index]+64*tile_id:]
                 painter.drawImage(QtCore.QRectF(8*(tile_index%2), 8*(tile_index//2), 8, 8), lib.datconv.binToQt(gfx_bin, pal, lib.datconv.CompressionAlgorithmEnum.EIGHTBPP, 1, 1).mirrored(flipH, flipV))
                 tile_index += 1
@@ -3824,7 +3872,8 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         #print(gfx.gfx_offset)
         #self.loadTileset(gfx_sec.data[gfx.offset_start+gfx.gfx_offset:], pal)
-        self.loadTileset(gfx.data[gfx.gfx_offset:], pal_sec, gfx_ptrs)
+        #self.loadTileset(gfx.data[gfx.gfx_offset:], pal_sec, gfx_ptrs)
+        self.loadTileset(gfx_table, pal_sec, gfx_ptrs)
         self.gfx_scene_level.scene().clear()
         self.initScreens()
         for i in range(len(level.screens)):
@@ -4036,6 +4085,7 @@ class MainWindow(QtWidgets.QMainWindow):
             pal_bin = self.levelEdited_object.data[self.levelEdited_object.pal_offset_rom:self.levelEdited_object.address_list[3][0]]
             pal_bin += bytearray((-len(pal_bin)) & 3)
             bin_03 = self.levelEdited_object.data[self.levelEdited_object.address_list[3][0]:self.levelEdited_object.address_list[4][0]]
+            #bin_03 = ndspy.lz10.compress(bytearray(4))
             bin_03 += bytearray((-len(bin_03)) & 3)
             bin_04 = self.levelEdited_object.data[self.levelEdited_object.address_list[4][0]:self.levelEdited_object.address_list[5][0]]
             bin_04 += bytearray((-len(bin_04)) & 3)
@@ -4178,9 +4228,16 @@ def extract(data: bytes, name="", path="", format="", compress=0):
             except AssertionError: # not a real dialogue file
                 data = bytes(lib.dialogue.DialogueFile.binToText(data), "utf-8")
         elif format == "VX":
-            #ext = ".png"
-            #data = library.act.ActImagine(data).interpret_vx()
-            lib.act.ActImagine(data).interpret_vx() # needs to allow specific file location
+            ext = ".vx" # even if it is a folder, use extension to know what it contains when importing
+            act = lib.act.ActImagine()
+            load_vx_iter = act.load_vx(data)
+            w.progressShow()
+            for i, _ in enumerate(load_vx_iter):
+                w.progressUpdate(int(((i+1)/act.frames_qty)*100), "Loading VX file")
+            export_vx_iter = act.export_vxfolder(os.path.join(path + "/" + name + ext))
+            for i, _ in enumerate(export_vx_iter):
+                w.progressUpdate(int(((i+1)/act.frames_qty)*100), "Exporting VX folder")
+            w.progressHide()
             return
         else:
             print("could not find method for converting to specified format.")
