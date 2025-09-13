@@ -1,4 +1,4 @@
-from PyQt6 import QtGui, QtWidgets, QtCore#, QtMultimedia #Qt6, Qt6.qsci
+from PyQt6 import QtGui, QtWidgets, QtCore, QtMultimedia #Qt6, Qt6.qsci
 import sys, os, platform, re, math
 import argparse
 import bisect
@@ -1640,9 +1640,24 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dialog_sdat.setWindowIcon(QtGui.QIcon('icons\\speaker-volume.png'))
         self.dialog_sdat.resize(600, 400)
 
-        self.tree_sdat = EditorTree(self.dialog_sdat)
-        self.dialog_sdat.setCentralWidget(self.tree_sdat)
+        self.audioOutput = QtMultimedia.QAudioOutput(self)
+        self.audioOutput.setVolume(0.2)
+        self.audioBuffer = QtCore.QBuffer(self)
+        self.mediaPlayer = QtMultimedia.QMediaPlayer(self)
+        self.mediaPlayer.setAudioOutput(self.audioOutput)
+
+        self.toolbar_sdat = QtWidgets.QToolBar("SDAT Toolbar")
+        self.dialog_sdat.addToolBar(self.toolbar_sdat)
+
+        self.action_playSdat = QtGui.QAction(QtGui.QIcon('icons\\control.png'), "Play Sound", self)
+        self.action_playSdat.setStatusTip("Play a SWAV or SSEQ")
+        self.action_playSdat.triggered.connect(self.sdatPlayCall)
+
+        self.toolbar_sdat.addAction(self.action_playSdat)
+
+        self.tree_sdat = EditorTree()
         self.tree_sdat.setColumnCount(3)
+        self.dialog_sdat.setCentralWidget(self.tree_sdat)
         self.tree_sdat.setHeaderLabels(["File ID", "Name", "Type"])
         self.tree_sdat.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
 
@@ -2320,15 +2335,12 @@ class MainWindow(QtWidgets.QMainWindow):
                             #print(data)
                             #if isinstance(data, tuple):
                             #    data = data[0]
+                        elif item.parent() != None and file[0] == item.parent().text(1):
+                            if item.text(2) == "SWAV":
+                                data = file[1].waves[int(item.text(0))]
+                            else:
+                                data = file
         return [data, name, obj, obj2]
-        
-    def set_dialog_button_name(self, dialog: QtWidgets.QDialog, oldtext: str, newtext: str):
-        for btn in dialog.findChildren(QtWidgets.QPushButton):
-            if btn.text() == self.tr(oldtext):
-                QtCore.QTimer.singleShot(0, lambda btn=btn: btn.setText(newtext))
-        dialog.findChild(QtWidgets.QTreeView).selectionModel().currentChanged.connect(
-            lambda: self.set_dialog_button_name(dialog, oldtext, "Import")
-            )
     
     def patches_reload(self):
         #print("call")
@@ -2525,14 +2537,15 @@ class MainWindow(QtWidgets.QMainWindow):
     def exportCall(self, item: QtWidgets.QTreeWidgetItem):
         dialog = QtWidgets.QFileDialog(
                 self,
-                "Save ROM",
+                "Export File",
                 "",
-                "*",
+                "Supported Export Formats (*.bin *.txt *.vx);;All Files (*)",
                 options=QtWidgets.QFileDialog.Option.DontUseNativeDialog,
                 )
         dialog.setAcceptMode(dialog.AcceptMode.AcceptSave)
         dialog.setFileMode(dialog.FileMode.AnyFile)
-        self.set_dialog_button_name(dialog, "&Open", "Save")
+        dialog.setLabelText(QtWidgets.QFileDialog.DialogLabel.Accept, "Export")
+        dialog.setLabelText(QtWidgets.QFileDialog.DialogLabel.FileName, "Output Destination:")
         if dialog.exec(): # if you saved a file
             selectedFiles = dialog.selectedFiles()
             path = selectedFiles[0][:selectedFiles[0].rfind("/")]
@@ -2557,17 +2570,20 @@ class MainWindow(QtWidgets.QMainWindow):
                 print("Selected: " + dropdown_formatselect.currentText() + ", " + dropdown_compressselect.currentText())
                 print("Item: " + item.text(0))
                 if item != None:
-                    fileData = self.file_fromItem(item)
-                    if fileData == [b'', "", None]:
+                    fileInfo = self.file_fromItem(item)
+                    if fileInfo == [b'', "", None, None]:
                         print("could not fetch data from tree item")
                         return
-                    elif not isinstance(fileData[0], (bytes, bytearray)): # both bytes and bytearray are essentially the same, but need to be checked for separately
-                        fileData[0] = fileData[0][1].save()
-                        print(fileData[0])
-                        if isinstance(fileData[0], tuple):
-                            fileData[0] = fileData[0][0]
+                    elif not isinstance(fileInfo[0], (bytes, bytearray)): # both bytes and bytearray are essentially the same, but need to be checked for separately
+                        if type(fileInfo[0]) == tuple:
+                            fileData = fileInfo[0][1].save()
+                        else:
+                            fileData = fileInfo[0].save()
+                        print(fileData)
+                        if isinstance(fileData, tuple):
+                            fileData = fileData[0]
                     if not "Folder" in item.text(2): # if file
-                        extract(fileData[0], name=name, path=path, format=dropdown_formatselect.currentText(), compress=dropdown_compressselect.currentIndex())
+                        extract(fileData, name=name, path=path, format=dropdown_formatselect.currentText(), compress=dropdown_compressselect.currentIndex())
                     else: # if folder
                         folder_path = os.path.join(selectedFiles[0]) # here, "file name" specifies folder name instead
                         if os.path.exists(folder_path) == False:
@@ -2591,7 +2607,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 "All Files (*)",
                 options=QtWidgets.QFileDialog.Option.DontUseNativeDialog,
                 )
-            self.set_dialog_button_name(dialog, "&Open", "Import")
+            dialog.setLabelText(QtWidgets.QFileDialog.DialogLabel.Accept, "Import")
+            dialog.setLabelText(QtWidgets.QFileDialog.DialogLabel.FileName, "ROM file:")
             if dialog.exec():
                 selectedFiles = dialog.selectedFiles()
                 dialog2 = QtWidgets.QMessageBox()
@@ -2642,7 +2659,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 )
             dialog.setFileMode(QtWidgets.QFileDialog.FileMode.ExistingFiles) # allow more than one file to be selected
             dialog.filterSelected.connect(lambda: self.switch_dialogMode(dialog))
-            self.set_dialog_button_name(dialog, "&Open", "Import")
+            dialog.setLabelText(QtWidgets.QFileDialog.DialogLabel.Accept, "Import")
+            dialog.setLabelText(QtWidgets.QFileDialog.DialogLabel.FileName, "Source:")
             if dialog.exec(): # if file you're trying to replace is in ROM
                     isFolder = dialog.selectedNameFilter() == "Directories"
                     selectedFiles = dialog.selectedFiles()
@@ -2733,9 +2751,16 @@ class MainWindow(QtWidgets.QMainWindow):
                         print(data[:0x15].hex())
                     elif any(x for x in self.sdat.__dict__.values() if x == fileInfo[3]):
                         newName = fileName
-                        oldObject = fileInfo[0][1]
-                        newObject = type(oldObject).fromFile(f.name)
-                        if isinstance(fileInfo[0][1], ndspy.soundSequenceArchive.soundSequence.SSEQ): # bankID fix (defaults to 0)
+                        if type(fileInfo[0]) == tuple: # object listed within object in one of the sdat sections
+                            oldObject = fileInfo[0][1]
+                        else:
+                            oldObject = fileInfo[0]
+                        try:
+                            newObject = type(oldObject).fromFile(f.name)
+                        except:
+                            dialog2.exec()
+                            return
+                        if isinstance(oldObject, ndspy.soundSequenceArchive.soundSequence.SSEQ): # bankID fix (defaults to 0)
                             newObject.bankID = oldObject.bankID
                             newObject.volume = oldObject.volume
                             newObject.channelPressure = oldObject.channelPressure
@@ -2747,8 +2772,16 @@ class MainWindow(QtWidgets.QMainWindow):
                             #        newName = fileInfo[0][0]
                         print(oldObject)
                         print(newObject)
-                        fileInfo[3][fileInfo[3].index(fileInfo[0])] = (newName, newObject) 
-                        fileInfo[2][self.sdat.fileID] = self.sdat.save()
+                        if type(fileInfo[0]) == tuple:
+                            fileInfo[3][fileInfo[3].index(fileInfo[0])] = (newName, newObject) 
+                        else: # sub-object
+                            if hasattr(fileInfo[3], "waves"):
+                                fileInfo[3].waves[fileInfo[3].waves.index(fileInfo[0])] = (newObject) 
+                            elif hasattr(fileInfo[3], "sequences"):
+                                fileInfo[3].sequences[fileInfo[3].sequences.index(fileInfo[0])] = (newObject) 
+                            else:
+                                print("unhandled case")
+                        fileInfo[2][self.sdat.fileID] = self.sdat.save() # save sdat to its parent object
                         self.treeSdatUpdate() # refresh tree to avoid interactions with files that are not in the new state
                     else: # subfile
                         for file in fileInfo[2]:
@@ -2944,7 +2977,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 )
         dialog.setAcceptMode(dialog.AcceptMode.AcceptSave)
         dialog.setDefaultSuffix(self.romToEdit_ext)
-        self.set_dialog_button_name(dialog, "&Open", "Save")
+        dialog.setLabelText(QtWidgets.QFileDialog.DialogLabel.Accept, "Save")
+        dialog.setLabelText(QtWidgets.QFileDialog.DialogLabel.FileName, "Hack name:")
         if dialog.exec(): # if you saved a file
             romName = dialog.selectedFiles()[0]
             print(romName)
@@ -3019,6 +3053,28 @@ class MainWindow(QtWidgets.QMainWindow):
         if hasattr(self, 'dialog_sdat'):
             self.dialog_sdat.show()
             self.dialog_sdat.setWindowState(QtCore.Qt.WindowState.WindowActive)
+
+    def sdatPlayCall(self):
+        if len(self.tree_sdat.selectedItems()) == 0: return
+        snd_type = self.tree_sdat.selectedItems()[0].text(2)
+        if snd_type == "SWAV": # WIP, need to use QAudioFormat probably
+            self.mediaPlayer.stop()
+            print("play SWAV")
+            snd_data: ndspy.soundArchive.soundWaveArchive.soundWave.SWAV = self.file_fromItem(self.tree_sdat.selectedItems()[0])[0]
+            print(snd_data.waveType) # likely 2 (ADPCM)
+            #snd_format = QtMultimedia.QAudioFormat()
+            #snd_format.setChannelCount(1)
+            #snd_format.setChannelConfig(QtMultimedia.QAudioFormat.ChannelConfig.ChannelConfigMono)
+            #snd_format.setSampleRate(snd_data.sampleRate)
+            #snd_format.setSampleFormat(QtMultimedia.QAudioFormat.SampleFormat.Float)
+            self.audioBuffer.close()
+            self.audioBuffer.setBuffer(QtCore.QByteArray(snd_data.save()))
+            self.audioBuffer.open(QtCore.QBuffer.OpenModeFlag.ReadOnly)
+            self.mediaPlayer.setSourceDevice(self.audioBuffer, QtCore.QUrl.fromLocalFile(None))
+            #self.mediaPlayer.setSource(QtCore.QUrl.fromLocalFile("sound.wav"))
+            self.mediaPlayer.play()
+        elif snd_type == "SSEQ":
+            print("play SSEQ")
 
 
     #def codeeditCall(self):
@@ -3153,6 +3209,14 @@ class MainWindow(QtWidgets.QMainWindow):
                     if hasattr(section[1], "bankID"):
                         child.setToolTip(0, "bankID: " + str(section[1].bankID))
                     category.addChild(child)
+                    if hasattr(section[1], "sequences"):
+                        for sseq in section[1].sequences: # actually a list with [name, SSARSequence]
+                            subChild = QtWidgets.QTreeWidgetItem([str(section[1].sequences.index(sseq)), sseq[0], "SSEQ"])
+                            child.addChild(subChild)
+                    if hasattr(section[1], "waves"):
+                        for wave in section[1].waves:
+                            subChild = QtWidgets.QTreeWidgetItem([str(section[1].waves.index(wave)), f"{child.text(1)} (Wave {section[1].waves.index(wave)})", "SWAV"])
+                            child.addChild(subChild)
                 #progress.setValue(progress.value()+ 100//len(item_list))
 
             self.tree_sdat.addTopLevelItems([*item_list])
