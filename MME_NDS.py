@@ -2,6 +2,7 @@ from PyQt6 import QtGui, QtWidgets, QtCore, QtMultimedia #Qt6, Qt6.qsci
 import sys, os, platform, re, math
 import argparse
 import bisect
+import audioop, wave, io # audioop-lts
 #import logging, time, random
 #import numpy
 import ndspy
@@ -12,9 +13,6 @@ import ndspy.rom, ndspy.code, ndspy.codeCompression
 import ndspy.soundArchive
 import ndspy.soundSequenceArchive
 import lib
-#Global variables
-global EDITOR_VERSION
-EDITOR_VERSION = "0.4.4" # objective, feature, WIP
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-R", "--ROM", help="NDS ROM to open using the editor.", dest="openPath")
@@ -43,704 +41,15 @@ class RunnableDisplayProgress(QtCore.QRunnable):
         QtCore.QMetaObject.invokeMethod(w.progress, "setValue", QtCore.Qt.ConnectionType.QueuedConnection, QtCore.Q_ARG(int, 0))
         print("runnable finish")
 """
-class View(QtWidgets.QGraphicsView):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._zoom = 0
-        self._zoom_limit = 70
-        self.setOptimizationFlags(QtWidgets.QGraphicsView.OptimizationFlag.DontAdjustForAntialiasing |
-                                  QtWidgets.QGraphicsView.OptimizationFlag.DontSavePainterState)
-        scene = QtWidgets.QGraphicsScene()
-        self.setScene(scene)
-        self.setMouseTracking(True)
-        self.mousePressed = False
-        self.mouseLeftPressed = False
-        self.mouseRightPressed = False
-
-    def fitInView(self, scale=True):
-        if self.sceneRect().isEmpty(): return
-        rect = QtCore.QRectF(0, 0, 0, 0)
-        for item in self.items():
-            if isinstance(item, QtWidgets.QGraphicsLineItem): continue
-            item_rect =  item.boundingRect()
-            if item.pos().x() < rect.left():
-                rect.setLeft(item.pos().x())
-            if item.pos().y() < rect.top():
-                rect.setTop(item.pos().y())
-            if item.pos().x() + item_rect.width() > rect.right():
-                rect.setRight(item.pos().x() + item_rect.width())
-            if item.pos().y() + item_rect.height() > rect.bottom():
-                rect.setBottom(item.pos().y() + item_rect.height())
-        self.setSceneRect(rect)
-        if self.scene().isActive() and scale:
-            #print("fit")
-            unity = self.transform().mapRect(QtCore.QRectF(0, 0, 1, 1))
-            self.scale(1 / unity.width(), 1 / unity.height())
-            viewrect = self.viewport().rect()
-            scenerect = self.sceneRect()
-            factor = min(viewrect.width() / scenerect.width(),
-                            viewrect.height() / scenerect.height())
-            self.scale(factor, factor)
-        self._zoom = 0
-    
-    def mousePressEvent(self, event):
-        #print("QGraphicsView mousePress")
-        self.mousePressed = True
-        self.mouseLeftPressed = (event.button() == QtCore.Qt.MouseButton.LeftButton)
-        self.mouseRightPressed = (event.button() == QtCore.Qt.MouseButton.RightButton)
-        super().mousePressEvent(event)
-    
-    def mouseReleaseEvent(self, event):
-        #print("QGraphicsView mouseRelease")
-        if self.mousePressed:
-            self.mousePressed = False
-            self.mouseLeftPressed = False
-            self.mouseRightPressed = False
-        super().mouseReleaseEvent(event)
-    
-    def wheelEvent(self, event):
-        if event.modifiers() == QtCore.Qt.KeyboardModifier.ControlModifier:
-            if event.angleDelta().y() > 0:
-                factor = 1.25
-                self._zoom += 1
-            else:
-                factor = 0.80
-                self._zoom -= 1
-            if self._zoom >= self._zoom_limit:
-                factor = 1
-                self._zoom = self._zoom_limit
-            if self._zoom > 0:
-                view_pos = QtCore.QRect(event.position().toPoint(), QtCore.QSize(1, 1))
-                scene_pos = self.mapToScene(view_pos)
-                self.centerOn(scene_pos.boundingRect().center())
-                self.scale(factor, factor)
-                delta = self.mapToScene(view_pos.center()) - self.mapToScene(self.viewport().rect().center())
-                self.centerOn(scene_pos.boundingRect().center() - delta)
-            #print(self._zoom)
-        elif event.modifiers() == QtCore.Qt.KeyboardModifier.ShiftModifier:
-            self.horizontalScrollBar().setSliderPosition(self.horizontalScrollBar().sliderPosition()-event.angleDelta().y())
-        else:
-            self.verticalScrollBar().setSliderPosition(self.verticalScrollBar().sliderPosition()-event.angleDelta().y())
-        if self._zoom <= 0:
-            self.fitInView()
-
-class GFXView(View):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.setInteractive(False)
-        self.setCursor(QtGui.QCursor(QtCore.Qt.CursorShape.CrossCursor))
-        self._zoom = 0
-        self._zoom_limit = 70
-        scene = QtWidgets.QGraphicsScene()
-        self.setScene(scene)
-        self._graphic = QtWidgets.QGraphicsPixmapItem()
-        self.scene().addItem(self._graphic)
-        self.pen = QtGui.QPen()
-        self.pen.setColor(0x00010101) # grayscale color for indexed images
-        self.start = QtCore.QPoint()
-        self.end = QtCore.QPoint()
-        self.end_previous = QtCore.QPoint()
-        self.setMouseTracking(True)
-        self.mousePressed = False
-        self.draw_mode = "pixel"
-        self.rectangle = None # used for drawing rectangles
-
-    def resetScene(self):
-        self.scene().clear()
-        self.rectangle = None
-        self._graphic = QtWidgets.QGraphicsPixmapItem()
-        self.scene().addItem(self._graphic)
-
-    #def setGraphic(self, pixmap: QtGui.QPixmap=None):
-    #    self._zoom = 0
-    #    if pixmap and not pixmap.isNull():
-    #        self._empty = False
-    #        self._graphic.setPixmap(pixmap)
-    #    else:
-    #        self._empty = True
-    #        self._graphic.setPixmap(QtGui.QPixmap())
-    #        #self._graphic.pixmap()
-    #    self.fitInView()
-
-
-    def drawShape(self):
-        if self.draw_mode == "pixel":
-            gfx_zone = self._graphic.pixmap() # create a pixmap that can be used by painter
-            painter = QtGui.QPainter()
-            painter.begin(gfx_zone) # image is auto-converted to Format_Grayscale8 for painting thanks to the NoFormatConversion flag which kept it in Format_Indexed8 until then
-            painter.setPen(self.pen)
-
-            pos = QtCore.QLine(int(self.end_previous.x()),int(self.end_previous.y()),int(self.end.x()),int(self.end.y()))
-            painter.drawLine(pos)
-
-            painter.end() # release resources to prevent crash
-            # unfortunately, toImage does not return a QImage in indexed format, so the format must be corrected manually
-            img = gfx_zone.toImage().convertToFormat(QtGui.QImage.Format.Format_Grayscale8).convertToFormat(QtGui.QImage.Format.Format_Indexed8) # convert from grayscale to indexed
-            img.setColorTable(w.gfx_palette) # re-apply colors
-            self._graphic.setPixmap(QtGui.QPixmap.fromImage(img, QtCore.Qt.ImageConversionFlag.NoFormatConversion))
-            w.button_file_save.setDisabled(False)
-        elif self.draw_mode == "rectangle":
-            width = abs(self.start.x() - self.end.x())
-            height = abs(self.start.y() - self.end.y())
-            if self.rectangle == None:
-                self.rectangle = self.scene().addRect(min(self.start.x(), self.end.x()), min(self.start.y(), self.end.y()), width, height, self.pen)
-            else:
-                self.rectangle.setRect(min(self.start.x(), self.end.x()), min(self.start.y(), self.end.y()), width, height)
-                self.rectangle.setPen(self.pen)
-
-    def createGrid(self, tileWidth: int=8, tileHeight: int=8):
-        if self._graphic.pixmap().isNull(): return
-        img = self._graphic.pixmap().toImage().scaled(1, 1, transformMode=QtCore.Qt.TransformationMode.SmoothTransformation) # get average
-        img.invertPixels() # for a contrasting grid color
-        #print(color.getRgb())
-        pen = QtGui.QPen(img.pixelColor(0, 0))
-        pen.setWidthF(0.05) # extra thin line
-        pos = [self._graphic.scenePos().x(), self._graphic.scenePos().y()]
-        size = [self._graphic.pixmap().size().width(), self._graphic.pixmap().size().height()]
-        if tileWidth != 0:
-            for i in range(1, size[0]//tileWidth):
-                vline = QtCore.QLineF(pos[0]+i*tileWidth, pos[1], pos[0]+i*tileWidth, pos[1]+size[1])
-                self.scene().addLine(vline, pen)
-        
-        if tileHeight != 0:
-            for i in range(1, size[1]//tileHeight):
-                hline = QtCore.QLineF(pos[0], pos[1]+i*tileHeight, pos[0]+size[0], pos[1]+i*tileHeight)
-                self.scene().addLine(hline, pen)
-
-    def mousePressEvent(self, event):
-        #print("QGraphicsView mousePress")
-        self.mousePressed = True
-        # Reset vars to avoid abnormal drawing positions
-        self.start = self.mapToScene(event.pos())
-        self.end = self.start
-        self.end_previous = self.end
-        if event.button() == QtCore.Qt.MouseButton.LeftButton:
-            self.draw_mode = "pixel"
-        elif event.button() == QtCore.Qt.MouseButton.RightButton:
-            self.draw_mode = "rectangle"
-        self.drawShape()
-
-    def mouseMoveEvent(self, event):
-        #print("QGraphicsView mouseMove")
-        self.end = self.mapToScene(event.pos())
-        if self.draw_mode == "rectangle":
-            if self.mousePressed:
-                self.drawShape()
-        else:
-            if self.mousePressed:
-                self.drawShape()
-            self.end_previous = self.end
-
-    def mouseReleaseEvent(self, event):
-        #print("QGraphicsView mouseRelease")
-        if self.mousePressed:
-            self.mousePressed = False
-
-class OAMView(View):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing, True) # prevent weird scaling artifacts on overlapping items
-        # find a way to eliminate spacing between adjacent items
-        self.setSceneRect(QtCore.QRectF(-128, -128, 256, 256)) # dimensions correspond to max positions of object
-        self.item_current: OAMObjectItem | None = None
-
-    def fitInView(self, scale=True):
-        if self.scene().isActive() and scale:
-            #print("fit")
-            unity = self.transform().mapRect(QtCore.QRectF(0, 0, 1, 1))
-            self.scale(1 / unity.width(), 1 / unity.height())
-            viewrect = self.viewport().rect()
-            scenerect = self.sceneRect()
-            factor = min(viewrect.width() / scenerect.width(),
-                            viewrect.height() / scenerect.height())
-            self.scale(factor, factor)
-        self._zoom = 0
-
-class TilesetView(View):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.item_spacing = 1
-        self.item_columns = 16
-        self.metaTiles: list[LevelTileItem] = []
-        self.item_first = None # first selected item
-        self.scene().selectionChanged.connect(self.selectionChange)
-        self.shortcut_left = QtGui.QShortcut(QtGui.QKeySequence("left"), self, lambda: self.moveSelection(-1), context=QtCore.Qt.ShortcutContext.WidgetShortcut)
-        self.shortcut_left = QtGui.QShortcut(QtGui.QKeySequence("right"), self, lambda: self.moveSelection(1), context=QtCore.Qt.ShortcutContext.WidgetShortcut)
-        self.shortcut_left = QtGui.QShortcut(QtGui.QKeySequence("up"), self, lambda: self.moveSelection(-self.item_columns), context=QtCore.Qt.ShortcutContext.WidgetShortcut)
-        self.shortcut_left = QtGui.QShortcut(QtGui.QKeySequence("down"), self, lambda: self.moveSelection(self.item_columns), context=QtCore.Qt.ShortcutContext.WidgetShortcut)
-
-    def moveSelection(self, direction:int):
-        if len(self.scene().selectedItems()) >= 1:
-            self.item_first.setSelected(False)
-            self.item_first = self.metaTiles[min(max(0, self.metaTiles.index(self.item_first)+direction), len(self.metaTiles)-1)]
-            if self.item_first != None:
-                self.item_first.setSelected(True)
-
-    def mousePressEvent(self, event: QtGui.QMouseEvent):
-        item_dest = self.itemAt(event.pos())
-        if event.modifiers() == QtCore.Qt.KeyboardModifier.ShiftModifier and not None in [self.item_first, item_dest]:
-            #print(self.item_first.pos(), item_dest.pos())
-            select_rect = QtCore.QRectF(self.item_first.pos(), item_dest.pos())
-            select_rect.setHeight(1 if select_rect.height() == 0 else select_rect.height())
-            select_rect.setWidth(1 if select_rect.width() == 0 else select_rect.width())
-            items = [item for item in self.scene().items() if item.sceneBoundingRect().intersects(select_rect)]
-            for item in items:
-                item.setSelected(True)
-        else:
-            super().mousePressEvent(event)
-    
-    def selectionChange(self):
-        #print(self.scene().selectedItems())
-        if len(self.scene().selectedItems()) == 1:
-            self.item_first = self.scene().selectedItems()[0]
-
-class LevelView(View):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing, True)
-        self.tileGroups: list[list[list[LevelTileItem]]] = []
-
-    def mousePressEvent(self, event):
-        super().mousePressEvent(event)
-        self.levelInteract(event)
-
-    def mouseMoveEvent(self, event):
-        super().mouseMoveEvent(event)
-        self.levelInteract(event)
-
-    def levelInteract(self, event: QtGui.QMouseEvent):
-        if not self.mousePressed: return
-        if len(w.gfx_scene_tileset.scene().selectedItems()) > 0:
-            if self.mouseLeftPressed:
-                self.tileDraw(event.pos())
-            elif self.mouseRightPressed:
-                self.tilePick(event.pos())
-        else:
-            if event.button() == QtCore.Qt.MouseButton.LeftButton:
-                # select screen to swap position?
-                print("screen swap")
-                pass
-            elif event.button() == QtCore.Qt.MouseButton.RightButton:
-                # bring up contextual menu to modify screen in room layout
-                print("screen options")
-                pass
-
-    def tileDraw(self, pos: QtCore.QPoint):
-        sItem_event = w.gfx_scene_tileset.item_first
-        for sItem in w.gfx_scene_tileset.scene().selectedItems():
-            sItem_delta = sItem.pos().toPoint()-sItem_event.pos().toPoint()
-            sItem_delta_spacing = QtCore.QPoint(sItem_delta.x()//16, sItem_delta.y()//16)
-            sItem_delta_transformed = (sItem_delta-sItem_delta_spacing)*w.gfx_scene_level.transform().m11()
-            item_target = self.itemAt(pos+sItem_delta_transformed)
-            if isinstance(item_target, LevelTileItem):
-                for item in item_target.tileGroup:
-                    item.tileReplace(sItem)
-                w.levelEdited_object.levels[w.dropdown_level_type.currentIndex()].screens[item_target.screen][item_target.index] = item_target.id
-        
-    def tilePick(self, pos: QtCore.QPoint):
-        item_target = self.itemAt(pos)
-        if isinstance(item_target, LevelTileItem):
-            w.gfx_scene_tileset.metaTiles[item_target.id].setSelected(True)
-
-class TilesetItem(QtWidgets.QGraphicsPixmapItem):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.setFlags(QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIsSelectable)
-
-class LevelTileItem(QtWidgets.QGraphicsPixmapItem):
-    def __init__(self, *args, index=0, id=0, screen=0, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.index = index
-        self.id = id
-        self.screen = screen
-        self.tileGroup: list[LevelTileItem] = None
-
-    def tileReplace(self, item: QtWidgets.QGraphicsPixmapItem):
-        if item == None: return
-        #print(f"tile {self.index} of screen {self.screen} = {w.gfx_scene_tileset.metaTiles.index(item)}")
-        self.setPixmap(item.pixmap())
-        self.id = w.gfx_scene_tileset.metaTiles.index(item)
-        w.button_level_save.setEnabled(True)
-
-class OAMObjectItem(QtWidgets.QGraphicsPixmapItem):
-    def __init__(self, *args, id=0, editable=False, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.obj_id = id
-        self.editable = editable
-        if editable:
-            self.setFlags(QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIsSelectable |
-                        QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIsMovable |
-                        QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemSendsGeometryChanges)
-
-    def itemChange(self, change: QtWidgets.QGraphicsPixmapItem.GraphicsItemChange, value: QtCore.QVariant):
-        if change == QtWidgets.QGraphicsPixmapItem.GraphicsItemChange.ItemPositionChange and self.scene():
-            if QtWidgets.QApplication.mouseButtons() == QtCore.Qt.MouseButton.LeftButton:
-                rect = w.file_content_oam.sceneRect()
-                x = min(max(rect.left(), value.x()), rect.right())
-                y = min(max(rect.top(), value.y()), rect.bottom())
-                return QtCore.QPointF(int(x), int(y))
-            else:
-                return value
-        else:
-            return super().itemChange(change, value)
-    
-    def setSelected(self, selected):
-        if selected:
-            self.scene().views()[0].item_current = self
-        super().setSelected(selected)
-    
-    def mousePressEvent(self, event):
-        super().mousePressEvent(event)
-        if self.editable:
-            w.dropdown_oam_obj.setCurrentIndex(self.obj_id)
-            w.treeCall()
-
-    def mouseMoveEvent(self, event):
-        super().mouseMoveEvent(event)
-        if self.editable:
-            # prevent drag from emitting valueChanged signal, because it affects item position in turn
-            w.field_objX.blockSignals(True)
-            w.field_objY.blockSignals(True)
-            w.field_objX.setValue(self.scenePos().x())
-            w.field_objY.setValue(self.scenePos().y())
-            w.field_objX.blockSignals(False)
-            w.field_objY.blockSignals(False)
-            w.button_file_save.setEnabled(True)
-
-class GridLayout(QtWidgets.QGridLayout):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._columns = 0 # amount of used columns
-        self._rows = 0
-    
-    def addWidget(self, *args, **kwargs):
-        super().addWidget(*args, **kwargs)
-        item_pos = self.getItemPosition(self.indexOf(args[0]))
-        self._rows = max(self._rows, item_pos[0]+1)
-        self._columns = max(self._columns, item_pos[1]+1)
-    
-    def addItem2(self, *args, **kwargs):
-        super().addItem(*args, **kwargs)
-        item_pos = self.getItemPosition(self.indexOf(args[0]))
-        self._rows = max(self._rows, item_pos[0]+1)
-        self._columns = max(self._columns, item_pos[1]+1)
-    
-    def addLayout(self, *args, **kwargs):
-        super().addLayout(*args, **kwargs)
-        item_pos = self.getItemPosition(self.indexOf(args[0]))
-        self._rows = max(self._rows, item_pos[0]+1)
-        self._columns = max(self._columns, item_pos[1]+1)
-
-    def rearrange(self, columns: int, rows: int=-1):
-        if columns == self._columns and self._rows == rows: return
-        column_index = 0
-        row_index = 0
-        column_target = 0
-        row_target = 0
-        #print(self._rows, rows)
-        #print(self._columns, columns)
-        for item_index in range(self.count()):
-            column_index = item_index%self._columns
-            row_index = item_index//self._columns
-            column_target = item_index%columns
-            row_target = item_index//columns
-            #print(row_index)
-            item = self.itemAtPosition(row_index, column_index)
-            item_target = self.itemAtPosition(row_target, column_target)
-            #print(item.widget().pos()-self.contentsRect().topLeft())
-            if rows != -1 and row_target >= rows:
-                item.widget().hide()
-            else:
-                item.widget().show()
-            if item_target == item:
-                continue
-            else:
-                self.removeItem(item)
-                self.addItem(item, row_target, column_target)
-        self._columns = columns
-        self._rows = row_target+1 if rows == -1 else rows
-
-class EditorTree(QtWidgets.QTreeWidget):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.ContextNameType = "[Filenames]"
-
-    def contextMenuOpen(self): #quick menu to export or replace selected file
-        self.context_menu = QtWidgets.QMenu(self)
-        self.context_menu.setGeometry(self.cursor().pos().x(), self.cursor().pos().y(), 50, 50)
-        contextName = self.ContextNameType + self.currentItem().text(0)
-        if self.ContextNameType == "[Filenames]":
-            contextName = self.currentItem().text(1) + ("." + self.currentItem().text(2)).replace(".Folder", " and contents")
-        exportAction = self.context_menu.addAction("Export " + contextName)
-        importAction = self.context_menu.addAction("Replace " + contextName)
-        if self.currentItem().text(2) == "sdat":
-            sdatAction = self.context_menu.addAction("Open Sound Archive")
-        action2 = self.context_menu.exec()
-        if action2 is not None:
-            if action2 == exportAction:
-                w.exportCall(self.currentItem())
-            elif action2 == importAction:
-                w.replaceCall(self.currentItem())
-            elif action2 == sdatAction:
-                w.dialog_sdat.show()
-                w.dialog_sdat.setFocus()
-    
-    def mousePressEvent(self, event: QtCore.QEvent): #redefine mouse press to insert custom code on right click
-        if event.type() == QtCore.QEvent.Type.MouseButtonPress:
-            super(EditorTree, self).mousePressEvent(event)
-            if event.button() == QtCore.Qt.MouseButton.RightButton and self.currentItem() != None: # execute different code if right click
-                self.contextMenuOpen()
-
-class HoldButton(QtWidgets.QPushButton): #change class to use pyqt signals instead
-    pressed_quick = QtCore.pyqtSignal(bool)
-    held = QtCore.pyqtSignal(bool)
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.counter = 0
-        self.rate = 100
-        self.allow_press = False
-        self.allow_repeat = True
-        self.press_quick_threshold = 1
-        self.timer = QtCore.QTimer(self)
-        self.timer.timeout.connect(self.on_timeout)
-        self.pressed.connect(self.on_press)
-        self.released.connect(self.on_release)
-        #self.timeout_func = None # when button held
-
-    def on_timeout(self):
-        #print(str(self.counter) + " vs " + str(self.press_quick_threshold))
-        self.counter += 1
-        if self.counter > self.press_quick_threshold:
-            #print("hold " + str(self.counter))
-            self.held.emit(True)
-            if not self.allow_repeat:
-                self.counter = -1
-                self.timer.stop()
-                self.setDown(False)
-
-    def on_press(self):
-        #print("pressed")
-        self.counter = 0
-        self.timer.start(self.rate)
-
-    def on_release(self):
-        #print("release " + str(self.counter))
-        self.timer.stop()
-        #self.held.emit(False)
-        if self.counter != -1 and self.counter <= self.press_quick_threshold and self.allow_press == True:
-            self.pressed_quick.emit(True)
-            #print("quick")
-        #self.pressed_quick.emit(False)
-        self.counter = -1
-
-class PlayButton(QtWidgets.QPushButton):
-    frameRequested = QtCore.pyqtSignal(bool)
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.rate = 16
-        self.counter = 0
-        self.timer = QtCore.QTimer(self)
-        self.timer.timeout.connect(self.on_timeout)
-        self.pressed.connect(self.on_press)
-        self.icon_play = QtGui.QIcon('icons\\control.png')
-        self.icon_pause = QtGui.QIcon('icons\\control-pause.png')
-        self.setIcon(self.icon_play)
-
-    def on_timeout(self):
-        self.counter += 1
-        self.frameRequested.emit(True)
-
-    def on_press(self):
-        if self.timer.isActive():
-            self.timer.stop()
-            self.setIcon(self.icon_play)
-        else:
-            self.timer.start(self.rate)
-            self.setIcon(self.icon_pause)
-    
-    def autoPause(self):
-        self.timer.stop()
-        self.counter = 0
-        self.setIcon(self.icon_play)
-    
-class BetterSpinBox(QtWidgets.QDoubleSpinBox):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.alphanum = True
-        self.numbase = 10
-        self.setKeyboardTracking(False) # I don't even know why this isn't false by default
-        self.setRange(-0xFFFFFFFF, 0xFFFFFFFF)
-        #self.setDecimals(16) # cannot do setDecimals here because it will crash the program for... some reason. Have to do it for each instance instead.
-        self.numfill = 0
-        self.isInt = False
-        self.acceptedSymbols = [".", "{", "}", *lib.datconv.symbols]
-        #self.setCorrectionMode(self.CorrectionMode.CorrectToNearestValue)
-
-    def fixup(self, str):
-        return super().fixup(str)
-
-    def validate(self, input, pos): # hijack validator to accept alphanumeric values
-        input2 = input.upper()
-        #print("input: " + input)
-        for c in self.acceptedSymbols:
-            input2 = input2.replace(c, "")
-        if input2 == "":
-            #print("valid input detected: " + input)
-            return (QtGui.QValidator.State.Acceptable, input, pos)
-        else:
-            #print("invalid input detected: " + input)
-            return (QtGui.QValidator.State.Invalid, input, pos)
-
-    def textFromValue(self, value): # ovewrite of existing function with 2 args that determines how value is displayed inside spinbox
-        if self.isInt:
-            self.acceptedSymbols = ["-", "{", "}", *lib.datconv.symbols]
-            return lib.datconv.numToStr(int(value), self.numbase, self.alphanum).zfill(self.numfill)
-        else:
-            self.acceptedSymbols = ["-", ".", "{", "}", *lib.datconv.symbols]
-            return lib.datconv.numToStr(value, self.numbase, self.alphanum).zfill(self.numfill)
-    
-    def valueFromText(self, text):
-        if self.isInt:
-            return int(lib.datconv.strToNum(text, self.numbase))
-        else:
-            return float(lib.datconv.strToNum(text, self.numbase))
-    
-    def value(self):
-        if self.isInt:
-            return int(super().value())
-        else:
-            return super().value()
-
-class LongTextEdit(QtWidgets.QPlainTextEdit):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.charcount_page = lambda: int(int(self.width()/self.fontMetrics().averageCharWidth() - 1)*int(self.height()/self.fontMetrics().lineSpacing() -1)/2)
-
-    def contextMenuOpen(self): #quick menu to insert special values in dialogue file
-        self.context_menu = QtWidgets.QMenu(self)
-        self.context_menu.setGeometry(self.cursor().pos().x(), self.cursor().pos().y(), 50, 50)
-        for char_index in range(len(lib.dialogue.SPECIAL_CHARACTER_LIST)):
-            if char_index >= 0xe0 and not isinstance(lib.dialogue.SPECIAL_CHARACTER_LIST[char_index], int):
-                self.context_menu.addAction(f"{lib.datconv.numToStr(char_index, w.displayBase, w.displayAlphanumeric).zfill(2)} - {lib.dialogue.SPECIAL_CHARACTER_LIST[char_index][1]}")
-        action2 = self.context_menu.exec()
-        if action2 is not None:
-            self.insertPlainText(action2.text()[action2.text().find("├"):])
-
-    def mousePressEvent(self, event: QtCore.QEvent): #redefine mouse press to insert custom code on right click
-        if event.type() == QtCore.QEvent.Type.MouseButtonPress:
-            super(LongTextEdit, self).mousePressEvent(event)
-            if event.button() == QtCore.Qt.MouseButton.RightButton: # execute different code if right click
-                self.contextMenuOpen()
-
-class LabeledSlider(QtWidgets.QWidget): # https://stackoverflow.com/a/54819051
-    def __init__(self, parent, minimum, maximum, interval=1, orientation=QtCore.Qt.Orientation.Horizontal, labels=None):
-        super(LabeledSlider, self).__init__(parent=parent)
-
-        levels=range(minimum, maximum+interval, interval)
-        if labels is not None:
-            if not isinstance(labels, (tuple, list)):
-                raise Exception("<labels> is a list or tuple.")
-            if len(labels) != len(levels):
-                raise Exception("Size of <labels> doesn't match levels.")
-            self.levels=list(zip(levels,labels))
-        else:
-            self.levels=list(zip(levels,map(str,levels)))
-
-        if orientation==QtCore.Qt.Orientation.Horizontal:
-            self.setLayout(QtWidgets.QVBoxLayout(self))
-        elif orientation==QtCore.Qt.Orientation.Vertical:
-            self.setLayout(QtWidgets.QHBoxLayout(self))
-        else:
-            raise Exception("<orientation> wrong.")
-
-        # gives some space to print labels
-        self.left_margin=10
-        self.top_margin=10
-        self.right_margin=10
-        self.bottom_margin=10
-
-        self.layout().setContentsMargins(self.left_margin,self.top_margin,
-                self.right_margin,self.bottom_margin)
-
-        self.sl=QtWidgets.QSlider(orientation, self)
-        self.sl.setMinimum(minimum)
-        self.sl.setMaximum(maximum)
-        self.sl.setValue(minimum)
-        if orientation==QtCore.Qt.Orientation.Horizontal:
-            self.sl.setTickPosition(QtWidgets.QSlider.TickPosition.TicksBelow)
-        else:
-            self.sl.setTickPosition(QtWidgets.QSlider.TickPosition.TicksLeft)
-        self.sl.setTickInterval(interval)
-        self.sl.setSingleStep(1)
-
-        self.layout().addWidget(self.sl)
-
-    def setLabels(self, labels: list[str]):
-        for i in range(len(self.levels)):
-            self.levels[i] = (self.levels[i][0], labels[i])
-        self.repaint()
-
-    def paintEvent(self, e):
-
-        super(LabeledSlider,self).paintEvent(e)
-
-        style=self.sl.style()
-        painter=QtGui.QPainter(self)
-        st_slider=QtWidgets.QStyleOptionSlider()
-        st_slider.initFrom(self.sl)
-        st_slider.orientation=self.sl.orientation()
-
-        length=style.pixelMetric(QtWidgets.QStyle.PixelMetric.PM_SliderLength, st_slider, self.sl)
-        available=style.pixelMetric(QtWidgets.QStyle.PixelMetric.PM_SliderSpaceAvailable, st_slider, self.sl)
-
-        for v, v_str in self.levels:
-
-            # get the size of the label
-            rect=painter.drawText(QtCore.QRect(), QtCore.Qt.TextFlag.TextDontPrint, v_str)
-
-            if self.sl.orientation()==QtCore.Qt.Orientation.Horizontal:
-                # I assume the offset is half the length of slider, therefore
-                # + length//2
-                x_loc=QtWidgets.QStyle.sliderPositionFromValue(self.sl.minimum(),
-                        self.sl.maximum(), v, available)+length//2
-
-                # left bound of the text = center - half of text width + L_margin
-                left=x_loc-rect.width()//2+self.left_margin
-                bottom=self.rect().bottom()
-
-                # enlarge margins if clipping
-                if v==self.sl.minimum():
-                    if left<=0:
-                        self.left_margin=rect.width()//2-x_loc
-                    if self.bottom_margin<=rect.height():
-                        self.bottom_margin=rect.height()
-
-                    self.layout().setContentsMargins(self.left_margin, self.top_margin, self.right_margin, self.bottom_margin)
-
-                if v==self.sl.maximum() and rect.width()//2>=self.right_margin:
-                    self.right_margin=rect.width()//2
-                    self.layout().setContentsMargins(self.left_margin, self.top_margin, self.right_margin, self.bottom_margin)
-
-            else:
-                y_loc=QtWidgets.QStyle.sliderPositionFromValue(self.sl.minimum(), self.sl.maximum(), v, available, upsideDown=True)
-
-                bottom=y_loc+length//2+rect.height()//2+self.top_margin-3
-                # there is a 3 px offset that I can't attribute to any metric
-
-                left=self.left_margin-rect.width()
-                if left<=0:
-                    self.left_margin=rect.width()+2
-                    self.layout().setContentsMargins(self.left_margin, self.top_margin, self.right_margin, self.bottom_margin)
-
-            pos=QtCore.QPoint(left, bottom)
-            painter.drawText(pos, v_str)
-
-        return
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
-
+        # expected module versions
+        self.VERSION_EDITOR = "0.4.4" # objective, feature, WIP
+        self.VERSION_PYTHON = "3.13.2"
+        self.VERSION_PYQT = "6.9.1"
+        self.VERSION_NDSPY = "4.2.0"
         self.window_width = 1024
         self.window_height = 720
         self.setWindowIcon(QtGui.QIcon('icons\\appicon.ico'))
@@ -799,15 +108,15 @@ class MainWindow(QtWidgets.QMainWindow):
             firstLaunch_dialog.setWindowIcon(QtGui.QIcon('icons\\information.png'))
             firstLaunch_dialog.setTextFormat(QtCore.Qt.TextFormat.MarkdownText)
             firstLaunch_dialog.setText(f"""Thank you for trying out Mega Man ZX Editor!
-                                       \rThe current version is {EDITOR_VERSION}."""
+                                       \rThe current version is {self.VERSION_EDITOR}."""
                                        )
-            firstLaunch_dialog.setInformativeText(f"""Editor's current features ({EDITOR_VERSION.split('.')[1]}):
+            firstLaunch_dialog.setInformativeText(f"""Editor's current features ({self.VERSION_EDITOR.split('.')[1]}):
                                                   \r- English dialogue text editor
                                                   \r- Patcher(no patches available yet)
                                                   \r- Graphics editor
                                                   \r- Font editor
 
-                                                  \rWIP ({EDITOR_VERSION.split('.')[2]}):
+                                                  \rWIP ({self.VERSION_EDITOR.split('.')[2]}):
                                                   \r- Sound data editor
                                                   \r- VX file editor
                                                   \r- OAM editor
@@ -820,7 +129,7 @@ class MainWindow(QtWidgets.QMainWindow):
             widget.setIcon(checkedicon)
         else:
             widget.setIcon(uncheckedicon)
-    
+
     def UiComponents(self):
         # reusable
         self.window_progress = QtWidgets.QMdiSubWindow()
@@ -878,10 +187,10 @@ class MainWindow(QtWidgets.QMainWindow):
                                 \rMEGAMANZXA (Mega Man ZX Advent)\
 
                                 \rVersionning:\
-                                \rEditor version: {EDITOR_VERSION} (final objective(s) completed, major functional features, WIP features)\
-                                \rPython version: 3.13.2 (your version is {platform.python_version()})\
-                                \rPyQt version: 6.8.1 (your version is {QtCore.PYQT_VERSION_STR})\
-                                \rNDSPy version: 4.2.0 (your version is {list(ndspy.VERSION)[0]}.{list(ndspy.VERSION)[1]}.{list(ndspy.VERSION)[2]})""")
+                                \rEditor version: {self.VERSION_EDITOR} (final objective(s) completed, major functional features, WIP features)\
+                                \rPython version: {self.VERSION_PYTHON} (your version is {platform.python_version()})\
+                                \rPyQt version: {self.VERSION_PYQT} (your version is {QtCore.PYQT_VERSION_STR})\
+                                \rNDSPy version: {self.VERSION_NDSPY} (your version is {list(ndspy.VERSION)[0]}.{list(ndspy.VERSION)[1]}.{list(ndspy.VERSION)[2]})""")
         self.aboutAction = QtGui.QAction(QtGui.QIcon('icons\\information.png'), '&About', self)
         self.aboutAction.setStatusTip('Show information about the application')
         self.aboutAction.triggered.connect(lambda: self.dialog_about.exec())
@@ -971,7 +280,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.action_save.setStatusTip("Save changes to a ROM file")
         self.action_save.triggered.connect(self.saveCall)
         self.action_save.setDisabled(True)
-        self.button_playtest = HoldButton(QtGui.QIcon('icons\\control.png'), "", self)
+        self.button_playtest = lib.widget.HoldButton(QtGui.QIcon('icons\\control.png'), "", self)
         self.button_playtest.setToolTip("Playtest ROM (Hold for options)")
         self.button_playtest.setStatusTip("Create a temporary ROM to test saved changes")
         self.button_playtest.allow_repeat = False
@@ -979,7 +288,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.button_playtest.pressed_quick.connect(lambda: self.testCall(True))
         self.button_playtest.held.connect(lambda: self.testCall(False))
         self.button_playtest.setDisabled(True)
-        self.button_reload = HoldButton(QtGui.QIcon('icons\\arrow-circle-315.png'), "", self)
+        self.button_reload = lib.widget.HoldButton(QtGui.QIcon('icons\\arrow-circle-315.png'), "", self)
         self.button_reload.setToolTip("Reload Interface (Hold for deep refresh)")
         self.button_reload.setStatusTip("Reload the displayed data(all changes that aren't saved will be lost)")
         self.button_reload.allow_repeat = False
@@ -1048,14 +357,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tabs_arm9.addTab(self.page_arm9, "Main Code")
         self.tabs_arm9.addTab(self.page_arm9Ovltable, "Overlays")
 
-        self.tree_arm9 = EditorTree(self.page_arm9)
+        self.tree_arm9 = lib.widget.EditorTree(self.page_arm9)
         self.page_arm9.layout().addWidget(self.tree_arm9)
         self.tree_arm9.ContextNameType = "code-section at "
         self.tree_arm9.setColumnCount(3)
         self.tree_arm9.setHeaderLabels(["RAM Address", "Name", "Implicit"])
         self.tree_arm9.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
 
-        self.tree_arm9Ovltable = EditorTree(self.page_arm9Ovltable)
+        self.tree_arm9Ovltable = lib.widget.EditorTree(self.page_arm9Ovltable)
         self.page_arm9Ovltable.layout().addWidget(self.tree_arm9Ovltable)
         self.tree_arm9Ovltable.ContextNameType = "overlay "
         self.tree_arm9Ovltable.setColumnCount(10)
@@ -1080,14 +389,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tabs_arm7.addTab(self.page_arm7, "Main Code")
         self.tabs_arm7.addTab(self.page_arm7Ovltable, "Overlays")
 
-        self.tree_arm7 = EditorTree(self.page_arm7)
+        self.tree_arm7 = lib.widget.EditorTree(self.page_arm7)
         self.page_arm7.layout().addWidget(self.tree_arm7)
         self.tree_arm7.ContextNameType = "code-section at "
         self.tree_arm7.setColumnCount(3)
         self.tree_arm7.setHeaderLabels(["RAM Address", "Name", "Implicit"])
         self.tree_arm7.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
 
-        self.tree_arm7Ovltable = EditorTree(self.page_arm7Ovltable)
+        self.tree_arm7Ovltable = lib.widget.EditorTree(self.page_arm7Ovltable)
         self.page_arm7Ovltable.layout().addWidget(self.tree_arm7Ovltable)
         self.tree_arm7Ovltable.ContextNameType = "overlay "
         self.tree_arm7Ovltable.setColumnCount(10)
@@ -1095,7 +404,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tree_arm7Ovltable.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
 
         # File explorer
-        self.tree = EditorTree(self.page_explorer)
+        self.tree = lib.widget.EditorTree(self.page_explorer)
         self.tree.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self.page_explorer.layout().addWidget(self.tree, 0)
         self.tree.setMaximumWidth(450)
@@ -1112,7 +421,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_editzone_row2 = QtWidgets.QHBoxLayout()
         self.layout_editzone_row3 = QtWidgets.QHBoxLayout()
         self.widget_colorpick = QtWidgets.QWidget(self.page_explorer)
-        self.layout_colorpick = GridLayout()
+        self.layout_colorpick = lib.widget.GridLayout()
         self.layout_colorpick.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
         self.layout_colorpick.setContentsMargins(0,2,5,0)
         self.layout_colorpick.setSpacing(0)
@@ -1126,7 +435,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.button_file_save.hide()
 
         self.file_content = QtWidgets.QGridLayout()
-        self.file_content_text = LongTextEdit(self.page_explorer)
+        self.file_content_text = lib.widget.LongTextEdit(self.page_explorer)
         self.file_content_text.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Expanding)
         font = QtGui.QFont("Monospace")
         font.setStyleHint(QtGui.QFont.StyleHint.TypeWriter)
@@ -1147,7 +456,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_editzone_row1.addWidget(self.checkbox_textoverwite)
         self.layout_editzone_row1.addWidget(self.dropdown_textindex)
 
-        self.file_content_gfx = GFXView(self.page_explorer)
+        self.file_content_gfx = lib.widget.GFXView(self.page_explorer)
         self.file_content_gfx.setSizePolicy(QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Expanding)
         self.file_content.addWidget(self.file_content_gfx)
         self.file_content.addWidget(self.file_content_text)
@@ -1160,7 +469,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.font_caps.setCapitalization(QtGui.QFont.Capitalization.AllUppercase)
         
         #Address bar
-        self.field_address = BetterSpinBox(self.page_explorer)
+        self.field_address = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_address.numfill = 8
         self.field_address.setFont(self.font_caps)
         self.field_address.setValue(self.base_address+self.relative_address)
@@ -1178,7 +487,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_file_size.hide()
         #Tile Wifth
         self.tile_width = 8
-        self.field_tile_width = BetterSpinBox(self.page_explorer)
+        self.field_tile_width = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_tile_width.setStatusTip(f"Set tile width to {lib.datconv.numToStr(16, self.displayBase, self.displayAlphanumeric)} or {lib.datconv.numToStr(32, self.displayBase, self.displayAlphanumeric)} for some ZXA sprites")
         self.field_tile_width.setFont(self.font_caps)
         self.field_tile_width.setValue(self.tile_width)
@@ -1197,7 +506,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_tile_width.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
         #Tile Height
         self.tile_height = 8
-        self.field_tile_height = BetterSpinBox(self.page_explorer)
+        self.field_tile_height = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_tile_height.setFont(self.font_caps)
         self.field_tile_height.setValue(self.tile_height)
         self.field_tile_height.setMinimum(1)
@@ -1215,7 +524,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_tile_height.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
         #Tiles Per row
         self.tiles_per_row = 8
-        self.field_tiles_per_row = BetterSpinBox(self.page_explorer)
+        self.field_tiles_per_row = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_tiles_per_row.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Fixed)
         self.field_tiles_per_row.setFont(self.font_caps)
         self.field_tiles_per_row.setValue(self.tiles_per_row)
@@ -1234,7 +543,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_tiles_per_row.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
         #Tiles Per Column
         self.tiles_per_column = 8
-        self.field_tiles_per_column = BetterSpinBox(self.page_explorer)
+        self.field_tiles_per_column = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_tiles_per_column.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Fixed)
         self.field_tiles_per_column.setFont(self.font_caps)
         self.field_tiles_per_column.setValue(self.tiles_per_column)
@@ -1285,8 +594,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         #Palettes
         for i in range(256): #setup default palette
-            setattr(self, f"button_palettepick_{i}", HoldButton(self.page_explorer))
-            button_palettepick: HoldButton = getattr(self, f"button_palettepick_{i}")
+            setattr(self, f"button_palettepick_{i}", lib.widget.HoldButton(self.page_explorer))
+            button_palettepick: lib.widget.HoldButton = getattr(self, f"button_palettepick_{i}")
             button_palettepick.allow_press = True
             button_palettepick.press_quick_threshold = 1
             button_palettepick.setStyleSheet(f"background-color: #{self.gfx_palette[i]:08x}; color: white;")
@@ -1338,7 +647,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_oam_animFrame.setStatusTip("Select the animation frame to load")
         self.dropdown_oam_animFrame.currentIndexChanged.connect(lambda: self.treeCall(addr_disabled=True))
 
-        self.field_oam_animFrameId = BetterSpinBox(self.page_oam_anims)
+        self.field_oam_animFrameId = lib.widget.BetterSpinBox(self.page_oam_anims)
         self.field_oam_animFrameId.setToolTip("Frame Id")
         self.field_oam_animFrameId.setStatusTip("Frame index as seen in the frame editing tab")
         self.field_oam_animFrameId.isInt = True
@@ -1346,7 +655,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_oam_animFrameId.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.field_oam_animFrameId.valueChanged.connect(lambda: self.treeCall(addr_disabled=True))
 
-        self.field_oam_animFrameDuration = BetterSpinBox(self.page_oam_anims)
+        self.field_oam_animFrameDuration = lib.widget.BetterSpinBox(self.page_oam_anims)
         self.field_oam_animFrameDuration.setToolTip("Duration (Frames)")
         self.field_oam_animFrameDuration.setStatusTip("Duration of current frame; After the first frame, 0xFE and 0xFF are treated as loop and end")
         self.field_oam_animFrameDuration.isInt = True
@@ -1361,7 +670,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.checkbox_oam_animLoop.checkStateChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.checkbox_oam_animLoop.checkStateChanged.connect(lambda: self.field_oam_animLoopStart.setEnabled(self.checkbox_oam_animLoop.isChecked()))
 
-        self.field_oam_animLoopStart = BetterSpinBox(self.page_oam_anims)
+        self.field_oam_animLoopStart = lib.widget.BetterSpinBox(self.page_oam_anims)
         self.field_oam_animLoopStart.setToolTip("Loop Start")
         self.field_oam_animLoopStart.setStatusTip("Frame index to jump to at the end of animation")
         self.field_oam_animLoopStart.isInt = True
@@ -1374,7 +683,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.button_oam_animToStart.pressed.connect(lambda: self.button_oam_animPlay.autoPause())
         self.button_oam_animToStart.pressed.connect(lambda: self.dropdown_oam_animFrame.setCurrentIndex(0))
 
-        self.button_oam_animPlay = PlayButton(self.page_oam_anims)
+        self.button_oam_animPlay = lib.widget.PlayButton(self.page_oam_anims)
         self.button_oam_animPlay.setToolTip("Play/Pause")
         self.button_oam_animPlay.frameRequested.connect(self.OAM_playAnimFrame)
 
@@ -1401,7 +710,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.button_oam_objSelect.setText("Select current object")
         self.button_oam_objSelect.pressed.connect(lambda: self.treeCall(addr_disabled=True))
 
-        self.field_objTileId = BetterSpinBox(self.page_oam_frames)
+        self.field_objTileId = lib.widget.BetterSpinBox(self.page_oam_frames)
         self.field_objTileId.setToolTip("Tile Id (OAM)")
         self.field_objTileId.setStatusTip("OAM tile id is half the value of VRAM tile id")
         self.field_objTileId.isInt = True
@@ -1422,7 +731,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.checkbox_objFlipV.checkStateChanged.connect(lambda: self.file_content_oam.item_current.setPixmap(
             self.file_content_oam.item_current.pixmap().transformed(QtGui.QTransform().scale(1,-1))))
 
-        self.slider_objSizeIndex = LabeledSlider(self.page_oam_frames, 0, 3, interval=1, orientation=QtCore.Qt.Orientation.Horizontal, labels=["1x1", "2x2", "4x4", "8x8"])
+        self.slider_objSizeIndex = lib.widget.LabeledSlider(self.page_oam_frames, 0, 3, interval=1, orientation=QtCore.Qt.Orientation.Horizontal, labels=["1x1", "2x2", "4x4", "8x8"])
         self.slider_objSizeIndex.setMaximumSize(260, 60)
         self.slider_objSizeIndex.setToolTip("size increment")
         self.slider_objSizeIndex.sl.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
@@ -1452,20 +761,20 @@ class MainWindow(QtWidgets.QMainWindow):
         self.group_oam_objShape.layout().addWidget(self.radio_objShapeWide)
         self.group_oam_objShape.layout().addWidget(self.radio_objShapeTall)
 
-        self.field_objX = BetterSpinBox(self.page_oam_frames)
+        self.field_objX = lib.widget.BetterSpinBox(self.page_oam_frames)
         self.field_objX.setToolTip("X")
         self.field_objX.isInt = True
         self.field_objX.setRange(-128, 127)
         self.field_objX.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.field_objX.valueChanged.connect(lambda: self.file_content_oam.item_current.setX(self.field_objX.value()))
-        self.field_objY = BetterSpinBox(self.page_oam_frames)
+        self.field_objY = lib.widget.BetterSpinBox(self.page_oam_frames)
         self.field_objY.setToolTip("Y")
         self.field_objY.isInt = True
         self.field_objY.setRange(-128, 127)
         self.field_objY.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.field_objY.valueChanged.connect(lambda: self.file_content_oam.item_current.setY(self.field_objY.value()))
 
-        self.file_content_oam = OAMView(self.page_explorer)
+        self.file_content_oam = lib.widget.OAMView(self.page_explorer)
         self.file_content_oam.setSizePolicy(QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Expanding)
         self.file_content.addWidget(self.file_content_oam)
 
@@ -1506,12 +815,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.layout_panm = QtWidgets.QGridLayout()
 
-        self.field_panm_frameId = BetterSpinBox(self.page_explorer)
+        self.field_panm_frameId = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_panm_frameId.setToolTip("Frame")
         self.field_panm_frameId.isInt = True
         self.field_panm_frameId.setRange(0x00, 0xFF)
         self.field_panm_frameId.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
-        self.field_panm_frameDuration = BetterSpinBox(self.page_explorer)
+        self.field_panm_frameDuration = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_panm_frameDuration.setToolTip("Duration")
         self.field_panm_frameDuration.isInt = True
         self.field_panm_frameDuration.setRange(0x00, 0xFF)
@@ -1521,7 +830,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.checkbox_panm_loop.setToolTip("Loop On/Off")
         self.checkbox_panm_loop.checkStateChanged.connect(lambda: self.field_panm_loopStart.setEnabled(self.checkbox_panm_loop.isChecked()))
         self.checkbox_panm_loop.checkStateChanged.connect(lambda: self.button_file_save.setEnabled(True))
-        self.field_panm_loopStart = BetterSpinBox(self.page_explorer)
+        self.field_panm_loopStart = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_panm_loopStart.setToolTip("Loop Start")
         self.field_panm_loopStart.isInt = True
         self.field_panm_loopStart.setRange(0x00, 0xFF)
@@ -1530,13 +839,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_panm_colorSlots = QtWidgets.QLabel("Color slots", self.page_explorer)
         self.label_panm_colorSlots.setMaximumHeight(50)
         self.label_panm_colorSlots.setAlignment(QtCore.Qt.AlignmentFlag.AlignBottom)
-        self.field_panm_colorSlot0 = BetterSpinBox(self.page_explorer)
+        self.field_panm_colorSlot0 = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_panm_colorSlot0.setToolTip("Color Slot 0")
         self.field_panm_colorSlot0.setStatusTip("The index of the first color to overwrite in a 16-color palette")
         self.field_panm_colorSlot0.isInt = True
         self.field_panm_colorSlot0.setRange(0x00, 0xFF)
         self.field_panm_colorSlot0.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
-        self.field_panm_colorSlot1 = BetterSpinBox(self.page_explorer)
+        self.field_panm_colorSlot1 = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_panm_colorSlot1.setStatusTip("The index of the second color to overwrite in a 16-color palette")
         self.field_panm_colorSlot1.setToolTip("Color Slot 1")
         self.field_panm_colorSlot1.isInt = True
@@ -1555,7 +864,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_panm.setSpacing(3)
 
         #Font
-        self.field_font_size = BetterSpinBox(self.page_explorer)
+        self.field_font_size = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_font_size.setFont(self.font_caps)
         self.field_font_size.setMinimum(0)
         self.field_font_size.isInt = True
@@ -1568,7 +877,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_font_size.addWidget(self.label_font_size)
         self.layout_font_size.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
 
-        self.field_font_width = BetterSpinBox(self.page_explorer)
+        self.field_font_width = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_font_width.setFont(self.font_caps)
         self.field_font_width.setMinimum(0)
         self.field_font_width.isInt = True
@@ -1584,7 +893,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_font_width.addWidget(self.label_font_width)
         self.layout_font_width.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
 
-        self.field_font_height = BetterSpinBox(self.page_explorer)
+        self.field_font_height = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_font_height.setFont(self.font_caps)
         self.field_font_height.setMinimum(0)
         self.field_font_height.isInt = True
@@ -1642,7 +951,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.audioOutput = QtMultimedia.QAudioOutput(self)
         self.audioOutput.setVolume(0.2)
-        self.audioBuffer = QtCore.QBuffer(self)
+        self.audioBuffer = QtCore.QBuffer()
         self.mediaPlayer = QtMultimedia.QMediaPlayer(self)
         self.mediaPlayer.setAudioOutput(self.audioOutput)
 
@@ -1655,7 +964,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.toolbar_sdat.addAction(self.action_playSdat)
 
-        self.tree_sdat = EditorTree()
+        self.tree_sdat = lib.widget.EditorTree()
         self.tree_sdat.setColumnCount(3)
         self.dialog_sdat.setCentralWidget(self.tree_sdat)
         self.tree_sdat.setHeaderLabels(["File ID", "Name", "Type"])
@@ -1665,7 +974,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_vxHeader_length = QtWidgets.QLabel(self.page_explorer)
         self.label_vxHeader_length.setText("Duration(frames): ")
         self.label_vxHeader_length.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.field_vxHeader_length = BetterSpinBox(self.page_explorer)
+        self.field_vxHeader_length = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_vxHeader_length.setFont(self.font_caps)
         self.field_vxHeader_length.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
         self.field_vxHeader_length.numfill = 8
@@ -1678,7 +987,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_vxHeader_framerate = QtWidgets.QLabel(self.page_explorer)
         self.label_vxHeader_framerate.setText("Frame rate: ")
         self.label_vxHeader_framerate.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.field_vxHeader_framerate = BetterSpinBox(self.page_explorer)
+        self.field_vxHeader_framerate = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_vxHeader_framerate.setDecimals(16) # increase precision to allow spinbox to respect range
         self.field_vxHeader_framerate.setRange(0x00000000,65535.9999847412109375) # prevent impossible values (max is ffff.ffff)
         #self.field_vxHeader_framerate.numfill = 8
@@ -1690,7 +999,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_vxHeader_frameSizeMax = QtWidgets.QLabel(self.page_explorer)
         self.label_vxHeader_frameSizeMax.setText("Maximal frame data size: ")
         self.label_vxHeader_frameSizeMax.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.field_vxHeader_frameSizeMax = BetterSpinBox(self.page_explorer)
+        self.field_vxHeader_frameSizeMax = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_vxHeader_frameSizeMax.setFont(self.font_caps)
         self.field_vxHeader_frameSizeMax.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
         self.field_vxHeader_frameSizeMax.numfill = 8
@@ -1708,7 +1017,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_vxHeader_streamCount = QtWidgets.QLabel(self.page_explorer)
         self.label_vxHeader_streamCount.setText("Audio stream count: ")
         self.label_vxHeader_streamCount.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.field_vxHeader_streamCount = BetterSpinBox(self.page_explorer)
+        self.field_vxHeader_streamCount = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_vxHeader_streamCount.setFont(self.font_caps)
         self.field_vxHeader_streamCount.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
         self.field_vxHeader_streamCount.numfill = 8
@@ -1721,7 +1030,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_vxHeader_sampleRate = QtWidgets.QLabel(self.page_explorer)
         self.label_vxHeader_sampleRate.setText("Sound sample rate(Hz): ")
         self.label_vxHeader_sampleRate.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.field_vxHeader_sampleRate = BetterSpinBox(self.page_explorer)
+        self.field_vxHeader_sampleRate = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_vxHeader_sampleRate.setFont(self.font_caps)
         self.field_vxHeader_sampleRate.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
         self.field_vxHeader_sampleRate.numfill = 8
@@ -1734,7 +1043,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_vxHeader_audioExtraDataOffset = QtWidgets.QLabel(self.page_explorer)
         self.label_vxHeader_audioExtraDataOffset.setText("Extra audio data offset: ")
         self.label_vxHeader_audioExtraDataOffset.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.field_vxHeader_audioExtraDataOffset = BetterSpinBox(self.page_explorer)
+        self.field_vxHeader_audioExtraDataOffset = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_vxHeader_audioExtraDataOffset.setFont(self.font_caps)
         self.field_vxHeader_audioExtraDataOffset.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
         self.field_vxHeader_audioExtraDataOffset.numfill = 8
@@ -1752,7 +1061,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_vxHeader_width = QtWidgets.QLabel(self.page_explorer)
         self.label_vxHeader_width.setText("Frame width(pixels): ")
         self.label_vxHeader_width.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.field_vxHeader_width = BetterSpinBox(self.page_explorer)
+        self.field_vxHeader_width = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_vxHeader_width.setFont(self.font_caps)
         self.field_vxHeader_width.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
         self.field_vxHeader_width.numfill = 8
@@ -1765,7 +1074,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_vxHeader_height = QtWidgets.QLabel(self.page_explorer)
         self.label_vxHeader_height.setText("Frame height(pixels): ")
         self.label_vxHeader_height.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.field_vxHeader_height = BetterSpinBox(self.page_explorer)
+        self.field_vxHeader_height = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_vxHeader_height.setFont(self.font_caps)
         self.field_vxHeader_height.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
         self.field_vxHeader_height.numfill = 8
@@ -1782,7 +1091,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_vxHeader_quantiser = QtWidgets.QLabel(self.page_explorer)
         self.label_vxHeader_quantiser.setText("Quantiser: ")
         self.label_vxHeader_quantiser.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.field_vxHeader_quantizer = BetterSpinBox(self.page_explorer)
+        self.field_vxHeader_quantizer = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_vxHeader_quantizer.setFont(self.font_caps)
         self.field_vxHeader_quantizer.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
         self.field_vxHeader_quantizer.numfill = 8
@@ -1795,7 +1104,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_vxHeader_seekTableOffset = QtWidgets.QLabel(self.page_explorer)
         self.label_vxHeader_seekTableOffset.setText("Seek table offset: ")
         self.label_vxHeader_seekTableOffset.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.field_vxHeader_seekTableOffset = BetterSpinBox(self.page_explorer)
+        self.field_vxHeader_seekTableOffset = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_vxHeader_seekTableOffset.setFont(self.font_caps)
         self.field_vxHeader_seekTableOffset.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
         self.field_vxHeader_seekTableOffset.numfill = 8
@@ -1808,7 +1117,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_vxHeader_seekTableEntryCount = QtWidgets.QLabel(self.page_explorer)
         self.label_vxHeader_seekTableEntryCount.setText("Seek table entry count: ")
         self.label_vxHeader_seekTableEntryCount.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.field_vxHeader_seekTableEntryCount = BetterSpinBox(self.page_explorer)
+        self.field_vxHeader_seekTableEntryCount = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_vxHeader_seekTableEntryCount.setFont(self.font_caps)
         self.field_vxHeader_seekTableEntryCount.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
         self.field_vxHeader_seekTableEntryCount.numfill = 8
@@ -1995,7 +1304,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.group_metaTile_gfx.setLayout(QtWidgets.QGridLayout())
         self.group_metaTile_gfx.setDisabled(True)
 
-        self.field_metaTile_topLeft_id = BetterSpinBox(self.page_leveleditor)
+        self.field_metaTile_topLeft_id = lib.widget.BetterSpinBox(self.page_leveleditor)
         self.field_metaTile_topLeft_id.setToolTip("Tile ID")
         self.field_metaTile_topLeft_id.isInt = True
         self.field_metaTile_topLeft_id.numbase = self.displayBase
@@ -2005,7 +1314,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.checkbox_metaTile_topLeft_flipH = QtWidgets.QCheckBox(self.page_leveleditor)
         self.checkbox_metaTile_topLeft_flipH.setText("H")
         self.checkbox_metaTile_topLeft_flipH.checkStateChanged.connect(lambda: self.changeTileGfx(0, 0xFFFF-0x0400, self.checkbox_metaTile_topLeft_flipH.isChecked()))
-        self.field_metaTile_topLeft_attr = BetterSpinBox(self.page_leveleditor)
+        self.field_metaTile_topLeft_attr = lib.widget.BetterSpinBox(self.page_leveleditor)
         self.field_metaTile_topLeft_attr.setToolTip("Palette ID")
         self.field_metaTile_topLeft_attr.isInt = True
         self.field_metaTile_topLeft_attr.numbase = self.displayBase
@@ -2015,7 +1324,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.checkbox_metaTile_topLeft_flipV.setText("V")
         self.checkbox_metaTile_topLeft_flipV.checkStateChanged.connect(lambda: self.changeTileGfx(0, 0xFFFF-0x0800, self.checkbox_metaTile_topLeft_flipV.isChecked()))
 
-        self.field_metaTile_topRight_id = BetterSpinBox(self.page_leveleditor)
+        self.field_metaTile_topRight_id = lib.widget.BetterSpinBox(self.page_leveleditor)
         self.field_metaTile_topRight_id.setToolTip("Tile ID")
         self.field_metaTile_topRight_id.isInt = True
         self.field_metaTile_topRight_id.numbase = self.displayBase
@@ -2025,7 +1334,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.checkbox_metaTile_topRight_flipH = QtWidgets.QCheckBox(self.page_leveleditor)
         self.checkbox_metaTile_topRight_flipH.setText("H")
         self.checkbox_metaTile_topRight_flipH.checkStateChanged.connect(lambda: self.changeTileGfx(1, 0xFFFF-0x0400, self.checkbox_metaTile_topRight_flipH.isChecked()))
-        self.field_metaTile_topRight_attr = BetterSpinBox(self.page_leveleditor)
+        self.field_metaTile_topRight_attr = lib.widget.BetterSpinBox(self.page_leveleditor)
         self.field_metaTile_topRight_attr.setToolTip("Palette ID")
         self.field_metaTile_topRight_attr.isInt = True
         self.field_metaTile_topRight_attr.numbase = self.displayBase
@@ -2035,7 +1344,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.checkbox_metaTile_topRight_flipV.setText("V")
         self.checkbox_metaTile_topRight_flipV.checkStateChanged.connect(lambda: self.changeTileGfx(1, 0xFFFF-0x0800, self.checkbox_metaTile_topRight_flipV.isChecked()))
 
-        self.field_metaTile_bottomLeft_id = BetterSpinBox(self.page_leveleditor)
+        self.field_metaTile_bottomLeft_id = lib.widget.BetterSpinBox(self.page_leveleditor)
         self.field_metaTile_bottomLeft_id.setToolTip("Tile ID")
         self.field_metaTile_bottomLeft_id.isInt = True
         self.field_metaTile_bottomLeft_id.numbase = self.displayBase
@@ -2045,7 +1354,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.checkbox_metaTile_bottomLeft_flipH = QtWidgets.QCheckBox(self.page_leveleditor)
         self.checkbox_metaTile_bottomLeft_flipH.setText("H")
         self.checkbox_metaTile_bottomLeft_flipH.checkStateChanged.connect(lambda: self.changeTileGfx(2, 0xFFFF-0x0400, self.checkbox_metaTile_bottomLeft_flipH.isChecked()))
-        self.field_metaTile_bottomLeft_attr = BetterSpinBox(self.page_leveleditor)
+        self.field_metaTile_bottomLeft_attr = lib.widget.BetterSpinBox(self.page_leveleditor)
         self.field_metaTile_bottomLeft_attr.setToolTip("Palette ID")
         self.field_metaTile_bottomLeft_attr.isInt = True
         self.field_metaTile_bottomLeft_attr.numbase = self.displayBase
@@ -2055,7 +1364,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.checkbox_metaTile_bottomLeft_flipV.setText("V")
         self.checkbox_metaTile_bottomLeft_flipV.checkStateChanged.connect(lambda: self.changeTileGfx(2, 0xFFFF-0x0800, self.checkbox_metaTile_bottomLeft_flipV.isChecked()))
 
-        self.field_metaTile_bottomRight_id = BetterSpinBox(self.page_leveleditor)
+        self.field_metaTile_bottomRight_id = lib.widget.BetterSpinBox(self.page_leveleditor)
         self.field_metaTile_bottomRight_id.setToolTip("Tile ID")
         self.field_metaTile_bottomRight_id.isInt = True
         self.field_metaTile_bottomRight_id.numbase = self.displayBase
@@ -2065,7 +1374,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.checkbox_metaTile_bottomRight_flipH = QtWidgets.QCheckBox(self.page_leveleditor)
         self.checkbox_metaTile_bottomRight_flipH.setText("H")
         self.checkbox_metaTile_bottomRight_flipH.checkStateChanged.connect(lambda: self.changeTileGfx(3, 0xFFFF-0x0400, self.checkbox_metaTile_bottomRight_flipH.isChecked()))
-        self.field_metaTile_bottomRight_attr = BetterSpinBox(self.page_leveleditor)
+        self.field_metaTile_bottomRight_attr = lib.widget.BetterSpinBox(self.page_leveleditor)
         self.field_metaTile_bottomRight_attr.setToolTip("Palette ID")
         self.field_metaTile_bottomRight_attr.isInt = True
         self.field_metaTile_bottomRight_attr.numbase = self.displayBase
@@ -2164,8 +1473,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_metaTile_properties.addItem(self.layout_metaTile_shape)
         self.layout_metaTile_properties.addItem(self.layout_metaTile_attr)
 
-        self.gfx_scene_level = LevelView(self.page_leveleditor)
-        self.gfx_scene_tileset = TilesetView(self.page_leveleditor)
+        self.gfx_scene_level = lib.widget.LevelView(self.page_leveleditor)
+        self.gfx_scene_tileset = lib.widget.TilesetView(self.page_leveleditor)
         self.gfx_scene_tileset.scene().selectionChanged.connect(self.loadTileProperties)
 
         self.page_leveleditor.layout().addItem(self.layout_level_editpannel)
@@ -2222,7 +1531,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
         # Patches
-        self.tree_patches = EditorTree(self.page_patches)
+        self.tree_patches = lib.widget.EditorTree(self.page_patches)
         self.page_patches.layout().addWidget(self.tree_patches)
         self.tree_patches.setColumnCount(4)
         self.tree_patches.setHeaderLabels(["Enabed", "Address", "Name", "Type", "Size"])
@@ -2233,7 +1542,7 @@ class MainWindow(QtWidgets.QMainWindow):
         #QtWidgets.QKeySequenceEdit()
 
         self.setStatusBar(QtWidgets.QStatusBar(self))
-    
+
     def progressShow(self):
         self.window_progress.move(self.pos().x() + (self.width() - self.window_progress.width())//2, self.pos().y() + self.height()//2) # center progress bar
         self.progress.setValue(0)
@@ -2829,7 +2138,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if istreecall:
             self.treeCall()
 
-    def OAM_updateItemGFX(self, obj_index: int, item: OAMObjectItem | None=None): # creates and returns an item if none specified
+    def OAM_updateItemGFX(self, obj_index: int, item: lib.widget.OAMObjectItem | None=None): # creates and returns an item if none specified
         gfxsec: lib.graphic.GraphicSection = self.fileEdited_object.gfxsec
         if len(gfxsec.graphics) <= 0:
             print("no graphics in section!")
@@ -2882,7 +2191,7 @@ class MainWindow(QtWidgets.QMainWindow):
         colorTable[0] -= 0xff000000 # remove alpha from first color
         obj_img.setColorTable(colorTable)
         if item == None:
-            obj_item = OAMObjectItem(QtGui.QPixmap.fromImage(obj_img), id=obj_index, editable=(self.tabs_oam.currentWidget()==self.page_oam_frames))
+            obj_item = lib.widget.OAMObjectItem(QtGui.QPixmap.fromImage(obj_img), id=obj_index, editable=(self.tabs_oam.currentWidget()==self.page_oam_frames))
         else:
             obj_item = item
             obj_item.setPixmap(QtGui.QPixmap.fromImage(obj_img))
@@ -2926,7 +2235,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.gfx_palette = new_pal
         self.file_content_gfx.pen.setColor(0x00010101) # set to first color
         for i in range(256):
-            button_palettepick: HoldButton = getattr(self, f"button_palettepick_{i}")
+            button_palettepick: lib.widget.HoldButton = getattr(self, f"button_palettepick_{i}")
             if i < len(self.gfx_palette):
                 button_palettepick.setStyleSheet(f"background-color: #{self.gfx_palette[i]:08x}; color: white;")
             else:
@@ -2934,7 +2243,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def colorpickCall(self, color_index: int, press=None, hold=None):
         #print(color_index)
-        button: HoldButton = getattr(self, f"button_palettepick_{color_index}")
+        button: lib.widget.HoldButton = getattr(self, f"button_palettepick_{color_index}")
         depth = list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()].depth
         if hold:
             dialog = QtWidgets.QColorDialog(self)
@@ -2959,10 +2268,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.gfx_palette = new_pal
                 self.file_content_gfx.pen.setColor(0xff000000 + color_index%(2**depth) * 0x00010101) # set to first color
                 for i in range(2**depth): # change affected buttons (primary)
-                    button_palettepick: HoldButton = getattr(self, f"button_palettepick_{i}")
+                    button_palettepick: lib.widget.HoldButton = getattr(self, f"button_palettepick_{i}")
                     button_palettepick.setStyleSheet(f"background-color: #{self.gfx_palette[i]:08x}; color: white;")
                 for i in range(color_index2, color_index2+2**depth): # change affected buttons (selected)
-                    button_palettepick: HoldButton = getattr(self, f"button_palettepick_{i}")
+                    button_palettepick: lib.widget.HoldButton = getattr(self, f"button_palettepick_{i}")
                     button_palettepick.setStyleSheet(f"background-color: #{self.gfx_palette[i]:08x}; color: white;")
                 self.treeCall()
                     
@@ -3055,26 +2364,35 @@ class MainWindow(QtWidgets.QMainWindow):
             self.dialog_sdat.setWindowState(QtCore.Qt.WindowState.WindowActive)
 
     def sdatPlayCall(self):
-        if len(self.tree_sdat.selectedItems()) == 0: return
-        snd_type = self.tree_sdat.selectedItems()[0].text(2)
+        items = self.tree_sdat.selectedItems()
+        if len(items) == 0: return
+        if items[0].text(0) == "N/A": return
+        snd_type = items[0].text(2)
         if snd_type == "SWAV": # WIP, need to use QAudioFormat probably
             self.mediaPlayer.stop()
             print("play SWAV")
-            snd_data: ndspy.soundArchive.soundWaveArchive.soundWave.SWAV = self.file_fromItem(self.tree_sdat.selectedItems()[0])[0]
-            print(snd_data.waveType) # likely 2 (ADPCM)
-            #snd_format = QtMultimedia.QAudioFormat()
-            #snd_format.setChannelCount(1)
-            #snd_format.setChannelConfig(QtMultimedia.QAudioFormat.ChannelConfig.ChannelConfigMono)
-            #snd_format.setSampleRate(snd_data.sampleRate)
-            #snd_format.setSampleFormat(QtMultimedia.QAudioFormat.SampleFormat.Float)
+            snd_data: ndspy.soundArchive.soundWaveArchive.soundWave.SWAV = self.file_fromItem(items[0])[0]
+            if snd_data.waveType == ndspy.soundArchive.soundWaveArchive.soundWave.WaveType.ADPCM:
+                pcm_data, _ = audioop.adpcm2lin(snd_data.save(), 2, None)
+            else:
+                pcm_data = snd_data.save()
+            pcm_file = io.BytesIO(pcm_data)
+            wav = wave.open(pcm_file, "wb")
+            wav.setparams((1, 2, snd_data.sampleRate, snd_data.totalLength, 'NONE', 'NONE'))
+            wav.writeframes(pcm_data)
+
+            self.mediaPlayer.setSourceDevice(None) # to prevent buffer corruption
             self.audioBuffer.close()
-            self.audioBuffer.setBuffer(QtCore.QByteArray(snd_data.save()))
-            self.audioBuffer.open(QtCore.QBuffer.OpenModeFlag.ReadOnly)
-            self.mediaPlayer.setSourceDevice(self.audioBuffer, QtCore.QUrl.fromLocalFile(None))
-            #self.mediaPlayer.setSource(QtCore.QUrl.fromLocalFile("sound.wav"))
+            self.audioBuffer.setData(pcm_file.getvalue())
+            self.audioBuffer.open(QtCore.QBuffer.OpenModeFlag.ReadWrite)
+            #self.audioBuffer.seek(0)
+            self.mediaPlayer.setSourceDevice(self.audioBuffer)
             self.mediaPlayer.play()
         elif snd_type == "SSEQ":
             print("play SSEQ")
+            sseq: ndspy.soundArchive.soundSequence.SSEQ = self.file_fromItem(items[0])[0][1]
+            sseq.parse()
+            print(sseq)
 
 
     #def codeeditCall(self):
@@ -3233,7 +2551,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.file_content_text.setReadOnly(False)
         self.field_address.setDisabled(addr_disabled)
         QtCore.qInstallMessageHandler(lambda a, b, c: None) # Silence Invalid base warnings from the following code
-        for widget in self.findChildren(BetterSpinBox): # update all widgets of same type with current settings
+        for widget in self.findChildren(lib.widget.BetterSpinBox): # update all widgets of same type with current settings
             widget.alphanum = self.displayAlphanumeric
             widget.numbase = self.displayBase
             widget.repaint()
@@ -3490,7 +2808,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.file_content_oam.scene().addRect(sceneRect)
                                 self.file_content_oam.scene().addLine(sceneRect.left(), 0, sceneRect.right(), 0, crosshairPen)
                                 self.file_content_oam.scene().addLine(0, sceneRect.top(), 0, sceneRect.bottom(), crosshairPen)
-                                if not isinstance(sender, BetterSpinBox) and sender != self.dropdown_oam_animFrame:
+                                if not isinstance(sender, lib.widget.BetterSpinBox) and sender != self.dropdown_oam_animFrame:
                                     self.button_file_save.setDisabled(True)
                                 self.fileEdited_object.objs.clear()
                                 self.dropdown_oam_obj.clear()
@@ -3536,7 +2854,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.dropdown_oam_obj.previousIndex = self.dropdown_oam_obj.currentIndex()
                                 if sender in [self.dropdown_oam_obj, self.button_oam_objSelect]:
                                     for item in self.file_content_oam.scene().items():
-                                        if isinstance(item, OAMObjectItem):
+                                        if isinstance(item, lib.widget.OAMObjectItem):
                                             item.setSelected(item.obj_id == self.dropdown_oam_obj.currentIndex())
                                 self.field_objTileId.setValue(obj.tileId)
                                 self.checkbox_objFlipH.setChecked(obj.flip_h)
@@ -3829,7 +3147,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 painter.drawImage(QtCore.QRectF(8*(tile_index%2), 8*(tile_index//2), 8, 8), lib.datconv.binToQt(gfx_bin, pal, lib.datconv.CompressionAlgorithmEnum.EIGHTBPP, 1, 1).mirrored(flipH, flipV))
                 tile_index += 1
             
-            metaTileItem = TilesetItem(pixmap)
+            metaTileItem = lib.widget.TilesetItem(pixmap)
             metaTileItem.setPos((16+self.gfx_scene_tileset.item_spacing)*(metaTile_index%self.gfx_scene_tileset.item_columns), (16+self.gfx_scene_tileset.item_spacing)*(metaTile_index//self.gfx_scene_tileset.item_columns))
             self.gfx_scene_tileset.scene().addItem(metaTileItem)
             self.gfx_scene_tileset.metaTiles.append(metaTileItem)
@@ -3851,7 +3169,7 @@ class MainWindow(QtWidgets.QMainWindow):
         metaTile_index = 0
         screen = self.levelEdited_object.levels[self.dropdown_level_type.currentIndex()].screens[screen_id]
         for metaTile in screen:
-            item = LevelTileItem(index=metaTile_index, id=metaTile, screen=screen_id)
+            item = lib.widget.LevelTileItem(index=metaTile_index, id=metaTile, screen=screen_id)
             item.setPixmap(self.gfx_scene_tileset.metaTiles[metaTile].pixmap())
             item.setPos(x + 16*(metaTile_index%16),y + 16*(metaTile_index//16))
             self.gfx_scene_level.scene().addItem(item)
@@ -3945,7 +3263,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.sender() != self.buttonGroup_radar_tilesetType:
             self.gfx_scene_level.fitInView()
 
-    def treeBaseUpdate(self, tree: EditorTree):
+    def treeBaseUpdate(self, tree: lib.widget.EditorTree):
         for e in tree.findItems("", QtCore.Qt.MatchFlag.MatchContains | QtCore.Qt.MatchFlag.MatchRecursive):
             for t in range(e.columnCount()):
                 text = e.text(t)
@@ -4246,7 +3564,7 @@ app = QtWidgets.QApplication(sys.argv)
 w = MainWindow()
 
 # Draw contents of tile viewer
-def draw_tilesQImage_fromBytes(view: GFXView, data: bytearray, algorithm=lib.datconv.CompressionAlgorithmEnum.ONEBPP,  grid: bool=True):
+def draw_tilesQImage_fromBytes(view: lib.widget.GFXView, data: bytearray, algorithm=lib.datconv.CompressionAlgorithmEnum.ONEBPP,  grid: bool=True):
     #print("draw")
     tile_size = int((w.tile_width*w.tile_height)*algorithm.depth/8) # size in bytes
     gfx = lib.datconv.binToQt(data[:tile_size*w.tiles_per_row*w.tiles_per_column],

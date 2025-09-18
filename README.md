@@ -43,7 +43,8 @@ Currently, there are no releases, so:
 - [Download&Install Python](https://www.python.org/downloads/) (using 3.13.2) <!--- Python 3.10.11 or lower will cause crashes -->
 - Now that you have Python, you can use pip (Package Installer for Python) to install the two following modules:
 - [Download&Install NDSPy](https://pypi.org/project/ndspy/) (using 4.2.0)
-- [Download&Install PyQt6](https://pypi.org/project/PyQt6/) (using 6.8.1)
+- [Download&Install PyQt6](https://pypi.org/project/PyQt6/) (using 6.9.1)
+- [Download&Install audioop-lts](https://pypi.org/project/audioop-lts/) (using 0.2.2)
 - [Download&Install NumPy](https://pypi.org/project/numpy/) (submodule dependency)
 - [Download&Install Pillow](https://pypi.org/project/Pillow/) (submodule dependency)
 - This project > Code > Download ZIP
