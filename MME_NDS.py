@@ -2,14 +2,13 @@ from PyQt6 import QtGui, QtWidgets, QtCore, QtMultimedia #Qt6, Qt6.qsci
 import sys, os, platform, re, math
 import argparse
 import bisect
-import audioop, wave, io # audioop-lts
 #import logging, time, random
 #import numpy
 import ndspy
 #import ndspy.graphics2D
 #import ndspy.model
 import ndspy.lz10
-import ndspy.rom, ndspy.code, ndspy.codeCompression
+import ndspy.rom#, ndspy.code, ndspy.codeCompression
 import ndspy.soundArchive
 import ndspy.soundSequenceArchive
 import lib
@@ -2372,27 +2371,16 @@ class MainWindow(QtWidgets.QMainWindow):
             self.mediaPlayer.stop()
             print("play SWAV")
             snd_data: ndspy.soundArchive.soundWaveArchive.soundWave.SWAV = self.file_fromItem(items[0])[0]
-            if snd_data.waveType == ndspy.soundArchive.soundWaveArchive.soundWave.WaveType.ADPCM:
-                pcm_data, _ = audioop.adpcm2lin(snd_data.save(), 2, None)
-            else:
-                pcm_data = snd_data.save()
-            pcm_file = io.BytesIO(pcm_data)
-            wav = wave.open(pcm_file, "wb")
-            wav.setparams((1, 2, snd_data.sampleRate, snd_data.totalLength, 'NONE', 'NONE'))
-            wav.writeframes(pcm_data)
-
             self.mediaPlayer.setSourceDevice(None) # to prevent buffer corruption
             self.audioBuffer.close()
-            self.audioBuffer.setData(pcm_file.getvalue())
-            self.audioBuffer.open(QtCore.QBuffer.OpenModeFlag.ReadWrite)
-            #self.audioBuffer.seek(0)
+            self.audioBuffer.setData(lib.sdat.loadSWAV(snd_data))
+            self.audioBuffer.open(QtCore.QBuffer.OpenModeFlag.ReadOnly)
             self.mediaPlayer.setSourceDevice(self.audioBuffer)
             self.mediaPlayer.play()
         elif snd_type == "SSEQ":
             print("play SSEQ")
             sseq: ndspy.soundArchive.soundSequence.SSEQ = self.file_fromItem(items[0])[0][1]
-            sseq.parse()
-            print(sseq)
+            lib.sdat.play(self.audioBuffer, sseq, self.sdat)
 
 
     #def codeeditCall(self):
@@ -2497,9 +2485,9 @@ class MainWindow(QtWidgets.QMainWindow):
             item_ssar = QtWidgets.QTreeWidgetItem(["N/A", "Sequenced Sound Effects", "SSAR"]) #SSAR
             item_sbnk = QtWidgets.QTreeWidgetItem(["N/A", "Sound Banks", "SBNK"]) #SBNK
             item_swar = QtWidgets.QTreeWidgetItem(["N/A", "Sound Waves", "SWAR"]) #SWAR
-            item_sseqplayer = QtWidgets.QTreeWidgetItem(["N/A", "Sequence Player", "SSEQ"]) #SSEQ
+            item_sseqplayer = QtWidgets.QTreeWidgetItem(["N/A", "Sequence Player", ""]) #plays SSEQ or SSAR
             item_strm = QtWidgets.QTreeWidgetItem(["N/A", "Multi-Channel Stream", "STRM"]) #STRM
-            item_strmplayer = QtWidgets.QTreeWidgetItem(["N/A", "Stream Player", "STRM"]) #STRM
+            item_strmplayer = QtWidgets.QTreeWidgetItem(["N/A", "Stream Player", ""]) #plays STRM
             item_group = QtWidgets.QTreeWidgetItem(["N/A", "Group", ""])
             item_list = [
                 item_sseq,
