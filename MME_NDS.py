@@ -1890,6 +1890,8 @@ class MainWindow(QtWidgets.QMainWindow):
                         print(fileData)
                         if isinstance(fileData, tuple):
                             fileData = fileData[0]
+                    else:
+                        fileData = fileInfo[0] # fileInfo[0] is already the expected data
                     if not "Folder" in item.text(2): # if file
                         extract(fileData, name=name, path=path, format=dropdown_formatselect.currentText(), compress=dropdown_compressselect.currentIndex())
                     else: # if folder
@@ -2032,16 +2034,20 @@ class MainWindow(QtWidgets.QMainWindow):
                         else:
                             print("folder import")
                             if fileExt == "vx":
+                                print("is vx")
                                 self.progressShow()
                                 self.progressUpdate(0, "Loading folder")
                                 act = lib.act.ActImagine()
                                 try:
-                                    act.import_vxfolder(file)
+                                    import_vxfolder_iter = act.import_vxfolder(file)
                                 except:
                                     print("This folder is not formatted properly!")
                                     return
+                                self.progressUpdate(0, "Preparing encoding")
+                                for i, _ in enumerate(import_vxfolder_iter):
+                                    self.progressUpdate(50, f"Preparing encoding (processing frame {i+1}/???)")
                                 self.progressUpdate(100, "Preparing encoding")
-                                vframe_strategy = lib.keyframeonly_simple.KeyframeOnlySimple() #lib.actEncStrats.keyframeonly_simple.KeyframeOnlySimple()
+                                vframe_strategy = lib.actEncStrats.KeyframeOnlySimple()
                                 for i, avframe in enumerate(act.avframes):
                                     avframe.encode(avframe.vframe.plane_buffers, vframe_strategy)
                                     self.progressUpdate(int(((i+1)/act.frames_qty)*100), "Encoding VX folder")
