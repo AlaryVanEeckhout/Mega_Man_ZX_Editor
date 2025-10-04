@@ -2522,12 +2522,12 @@ class MainWindow(QtWidgets.QMainWindow):
                         child.setToolTip(0, "bankID: " + str(section[1].bankID))
                     category.addChild(child)
                     if hasattr(section[1], "sequences"):
-                        for sseq in section[1].sequences: # actually a list with [name, SSARSequence]
-                            subChild = QtWidgets.QTreeWidgetItem([str(section[1].sequences.index(sseq)), sseq[0], "SSEQ"])
+                        for sseq_i, sseq in enumerate(section[1].sequences): # actually a list with [name, SSARSequence]
+                            subChild = QtWidgets.QTreeWidgetItem([str(sseq_i), sseq[0], "SSEQ"])
                             child.addChild(subChild)
                     if hasattr(section[1], "waves"):
-                        for wave in section[1].waves:
-                            subChild = QtWidgets.QTreeWidgetItem([str(section[1].waves.index(wave)), f"{child.text(1)} (Wave {section[1].waves.index(wave)})", "SWAV"])
+                        for wave_i, wave in enumerate(section[1].waves):
+                            subChild = QtWidgets.QTreeWidgetItem([str(wave_i), f"{child.text(1)} (Wave {wave_i})", "SWAV"])
                             child.addChild(subChild)
                 #progress.setValue(progress.value()+ 100//len(item_list))
 
@@ -2818,8 +2818,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                     obj_item = self.OAM_updateItemGFX(i)
                                     item_list.append(obj_item)
                                 item_list.reverse()
-                                for i in range(len(item_list)):
-                                    self.file_content_oam.scene().addItem(item_list[i])
+                                for item in item_list:
+                                    self.file_content_oam.scene().addItem(item)
 
                                 if sender == self.dropdown_oam_entry:
                                     self.file_content_oam.fitInView()
@@ -3101,8 +3101,6 @@ class MainWindow(QtWidgets.QMainWindow):
     def loadTileset(self, gfx_table: lib.graphic.GraphicsTable, pal_sec: lib.level.PaletteSection, gfx_ptrs: list[int]|None=None):
         self.gfx_scene_tileset.scene().clear()
         gfx = lib.graphic.GraphicHeader(gfx_table.joinData()[0])
-        tile_index = 0
-        metaTile_index = 0
         self.gfx_scene_tileset.metaTiles = []
         pixmap = QtGui.QPixmap(16, 16)
         painter = QtGui.QPainter()
@@ -3118,8 +3116,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                     pal_sec.paletteOffsets[i]+pal_sec.paletteHeaders[i].palettes[j][1]+0x200]))
             pal_list.append(pl.copy())
         ptr_index = 0
-        for metaTile in self.levelEdited_object.levels[self.dropdown_level_type.currentIndex()].metaTiles:
-            for tile in metaTile:
+        for metaTile_index, metaTile in enumerate(self.levelEdited_object.levels[self.dropdown_level_type.currentIndex()].metaTiles):
+            for tile_index, tile in enumerate(metaTile):
                 flipH = (tile & 0x0400) >> (8+2)
                 flipV = (tile & 0x0800) >> (8+3)
                 tile_id = (tile & 0x03FF)
@@ -3139,14 +3137,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 gfx_bin = gfx.data[gfx.gfx_offset:][64*tile_id:]
                 #gfx_bin = gfx[gfx_ptrs[ptr_index]+64*tile_id:]
                 painter.drawImage(QtCore.QRectF(8*(tile_index%2), 8*(tile_index//2), 8, 8), lib.datconv.binToQt(gfx_bin, pal, lib.datconv.CompressionAlgorithmEnum.EIGHTBPP, 1, 1).mirrored(flipH, flipV))
-                tile_index += 1
             
             metaTileItem = lib.widget.TilesetItem(pixmap)
             metaTileItem.setPos((16+self.gfx_scene_tileset.item_spacing)*(metaTile_index%self.gfx_scene_tileset.item_columns), (16+self.gfx_scene_tileset.item_spacing)*(metaTile_index//self.gfx_scene_tileset.item_columns))
             self.gfx_scene_tileset.scene().addItem(metaTileItem)
             self.gfx_scene_tileset.metaTiles.append(metaTileItem)
-            tile_index = 0
-            metaTile_index += 1
         painter.end()
         self.gfx_scene_tileset.fitInView()
 
@@ -3160,9 +3155,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def loadScreen(self, screen_id: int, x: float=0, y: float=0):
         #print(f"screen {screen_id}")
-        metaTile_index = 0
         screen = self.levelEdited_object.levels[self.dropdown_level_type.currentIndex()].screens[screen_id]
-        for metaTile in screen:
+        for metaTile_index, metaTile in enumerate(screen):
             item = lib.widget.LevelTileItem(index=metaTile_index, id=metaTile, screen=screen_id)
             item.setPixmap(self.gfx_scene_tileset.metaTiles[metaTile].pixmap())
             item.setPos(x + 16*(metaTile_index%16),y + 16*(metaTile_index//16))
@@ -3170,7 +3164,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self.gfx_scene_level.tileGroups[screen_id][metaTile_index].append(item)
             item.tileGroup = self.gfx_scene_level.tileGroups[screen_id][metaTile_index]
             #print(item.pos())
-            metaTile_index += 1
 
     def loadLevel(self):
         self.button_level_save.setDisabled(True)
@@ -3513,34 +3506,34 @@ class MainWindow(QtWidgets.QMainWindow):
 
         tree_list = self.tree_patches.findItems("", QtCore.Qt.MatchFlag.MatchContains | QtCore.Qt.MatchFlag.MatchRecursive)
 
-        for item_i in range(len(tree_list)):# Iterate through patch groups
-            if tree_list[item_i].childCount() != 0:
-                if tree_list[item_i].checkState(0) != self.tree_patches_checkboxes[item_i]: # if checkstate changed
-                    for child_i in range(tree_list[item_i].childCount()): # update children
-                        tree_list[item_i].child(child_i).setCheckState(0, tree_list[item_i].checkState(0))
+        for item_i, item in enumerate(tree_list):# Iterate through patch groups
+            if item.childCount() != 0:
+                if item.checkState(0) != self.tree_patches_checkboxes[item_i]: # if checkstate changed
+                    for child_i in range(item.childCount()): # update children
+                        item.child(child_i).setCheckState(0, item.checkState(0))
                 else: # update according to children
                     subPatchMatches = 0
-                    for child_i in range(tree_list[item_i].childCount()):
-                        if tree_list[item_i].child(child_i).checkState(0) == QtCore.Qt.CheckState.Checked:
+                    for child_i in range(item.childCount()):
+                        if item.child(child_i).checkState(0) == QtCore.Qt.CheckState.Checked:
                             subPatchMatches += 1
-                    if subPatchMatches == tree_list[item_i].childCount(): # Check for already applied patches
-                            tree_list[item_i].setCheckState(0, QtCore.Qt.CheckState.Checked)
+                    if subPatchMatches == item.childCount(): # Check for already applied patches
+                            item.setCheckState(0, QtCore.Qt.CheckState.Checked)
                     elif subPatchMatches > 0:
-                        tree_list[item_i].setCheckState(0, QtCore.Qt.CheckState.PartiallyChecked)
+                        item.setCheckState(0, QtCore.Qt.CheckState.PartiallyChecked)
                     else:
-                        tree_list[item_i].setCheckState(0, QtCore.Qt.CheckState.Unchecked)
+                        item.setCheckState(0, QtCore.Qt.CheckState.Unchecked)
 
-        for item_i in range(len(tree_list)):# Go through unchecked ones first
-            if (tree_list[item_i].checkState(0) == QtCore.Qt.CheckState.Unchecked):
+        for item_i, item in enumerate(tree_list):# Go through unchecked ones first
+            if (item.checkState(0) == QtCore.Qt.CheckState.Unchecked):
                 # Revert patch
-                if tree_list[item_i].childCount() == 0: # if not a patch group
+                if item.childCount() == 0: # if not a patch group
                     newData = bytes.fromhex(patch_list[item_i][3])
                     rom_patched[patch_list[item_i][0]:patch_list[item_i][0]+len(newData)] = newData # write og data
                         
-        for item_i in range(len(tree_list)):# Then through active patches
-            if (tree_list[item_i].checkState(0) == QtCore.Qt.CheckState.Checked):
+        for item_i, item in enumerate(tree_list):# Then through active patches
+            if (item.checkState(0) == QtCore.Qt.CheckState.Checked):
                 # Apply patch
-                if tree_list[item_i].childCount() == 0: # if not a patch group\
+                if item.childCount() == 0: # if not a patch group\
                     newData = patch_list[item_i][4]
                     for s in range(len(patch_list[item_i][4])):
                         if newData[s] == "-":
@@ -3548,8 +3541,8 @@ class MainWindow(QtWidgets.QMainWindow):
                     newData = bytes.fromhex(newData)
                     rom_patched[patch_list[item_i][0]:patch_list[item_i][0]+len(newData)] = newData # write patch data
 
-        for item_i in range(len(tree_list)):# Iterate through all patches
-            self.tree_patches_checkboxes[item_i] = tree_list[item_i].checkState(0) #and update checkbox state list
+        for item_i, item in enumerate(tree_list):# Iterate through all patches
+            self.tree_patches_checkboxes[item_i] = item.checkState(0) #and update checkbox state list
 
         self.rom = ndspy.rom.NintendoDSRom(rom_patched)# update the editor with patched ROM
         self.tree_patches.blockSignals(False)
@@ -3599,8 +3592,8 @@ def extract(data: bytes, name="", path="", format="", compress=0):
             try: # create multiple text files
                 text_list = lib.dialogue.DialogueFile(data).text_list
                 data = [""]*len(text_list)
-                for text in text_list:
-                    data[text_list.index(text)] = bytes(text, "utf-8")
+                for text_i, text in enumerate(text_list):
+                    data[text_i] = bytes(text, "utf-8")
             except AssertionError: # not a real dialogue file
                 data = bytes(lib.dialogue.DialogueFile.binToText(data), "utf-8")
         elif format == "VX":
@@ -3626,8 +3619,8 @@ def extract(data: bytes, name="", path="", format="", compress=0):
         with open(os.path.join(path + "/" + name.split(".")[0] + ext), 'wb') as f:
             f.write(data)
     else: # list of bytes
-        for subdata in data:
-            with open(os.path.join(path + "/" + name.split(".")[0] + "_" + str(data.index(subdata)) + ext), 'wb') as f:
+        for subdata_i, subdata in enumerate(data):
+            with open(os.path.join(path + "/" + name.split(".")[0] + "_" + str(subdata_i) + ext), 'wb') as f:
                 f.write(subdata)
     print("File extracted!")
 #run the app
