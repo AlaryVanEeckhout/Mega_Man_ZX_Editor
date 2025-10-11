@@ -13,14 +13,48 @@ class File(common.File):
             self.offset_unk3 = self.address_list[3][0]
             self.offset_extraGfx = self.address_list[4][0]
 
-class GraphicsTable: # possibly the same data structure as what I identified as GraphicsSection?
+class DataStructure: # make the initialization with offsets more consistant
     def __init__(self, data: bytes, start:int=0, end:int|None=None):
-        self.ENTRY_SIZE = 0x14
         if end == None:
-            end = len(data)
+            end = start+len(data)
+        assert end > start
         self.offset_start = start
         self.offset_end = end
+        self.size = self.offset_end - self.offset_start
         self.data = data
+
+class GraphicsCompactTable(DataStructure): # experimental, to load graphic offsets correctly where
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.ENTRY_SIZE = 0x0C
+        self.table_size = int.from_bytes(self.data[0x00:0x04], 'little')
+        assert self.table_size % self.ENTRY_SIZE == 0 and self.table_size > self.ENTRY_SIZE
+        self.entryCount = self.table_size//self.ENTRY_SIZE
+        self.graphics = []
+        for i in range(0, self.table_size, self.ENTRY_SIZE):
+            self.graphics.append(GraphicHeader(self.data[i:i+0x0C],
+                                               start=self.offset_start+i,
+                                               end=self.offset_start+i+self.ENTRY_SIZE)) # ??? (2 bytes) and ??? (2 bytes)
+    
+    def getAddrOffset(self, index:int):
+        return self.offset_start+index*self.ENTRY_SIZE
+    
+    def fromParent(file: File, index: int):
+        #print(f"index: {index}")
+        assert index >= 0
+        offset_start = file.address_list[index][0]
+        indexAdd = bisect.bisect_left([addr[0] for addr in file.address_list[index:]], offset_start+1)
+        if index < len(file.address_list)-indexAdd:
+            offset_end = file.address_list[index+indexAdd][0] #hmm... how to deal with duplicate addresses?
+            #print(f"{offset_start} : {file.address_list[bisect.bisect_left(file.address_list, offset_start+1)]}")
+        else:
+            offset_end = file.fileSize
+        return GraphicsCompactTable(file.data[offset_start:offset_end], start=offset_start, end=offset_end)
+
+class GraphicsTable(DataStructure): # possibly the same data structure as what I identified as GraphicsSection?
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.ENTRY_SIZE = 0x14
         self.table_size = int.from_bytes(self.data[0x00:0x04], 'little')
         assert self.table_size % self.ENTRY_SIZE == 0 and self.table_size > self.ENTRY_SIZE
         self.offsetCount = self.table_size//self.ENTRY_SIZE
@@ -31,6 +65,7 @@ class GraphicsTable: # possibly the same data structure as what I identified as 
                 int.from_bytes(self.data[i+0x04:i+0x08], 'little'), # size
                 int.from_bytes(self.data[i+0x08:i+0x0C], 'little'), # RAM?
                 int.from_bytes(self.data[i+0x0C:i+0x10], 'little')]) # end
+                # 00 00 08 00
             
     def getAddrOffset(self, index:int):
         return self.offset_start+index*self.ENTRY_SIZE
@@ -78,16 +113,9 @@ class GraphicsTable: # possibly the same data structure as what I identified as 
             result += bytearray((-len(result)) & 0x37FF)
         return [result, result_indexes]
 
-class GraphicSection:
-    def __init__(self, data: bytes, start: int|None=None, end: int|None=None):
-        #print(f"index: {index}")
-        self.data = data
-        if start == None:
-            self.offset_start = 0
-            self.offset_end = len(self.data)
-        else:
-            self.offset_start = start # relative to file
-            self.offset_end = end
+class GraphicSection(DataStructure):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.header_size = int.from_bytes(self.data[0x00:0x04], byteorder='little')
         #print(f"header size: {self.header_size}")
         self.entryCount = self.header_size//0x14
@@ -109,20 +137,14 @@ class GraphicSection:
             #print(f"{offset_start} : {file.address_list[bisect.bisect_left(file.address_list, offset_start+1)]}")
         else:
             offset_end = file.fileSize
-        return GraphicSection(file.data[offset_start:offset_end], offset_start, offset_end)
+        return GraphicSection(file.data[offset_start:offset_end], start=offset_start, end=offset_end)
     
-class GraphicHeader:
-    def __init__(self, data: bytes, start: int|None=None, end: int|None=None):
-        if None in [start, end]:
-            start = 0
-            end = len(data)
-        self.SIZE = 0x14
-        self.data = data
-        if not isinstance(data, (bytes, bytearray)):
-            raise TypeError(f"Expected 'bytes' object, got '{type(data).__name__}'")
-        self.offset_start = start # relative to file
-        self.offset_end = end
-        print(type(self.data))
+class GraphicHeader(DataStructure):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not isinstance(self.data, (bytes, bytearray)):
+            raise TypeError(f"Expected 'bytes' object, got '{type(self.data).__name__}'")
+        #print(type(self.data))
         self.gfx_offset = int.from_bytes(self.data[0x00:0x04], byteorder='little') # offset from this address
         self.gfx_size = int.from_bytes(self.data[0x04:0x06], byteorder='little')
         self.oam_tile_indexing = int.from_bytes(self.data[0x06:0x07], byteorder='little') # related to tile indexing in oam (0=vram indexes, 0x18=1/4 vram indexes)
@@ -130,6 +152,7 @@ class GraphicHeader:
         self.unk08 = int.from_bytes(self.data[0x08:0x09], byteorder='little') # gfx size related???
         self.unk09 = int.from_bytes(self.data[0x09:0x0A], byteorder='little') # gfx format indicator?
         self.ram_palette_offset = int.from_bytes(self.data[0x0A:0x0C], byteorder='little')
+        if self.size <= 0xC: return
         self.palette_offset = int.from_bytes(self.data[0x0C:0x10], byteorder='little') # offset from this address. palettes are usually stored right after the corresponding gfx
         self.palette_size = int.from_bytes(self.data[0x10:0x12], byteorder='little') # in bytes (color count * 2)
         self.depth = int.from_bytes(self.data[0x12:0x13], byteorder='little') # color depth * 2

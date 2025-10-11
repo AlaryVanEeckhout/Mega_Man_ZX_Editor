@@ -2144,11 +2144,25 @@ class MainWindow(QtWidgets.QMainWindow):
             self.treeCall()
 
     def OAM_updateItemGFX(self, obj_index: int, item: lib.widget.OAMObjectItem | None=None): # creates and returns an item if none specified
-        gfxsec: lib.graphic.GraphicSection = self.fileEdited_object.gfxsec
-        if len(gfxsec.graphics) <= 0:
-            print("no graphics in section!")
-            return
-        depth = gfxsec.graphics[0].depth//2
+        index_img = self.fileEdited_object.frame[2]
+        gfxsec = None
+        gfxtab = None
+        try:
+            gfxsec_new = self.fileEdited_object.gfxsec
+            assert gfxsec_new.graphics[0].depth//2 in [4, 8]
+            gfxsec: lib.graphic.GraphicSection = gfxsec_new
+        except AssertionError:
+            gfxtab: lib.graphic.GraphicsCompactTable = lib.graphic.GraphicsCompactTable.fromParent(self.fileEdited_object.auxfile, self.dropdown_oam_entry.currentIndex())
+        if gfxsec:
+            if len(gfxsec.graphics) <= 0:
+                print("no graphics in section!")
+                return
+            depth = gfxsec.graphics[0].depth//2
+        else:
+            if gfxtab.entryCount <= 0:
+                print("no graphics in table!")
+                return
+            depth = 4 # placeholder for when I figure out more about CompactTable
         indexingFactor = 1 # I guess this is changed based on the size of assembled gfx
         # in 4bpp, oam tile id * indexingFactor = vram tile id
         # in 8bpp, oam tile id * indexingFactor // 2 = vram tile id
@@ -2162,27 +2176,46 @@ class MainWindow(QtWidgets.QMainWindow):
             obj.shape = self.buttonGroup_oam_objShape.checkedId()
             obj.x = self.field_objX.value()
             obj.y = self.field_objY.value()
-        index_img = self.fileEdited_object.frame[2]
-        if index_img >= len(gfxsec.graphics):
-            print(f"Graphic Section {index_img} does not exist!")
+        if gfxsec and index_img >= len(gfxsec.graphics):
+            print(f"Graphic Section index {index_img} does not exist!")
             return
-        if gfxsec.graphics[index_img].oam_tile_indexing == 0:
-            indexingFactor = 1
-        elif gfxsec.graphics[index_img].oam_tile_indexing == 0x18:
-            indexingFactor = 4
+        elif gfxtab and index_img >= gfxtab.entryCount:
+            print(f"Graphic Table index {index_img} does not exist!")
+            return
+        if gfxsec:
+            if gfxsec.graphics[index_img].oam_tile_indexing == 0:
+                indexingFactor = 1
+            elif gfxsec.graphics[index_img].oam_tile_indexing == 0x18:
+                indexingFactor = 4
+            else:
+                print(f"unhandled tile indexing mode: {gfxsec.graphics[index_img].oam_tile_indexing:02X}")
+            tileId = gfxsec.graphics[index_img].oam_tile_offset
+            gfxOffset = gfxsec.graphics[index_img].offset_start + gfxsec.graphics[index_img].gfx_offset
+            pal_off = gfxsec.graphics[index_img].offset_start + gfxsec.graphics[index_img].palette_offset+0xc
+            pal = [0xffffffff]*(gfxsec.graphics[index_img].unk13 & 0xf0)
+            pal.extend(lib.datconv.BGR15_to_ARGB32(self.fileEdited_object.auxfile.data[pal_off:pal_off+gfxsec.graphics[index_img].palette_size]))
         else:
-            print(f"unhandled tile indexing mode: {gfxsec.graphics[index_img].oam_tile_indexing}")
-        pal_off = gfxsec.graphics[index_img].offset_start + gfxsec.graphics[index_img].palette_offset+0xc
-        pal = [0xffffffff]*(gfxsec.graphics[index_img].unk13 & 0xf0)
-        pal.extend(lib.datconv.BGR15_to_ARGB32(self.fileEdited_object.auxfile.data[pal_off:pal_off+gfxsec.graphics[index_img].palette_size]))
-        tileId = gfxsec.graphics[index_img].oam_tile_offset + obj.tileId
-        # multiply oam tile id by indexingFactor and 4bpp tile size to get vram tile id
-        gfxOffset = gfxsec.graphics[index_img].offset_start + gfxsec.graphics[index_img].gfx_offset + int(tileId*indexingFactor*32) # 8*8pixels*4bpp/8bits = 32bytes
+            if gfxtab.graphics[index_img].oam_tile_indexing == 0:
+                indexingFactor = 1
+            elif gfxtab.graphics[index_img].oam_tile_indexing == 0x18:
+                indexingFactor = 4
+            else:
+                print(f"unhandled tile indexing mode: {gfxtab.graphics[index_img].oam_tile_indexing:02X}")
+            tileId = 0 # placeholder
+            gfxOffset = gfxtab.graphics[index_img].offset_start + gfxtab.graphics[index_img].gfx_offset
+            pal = self.GFX_PALETTES[2] # placeholder
+        tileId += obj.tileId
+        # multiply oam tile id by indexingFactor(relative to 4bpp) and 4bpp tile size to get vram tile id
+        gfxOffset += int(tileId*indexingFactor*32) # 8*8pixels*4bpp/8bits = 32bytes
         #print(f"offset: {gfxOffset:04X}")
         #print(f"tile {tileId:02X}")
+        depth_obj = lib.datconv.CompressionAlgorithmEnum.FOURBPP
+        for member in lib.datconv.CompressionAlgorithmEnum:
+            if member.depth == depth:
+                depth_obj = member
         try: #gfxOffset+gfxsec.graphics[index_img].gfx_size
             obj_img = lib.datconv.binToQt(self.fileEdited_object.auxfile.data[gfxOffset:], pal,
-                                                *[member for member in lib.datconv.CompressionAlgorithmEnum if member.depth == depth],
+                                                depth_obj,
                                                 obj.getWidth(),
                                                 obj.getHeight())
         except AssertionError:
@@ -2665,54 +2698,73 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.field_tiles_per_row.setValue(self.tiles_per_row)
                             self.dropdown_gfx_index.clear()
                             self.dropdown_gfx_subindex.clear()
-                            try:
+                            try: # obj_fnt.bin
                                 self.fileEdited_object = lib.graphic.File(self.rom.files[current_id])
                                 for i in range(len(self.fileEdited_object.address_list)):
                                     self.dropdown_gfx_index.addItem(f"entry {i}")
                                 self.dropdown_gfx_index.setCurrentIndex(0)
                             except AssertionError:
-                                try:
+                                try: # face.bin and some other files
                                     self.fileEdited_object = lib.graphic.GraphicSection(self.rom.files[current_id])
                                 except AssertionError:
                                     print("failed to load graphic entry table!")
                                     self.fileEdited_object = None
                         if self.fileEdited_object != None:
+                            gfxsec = None
+                            gfxtab = None
                             if isinstance(self.fileEdited_object, lib.graphic.File):
-                                gfxsec = lib.graphic.GraphicSection.fromParent(self.fileEdited_object, self.dropdown_gfx_index.currentIndex())
+                                try:
+                                    gfxsec_new = lib.graphic.GraphicSection.fromParent(self.fileEdited_object, self.dropdown_gfx_index.currentIndex())
+                                    assert gfxsec_new.graphics[0].depth//2 in [4, 8]
+                                    gfxsec = gfxsec_new
+                                except AssertionError:
+                                    print("Section gave weird results, trying compact table mode")
+                                    gfxtab = lib.graphic.GraphicsCompactTable.fromParent(self.fileEdited_object, self.dropdown_gfx_index.currentIndex())
                             elif isinstance(self.fileEdited_object, lib.graphic.GraphicSection):
                                 gfxsec = self.fileEdited_object
                             if sender == self.dropdown_gfx_index or sender in self.FILEOPEN_WIDGETS: # if graphic section changed, reload header list
                                 self.dropdown_gfx_subindex.clear()
-                                for i in range(len(gfxsec.graphics)):
-                                    self.dropdown_gfx_subindex.addItem(f"image {i}")
+                                if gfxsec:
+                                    for i in range(len(gfxsec.graphics)):
+                                        self.dropdown_gfx_subindex.addItem(f"image {i}")
+                                else:
+                                    for i in range(gfxtab.entryCount):
+                                        self.dropdown_gfx_subindex.addItem(f"frame {i}")
                                 self.dropdown_gfx_subindex.setCurrentIndex(0)
                             if self.dropdown_gfx_subindex.count() > 0:
                                 if sender == self.dropdown_gfx_index or sender == self.dropdown_gfx_subindex or sender in self.FILEOPEN_WIDGETS or sender == self.checkbox_depthUpdate:
                                     header_index = self.dropdown_gfx_subindex.currentIndex()
-                                    gfxOffset = gfxsec.graphics[header_index].offset_start + gfxsec.graphics[header_index].gfx_offset
-                                    pal_off = gfxsec.graphics[header_index].offset_start + gfxsec.graphics[header_index].palette_offset+0xc
-                                    self.relative_address = gfxOffset
-                                    self.field_address.setRange(self.base_address+gfxOffset, self.base_address + gfxOffset+gfxsec.graphics[header_index].gfx_size)
-                                    self.field_address.setValue(self.base_address+self.relative_address)
-                                    print(f"{gfxsec.entryCount} entries")
-                                    print(f"oam tile offset: {gfxsec.graphics[header_index].oam_tile_offset:02X}")
-                                    print(f"oam_tile_indexing: {gfxsec.graphics[header_index].oam_tile_indexing:02X}")
-                                    print(f"unk08: {gfxsec.graphics[header_index].unk08:02X}")
-                                    print(f"unk09: {gfxsec.graphics[header_index].unk09:02X}")
-                                    print(f"unk13 & 0F: {gfxsec.graphics[header_index].unk13 & 0x0f:02X}")
-                                    if self.checkbox_depthUpdate.isChecked():
+                                    if self.checkbox_depthUpdate.isChecked() and gfxsec:
                                         if gfxsec.graphics[header_index].depth//2 == 4:
                                             self.dropdown_gfx_depth.setCurrentIndex(1)
                                         elif gfxsec.graphics[header_index].depth//2 == 8:
                                             self.dropdown_gfx_depth.setCurrentIndex(2)
-                                        else:
+                                        else: # this should now be impossible
                                             print(f"unrecognized depth {gfxsec.graphics[header_index].depth}")
                                             self.dropdown_gfx_depth.setCurrentIndex(1)
-                                    pal = [0xffffffff]*(gfxsec.graphics[header_index].unk13 & 0xf0)
-                                    pal.extend(lib.datconv.BGR15_to_ARGB32(self.rom.files[current_id][pal_off:pal_off+gfxsec.graphics[header_index].palette_size]))
+                                    if gfxsec:
+                                        gfxOffset = gfxsec.graphics[header_index].offset_start + gfxsec.graphics[header_index].gfx_offset
+                                        gfxSize = gfxsec.graphics[header_index].gfx_size
+                                        pal_off = gfxsec.graphics[header_index].offset_start + gfxsec.graphics[header_index].palette_offset+0xc
+                                        pal = [0xffffffff]*(gfxsec.graphics[header_index].unk13 & 0xf0)
+                                        pal.extend(lib.datconv.BGR15_to_ARGB32(self.rom.files[current_id][pal_off:pal_off+gfxsec.graphics[header_index].palette_size]))
+                                        print(f"{gfxsec.entryCount} sub-entrie(s)")
+                                        print(f"oam_tile_indexing: {gfxsec.graphics[header_index].oam_tile_indexing:02X}")
+                                        print(f"oam tile offset: {gfxsec.graphics[header_index].oam_tile_offset:02X}")
+                                        print(f"unk08: {gfxsec.graphics[header_index].unk08:02X}")
+                                        print(f"unk09: {gfxsec.graphics[header_index].unk09:02X}")
+                                        print(f"unk13 & 0F: {gfxsec.graphics[header_index].unk13 & 0x0f:02X}")
+                                    else:
+                                        print(f"{gfxtab.entryCount} sub-entrie(s)")
+                                        gfxOffset = gfxtab.graphics[header_index].offset_start + gfxtab.graphics[header_index].gfx_offset
+                                        gfxSize = gfxtab.graphics[header_index].gfx_size
+                                        pal = [] # empty palette because idk where it is
                                     self.setPalette(pal)
+                                    self.relative_address = gfxOffset
+                                    self.field_address.setRange(self.base_address+gfxOffset, self.base_address + gfxOffset+gfxSize)
+                                    self.field_address.setValue(self.base_address+self.relative_address)
                             else:
-                                print(f"{gfxsec.entryCount} graphic entries!")
+                                print(f"{gfxsec.entryCount} graphic sub-entries!")
                                 #print(f"data: {gfxsec.data.hex()}")
 
                         #print(self.dropdown_gfx_depth.currentText()[:1] + " bpp graphics")
@@ -3205,13 +3257,13 @@ class MainWindow(QtWidgets.QMainWindow):
             else:
                 gfx_data = file.data[file.gfx_offset_rom:file.pal_offset_rom]
             try:
-                gfx_table = lib.graphic.GraphicsTable(gfx_data, file.gfx_offset_rom, file.pal_offset_rom)
+                gfx_table = lib.graphic.GraphicsTable(gfx_data, start=file.gfx_offset_rom, end=file.pal_offset_rom)
                 table_dat = gfx_table.joinData()
-                gfx = lib.graphic.GraphicHeader(table_dat[0], file.gfx_offset_rom, file.pal_offset_rom)
+                gfx = lib.graphic.GraphicHeader(table_dat[0], start=file.gfx_offset_rom, end=file.pal_offset_rom)
                 gfx_ptrs = table_dat[1]
             except AssertionError:
                 print("No gfx table")
-                gfx = lib.graphic.GraphicHeader(gfx_data, file.gfx_offset_rom, file.pal_offset_rom)
+                gfx = lib.graphic.GraphicHeader(gfx_data, start=file.gfx_offset_rom, end=file.pal_offset_rom)
 
             pal_sec = lib.level.PaletteSection(file.data[file.pal_offset_rom:], file.pal_offset_attr == 0x80)
             #pal = lib.datconv.BGR15_to_ARGB32(pal_sec.data[pal_sec.palettes_offset:pal_sec.palettes_offset+0x200])
@@ -3220,20 +3272,20 @@ class MainWindow(QtWidgets.QMainWindow):
                 file_radar = self.rom.files[self.rom.filenames.idOf("elf_usa.bin")]
                 pointergfx = int.from_bytes(file_radar[0x04:0x08], 'little')
                 pointerpal = int.from_bytes(file_radar[0x08:0x0C], 'little')
-                gfx_table = lib.graphic.GraphicsTable(file_radar[pointergfx:], pointergfx, pointerpal)
+                gfx_table = lib.graphic.GraphicsTable(file_radar[pointergfx:], start=pointergfx, end=pointerpal)
                 # compressed part has redundant tiles at the end
                 gfx = lib.graphic.GraphicHeader(
                     ndspy.lz10.decompress(gfx_table.getData(0))[:-0x200]+gfx_table.getData(gfx_table.offsetCount-self.buttonGroup_radar_tilesetType.checkedId()),
-                      gfx_table.getAddr(0), pointerpal)
+                      start=gfx_table.getAddr(0), end=pointerpal)
             else:
                 file_radar = self.rom.files[self.rom.filenames.idOf("ls_map_def.bin")]
                 pointergfx = int.from_bytes(file_radar[0x04:0x08], 'little')
                 pointerpal = int.from_bytes(file_radar[0x08:0x0C], 'little')
-                gfx_table = lib.graphic.GraphicsTable(file_radar[pointergfx:], pointergfx, pointerpal)
+                gfx_table = lib.graphic.GraphicsTable(file_radar[pointergfx:], start=pointergfx, end=pointerpal)
                 gfx = lib.graphic.GraphicHeader(
                     gfx_table.getData(0)[:-0x480]+gfx_table.getData(gfx_table.offsetCount-self.buttonGroup_radar_tilesetType.checkedId())[0x240:],
-                      gfx_table.getAddr(0), pointerpal)
-                #gfx = lib.graphic.GraphicHeader(file_radar[pointergfx:], pointergfx, len(file_radar))
+                      start=gfx_table.getAddr(0), end=pointerpal)
+                #gfx = lib.graphic.GraphicHeader(file_radar[pointergfx:], start=pointergfx, end=len(file_radar))
             pal_sec = lib.level.PaletteSection(file_radar[pointerpal:], False)
             #pal = lib.datconv.BGR15_to_ARGB32(pal_sec.data[pal_sec.palettes_offset:pal_sec.palettes_offset+0x200])
         else:
