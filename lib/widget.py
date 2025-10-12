@@ -200,6 +200,7 @@ class OAMView(View):
         self.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing, True) # prevent weird scaling artifacts on overlapping items
         # find a way to eliminate spacing between adjacent items
         self.setSceneRect(QtCore.QRectF(-128, -128, 256, 256)) # dimensions correspond to max positions of object
+        self.scene().setParent(self) # allow to find MainWindow from scene
         self.item_current: OAMObjectItem | None = None
 
     def fitInView(self, scale=True):
@@ -255,6 +256,7 @@ class TilesetView(View):
 class LevelView(View):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.scene().setParent(self) # allow to find MainWindow from scene
         self.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing, True)
         self.tileGroups: list[list[list[LevelTileItem]]] = []
 
@@ -313,12 +315,16 @@ class LevelTileItem(QtWidgets.QGraphicsPixmapItem):
         self.screen = screen
         self.tileGroup: list[LevelTileItem] = None
 
+    def getWindow(self):
+        if self.scene():
+            return self.scene().parent().window()
+
     def tileReplace(self, item: QtWidgets.QGraphicsPixmapItem):
         if item == None: return
-        #print(f"tile {self.index} of screen {self.screen} = {self.window().gfx_scene_tileset.metaTiles.index(item)}")
+        #print(f"tile {self.index} of screen {self.screen} = {self.getWindow().gfx_scene_tileset.metaTiles.index(item)}")
         self.setPixmap(item.pixmap())
-        self.id = self.window().gfx_scene_tileset.metaTiles.index(item)
-        self.window().button_level_save.setEnabled(True)
+        self.id = self.getWindow().gfx_scene_tileset.metaTiles.index(item)
+        self.getWindow().button_level_save.setEnabled(True)
 
 class OAMObjectItem(QtWidgets.QGraphicsPixmapItem):
     def __init__(self, *args, id=0, editable=False, **kwargs):
@@ -329,11 +335,15 @@ class OAMObjectItem(QtWidgets.QGraphicsPixmapItem):
             self.setFlags(QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIsSelectable |
                         QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIsMovable |
                         QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemSendsGeometryChanges)
+            
+    def getWindow(self):
+        if self.scene():
+            return self.scene().parent().window()
 
     def itemChange(self, change: QtWidgets.QGraphicsPixmapItem.GraphicsItemChange, value: QtCore.QVariant):
         if change == QtWidgets.QGraphicsPixmapItem.GraphicsItemChange.ItemPositionChange and self.scene():
             if QtWidgets.QApplication.mouseButtons() == QtCore.Qt.MouseButton.LeftButton:
-                rect = self.window().file_content_oam.sceneRect()
+                rect = self.getWindow().file_content_oam.sceneRect()
                 x = min(max(rect.left(), value.x()), rect.right())
                 y = min(max(rect.top(), value.y()), rect.bottom())
                 return QtCore.QPointF(int(x), int(y))
@@ -350,20 +360,20 @@ class OAMObjectItem(QtWidgets.QGraphicsPixmapItem):
     def mousePressEvent(self, event):
         super().mousePressEvent(event)
         if self.editable:
-            self.window().dropdown_oam_obj.setCurrentIndex(self.obj_id)
-            self.window().treeCall()
+            self.getWindow().dropdown_oam_obj.setCurrentIndex(self.obj_id)
+            self.getWindow().treeCall()
 
     def mouseMoveEvent(self, event):
         super().mouseMoveEvent(event)
         if self.editable:
             # prevent drag from emitting valueChanged signal, because it affects item position in turn
-            self.window().field_objX.blockSignals(True)
-            self.window().field_objY.blockSignals(True)
-            self.window().field_objX.setValue(self.scenePos().x())
-            self.window().field_objY.setValue(self.scenePos().y())
-            self.window().field_objX.blockSignals(False)
-            self.window().field_objY.blockSignals(False)
-            self.window().button_file_save.setEnabled(True)
+            self.getWindow().field_objX.blockSignals(True)
+            self.getWindow().field_objY.blockSignals(True)
+            self.getWindow().field_objX.setValue(self.scenePos().x())
+            self.getWindow().field_objY.setValue(self.scenePos().y())
+            self.getWindow().field_objX.blockSignals(False)
+            self.getWindow().field_objY.blockSignals(False)
+            self.getWindow().button_file_save.setEnabled(True)
 
 class GridLayout(QtWidgets.QGridLayout):
     def __init__(self, *args, **kwargs):

@@ -3219,19 +3219,15 @@ class MainWindow(QtWidgets.QMainWindow):
                 gfx_data = ndspy.lz10.decompress(file.data[file.gfx_offset_rom:file.pal_offset_rom])
             else:
                 gfx_data = file.data[file.gfx_offset_rom:file.pal_offset_rom]
-            try:
-                gfx_table = lib.graphic.GraphicsTable(gfx_data, start=file.gfx_offset_rom, end=file.pal_offset_rom)
-                table_dat = gfx_table.joinData()
-                gfx = lib.graphic.GraphicHeader(table_dat[0], start=file.gfx_offset_rom, end=file.pal_offset_rom)
-                gfx_ptrs = table_dat[1]
-            except AssertionError:
-                print("No gfx table")
-                gfx = lib.graphic.GraphicHeader(gfx_data, start=file.gfx_offset_rom, end=file.pal_offset_rom)
+            gfx_table = lib.graphic.GraphicsTable(gfx_data, start=file.gfx_offset_rom, end=file.pal_offset_rom)
+            table_dat = gfx_table.joinData()
+            gfx = lib.graphic.GraphicHeader(table_dat[0], start=file.gfx_offset_rom, end=file.pal_offset_rom)
+            gfx_ptrs = table_dat[1]
 
             pal_sec = lib.level.PaletteSection(file.data[file.pal_offset_rom:], file.pal_offset_attr == 0x80)
             #pal = lib.datconv.BGR15_to_ARGB32(pal_sec.data[pal_sec.palettes_offset:pal_sec.palettes_offset+0x200])
         elif level == file.level_radar:
-            if self.rom.filenames.idOf("elf_usa.bin") != None:
+            if self.rom.filenames.idOf("elf_usa.bin") != None: # ZX
                 file_radar = self.rom.files[self.rom.filenames.idOf("elf_usa.bin")]
                 pointergfx = int.from_bytes(file_radar[0x04:0x08], 'little')
                 pointerpal = int.from_bytes(file_radar[0x08:0x0C], 'little')
@@ -3240,7 +3236,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 gfx = lib.graphic.GraphicHeader(
                     ndspy.lz10.decompress(gfx_table.getData(0))[:-0x200]+gfx_table.getData(gfx_table.offsetCount-self.buttonGroup_radar_tilesetType.checkedId()),
                       start=gfx_table.getAddr(0), end=pointerpal)
-            else:
+            else: # ZXA
                 file_radar = self.rom.files[self.rom.filenames.idOf("ls_map_def.bin")]
                 pointergfx = int.from_bytes(file_radar[0x04:0x08], 'little')
                 pointerpal = int.from_bytes(file_radar[0x08:0x0C], 'little')

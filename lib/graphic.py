@@ -28,7 +28,7 @@ class GraphicsTable(DataStructure): # possibly the same data structure as what I
         super().__init__(*args, **kwargs)
         self.ENTRY_SIZE = 0x14
         self.table_size = int.from_bytes(self.data[0x00:0x04], 'little')
-        assert self.table_size % self.ENTRY_SIZE == 0 and self.table_size > self.ENTRY_SIZE
+        assert self.table_size % self.ENTRY_SIZE == 0 and self.table_size >= self.ENTRY_SIZE
         self.offsetCount = self.table_size//self.ENTRY_SIZE
         self.offset_list = []
         for i in range(0, self.table_size, self.ENTRY_SIZE):
