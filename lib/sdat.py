@@ -1,5 +1,5 @@
 from PyQt6 import QtCore, QtWidgets, QtMultimedia
-import ndspy.soundArchive, audioop, wave, io#, pyaudio # audioop-lts
+import ndspy.soundArchive, audioop, wave, io#, sounddevice # audioop-lts
 
 def play(audioBuffer: QtCore.QIODevice, sseq: ndspy.soundArchive.soundSequence.SSEQ, sdat: ndspy.soundArchive.SDAT):
     sseq.parse()

@@ -1,4 +1,4 @@
-from lib import common
+from lib import common, datconv
 import bisect
 
 SPRITE_WIDTHS = ((1,2,4,8),(2,4,4,8),(1,1,2,4)) # in tiles
@@ -44,6 +44,10 @@ class OAMSection:
         if len(self.header_items) == 4: # if palette and unk exist
             self.paletteTable_offset = self.header_items[2]
             self.unkTable_offset = self.header_items[3]
+            for i in range(self.paletteTable_offset,
+                           self.paletteTable_offset+0x200*int.from_bytes(self.data[self.paletteTable_offset:self.paletteTable_offset+1]),
+                           0x200):
+                self.paletteTable.append(datconv.BGR15_to_ARGB32(self.data[i:i+0x200]))
 
 class Animation:
     def __init__(self, data: bytes, fStart: int):

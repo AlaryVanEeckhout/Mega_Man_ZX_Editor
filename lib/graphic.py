@@ -23,34 +23,6 @@ class DataStructure: # make the initialization with offsets more consistant
         self.size = self.offset_end - self.offset_start
         self.data = data
 
-class GraphicsCompactTable(DataStructure): # experimental, to load graphic offsets correctly where
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.ENTRY_SIZE = 0x0C
-        self.table_size = int.from_bytes(self.data[0x00:0x04], 'little')
-        assert self.table_size % self.ENTRY_SIZE == 0 and self.table_size > self.ENTRY_SIZE
-        self.entryCount = self.table_size//self.ENTRY_SIZE
-        self.graphics = []
-        for i in range(0, self.table_size, self.ENTRY_SIZE):
-            self.graphics.append(GraphicHeader(self.data[i:i+0x0C],
-                                               start=self.offset_start+i,
-                                               end=self.offset_start+i+self.ENTRY_SIZE)) # ??? (2 bytes) and ??? (2 bytes)
-    
-    def getAddrOffset(self, index:int):
-        return self.offset_start+index*self.ENTRY_SIZE
-    
-    def fromParent(file: File, index: int):
-        #print(f"index: {index}")
-        assert index >= 0
-        offset_start = file.address_list[index][0]
-        indexAdd = bisect.bisect_left([addr[0] for addr in file.address_list[index:]], offset_start+1)
-        if index < len(file.address_list)-indexAdd:
-            offset_end = file.address_list[index+indexAdd][0] #hmm... how to deal with duplicate addresses?
-            #print(f"{offset_start} : {file.address_list[bisect.bisect_left(file.address_list, offset_start+1)]}")
-        else:
-            offset_end = file.fileSize
-        return GraphicsCompactTable(file.data[offset_start:offset_end], start=offset_start, end=offset_end)
-
 class GraphicsTable(DataStructure): # possibly the same data structure as what I identified as GraphicsSection?
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -117,15 +89,31 @@ class GraphicSection(DataStructure):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.header_size = int.from_bytes(self.data[0x00:0x04], byteorder='little')
+        self.entry_size = 0x14
+        if self.header_size % self.entry_size != 0:
+            print(f"Header size does not match entry size, reducing entry size from 0x{self.entry_size:02X} to 0x0C")
+            self.entry_size = 0x0C
+        print(self.header_size, self.entry_size)
+        assert self.header_size % self.entry_size == 0
+        assert self.header_size >= self.entry_size
         #print(f"header size: {self.header_size}")
-        self.entryCount = self.header_size//0x14
+        self.entryCount = self.header_size//self.entry_size
         self.graphics: list[GraphicHeader] = []
         if self.entryCount > 10000:
             print(f"{self.entryCount} is not a reasonable entry count. aborting...")
             return
-        for g in range(self.entryCount):
-            offset = g*0x14 # 0x14 is the size of one GraphicHeader
-            self.graphics.append(GraphicHeader(self.data[offset:offset+0x14], self.offset_start+offset, self.offset_start+offset+0x14))
+        if self.entryCount > 0:
+            if self.entry_size == 0x14:
+                gfx_head = GraphicHeader(self.data[0:0+self.entry_size],
+                                                start=self.offset_start+0,
+                                                end=self.offset_start+0+self.entry_size)
+                if not gfx_head.depth//2 in [4, 8]: # is the entry size really the default value?
+                    print(f"Section gave weird results, reducing entry size from 0x{self.entry_size:02X} to 0x0C")
+                    self.entry_size = 0x0C
+            for offset in range(0, self.header_size, self.entry_size):
+                self.graphics.append(GraphicHeader(self.data[offset:offset+self.entry_size],
+                                                start=self.offset_start+offset,
+                                                end=self.offset_start+offset+self.entry_size,))
 
     def fromParent(file: File, index: int):
         #print(f"index: {index}")
