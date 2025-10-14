@@ -54,7 +54,7 @@ class Animation:
         self.data = data
         self.isLooping = False
         self.loopStart = 0
-        # relative to section
+        # relative to animTable
         self.frames_offset = fStart
         self.frames = []
         for i in range(self.frames_offset, len(self.data), 2):
@@ -71,8 +71,8 @@ class Animation:
         print(self.frames)
 
     def fromParent(oam: OAMSection, index: int):
-        frames_offset = oam.animTable_offset+int.from_bytes(oam.data[oam.animTable_offset+index*0x02:oam.animTable_offset+index*0x02+0x02], byteorder='little')
-        return Animation(oam.data, frames_offset)
+        frames_offset = int.from_bytes(oam.data[oam.animTable_offset+index*0x02:oam.animTable_offset+index*0x02+0x02], byteorder='little')
+        return Animation(oam.data[oam.animTable_offset:], frames_offset)
     
     def toBytes(self):
         self.frames[-1] = [self.loopStart, 0xFE if self.isLooping else 0xFF]

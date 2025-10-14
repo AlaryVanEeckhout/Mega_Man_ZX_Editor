@@ -1505,9 +1505,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.page_tweaks_behaviour = QtWidgets.QWidget(self.tabs_tweaks)
         self.page_tweaks_behaviour.setLayout(QtWidgets.QGridLayout())
 
-        self.page_tweaks_animations = QtWidgets.QWidget(self.tabs_tweaks)
-        self.page_tweaks_animations.setLayout(QtWidgets.QGridLayout())
-
         self.page_tweaks_misc = QtWidgets.QWidget(self.tabs_tweaks)
         self.page_tweaks_misc.setLayout(QtWidgets.QGridLayout())
 
@@ -1521,9 +1518,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.checkbox_paralyzed = QtWidgets.QCheckBox(self.page_tweaks_behaviour)
         self.page_tweaks_behaviour.layout().addWidget(self.checkbox_paralyzed)
-
-
-        self.tabs_tweaks.addTab(self.page_tweaks_animations, "Animations")
 
 
         self.tabs_tweaks.addTab(self.page_tweaks_misc, "Misc.")
@@ -2224,8 +2218,11 @@ class MainWindow(QtWidgets.QMainWindow):
         anim: lib.oam.Animation = self.fileEdited_object.oamsec_anim
         frame_index = self.dropdown_oam_animFrame.currentIndex()
         frame = anim.frames[frame_index]
-        if self.button_oam_animPlay.counter >= frame[1]:
-            #print(f"{self.button_oam_animPlay.counter} vs {frame[1]}")
+        duration = frame[1]
+        if frame_index > 0 and duration == 0:
+            duration = 0xFF
+        if self.button_oam_animPlay.counter >= duration:
+            #print(f"{self.button_oam_animPlay.counter} vs {duration}")
             self.button_oam_animPlay.counter = 0
             if frame_index < self.dropdown_oam_animFrame.count()-1:
                 self.dropdown_oam_animFrame.setCurrentIndex(frame_index+1)
@@ -2910,7 +2907,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                 = [self.field_panm_frameId.value(), self.field_panm_frameDuration.value()]
                             self.field_panm_frameId.setValue(frame_current[0])
                             self.field_panm_frameDuration.setValue(frame_current[1])
-                            # load some
+                            # load some object
                             self.dropdown_panm_frame.previousIndex = self.dropdown_panm_frame.currentIndex()
                             if sender == self.dropdown_panm_entry:
                                 self.dropdown_panm_entry.previousIndex = self.dropdown_panm_entry.currentIndex()
@@ -3135,11 +3132,12 @@ class MainWindow(QtWidgets.QMainWindow):
             for tile_index, tile in enumerate(metaTile):
                 flipH = (tile & 0x0400) >> (8+2)
                 flipV = (tile & 0x0800) >> (8+3)
-                tile_id = (tile & 0x03FF)
+                tileId = (tile & 0x03FF)
                 tile_pal = (tile & 0xF000) >> (8+4)
+                # idk how to organize palettes and gfx chunks here
                 if gfx_ptrs != None:
                     ptr_index = metaTile_index//(192)
-                    pal_index = max(0, bisect.bisect_left(gfx_ptrs, (64*tile_id)+1)-1)
+                    pal_index = max(0, bisect.bisect_left(gfx_ptrs, (64*tileId)+1)-1)
                 else:
                     ptr_index = 0
                     pal_index = 0
@@ -3149,8 +3147,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 except:
                     #print("palette error at", pal_index, tile_pal)
                     pal = list(pal_list[pal_index].values())[0]
-                gfx_bin = gfx.data[gfx.gfx_offset:][64*tile_id:]
-                #gfx_bin = gfx[gfx_ptrs[ptr_index]+64*tile_id:]
+                gfx_bin = gfx.data[gfx.gfx_offset:][64*tileId:]
+                #gfx_bin = gfx[gfx_ptrs[ptr_index]+64*tileId:]
                 painter.drawImage(QtCore.QRectF(8*(tile_index%2), 8*(tile_index//2), 8, 8), lib.datconv.binToQt(gfx_bin, pal, lib.datconv.CompressionAlgorithmEnum.EIGHTBPP, 1, 1).mirrored(flipH, flipV))
             
             metaTileItem = lib.widget.TilesetItem(pixmap)

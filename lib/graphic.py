@@ -34,30 +34,33 @@ class GraphicsTable(DataStructure): # possibly the same data structure as what I
         for i in range(0, self.table_size, self.ENTRY_SIZE):
             self.offset_list.append([ # might be GraphicsHeader?
                 int.from_bytes(self.data[i:i+0x04], 'little'), # start
-                int.from_bytes(self.data[i+0x04:i+0x08], 'little'), # size
-                int.from_bytes(self.data[i+0x08:i+0x0C], 'little'), # RAM?
+                int.from_bytes(self.data[i+0x04:i+0x08], 'little'), # size, oam_tile_indexing,  oam_tile_offset
+                int.from_bytes(self.data[i+0x08:i+0x0C], 'little'), # RAM offset?
                 int.from_bytes(self.data[i+0x0C:i+0x10], 'little')]) # end
                 # 00 00 08 00
             
     def getAddrOffset(self, index:int):
         return self.offset_start+index*self.ENTRY_SIZE
     
-    def getAddr(self, index:int):
+    def getAddr(self, index:int) -> int:
         return self.getAddrOffset(index)+self.offset_list[index][0]
     
-    def getSize(self, index: int):
+    def getSize(self, index: int) -> int:
         return self.offset_list[index][1] & 0x0000FFFF
     
-    def getSize2(self, index: int):
-        return (self.offset_list[index][1] & 0xFFFF0000) >> 0x10
+    def getOAMIndexing(self, index: int) -> int: # maybe?
+        return (self.offset_list[index][1] & 0x00FF0000) >> 0x10
     
-    def getRAM(self, index: int):
+    def getOAMOffset(self, index: int) -> int: # maybe?
+        return (self.offset_list[index][1] & 0xFF000000) >> 0x18
+    
+    def getRAM(self, index: int) -> int:
         return self.offset_list[index][2] & 0x00FFFFFF
     
-    def getRAM2(self, index: int):
+    def getRAM2(self, index: int) -> int:
         return (self.offset_list[index][2] & 0xFF000000) >> 0x18
     
-    def getAddrEnd(self, index:int):
+    def getAddrEnd(self, index:int) -> int:
         return self.getAddrOffset(index)+self.offset_list[index][3]+0x0C
     
     def getData(self, index:int):
