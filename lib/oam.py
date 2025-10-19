@@ -20,16 +20,16 @@ class OAMSection:
 
         self.data = file.data[self.offset_start:self.offset_end]
         self.header_size = int.from_bytes(self.data[0x00:0x04], byteorder='little')
-        self.header_items = []
-        for i in range(0, self.header_size, 4):
+        self.header_items: list[int] = []
+        for i in range(0, self.header_size, 0x04):
             self.header_items.append(int.from_bytes(self.data[i:i+0x04], byteorder='little'))
         self.frameTable_constant = int.from_bytes(self.data[self.header_items[0]:self.header_items[0]+0x04], byteorder='little')
         self.frameTable_offset = self.header_items[0]+self.frameTable_constant # relative to section
         self.frameTable_size = int.from_bytes(self.data[self.frameTable_offset:self.frameTable_offset+0x02], byteorder='little')
         self.frameTable = []
-        for i in range(self.frameTable_offset, self.frameTable_offset+self.frameTable_size, 4):
+        for i in range(self.frameTable_offset, self.frameTable_offset+self.frameTable_size, 0x04): # frames
             obj_ptr = int.from_bytes(self.data[i:i+0x02], byteorder='little')  # oam pointer
-            obj_cnt = int.from_bytes(self.data[i+0x02:i+0x03], byteorder='little') # object count
+            obj_cnt = int.from_bytes(self.data[i+0x02:i+0x03], byteorder='little') # object count (must be greater than 0)
             obj_sec = int.from_bytes(self.data[i+0x03:i+0x04], byteorder='little') # id of gfx section, apparently
             #print(f"pointer: {obj_ptr:02X}; count: {obj_cnt:02X};")
             self.frameTable.append([obj_ptr, obj_cnt, obj_sec]) # add frame data to frame list
@@ -37,7 +37,7 @@ class OAMSection:
         self.animTable_offset = self.header_items[1]+self.animTable_constant
         self.animTable_size = int.from_bytes(self.data[self.animTable_offset:self.animTable_offset+0x02], byteorder='little')
         self.animTable = []
-        for i in range(self.animTable_offset, self.animTable_offset+self.animTable_size, 2):
+        for i in range(self.animTable_offset, self.animTable_offset+self.animTable_size, 0x02):
             self.animTable.append(int.from_bytes(self.data[i:i+0x02], byteorder='little'))
         self.paletteTable = []
         self.unkTable = []
@@ -48,6 +48,12 @@ class OAMSection:
                            self.paletteTable_offset+0x200*int.from_bytes(self.data[self.paletteTable_offset:self.paletteTable_offset+1]),
                            0x200):
                 self.paletteTable.append(datconv.BGR15_to_ARGB32(self.data[i:i+0x200]))
+    
+    def headerToBytes(self):
+        data = bytearray()
+        for pointer in self.header_items:
+            data += int.to_bytes(pointer, 0x04, 'little')
+        return bytes(data)
 
 class Animation:
     def __init__(self, data: bytes, fStart: int):
@@ -68,6 +74,7 @@ class Animation:
                 break
             else:
                 self.frames.append([fIndex, fDuration])
+        self.oldFrameCount = len(self.frames)
         print(self.frames)
 
     def fromParent(oam: OAMSection, index: int):
@@ -80,7 +87,7 @@ class Animation:
         return data
 
 class Object:
-    def __init__(self, data: bytes):
+    def __init__(self, data: bytes=bytes(0x04)):
         self.data = data
         self.tileId = int.from_bytes(self.data[0x00:0x01], byteorder='little')
         attributes = int.from_bytes(self.data[0x01:0x02], byteorder='little')
@@ -104,7 +111,7 @@ class Object:
     def toBytes(self):
         data = bytearray()
         self.tileId -= self.tileId_add
-        attributes = (self.tileId_add//0x100) + (self.flip_h << 2) + (self.flip_v << 3) + (self.sizeIndex << 4) + (self.shape << 6)
+        attributes = (self.tileId_add//0x100) | (self.flip_h << 2) | (self.flip_v << 3) | (self.sizeIndex << 4) | (self.shape << 6)
         data += int.to_bytes(self.tileId, 1, byteorder="little") + int.to_bytes(attributes, 1, byteorder="little")
         data += int.to_bytes(self.x, 1, byteorder="little", signed=True) + int.to_bytes(self.y, 1, byteorder="little", signed=True)
         print(data.hex())

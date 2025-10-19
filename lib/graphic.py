@@ -104,6 +104,7 @@ class GraphicSection(DataStructure):
         self.graphics: list[GraphicHeader] = []
         if self.entryCount > 10000:
             print(f"{self.entryCount} is not a reasonable entry count. aborting...")
+            self.entryCount = 0 # prevent editor from actually loading them
             return
         if self.entryCount > 0:
             if self.entry_size == 0x14:

@@ -709,6 +709,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.button_oam_objSelect.setText("Select current object")
         self.button_oam_objSelect.pressed.connect(lambda: self.treeCall(addr_disabled=True))
 
+        self.button_oam_objAdd = QtWidgets.QPushButton(self.page_oam_frames)
+        self.button_oam_objAdd.setText("Add object")
+        self.button_oam_objAdd.pressed.connect(lambda: self.treeCall(addr_disabled=True))
+
+        self.button_oam_objRemove = QtWidgets.QPushButton(self.page_oam_frames)
+        self.button_oam_objRemove.setText("Remove object")
+        self.button_oam_objRemove.pressed.connect(lambda: self.treeCall(addr_disabled=True))
+
         self.field_objTileId = lib.widget.BetterSpinBox(self.page_oam_frames)
         self.field_objTileId.setToolTip("Tile Id (OAM)")
         self.field_objTileId.setStatusTip("OAM tile id is half the value of VRAM tile id")
@@ -788,16 +796,18 @@ class MainWindow(QtWidgets.QMainWindow):
         self.page_oam_anims.layout().addWidget(self.button_oam_animToStart, 3, 0)
         self.page_oam_anims.layout().addWidget(self.button_oam_animPlay, 3, 1)
         self.page_oam_anims.layout().addWidget(self.button_oam_animToEnd, 3, 2)
-        self.page_oam_frames.layout().addWidget(self.dropdown_oam_objFrame, 0, 0)
-        self.page_oam_frames.layout().addWidget(self.dropdown_oam_obj, 0, 1)
-        self.page_oam_frames.layout().addWidget(self.button_oam_objSelect, 0, 2)
-        self.page_oam_frames.layout().addWidget(self.field_objTileId, 1, 0, 1, 3)
-        self.page_oam_frames.layout().addWidget(self.checkbox_objFlipH, 2, 0)
-        self.page_oam_frames.layout().addWidget(self.checkbox_objFlipV, 3, 0)
-        self.page_oam_frames.layout().addWidget(self.slider_objSizeIndex, 4, 0)
-        self.page_oam_frames.layout().addWidget(self.group_oam_objShape, 4, 1, 1, 2)
-        self.page_oam_frames.layout().addWidget(self.field_objX, 5, 0)
-        self.page_oam_frames.layout().addWidget(self.field_objY, 5, 1, 1, 2)
+        self.page_oam_frames.layout().addWidget(self.dropdown_oam_objFrame, 0, 0, 1, 2)
+        self.page_oam_frames.layout().addWidget(self.dropdown_oam_obj, 0, 2)
+        self.page_oam_frames.layout().addWidget(self.button_oam_objAdd, 0, 3)
+        self.page_oam_frames.layout().addWidget(self.field_objTileId, 1, 0, 1, 2)
+        self.page_oam_frames.layout().addWidget(self.button_oam_objSelect, 1, 2)
+        self.page_oam_frames.layout().addWidget(self.button_oam_objRemove, 1, 3)
+        self.page_oam_frames.layout().addWidget(self.checkbox_objFlipH, 2, 0, 1, 2)
+        self.page_oam_frames.layout().addWidget(self.checkbox_objFlipV, 3, 0, 1, 2)
+        self.page_oam_frames.layout().addWidget(self.slider_objSizeIndex, 4, 0, 1, 2)
+        self.page_oam_frames.layout().addWidget(self.group_oam_objShape, 4, 2, 1, 2)
+        self.page_oam_frames.layout().addWidget(self.field_objX, 5, 0, 1, 2)
+        self.page_oam_frames.layout().addWidget(self.field_objY, 5, 2, 1, 2)
 
         #Palette Animation
         self.dropdown_panm_entry = QtWidgets.QComboBox(self.page_explorer)
@@ -2208,6 +2218,7 @@ class MainWindow(QtWidgets.QMainWindow):
         obj_item.setPixmap(
             obj_item.pixmap().transformed(QtGui.QTransform().scale(-1 if obj.flip_h else 1,-1 if obj.flip_v else 1)))
         obj_item.setPos(obj.x, obj.y)
+        obj_item.setZValue(-obj_item.obj_id)
         if item == None:
             return obj_item
         
@@ -2686,7 +2697,13 @@ class MainWindow(QtWidgets.QMainWindow):
                                     self.fileEdited_object = None
                         if self.fileEdited_object != None:
                             if isinstance(self.fileEdited_object, lib.graphic.File):
-                                gfxsec = lib.graphic.GraphicSection.fromParent(self.fileEdited_object, self.dropdown_gfx_index.currentIndex())
+                                try:
+                                    gfxsec = lib.graphic.GraphicSection.fromParent(self.fileEdited_object, self.dropdown_gfx_index.currentIndex())
+                                except AssertionError:
+                                    print("failed to load graphic section!")
+                                    self.dropdown_gfx_subindex.clear()
+                                    self.file_content_gfx.resetScene()
+                                    return
                             elif isinstance(self.fileEdited_object, lib.graphic.GraphicSection):
                                 gfxsec = self.fileEdited_object
                             if sender == self.dropdown_gfx_index or sender in self.FILEOPEN_WIDGETS: # if graphic section changed, reload header list
@@ -2819,7 +2836,6 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.fileEdited_object.objs.clear()
                                 self.dropdown_oam_obj.clear()
                                 #print("start")
-                                item_list = []
                                 for i in range(self.fileEdited_object.frame[1]):
                                     if i >= 128:
                                         print("Object limit reached! Proceed at your own risk!")
@@ -2828,23 +2844,44 @@ class MainWindow(QtWidgets.QMainWindow):
                                     obj_offset = self.fileEdited_object.oamsec.frameTable_offset + self.fileEdited_object.frame[0] + i*0x04
                                     self.fileEdited_object.objs.append(lib.oam.Object(self.fileEdited_object.oamsec.data[obj_offset:obj_offset+0x04]))
                                     obj_item = self.OAM_updateItemGFX(i)
-                                    item_list.append(obj_item)
-                                item_list.reverse()
-                                for item in item_list:
-                                    self.file_content_oam.scene().addItem(item)
+                                    if obj_item.obj_id == 0:
+                                        self.file_content_oam.item_current = obj_item
+                                    self.file_content_oam.scene().addItem(obj_item)
 
                                 if sender == self.dropdown_oam_entry:
                                     self.file_content_oam.fitInView()
-                                self.file_content_oam.item_current = item_list[-1]
                                 self.dropdown_oam_obj.previousIndex = 0
                                 self.dropdown_oam_obj.setCurrentIndex(0)
 
-                            if sender in [self.button_oam_objSelect, self.dropdown_oam_obj, self.dropdown_oam_entry, self.dropdown_oam_objFrame, self.tabs_oam, self.file_content_oam.scene(), *self.FILEOPEN_WIDGETS]:
+                            if sender == self.button_oam_objAdd:
+                                self.button_file_save.setEnabled(True)
+                                self.fileEdited_object.objs.insert(self.dropdown_oam_obj.currentIndex()+1, lib.oam.Object())
+                                for item in self.file_content_oam.scene().items():
+                                    if isinstance(item, lib.widget.OAMObjectItem) and item.obj_id > self.dropdown_oam_obj.currentIndex():
+                                        item.obj_id += 1
+                                        item.setZValue(-item.obj_id) # update depth
+                                self.file_content_oam.scene().addItem(self.OAM_updateItemGFX(self.dropdown_oam_obj.currentIndex()+1))
+                                self.dropdown_oam_obj.addItem(f"object {self.dropdown_oam_obj.count()}")
+                                self.dropdown_oam_obj.setCurrentIndex(self.dropdown_oam_obj.currentIndex()+1)
+                                
+                            if sender == self.button_oam_objRemove:
+                                self.button_file_save.setEnabled(True)
+                                self.fileEdited_object.objs.pop(self.dropdown_oam_obj.currentIndex())
+                                for item in self.file_content_oam.scene().items():
+                                    if isinstance(item, lib.widget.OAMObjectItem) and item.obj_id == self.dropdown_oam_obj.currentIndex():
+                                        self.file_content_oam.scene().removeItem(item)
+                                for item in self.file_content_oam.scene().items():
+                                    if isinstance(item, lib.widget.OAMObjectItem) and item.obj_id > self.dropdown_oam_obj.currentIndex():
+                                        item.obj_id -= 1
+                                        item.setZValue(-item.obj_id) # update depth
+                                self.dropdown_oam_obj.removeItem(self.dropdown_oam_obj.count()-1)
+
+                            if sender in [self.button_oam_objAdd, self.button_oam_objRemove, self.dropdown_oam_obj, self.dropdown_oam_entry, self.dropdown_oam_objFrame, self.tabs_oam, self.file_content_oam.scene(), *self.FILEOPEN_WIDGETS]:
                                 #print(f"{frame[0]:02X}")
                                 #print(f"frame: {self.dropdown_oam_objFrame.currentIndex()}")
                                 if self.tabs_oam.currentWidget()!=self.page_oam_frames:return
                                 if self.dropdown_oam_obj.currentIndex() == -1: return
-                                if self.dropdown_oam_obj.previousIndex != self.dropdown_oam_obj.currentIndex() and self.button_file_save.isEnabled(): # save state of previous object
+                                if sender is not self.button_oam_objRemove and self.dropdown_oam_obj.previousIndex != self.dropdown_oam_obj.currentIndex() and self.button_file_save.isEnabled(): # save state of previous object
                                     obj_prev = self.fileEdited_object.objs[self.dropdown_oam_obj.previousIndex]
                                     obj_prev.tileId = self.field_objTileId.value()
                                     obj_prev.flip_h = self.checkbox_objFlipH.isChecked()
@@ -2858,10 +2895,6 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.field_address.setValue(self.relative_address + self.base_address)
                                 obj = self.fileEdited_object.objs[self.dropdown_oam_obj.currentIndex()]#lib.oam.Object(oamsec.data[offset:offset+0x04])
                                 self.dropdown_oam_obj.previousIndex = self.dropdown_oam_obj.currentIndex()
-                                if sender in [self.dropdown_oam_obj, self.button_oam_objSelect]:
-                                    for item in self.file_content_oam.scene().items():
-                                        if isinstance(item, lib.widget.OAMObjectItem):
-                                            item.setSelected(item.obj_id == self.dropdown_oam_obj.currentIndex())
                                 self.field_objTileId.setValue(obj.tileId)
                                 self.checkbox_objFlipH.setChecked(obj.flip_h)
                                 self.checkbox_objFlipV.setChecked(obj.flip_v)
@@ -2870,6 +2903,10 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.slider_objSizeIndex.setLabels(lib.oam.SPRITE_DIMENSIONS[self.buttonGroup_oam_objShape.checkedId()])
                                 self.field_objX.setValue(obj.x)
                                 self.field_objY.setValue(obj.y)
+                            if sender in [self.button_oam_objAdd, self.button_oam_objRemove, self.dropdown_oam_obj, self.button_oam_objSelect]:
+                                for item in self.file_content_oam.scene().items():
+                                    if isinstance(item, lib.widget.OAMObjectItem):
+                                        item.setSelected(item.obj_id == self.dropdown_oam_obj.currentIndex())
                         else:
                             print("empty frame!")
                     elif self.fileDisplayState == "Palette Animation":
@@ -3076,7 +3113,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for item in self.gfx_scene_tileset.scene().selectedItems():
             metaTile_index = self.gfx_scene_tileset.metaTiles.index(item)
             level.collision[metaTile_index][0] = \
-                (level.collision[metaTile_index][0] & 0xF0) + self.dropdown_metaTile_collisionShape.currentIndex()
+                (level.collision[metaTile_index][0] & 0xF0) | self.dropdown_metaTile_collisionShape.currentIndex()
 
     def changeTileMaterial(self):
         if not self.gfx_scene_tileset.scene().isActive() or len(self.gfx_scene_tileset.scene().selectedItems()) == 0: return
@@ -3085,7 +3122,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for item in self.gfx_scene_tileset.scene().selectedItems():
             metaTile_index = self.gfx_scene_tileset.metaTiles.index(item)
             level.collision[metaTile_index][0] = \
-                (level.collision[metaTile_index][0] & 0x0F) + (self.dropdown_metaTile_collisionMaterial.currentIndex() << 4)
+                (level.collision[metaTile_index][0] & 0x0F) | (self.dropdown_metaTile_collisionMaterial.currentIndex() << 4)
 
     def changeTileAttr(self, bitmask: int, val: bool):
         if not self.gfx_scene_tileset.scene().isActive() or len(self.gfx_scene_tileset.scene().selectedItems()) == 0: return
@@ -3096,7 +3133,7 @@ class MainWindow(QtWidgets.QMainWindow):
             bitstring = bin(bitmask).removeprefix("0b").zfill(8)
             shiftL = len(bitstring)-1 - bitstring.rindex('0')
             level.collision[metaTile_index][1] = \
-                (level.collision[metaTile_index][1] & bitmask) + (val << shiftL)
+                (level.collision[metaTile_index][1] & bitmask) | (val << shiftL)
         
     def changeTileGfx(self, index:int, bitmask: int, val: bool):
         if not self.gfx_scene_tileset.scene().isActive() or len(self.gfx_scene_tileset.scene().selectedItems()) == 0: return
@@ -3108,7 +3145,7 @@ class MainWindow(QtWidgets.QMainWindow):
             print(bitmask, bitstring)
             shiftL = len(bitstring)-1 - bitstring.rindex('0')
             level.metaTiles[metaTile_index][index] = \
-                (level.metaTiles[metaTile_index][index] & bitmask) + (val << shiftL)
+                (level.metaTiles[metaTile_index][index] & bitmask) | (val << shiftL)
 
     def loadTileset(self, gfx_table: lib.graphic.GraphicsTable, pal_sec: lib.level.PaletteSection, gfx_ptrs: list[int]|None=None):
         self.gfx_scene_tileset.scene().clear()
@@ -3353,16 +3390,16 @@ class MainWindow(QtWidgets.QMainWindow):
             elif self.fileDisplayState == "OAM":
                 if self.tabs_oam.currentWidget()==self.page_oam_frames:
                     if -1 in [self.dropdown_oam_entry.currentIndex(),  self.dropdown_oam_objFrame.currentIndex(),
-                            self.dropdown_oam_obj.currentIndex()]:
+                              self.dropdown_oam_obj.currentIndex()]:
                         print("no valid object to save!")
                         return
                     section = self.fileEdited_object.oamsec
                     frame = self.fileEdited_object.frame
                     save_data = bytearray()
-                    for obj_index in range(self.dropdown_oam_obj.count()):
+                    for obj_index in range(len(self.fileEdited_object.objs)):
                         offset = section.frameTable_offset + frame[0] + obj_index*0x04
                         obj = lib.oam.Object(section.data[offset:offset+0x04])
-                        if obj_index == self.dropdown_oam_obj.currentIndex(): # save current changes
+                        if obj_index == self.dropdown_oam_obj.currentIndex(): # current changes
                             obj.tileId = self.field_objTileId.value()
                             obj.tileId_add = self.field_objTileId.value() & 0x300
                             obj.flip_h = self.checkbox_objFlipH.isChecked()
@@ -3371,11 +3408,25 @@ class MainWindow(QtWidgets.QMainWindow):
                             obj.shape = self.buttonGroup_oam_objShape.checkedId()
                             obj.x = self.field_objX.value()
                             obj.y = self.field_objY.value()
-                        else: # save cached changes
+                        else: # cached changes
                             obj = self.fileEdited_object.objs[obj_index]
                         save_data += obj.toBytes()
                     offset2 = section.offset_start + section.frameTable_offset + frame[0]
-                    w.rom.files[file_id][offset2:offset2+frame[1]*0x04] = save_data
+                    offset2_end = offset2+frame[1]*0x04
+                    w.rom.files[file_id][offset2:offset2_end] = save_data
+                    objCountDelta = len(self.fileEdited_object.objs) - frame[1]
+                    if objCountDelta != 0:
+                        offset3 = section.offset_start + section.frameTable_offset + self.dropdown_oam_objFrame.currentIndex()*0x04
+                        w.rom.files[file_id][offset3+0x02:offset3+0x03] = int.to_bytes(len(self.fileEdited_object.objs), 1, 'little') # update header obj count
+                        for i in range(offset3+0x04, section.offset_start + section.frameTable_offset + section.frameTable_size, 0x04):
+                            #print(objCountDelta*0x04, w.rom.files[file_id][i:i+0x02].hex())
+                            w.rom.files[file_id][i:i+0x02] = int.to_bytes(int.from_bytes(w.rom.files[file_id][i:i+0x02], 'little')+objCountDelta*0x04, 2, 'little') # update header obj offset
+                        for i in range(1, len(section.header_items)): # section
+                                section.header_items[i] += objCountDelta*0x04
+                        w.rom.files[file_id][section.offset_start:section.offset_start+section.header_size] = section.headerToBytes() # update section header pointers
+                        for i in range(self.dropdown_oam_entry.currentIndex()+1, len(self.fileEdited_object.address_list)): # file
+                            self.fileEdited_object.address_list[i][0] += objCountDelta*0x04
+                        w.rom.files[file_id][:self.fileEdited_object.header_size] = self.fileEdited_object.headerToBytes() # update file header pointers
                 elif self.tabs_oam.currentWidget()==self.page_oam_anims:
                     if -1 in [self.dropdown_oam_entry.currentIndex(), self.dropdown_oam_anim.currentIndex(),
                             self.dropdown_oam_animFrame.currentIndex()]:
@@ -3390,10 +3441,10 @@ class MainWindow(QtWidgets.QMainWindow):
                         self.field_oam_animFrameDuration.value()
                     ]
                     save_data = anim.toBytes()
-                    print(save_data.hex())
                     save_offset =  self.fileEdited_object.oamsec.offset_start+self.fileEdited_object.oamsec.animTable_offset+anim.frames_offset
-                    print(w.rom.files[file_id][save_offset:save_offset+len(anim.frames)*0x02].hex())
-                    w.rom.files[file_id][save_offset:save_offset+len(anim.frames)*0x02] = save_data
+                    save_offset_end = save_offset+anim.oldFrameCount*0x02
+                    print(save_data.hex(), w.rom.files[file_id][save_offset:save_offset_end].hex())
+                    w.rom.files[file_id][save_offset:save_offset_end] = save_data
                 # update data of oamsec
                 self.fileEdited_object.oamsec = lib.oam.OAMSection(self.fileEdited_object, self.dropdown_oam_entry.currentIndex())
             elif self.fileDisplayState == "Palette Animation":
