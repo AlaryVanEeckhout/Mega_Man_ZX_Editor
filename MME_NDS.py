@@ -662,6 +662,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_oam_animFrameDuration.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.field_oam_animFrameDuration.valueChanged.connect(lambda: self.treeCall(addr_disabled=True))
 
+        self.button_oam_animFrameAdd = QtWidgets.QPushButton("Add Frame", self.page_oam_anims)
+        self.button_oam_animFrameAdd.pressed.connect(lambda: self.treeCall(addr_disabled=True))
+
+        self.button_oam_animFrameRemove = QtWidgets.QPushButton("Remove Frame", self.page_oam_anims)
+        self.button_oam_animFrameRemove.pressed.connect(lambda: self.treeCall(addr_disabled=True))
+
         self.checkbox_oam_animLoop = QtWidgets.QCheckBox(self.page_oam_anims)
         self.checkbox_oam_animLoop.setText("Loop")
         self.checkbox_oam_animLoop.setToolTip("Loop")
@@ -787,15 +793,17 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.layout_oam_navigation = QtWidgets.QGridLayout()
         self.layout_oam_navigation.addWidget(self.dropdown_oam_entry, 0, 0)
-        self.page_oam_anims.layout().addWidget(self.dropdown_oam_anim, 0, 0, 1, 2)
-        self.page_oam_anims.layout().addWidget(self.dropdown_oam_animFrame, 0, 2)
-        self.page_oam_anims.layout().addWidget(self.field_oam_animFrameId, 1, 2)
-        self.page_oam_anims.layout().addWidget(self.field_oam_animFrameDuration, 2, 2)
+        self.page_oam_anims.layout().addWidget(self.dropdown_oam_anim, 0, 0, 1, 3)
+        self.page_oam_anims.layout().addWidget(self.dropdown_oam_animFrame, 0, 3)
+        self.page_oam_anims.layout().addWidget(self.field_oam_animFrameId, 1, 3)
+        self.page_oam_anims.layout().addWidget(self.button_oam_animFrameAdd, 1, 4, 1, 2)
+        self.page_oam_anims.layout().addWidget(self.field_oam_animFrameDuration, 2, 3)
+        self.page_oam_anims.layout().addWidget(self.button_oam_animFrameRemove, 2, 4, 1, 2)
         self.page_oam_anims.layout().addWidget(self.checkbox_oam_animLoop, 1, 0)
         self.page_oam_anims.layout().addWidget(self.field_oam_animLoopStart, 2, 0)
-        self.page_oam_anims.layout().addWidget(self.button_oam_animToStart, 3, 0)
-        self.page_oam_anims.layout().addWidget(self.button_oam_animPlay, 3, 1)
-        self.page_oam_anims.layout().addWidget(self.button_oam_animToEnd, 3, 2)
+        self.page_oam_anims.layout().addWidget(self.button_oam_animToStart, 3, 0, 1, 2)
+        self.page_oam_anims.layout().addWidget(self.button_oam_animPlay, 3, 2, 1, 2)
+        self.page_oam_anims.layout().addWidget(self.button_oam_animToEnd, 3, 4, 1, 2)
         self.page_oam_frames.layout().addWidget(self.dropdown_oam_objFrame, 0, 0, 1, 2)
         self.page_oam_frames.layout().addWidget(self.dropdown_oam_obj, 0, 2)
         self.page_oam_frames.layout().addWidget(self.button_oam_objAdd, 0, 3)
@@ -2799,14 +2807,27 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.dropdown_oam_animFrame.previousIndex = 0
                                 self.dropdown_oam_animFrame.setCurrentIndex(0)
                         
-                        if sender in [self.dropdown_oam_animFrame, self.dropdown_oam_entry, self.dropdown_oam_anim, *self.FILEOPEN_WIDGETS]:
-                            if (self.dropdown_oam_animFrame.previousIndex != self.dropdown_oam_animFrame.currentIndex() and self.button_file_save.isEnabled()):
+                        if sender == self.button_oam_animFrameAdd:
+                            self.button_file_save.setEnabled(True)
+                            self.fileEdited_object.oamsec_anim.frames.insert(self.dropdown_oam_animFrame.currentIndex()+1, [0,1])
+                            self.dropdown_oam_animFrame.addItem(f"frame {self.dropdown_oam_animFrame.count()}")
+                            self.dropdown_oam_animFrame.setCurrentIndex(self.dropdown_oam_animFrame.currentIndex()+1)
+
+                        if sender == self.button_oam_animFrameRemove:
+                            if self.dropdown_oam_animFrame.count() == 0: return
+                            self.button_file_save.setEnabled(True)
+                            self.fileEdited_object.oamsec_anim.frames.pop(self.dropdown_oam_animFrame.currentIndex())
+                            self.dropdown_oam_animFrame.removeItem(self.dropdown_oam_animFrame.count()-1)
+
+                        if sender in [self.button_oam_animFrameAdd, self.button_oam_animFrameRemove, self.dropdown_oam_animFrame, self.dropdown_oam_entry, self.dropdown_oam_anim, *self.FILEOPEN_WIDGETS]:
+                            if sender is not self.button_oam_animFrameRemove and (self.dropdown_oam_animFrame.previousIndex != self.dropdown_oam_animFrame.currentIndex() and self.button_file_save.isEnabled()):
                                 self.fileEdited_object.oamsec_anim.frames[self.dropdown_oam_animFrame.previousIndex] = [
                                     self.field_oam_animFrameId.value(),
                                     self.field_oam_animFrameDuration.value()]
                             self.field_oam_animFrameId.setValue(self.fileEdited_object.oamsec_anim.frames[self.dropdown_oam_animFrame.currentIndex()][0])
                             self.field_oam_animFrameDuration.setValue(self.fileEdited_object.oamsec_anim.frames[self.dropdown_oam_animFrame.currentIndex()][1])
                             self.dropdown_oam_animFrame.previousIndex = self.dropdown_oam_animFrame.currentIndex()
+                        
                         if len(self.fileEdited_object.oamsec.frameTable) > 0:
                             try:
                                 if self.tabs_oam.currentWidget() == self.page_oam_frames:
@@ -2823,6 +2844,7 @@ class MainWindow(QtWidgets.QMainWindow):
                             self.fileEdited_object.frame = []
                         if self.fileEdited_object.frame != []:
                             if sender in [self.dropdown_oam_entry, self.dropdown_oam_anim, self.dropdown_oam_animFrame, self.field_oam_animFrameId,
+                                          self.button_oam_animFrameAdd, self.button_oam_animFrameRemove, 
                                           self.dropdown_oam_objFrame, self.tabs_oam, self.button_reload, *self.FILEOPEN_WIDGETS]:
                                 self.file_content_oam.scene().clear()
                                 sceneRect = self.file_content_oam.sceneRect()
@@ -2831,7 +2853,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.file_content_oam.scene().addRect(sceneRect)
                                 self.file_content_oam.scene().addLine(sceneRect.left(), 0, sceneRect.right(), 0, crosshairPen)
                                 self.file_content_oam.scene().addLine(0, sceneRect.top(), 0, sceneRect.bottom(), crosshairPen)
-                                if not isinstance(sender, lib.widget.BetterSpinBox) and sender != self.dropdown_oam_animFrame:
+                                if not isinstance(sender, lib.widget.BetterSpinBox) and sender not in [
+                                    self.button_oam_animFrameAdd, self.button_oam_animFrameRemove, self.dropdown_oam_animFrame]:
                                     self.button_file_save.setDisabled(True)
                                 self.fileEdited_object.objs.clear()
                                 self.dropdown_oam_obj.clear()
@@ -2854,6 +2877,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.dropdown_oam_obj.setCurrentIndex(0)
 
                             if sender == self.button_oam_objAdd:
+                                if self.dropdown_oam_obj.count() > 128: return
                                 self.button_file_save.setEnabled(True)
                                 self.fileEdited_object.objs.insert(self.dropdown_oam_obj.currentIndex()+1, lib.oam.Object())
                                 for item in self.file_content_oam.scene().items():
@@ -2865,6 +2889,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.dropdown_oam_obj.setCurrentIndex(self.dropdown_oam_obj.currentIndex()+1)
                                 
                             if sender == self.button_oam_objRemove:
+                                if self.dropdown_oam_obj.count() == 0: return
                                 self.button_file_save.setEnabled(True)
                                 self.fileEdited_object.objs.pop(self.dropdown_oam_obj.currentIndex())
                                 for item in self.file_content_oam.scene().items():
@@ -3421,11 +3446,12 @@ class MainWindow(QtWidgets.QMainWindow):
                         for i in range(offset3+0x04, section.offset_start + section.frameTable_offset + section.frameTable_size, 0x04):
                             #print(objCountDelta*0x04, w.rom.files[file_id][i:i+0x02].hex())
                             w.rom.files[file_id][i:i+0x02] = int.to_bytes(int.from_bytes(w.rom.files[file_id][i:i+0x02], 'little')+objCountDelta*0x04, 2, 'little') # update header obj offset
-                        for i in range(1, len(section.header_items)): # section
+                        for i in range(1, len(section.header_items)): # section pointers from anim
                                 section.header_items[i] += objCountDelta*0x04
                         w.rom.files[file_id][section.offset_start:section.offset_start+section.header_size] = section.headerToBytes() # update section header pointers
                         for i in range(self.dropdown_oam_entry.currentIndex()+1, len(self.fileEdited_object.address_list)): # file
                             self.fileEdited_object.address_list[i][0] += objCountDelta*0x04
+                        self.fileEdited_object.fileSize += objCountDelta*0x04
                         w.rom.files[file_id][:self.fileEdited_object.header_size] = self.fileEdited_object.headerToBytes() # update file header pointers
                 elif self.tabs_oam.currentWidget()==self.page_oam_anims:
                     if -1 in [self.dropdown_oam_entry.currentIndex(), self.dropdown_oam_anim.currentIndex(),
@@ -3445,6 +3471,20 @@ class MainWindow(QtWidgets.QMainWindow):
                     save_offset_end = save_offset+anim.oldFrameCount*0x02
                     print(save_data.hex(), w.rom.files[file_id][save_offset:save_offset_end].hex())
                     w.rom.files[file_id][save_offset:save_offset_end] = save_data
+                    frameCountDelta = len(anim.frames) - anim.oldFrameCount
+                    if frameCountDelta != 0:
+                        offset = section.offset_start + section.animTable_offset + self.dropdown_oam_anim.currentIndex()*0x02
+                        for i in range(offset+0x02, section.offset_start + section.animTable_offset + section.animTable_size, 0x02):
+                            #print(frameCountDelta*0x02, w.rom.files[file_id][i:i+0x02].hex())
+                            w.rom.files[file_id][i:i+0x02] = int.to_bytes(int.from_bytes(w.rom.files[file_id][i:i+0x02], 'little')+frameCountDelta*0x02, 2, 'little') # update header obj offset
+                        for i in range(2, len(section.header_items)): # section pointers from palette
+                                section.header_items[i] += frameCountDelta*0x02
+                        w.rom.files[file_id][section.offset_start:section.offset_start+section.header_size] = section.headerToBytes() # update section header pointers
+                        for i in range(self.dropdown_oam_entry.currentIndex()+1, len(self.fileEdited_object.address_list)): # file
+                            self.fileEdited_object.address_list[i][0] += frameCountDelta*0x02
+                        self.fileEdited_object.fileSize += frameCountDelta*0x02
+                        w.rom.files[file_id][:self.fileEdited_object.header_size] = self.fileEdited_object.headerToBytes() # update file header pointers
+                    anim.oldFrameCount = len(anim.frames)
                 # update data of oamsec
                 self.fileEdited_object.oamsec = lib.oam.OAMSection(self.fileEdited_object, self.dropdown_oam_entry.currentIndex())
             elif self.fileDisplayState == "Palette Animation":
