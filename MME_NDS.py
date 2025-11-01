@@ -1867,6 +1867,10 @@ class MainWindow(QtWidgets.QMainWindow):
         dialog.setLabelText(QtWidgets.QFileDialog.DialogLabel.Accept, "Export")
         dialog.setLabelText(QtWidgets.QFileDialog.DialogLabel.FileName, "Output Destination:")
         if dialog.exec(): # if you saved a file
+            dialog2 = QtWidgets.QMessageBox()
+            dialog2.setWindowTitle("Export Status")
+            dialog2.setWindowIcon(QtGui.QIcon('icons\\information.png'))
+            dialog2.setText("File export failed!")
             selectedFiles = dialog.selectedFiles()
             path = selectedFiles[0][:selectedFiles[0].rfind("/")]
             name = selectedFiles[0].split("/")[-1]
@@ -1893,6 +1897,8 @@ class MainWindow(QtWidgets.QMainWindow):
                     fileInfo = self.file_fromItem(item)
                     if fileInfo == [b'', "", None, None]:
                         print("could not fetch data from tree item")
+                        dialog2.setText("no file could be exported!\nmake sure to select a file before trying to export.")
+                        dialog2.exec()
                         return
                     elif not isinstance(fileInfo[0], (bytes, bytearray)): # both bytes and bytearray are essentially the same, but need to be checked for separately
                         if type(fileInfo[0]) == tuple:
@@ -1906,6 +1912,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         fileData = fileInfo[0] # fileInfo[0] is already the expected data
                     if not "Folder" in item.text(2): # if file
                         extract(fileData, name=name, path=path, format=dropdown_formatselect.currentText(), compress=dropdown_compressselect.currentIndex())
+                        dialog2.setText(f"file \"{item.text(1)}\" exported!")
                     else: # if folder
                         folder_path = os.path.join(selectedFiles[0]) # here, "file name" specifies folder name instead
                         if os.path.exists(folder_path) == False:
@@ -1919,6 +1926,8 @@ class MainWindow(QtWidgets.QMainWindow):
                             # file_fromItem gets the name automatically
                             extract(*self.file_fromItem(item.child(i))[:2], path=folder_path, format=dropdown_formatselect.currentText(), compress=dropdown_compressselect.currentIndex())#, w.fileToEdit_name.replace(".Folder", "/")
                             #str(w.tree.currentItem().child(i).text(1) + "." + w.tree.currentItem().child(i).text(2)), 
+                        dialog2.setText(f"folder \"{item.text(1)}\" exported!")
+                    dialog2.exec()
 
     def replacebynameCall(self):
         if hasattr(w.rom, "name"):
