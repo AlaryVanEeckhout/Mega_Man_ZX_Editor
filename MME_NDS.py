@@ -2830,6 +2830,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
                         if sender in [self.button_oam_animFrameAdd, self.button_oam_animFrameRemove, self.dropdown_oam_animFrame, self.dropdown_oam_entry, self.dropdown_oam_anim, *self.FILEOPEN_WIDGETS]:
                             if sender is not self.button_oam_animFrameRemove and (self.dropdown_oam_animFrame.previousIndex != self.dropdown_oam_animFrame.currentIndex() and self.button_file_save.isEnabled()):
+                                isDurationfix = self.dropdown_oam_animFrame.previousIndex > 0 and self.field_oam_animFrameDuration.value() >= 0xFE
+                                if isDurationfix:
+                                    if self.field_oam_animFrameDuration.value() == 0xFE:
+                                        self.field_oam_animFrameId.setValue(self.dropdown_oam_animFrame.previousIndex)
+                                    elif self.field_oam_animFrameDuration.value() == 0xFF:
+                                        self.field_oam_animFrameDuration.setValue(0)
                                 self.fileEdited_object.oamsec_anim.frames[self.dropdown_oam_animFrame.previousIndex] = [
                                     self.field_oam_animFrameId.value(),
                                     self.field_oam_animFrameDuration.value()]
@@ -3190,6 +3196,9 @@ class MainWindow(QtWidgets.QMainWindow):
         painter.begin(pixmap)
         pal_list: list[dict] = []
         pl: dict = {}
+        ref = QtWidgets.QGraphicsPixmapItem(QtGui.QPixmap.fromImage(lib.datconv.binToQt(gfx.data, self.GFX_PALETTES[3], lib.datconv.CompressionAlgorithmEnum.EIGHTBPP, 32, len(gfx.data)//64//32)))
+        ref.setPos(-32*8-self.gfx_scene_tileset.item_spacing*2, 0)
+        self.gfx_scene_tileset.scene().addItem(ref) # to see the gfx used to construct tileset
         for i in range(pal_sec.palHeaderCount):
             pl.clear()
             for j in range(pal_sec.paletteHeaders[i].palCount):
@@ -3207,7 +3216,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 tile_pal = (tile & 0xF000) >> (8+4)
                 # idk how to organize palettes and gfx chunks here
                 if gfx_ptrs != None:
-                    ptr_index = metaTile_index//(192)
+                    ptr_index = metaTile_index//(225)
                     pal_index = max(0, bisect.bisect_left(gfx_ptrs, (64*tileId)+1)-1)
                 else:
                     ptr_index = 0
@@ -3219,7 +3228,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     #print("palette error at", pal_index, tile_pal)
                     pal = list(pal_list[pal_index].values())[0]
                 gfx_bin = gfx.data[gfx.gfx_offset:][64*tileId:]
-                #gfx_bin = gfx[gfx_ptrs[ptr_index]+64*tileId:]
+                #gfx_bin = gfx.data[gfx.gfx_offset:][gfx_ptrs[ptr_index]+64*(tileId&0x3FF):]
                 painter.drawImage(QtCore.QRectF(8*(tile_index%2), 8*(tile_index//2), 8, 8), lib.datconv.binToQt(gfx_bin, pal, lib.datconv.CompressionAlgorithmEnum.EIGHTBPP, 1, 1).mirrored(flipH, flipV))
             
             metaTileItem = lib.widget.TilesetItem(pixmap)
@@ -3469,12 +3478,20 @@ class MainWindow(QtWidgets.QMainWindow):
                         return
                     section = self.fileEdited_object.oamsec
                     anim = self.fileEdited_object.oamsec_anim
+                    isDurationfix = self.dropdown_oam_animFrame.currentIndex() > 0 and self.field_oam_animFrameDuration.value() >= 0xFE
+                    if isDurationfix:
+                        if self.field_oam_animFrameDuration.value() == 0xFE:
+                            self.field_oam_animFrameId.setValue(self.dropdown_oam_animFrame.currentIndex())
+                        elif self.field_oam_animFrameDuration.value() == 0xFF:
+                            self.field_oam_animFrameDuration.setValue(0)
                     anim.isLooping = self.checkbox_oam_animLoop.isChecked()
                     anim.loopStart = self.field_oam_animLoopStart.value()
                     anim.frames[self.dropdown_oam_animFrame.currentIndex()] = [
                         self.field_oam_animFrameId.value(),
                         self.field_oam_animFrameDuration.value()
                     ]
+                    if isDurationfix:
+                        print(f"while saving, special duration was found in frame {self.dropdown_oam_animFrame.currentIndex()} of animation and frame was modified to match expected duration")
                     save_data = anim.toBytes()
                     save_offset =  self.fileEdited_object.oamsec.offset_start+self.fileEdited_object.oamsec.animTable_offset+anim.frames_offset
                     save_offset_end = save_offset+anim.oldFrameCount*0x02

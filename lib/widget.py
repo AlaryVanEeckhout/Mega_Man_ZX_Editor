@@ -274,7 +274,7 @@ class LevelView(View):
             if self.mouseLeftPressed:
                 self.tileDraw(event.pos())
             elif self.mouseRightPressed:
-                self.tilePick(event.pos())
+                self.tilePick(event.pos(), event.modifiers() == QtCore.Qt.KeyboardModifier.ShiftModifier)
         else:
             if event.button() == QtCore.Qt.MouseButton.LeftButton:
                 # select screen to swap position?
@@ -297,8 +297,11 @@ class LevelView(View):
                     item.tileReplace(sItem)
                 self.window().levelEdited_object.levels[self.window().dropdown_level_type.currentIndex()].screens[item_target.screen][item_target.index] = item_target.id
         
-    def tilePick(self, pos: QtCore.QPoint):
+    def tilePick(self, pos: QtCore.QPoint, keepSelection=False):
         item_target = self.itemAt(pos)
+        if not keepSelection:
+            for item in self.window().gfx_scene_tileset.scene().selectedItems():
+                item.setSelected(False)
         if isinstance(item_target, LevelTileItem):
             self.window().gfx_scene_tileset.metaTiles[item_target.id].setSelected(True)
 

@@ -66,14 +66,15 @@ class Animation:
         for i in range(self.frames_offset, len(self.data), 2):
             fIndex = int.from_bytes(self.data[i:i+0x01], byteorder='little')
             fDuration = int.from_bytes(self.data[i+0x01:i+0x02], byteorder='little')
+            self.frames.append([fIndex, fDuration])
             if len(self.frames) > 0 and (fDuration in [0xFF, 0xFE]): # animation end marker
-                if fDuration == 0xFE:
-                    self.isLooping = True
                 self.loopStart = fIndex
-                self.frames.append([fIndex, fDuration])
+                if fDuration == 0xFE:
+                    if self.loopStart >= len(self.frames)-1: # if loop point is used as a jump point
+                        self.loopStart = 0
+                        continue
+                    self.isLooping = True
                 break
-            else:
-                self.frames.append([fIndex, fDuration])
         self.oldFrameCount = len(self.frames)
         print(self.frames)
 
