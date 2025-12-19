@@ -1667,9 +1667,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tree_patches.blockSignals(True)
         #self.progress.show()
         self.tree_patches.clear()
-        if self.rom.name.decode().replace(" ", "_") in lib.patchdat.GameEnum.__members__:
+        if self.rom.name.decode() in lib.gamedat.GameEnum.__members__:
             patches = []
-            for patch in lib.patchdat.GameEnum[self.rom.name.decode().replace(" ", "_")].value[1]:
+            for patch in lib.gamedat.GameEnum[self.rom.name.decode()].patches:
                 #self.progress.setValue(self.progress.value()+12)
                 #QtWidgets.QTreeWidgetItem(None, ["", "<address>", "<patch name>", "<patch type>", "<size>"])
                 if isinstance(patch[2], list): # if patch contains patches
@@ -1798,7 +1798,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.progressUpdate(80, "Finishing load")
         self.temp_path = f"{os.path.curdir}\\temp\\{self.romToEdit_name+self.romToEdit_ext}"
         self.setWindowTitle("Mega Man ZX Editor" + " <" + self.rom.name.decode() + ", Serial ID " + ''.join(char for char in self.rom.idCode.decode("utf-8") if char.isalnum())  + ", Rev." + str(self.rom.version) + ", Region " + str(self.rom.region) + ">" + " \"" + self.romToEdit_name + self.romToEdit_ext + "\"")
-        if not self.rom.name.decode().replace(" ", "_") in lib.patchdat.GameEnum.__members__:
+        if not self.rom.name.decode() in lib.gamedat.GameEnum.__members__:
             print("ROM is NOT supported! Continue at your own risk!")
             self.window_progress.hide()
             dialog = QtWidgets.QMessageBox(self)
@@ -2218,8 +2218,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                                 obj.getWidth(),
                                                 obj.getHeight())
         except AssertionError:
-            print("invalid object properties detected!")
-            print(f"shape: {obj.shape}  size: {obj.sizeIndex}")
+            print(f"invalid object properties detected in object {obj_index}!")
+            print(f"shape: {obj.shape}  size: {obj.sizeIndex} ZXA width(?): {obj.sizeIndex + (obj.shape << 2)}")
             return
         colorTable = obj_img.colorTable()
         if len(colorTable) <= 0:
@@ -2622,33 +2622,27 @@ class MainWindow(QtWidgets.QMainWindow):
             if not ".Folder" in self.fileToEdit_name:# if it's a file
                 self.label_file_size.setText(f"Size: {lib.datconv.numToStr(len(self.rom.files[current_id]), self.displayBase, self.displayAlphanumeric).zfill(0)} bytes")
                 if self.fileDisplayRaw == False:
+                    indicator_list = lib.gamedat.GameEnum[self.rom.name.decode()].fileIndicators
                     if self.fileDisplayMode == "Adapt":
-                            indicator_list_gfx = ["face", "obj_fnt", "title"]
-                            if self.rom.name.decode() == "MEGAMANZX" or self.rom.name.decode() == "ROCKMANZX":
-                                indicator_list_gfx.extend(["bbom", "dm23", "elf", "g_", "game_parm", "lmlevel", "miss", "repair", "sec_disk", "sub"])
-                            elif self.rom.name.decode() == "MEGAMANZXA" or self.rom.name.decode() == "ROCKMANZXA":
-                                indicator_list_gfx.extend(["cmm_frame_fnt", "cmm_mega_s", "cmm_rock_s", "ls_", "sub_db", "sub_oth"])
-                            
-                            self.fileDisplayState = "None"
-                            if current_ext == "vx":
-                                self.fileDisplayState = "VX"
-                            elif current_ext == "sdat":
-                                self.fileDisplayState = "Sound"
-                            elif current_ext == "bin":
-                                if "font" in current_name:
-                                    self.fileDisplayState = "Font"
-                                elif ("talk" in current_name or "m_" in current_name):
-                                    if "en" in current_name:
-                                        self.fileDisplayState = "English dialogue"
-                                    elif "jp" in current_name:
-                                        self.fileDisplayState = "Japanese dialogue"
-                                elif any(indicator in current_name for indicator in indicator_list_gfx):
-                                    self.fileDisplayState = "Graphics"
-                                elif any(indicator.replace("fnt", "dat") in current_name for indicator in indicator_list_gfx):
-                                    self.fileDisplayState = "OAM"
-                                elif "panm" in current_name:
-                                    self.fileDisplayState = "Palette Animation"
-                                
+                        self.fileDisplayState = "None"
+                        if current_ext == "vx":
+                            self.fileDisplayState = "VX"
+                        elif current_ext == "sdat":
+                            self.fileDisplayState = "Sound"
+                        elif current_ext == "bin":
+                            if any(indicator in current_name for indicator in indicator_list["Font"]):
+                                self.fileDisplayState = "Font"
+                            elif any(indicator in current_name for indicator in indicator_list["Dialogue"]):
+                                if "en" in current_name:
+                                    self.fileDisplayState = "English dialogue"
+                                elif "jp" in current_name:
+                                    self.fileDisplayState = "Japanese dialogue"
+                            elif any(indicator in current_name for indicator in indicator_list["Graphics"]):
+                                self.fileDisplayState = "Graphics"
+                            elif any(indicator.replace("fnt", "dat") in current_name for indicator in indicator_list["Graphics"]):
+                                self.fileDisplayState = "OAM"
+                            elif any(indicator in current_name for indicator in indicator_list["Palette Animation"]):
+                                self.fileDisplayState = "Palette Animation"     
                     else:
                         self.fileDisplayState = self.fileDisplayMode
 
@@ -2694,7 +2688,7 @@ class MainWindow(QtWidgets.QMainWindow):
                             # reset from viewing font
                             self.tile_width = self.field_tile_width.value()
                             self.tile_height = self.field_tile_height.value()
-                            if current_name == "face": # for convenience
+                            if any(indicator in current_name for indicator in indicator_list["Mugshot"]): # for convenience
                                 self.tiles_per_column = 7
                                 self.tiles_per_row = 6
                                 self.field_tiles_per_column.setValue(self.tiles_per_column)
@@ -2833,7 +2827,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                 isDurationfix = self.dropdown_oam_animFrame.previousIndex > 0 and self.field_oam_animFrameDuration.value() >= 0xFE
                                 if isDurationfix:
                                     if self.field_oam_animFrameDuration.value() == 0xFE:
-                                        self.field_oam_animFrameId.setValue(self.dropdown_oam_animFrame.previousIndex)
+                                        self.field_oam_animFrameId.setValue(self.dropdown_oam_animFrame.previousIndex) # loop to current index neutralizes the loop
                                     elif self.field_oam_animFrameDuration.value() == 0xFF:
                                         self.field_oam_animFrameDuration.setValue(0)
                                 self.fileEdited_object.oamsec_anim.frames[self.dropdown_oam_animFrame.previousIndex] = [
@@ -2882,6 +2876,9 @@ class MainWindow(QtWidgets.QMainWindow):
                                     obj_offset = self.fileEdited_object.oamsec.frameTable_offset + self.fileEdited_object.frame[0] + i*0x04
                                     self.fileEdited_object.objs.append(lib.oam.Object(self.fileEdited_object.oamsec.data[obj_offset:obj_offset+0x04]))
                                     obj_item = self.OAM_updateItemGFX(i)
+                                    if obj_item == None:
+                                        print("Load aborted. Proceed at your own risk!")
+                                        break
                                     if obj_item.obj_id == 0:
                                         self.file_content_oam.item_current = obj_item
                                     self.file_content_oam.scene().addItem(obj_item)
@@ -3481,7 +3478,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     isDurationfix = self.dropdown_oam_animFrame.currentIndex() > 0 and self.field_oam_animFrameDuration.value() >= 0xFE
                     if isDurationfix:
                         if self.field_oam_animFrameDuration.value() == 0xFE:
-                            self.field_oam_animFrameId.setValue(self.dropdown_oam_animFrame.currentIndex())
+                            self.field_oam_animFrameId.setValue(self.dropdown_oam_animFrame.currentIndex()) # loop to current index neutralizes the loop
                         elif self.field_oam_animFrameDuration.value() == 0xFF:
                             self.field_oam_animFrameDuration.setValue(0)
                     anim.isLooping = self.checkbox_oam_animLoop.isChecked()
@@ -3621,7 +3618,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tree_patches.blockSignals(True)
         rom_patched = bytearray(self.rom.save()) # Create temporary ROM to write patch to
         patch_list = []
-        for patch in lib.patchdat.GameEnum[self.rom.name.decode().replace(" ", "_")].value[1]: # create a patch list with a consistent format
+        for patch in lib.gamedat.GameEnum[self.rom.name.decode()].patches: # create a patch list with a consistent format
             if isinstance(patch[2], list):
                 patch_list.append(['N/A', patch[0], patch[1], 'N/A', 'N/A'])
                 for subPatch in patch:

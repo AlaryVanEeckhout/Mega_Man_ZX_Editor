@@ -5,8 +5,10 @@ import ndspy.lz10
 class File(common.File):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # this may not apply to all files
+
         self.offset_table = self.address_list[0][0]
+        # this may not apply to all files
+        if self.entryCount < 2: return # prevent potential crash
         self.offset_palette = self.address_list[1][0]
         if self.entryCount == 6:
             self.offset_unk2 = self.address_list[2][0]
@@ -96,7 +98,7 @@ class GraphicSection(DataStructure):
         if self.header_size % self.entry_size != 0:
             print(f"Header size does not match entry size, reducing entry size from 0x{self.entry_size:02X} to 0x0C")
             self.entry_size = 0x0C
-        print(self.header_size, self.entry_size)
+        print(f"Header size: {self.header_size}", f"Entry size: {self.entry_size}")
         assert self.header_size % self.entry_size == 0
         assert self.header_size >= self.entry_size
         #print(f"header size: {self.header_size}")

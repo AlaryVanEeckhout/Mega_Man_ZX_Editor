@@ -86,7 +86,8 @@ class GFXView(View):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setInteractive(False)
-        self.setCursor(QtGui.QCursor(QtCore.Qt.CursorShape.CrossCursor))
+        self.horizontalScrollBar().setCursor(QtCore.Qt.CursorShape.ArrowCursor)
+        self.verticalScrollBar().setCursor(QtCore.Qt.CursorShape.ArrowCursor)
         self._zoom = 0
         self._zoom_limit = 70
         scene = QtWidgets.QGraphicsScene()
@@ -181,18 +182,18 @@ class GFXView(View):
     def mouseMoveEvent(self, event):
         #print("QGraphicsView mouseMove")
         self.end = self.mapToScene(event.pos())
-        if self.draw_mode == "rectangle":
-            if self.mousePressed:
-                self.drawShape()
+        if self._graphic.isUnderMouse():
+            self.setCursor(QtGui.QCursor(QtCore.Qt.CursorShape.CrossCursor))
         else:
-            if self.mousePressed:
-                self.drawShape()
+            self.setCursor(QtGui.QCursor(QtCore.Qt.CursorShape.ArrowCursor))
+        if self.mousePressed:
+            self.drawShape()
+        if self.draw_mode != "rectangle":
             self.end_previous = self.end
 
     def mouseReleaseEvent(self, event):
         #print("QGraphicsView mouseRelease")
-        if self.mousePressed:
-            self.mousePressed = False
+        self.mousePressed = False
 
 class OAMView(View):
     def __init__(self, *args, **kwargs):
