@@ -139,8 +139,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.progress = QtWidgets.QProgressBar(self.window_progress)
 
+        self.layout_progress_title = QtWidgets.QHBoxLayout()
+
+        self.label_progress_title = QtWidgets.QLabel(self.window_progress)
+        self.label_progress_icon = QtWidgets.QLabel(self.window_progress)
         self.label_progress = QtWidgets.QLabel(self.window_progress)
 
+        self.layout_progress_title.addWidget(self.label_progress_icon)
+        self.layout_progress_title.addWidget(self.label_progress_title)
+
+        self.window_progress.layout().addItem(self.layout_progress_title)
         self.window_progress.layout().addWidget(self.progress)
         self.window_progress.layout().addWidget(self.label_progress)
         # Menus
@@ -1560,9 +1568,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_progress.setText("")
         self.window_progress.show()
 
-    def progressUpdate(self, percent: int, status: str=""):
+    def progressUpdate(self, percent: int, status: str="", title: str=None, pixmap: QtGui.QPixmap=None):
         self.progress.setValue(percent)
         self.label_progress.setText(status)
+        if title:
+            self.label_progress_title.setText(title)
+        if pixmap:
+            self.label_progress_icon.setPixmap(pixmap)
         app.processEvents()
 
     def progressHide(self):
@@ -1759,6 +1771,14 @@ class MainWindow(QtWidgets.QMainWindow):
             self.rom = ndspy.rom.NintendoDSRom.fromFile(fname)
             # create a file attribute table that can be read rapidly because ndspy does not provide any
             self.loadFat()
+            icon_pal_addr = 0x220
+            icon_pixmap = QtGui.QPixmap.fromImage(lib.datconv.binToQt(
+                bytearray(self.rom.iconBanner[0x20:icon_pal_addr]),
+                lib.datconv.BGR15_to_ARGB32(self.rom.iconBanner[icon_pal_addr:icon_pal_addr+0x20]),
+                lib.datconv.CompressionAlgorithmEnum.FOURBPP,
+                4, 4
+                ))
+            icon_title = str(self.rom.iconBanner[icon_pal_addr+0x20:icon_pal_addr+0x120].decode('windows-1252').replace("\x00", ""))
         except Exception as e:
             self.progressHide()
             print(e)
@@ -1768,6 +1788,7 @@ class MainWindow(QtWidgets.QMainWindow):
             str(e)
             )
             self.setWindowTitle("Mega Man ZX Editor")
+            self.setWindowIcon(QtGui.QIcon("icons\\appicon.ico"))
             return
         try:
             fileID = str(self.rom.filenames).rpartition(".sdat")[0].split()[-2]
@@ -1786,7 +1807,7 @@ class MainWindow(QtWidgets.QMainWindow):
             dialog.setText("Sound data archive was not found. \n This means that sound data may not be there or may not be in a recognizable format.")
             dialog.exec()
             self.progressShow()
-        self.progressUpdate(10, "Loading ARM9")
+        self.progressUpdate(10, "Loading ARM9", icon_title, icon_pixmap)
         self.treeArm9Update()
         self.progressUpdate(20, "Loading ARM7")
         self.treeArm7Update()
