@@ -767,11 +767,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.radio_objShapeTall = QtWidgets.QRadioButton()
         self.radio_objShapeTall.setText("Tall")
         self.radio_objShapeTall.toggled.connect(lambda: self.button_file_save.setEnabled(True))
+        self.radio_objShapeProhibit = QtWidgets.QRadioButton()
+        self.radio_objShapeProhibit.setText("Prohibited")
+        self.radio_objShapeProhibit.toggled.connect(lambda: self.button_file_save.setEnabled(True))
 
         self.buttonGroup_oam_objShape = QtWidgets.QButtonGroup(self.page_oam_frames)
         self.buttonGroup_oam_objShape.addButton(self.radio_objShapeSquare, 0)
         self.buttonGroup_oam_objShape.addButton(self.radio_objShapeWide, 1)
         self.buttonGroup_oam_objShape.addButton(self.radio_objShapeTall, 2)
+        self.buttonGroup_oam_objShape.addButton(self.radio_objShapeProhibit, 3)
         self.buttonGroup_oam_objShape.idReleased.connect(lambda: self.slider_objSizeIndex.setLabels(lib.oam.SPRITE_DIMENSIONS[self.buttonGroup_oam_objShape.checkedId()]))
         self.buttonGroup_oam_objShape.idReleased.connect(lambda: self.OAM_updateItemGFX(self.dropdown_oam_obj.currentIndex(), self.file_content_oam.item_current))
 
@@ -781,6 +785,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.group_oam_objShape.layout().addWidget(self.radio_objShapeSquare)
         self.group_oam_objShape.layout().addWidget(self.radio_objShapeWide)
         self.group_oam_objShape.layout().addWidget(self.radio_objShapeTall)
+        self.group_oam_objShape.layout().addWidget(self.radio_objShapeProhibit)
 
         self.field_objX = lib.widget.BetterSpinBox(self.page_oam_frames)
         self.field_objX.setToolTip("X")
@@ -1771,14 +1776,16 @@ class MainWindow(QtWidgets.QMainWindow):
             self.rom = ndspy.rom.NintendoDSRom.fromFile(fname)
             # create a file attribute table that can be read rapidly because ndspy does not provide any
             self.loadFat()
-            icon_pal_addr = 0x220
+            offset_icon_pal = 0x220
+            offset_icon_title = offset_icon_pal + 0x20
             icon_pixmap = QtGui.QPixmap.fromImage(lib.datconv.binToQt(
-                bytearray(self.rom.iconBanner[0x20:icon_pal_addr]),
-                lib.datconv.BGR15_to_ARGB32(self.rom.iconBanner[icon_pal_addr:icon_pal_addr+0x20]),
+                bytearray(self.rom.iconBanner[0x20:offset_icon_pal]),
+                lib.datconv.BGR15_to_ARGB32(self.rom.iconBanner[offset_icon_pal:offset_icon_title]),
                 lib.datconv.CompressionAlgorithmEnum.FOURBPP,
                 4, 4
                 ))
-            icon_title = str(self.rom.iconBanner[icon_pal_addr+0x20:icon_pal_addr+0x120].decode('windows-1252').replace("\x00", ""))
+            icon_title = str(self.rom.iconBanner[offset_icon_title:offset_icon_title+0x100].decode('UTF-16LE').replace("\x00", ""))
+            print(icon_title)
         except Exception as e:
             self.progressHide()
             print(e)
@@ -2240,7 +2247,12 @@ class MainWindow(QtWidgets.QMainWindow):
                                                 obj.getHeight())
         except AssertionError:
             print(f"invalid object properties detected in object {obj_index}!")
-            print(f"shape: {obj.shape}  size: {obj.sizeIndex} ZXA width(?): {obj.sizeIndex + (obj.shape << 2)}")
+            print(f"shape: {obj.shape}  size: {obj.sizeIndex} ZXA width(?): {obj.sizeIndex*0x10:02X}")
+            #gfxOffset -= int(obj.tileId_add*indexingFactor*32)
+            #obj_img = lib.datconv.binToQt(self.fileEdited_object.auxfile.data[gfxOffset:], pal,
+            #                                    depth_obj,
+            #                                    1,
+            #                                    8, 0x20)
             return
         colorTable = obj_img.colorTable()
         if len(colorTable) <= 0:
@@ -2643,7 +2655,10 @@ class MainWindow(QtWidgets.QMainWindow):
             if not ".Folder" in self.fileToEdit_name:# if it's a file
                 self.label_file_size.setText(f"Size: {lib.datconv.numToStr(len(self.rom.files[current_id]), self.displayBase, self.displayAlphanumeric).zfill(0)} bytes")
                 if self.fileDisplayRaw == False:
-                    indicator_list = lib.gamedat.GameEnum[self.rom.name.decode()].fileIndicators
+                    try:
+                        indicator_list = lib.gamedat.GameEnum[self.rom.name.decode()].fileIndicators
+                    except KeyError:
+                        indicator_list = lib.gamedat.GameEnum["UNSUPPORTED"].fileIndicators
                     if self.fileDisplayMode == "Adapt":
                         self.fileDisplayState = "None"
                         if current_ext == "vx":
@@ -2663,7 +2678,7 @@ class MainWindow(QtWidgets.QMainWindow):
                             elif any(indicator.replace("fnt", "dat") in current_name for indicator in indicator_list["Graphics"]):
                                 self.fileDisplayState = "OAM"
                             elif any(indicator in current_name for indicator in indicator_list["Palette Animation"]):
-                                self.fileDisplayState = "Palette Animation"     
+                                self.fileDisplayState = "Palette Animation"
                     else:
                         self.fileDisplayState = self.fileDisplayMode
 

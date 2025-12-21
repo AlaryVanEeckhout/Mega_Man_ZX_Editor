@@ -1,9 +1,9 @@
 from lib import common, datconv
 import bisect
 
-SPRITE_WIDTHS = ((1,2,4,8),(2,4,4,8),(1,1,2,4)) # in tiles
-SPRITE_HEIGHTS = ((1,2,4,8),(1,1,2,4),(2,4,4,8))
-SPRITE_DIMENSIONS = (("1x1", "2x2", "4x4", "8x8"), ("2x1", "4x1", "4x2", "8x4"), ("1x2", "1x4", "2x4", "4x8"))
+SPRITE_WIDTHS = ((1,2,4,8),(2,4,4,8),(1,1,2,4), (1,1,1,1)) # in tiles
+SPRITE_HEIGHTS = ((1,2,4,8),(1,1,2,4),(2,4,4,8), (1,1,1,1))
+SPRITE_DIMENSIONS = (("1x1", "2x2", "4x4", "8x8"), ("2x1", "4x1", "4x2", "8x4"), ("1x2", "1x4", "2x4", "4x8"), ("N/A", "N/A", "N/A", "N/A"))
 
 class File(common.File):
     def __init__(self, *args, **kwargs):

@@ -2,6 +2,7 @@
 import enum
 
 # indicators determine what the file most likely contains based on its name
+I_GFX = ("obj_fnt",)
 I_GFX_ZX = ("face", "obj_fnt", "title", "bbom", "dm23", "elf", "g_", "game_parm", "lmlevel", "miss", "repair", "sec_disk", "sub")
 I_GFX_ZXA = ("face", "obj_fnt", "title", "cmm_frame_fnt", "cmm_mega_s", "cmm_rock_s", "ls_", "sub_db", "sub_oth")
 I_FONT = ("font",)
@@ -38,6 +39,12 @@ class GameEnum(enum.Enum):
                              "Palette Animation" : I_PANM,
                              "Mugshot" : I_MUGSHOT}, []
   MEGAMANZXA = enum.auto(), {"Graphics" : I_GFX_ZXA,
+                             "Font" : I_FONT,
+                             "Dialogue" : I_DIALOGUE,
+                             "Palette Animation" : I_PANM,
+                             "Mugshot" : I_MUGSHOT}, []
+  # wildcard so that the keys in the fileIndicators dict can still be accessed for unsupported games
+  UNSUPPORTED = enum.auto(), {"Graphics" : I_GFX,
                              "Font" : I_FONT,
                              "Dialogue" : I_DIALOGUE,
                              "Palette Animation" : I_PANM,
