@@ -2682,6 +2682,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     else:
                         self.fileDisplayState = self.fileDisplayMode
 
+                    self.file_content_text.setLineWrapMode(lib.widget.LongTextEdit.LineWrapMode.WidgetWidth)
                     if self.fileDisplayState == "English dialogue":
                         self.widget_set = "Text"
                         if sender in self.FILEOPEN_WIDGETS:
@@ -3078,7 +3079,15 @@ class MainWindow(QtWidgets.QMainWindow):
                         self.file_content_text.setPlainText(f"This file's format is {file_knowledge}.\n Go to [View > Converted formats] to disable file interpretation and view hex data.")
                 else:# if in hex display mode
                     self.widget_set = "Hex"
-                    self.file_content_text.setPlainText(self.rom.files[current_id][self.relative_address:self.relative_address+self.file_content_text.charcount_page()].hex())
+                    #hex_string = self.rom.files[current_id][self.relative_address:self.relative_address+self.file_content_text.page_charcount()].hex()
+                    hex_string = ""
+                    for i in range(0, self.file_content_text.page_linecount()*0x10):
+                        if i > 0 and i % 0x10 == 0:
+                            hex_string += "\n"
+                        hex_string += self.rom.files[current_id][self.relative_address+i:self.relative_address+i+1].hex()
+                        hex_string += " "
+                    self.file_content_text.setLineWrapMode(lib.widget.LongTextEdit.LineWrapMode.NoWrap)
+                    self.file_content_text.setPlainText(hex_string)
                 self.file_content_text.setDisabled(False)
             else:# if it's a folder
                 self.widget_set = "Empty"
@@ -3590,7 +3599,7 @@ class MainWindow(QtWidgets.QMainWindow):
             elif self.fileDisplayState == "Sound":
                 return
         else:
-            save_data = bytearray.fromhex(lib.datconv.strSetAlnum(self.file_content_text.toPlainText(), 16, True)) # force to alphanumeric for bytearray conversion
+            save_data = bytearray.fromhex(lib.datconv.strSetAlnum(self.file_content_text.toPlainText().replace(" ", "").replace("\n", ""), 16, True)) # force to alphanumeric for bytearray conversion
             w.rom.files[file_id][self.relative_address:self.relative_address+len(save_data)] = save_data
         #print(type(w.rom.files[file_id]))
         print("file changes saved")

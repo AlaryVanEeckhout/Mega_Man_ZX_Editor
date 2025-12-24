@@ -586,7 +586,12 @@ class BetterSpinBox(QtWidgets.QDoubleSpinBox):
 class LongTextEdit(QtWidgets.QPlainTextEdit):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.charcount_page = lambda: int(int(self.width()/self.fontMetrics().averageCharWidth() - 1)*int(self.height()/self.fontMetrics().lineSpacing() -1)/2)
+        
+    def page_charcount(self):
+        return int(int(self.width()/self.fontMetrics().averageCharWidth() - 1)*self.page_linecount()/2)
+    
+    def page_linecount(self):
+        return int(self.height()/self.fontMetrics().lineSpacing() - 1)
 
     def contextMenuOpen(self): #quick menu to insert special values in dialogue file
         self.context_menu = QtWidgets.QMenu(self)
