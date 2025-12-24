@@ -1984,7 +1984,10 @@ class MainWindow(QtWidgets.QMainWindow):
                         fileEdited = f.read()
                         if str(f.name).split("/")[-1].split(".")[1] == "txt":
                             #print(w.rom.filenames.idOf(str(selectedFiles).split("/")[-1].removesuffix("']").replace(".txt", ".bin")))
-                            w.rom.files[w.rom.filenames.idOf(str(f.name).split("/")[-1].replace(".txt", ".bin"))] = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8")))
+                            if "en" in str(f.name):
+                                w.rom.files[w.rom.filenames.idOf(str(f.name).split("/")[-1].replace(".txt", ".bin"))] = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8"), "en"))
+                            elif "jp" in str(f.name):
+                                w.rom.files[w.rom.filenames.idOf(str(f.name).split("/")[-1].replace(".txt", ".bin"))] = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8"), "jp"))
                             dialog2.exec()
                         else:
                             QtWidgets.QMessageBox.critical(
@@ -2052,15 +2055,13 @@ class MainWindow(QtWidgets.QMainWindow):
                                     return
                                 elif not isinstance(fileInfo[2], type(None)):
                                     if fileExt == "txt": # english text file
-                                        if "en" in fileName:
+                                        if "en" in fileName or "jp" in fileName:
                                             if re.search(r".*(_\d+)$", fileName) and dialogue: # match the indicator that the file is a chunk of the original file
                                                 dialogue.text_list[int(fileName.split("_")[-1])] = fileEdited.decode("utf-8") # add file text to object
                                                 if selectedFiles.index(file) == len(selectedFiles)-1: # if at last selected file
                                                     data = dialogue.toBytes() # generate final binary to import (done only once to improve performance)
-                                            else:
+                                            else: # forced dialogue state
                                                 data = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8")))
-                                        else:
-                                            pass # jp
                                     elif fileExt == "cmp":
                                         try:
                                             data = bytearray(ndspy.lz10.decompress(fileEdited))
@@ -2683,13 +2684,16 @@ class MainWindow(QtWidgets.QMainWindow):
                         self.fileDisplayState = self.fileDisplayMode
 
                     self.file_content_text.setLineWrapMode(lib.widget.LongTextEdit.LineWrapMode.WidgetWidth)
-                    if self.fileDisplayState == "English dialogue":
+                    if self.fileDisplayState in ["English dialogue", "Japanese dialogue"]:
                         self.widget_set = "Text"
                         if sender in self.FILEOPEN_WIDGETS:
                             self.dropdown_textindex.setEnabled(True)
                             self.dropdown_textindex.clear()
                             try:
-                                self.fileEdited_object = lib.dialogue.DialogueFile(self.rom.files[current_id])
+                                if self.fileDisplayState == "English dialogue":
+                                    self.fileEdited_object = lib.dialogue.DialogueFile(self.rom.files[current_id], "en")
+                                elif self.fileDisplayState == "Japanese dialogue":
+                                    self.fileEdited_object = lib.dialogue.DialogueFile(self.rom.files[current_id], "jp")
                             except AssertionError: # forcing text view on non-text file = simple conversion mode
                                 self.file_content_text.setEnabled(True)
                                 self.dropdown_textindex.setDisabled(True)
@@ -3452,12 +3456,12 @@ class MainWindow(QtWidgets.QMainWindow):
     def save_filecontent(self): #Save to virtual ROM
         file_id = int(self.tree.currentItem().text(0))
         if self.fileDisplayRaw == False:
-            if self.fileDisplayState == "English dialogue": # if english text
+            if self.fileDisplayState in ["English dialogue", "Japanese dialogue"]: # if english text
                 if self.dropdown_textindex.isEnabled():
                     self.fileEdited_object.text_list[self.dropdown_textindex.currentIndex()] = self.file_content_text.toPlainText()
                     #dialog.text_id_list = 
                     self.rom.files[file_id] = self.fileEdited_object.toBytes()
-                else:
+                else: # forced dialogue state 
                     self.rom.files[file_id][self.relative_address:self.relative_address+0xFFFF] = lib.dialogue.DialogueFile.textToBin(self.file_content_text.toPlainText())
             elif self.fileDisplayState == "Graphics":
                 save_data = lib.datconv.qtToBin(self.file_content_gfx._graphic.pixmap().toImage(),
