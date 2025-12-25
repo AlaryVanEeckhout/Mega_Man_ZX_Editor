@@ -2062,6 +2062,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                                     data = dialogue.toBytes() # generate final binary to import (done only once to improve performance)
                                             else: # forced dialogue state
                                                 data = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8")))
+                                        else:
+                                            data = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8")))
                                     elif fileExt == "cmp":
                                         try:
                                             data = bytearray(ndspy.lz10.decompress(fileEdited))

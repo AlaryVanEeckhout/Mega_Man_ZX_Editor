@@ -305,21 +305,26 @@ class DialogueFile:
                 if data[i] == 0x00:
                     chars.append(chr(0x3000))
                 elif 0x01 <= data[i] <= 0x0A:
-                    chars.append(chr(data[i]-0x1 + 0xFF10))
+                    chars.append(chr(data[i]-0x01 + 0xFF10))
                 elif 0xB <= data[i] <= 0x24:
-                    chars.append(chr(data[i]-0xB + 0xFF21))
+                    chars.append(chr(data[i]-0x0B + 0xFF21))
                 elif 0x25 <= data[i] <= 0x3E:
                     chars.append(chr(data[i]-0x25 + 0xFF41))
                 elif data[i] == 0x3F:
                     chars.append(chr(0x30FC))
-                elif 0x40 <= data[i] <= 0x90:
+                elif 0x40 <= data[i] <= 0x8E:
                     chars.append(chr(data[i]-0x40 + 0x3041))
-                elif 0x91 <= data[i] <= 0xE4:
+                elif 0x8F <= data[i] <= 0x90:
+                    chars.append(chr(data[i]-0x8F + 0x3092))
+                elif 0x91 <= data[i] <= 0xDF:
                     chars.append(chr(data[i]-0x91 + 0x30A1))
+                elif 0xE0 <= data[i] <= 0xE4:
+                    chars.append(chr(data[i]-0xE0 + 0x30F2))
                 elif 0xE5 <= data[i] <= 0xEF:
                     chars.append(chr(data[i]-0xE5 + 0x0021))
                 elif data[i] == 0xF0 and type(CHARSF_J[data[i+1]]) == list:
                     chars.append(CHARSF_J[data[i+1]][1])
+                    i+=1 # count 0xF0 command AND the argument
                 else:
                     print(f"unhandled char \"{chr(data[i])}\" (0x{data[i]:02X}) !")
                     chars.append(chr(data[i]))
@@ -370,8 +375,6 @@ class DialogueFile:
         return data
 
     def textToBin(data: str, lang: str="en"):
-            if lang == "jp":
-                raise NotImplementedError
             file_text = data
             file_data = []
             c=0
@@ -407,12 +410,54 @@ class DialogueFile:
                                             #file_data.append(int.to_bytes(int(file_text[c+len(special_string)+2-(5+p*5)]+file_text[c+len(special_string)+3-(5+p*5)], 16)))
                                             file_data.append(int.to_bytes(int(special_string.split()[p+1].removesuffix('┤').removesuffix('┤'), 16)))
                                 c+=len(special_string)-1
-                elif any(file_text[c] in sublist for sublist in SPCHARS_E if isinstance(sublist, list)): #game's extended char table
-                    for d in range(len(SPCHARS_E)):
-                        if type(SPCHARS_E[d]) == type([]) and SPCHARS_E[d][1] == file_text[c]:
-                            file_data.append(int.to_bytes(d))
+                elif lang == "en" and any(file_text[c] in sublist for sublist in SPCHARS_E if isinstance(sublist, list)) \
+                or lang == "jp" and any(file_text[c] in sublist for sublist in CHARSF_J if isinstance(sublist, list)): #game's extended char table
+                    if lang == "en":
+                        for d in range(len(SPCHARS_E)):
+                            if type(SPCHARS_E[d]) == type([]) and SPCHARS_E[d][1] == file_text[c]:
+                                file_data.append(int.to_bytes(d))
+                    elif lang == "jp":
+                        for d in range(len(CHARSF_J)):
+                            if type(CHARSF_J[d]) == type([]) and CHARSF_J[d][1] == file_text[c]:
+                                file_data.append(int.to_bytes(0xF0))
+                                file_data.append(int.to_bytes(d))
                 else: #normal ASCII chars
-                    file_data.append(int.to_bytes(ord(file_text[c]) - 0x20 & 0xFF))
+                    if lang == "en":
+                        file_data.append(int.to_bytes(ord(file_text[c]) - 0x20 & 0xFF))
+                    elif lang == "jp":
+                        if ord(file_text[c]) == 0x3000:
+                            file_data.append(int.to_bytes(0x00))
+                        elif 0xFF10 <= ord(file_text[c]) <= 0xFF19:
+                            file_data.append(int.to_bytes(ord(file_text[c])-0xFF10 + 0x01))
+                        elif 0xFF21 <= ord(file_text[c]) <= 0xFF3A:
+                            file_data.append(int.to_bytes(ord(file_text[c])-0xFF21 + 0x0B))
+                        elif 0xFF41 <= ord(file_text[c]) <= 0xFF5A:
+                            file_data.append(int.to_bytes(ord(file_text[c])-0xFF41 + 0x25))
+                        elif ord(file_text[c]) == 0x30FC:
+                            file_data.append(int.to_bytes(0x3F))
+                        elif 0x3041 <= ord(file_text[c]) <= 0x308F:
+                            file_data.append(int.to_bytes(ord(file_text[c])-0x3041 + 0x40))
+                        elif 0x3092 <= ord(file_text[c]) <= 0x3093:
+                            file_data.append(int.to_bytes(ord(file_text[c])-0x3092 + 0x8F))
+                        elif 0x30A1 <= ord(file_text[c]) <= 0x30EF:
+                            file_data.append(int.to_bytes(ord(file_text[c])-0x30A1 + 0x91))
+                        elif 0x30F2 <= ord(file_text[c]) <= 0x30F6:
+                            file_data.append(int.to_bytes(ord(file_text[c])-0x30F2 + 0xE0))
+                        elif 0x0021 <= ord(file_text[c]) <= 0x002B:
+                            file_data.append(int.to_bytes(ord(file_text[c])-0x0021 + 0xE5))
+                        else:
+                            print(f"char \"{file_text[c]}\" not directly in font, attempting conversion")
+                            if ord(file_text[c]) == 0x0020:
+                                file_data.append(int.to_bytes(0x00))
+                            elif 0x0030 <= ord(file_text[c]) <= 0x0039:
+                                file_data.append(int.to_bytes(ord(file_text[c])-0x0030 + 0x01))
+                            elif 0x0041 <= ord(file_text[c]) <= 0x005A:
+                                file_data.append(int.to_bytes(ord(file_text[c])-0x0041 + 0x0B))
+                            elif 0x0061 <= ord(file_text[c]) <= 0x007A:
+                                file_data.append(int.to_bytes(ord(file_text[c])-0x0061 + 0x25))
+                            else:
+                                print(f"unhandled char \"{file_text[c]}\" (0x{ord(file_text[c]):02X}) !")
+                                file_data.append(int.to_bytes(ord(file_text[c]) & 0xEF))
                 c+=1
             file_data = b''.join(file_data)
             return file_data
@@ -423,7 +468,7 @@ class DialogueFile:
         text_bin_id_ptr_list = []
         text_bin_size = 0
         for text in self.text_list:
-            text_bin = DialogueFile.textToBin(text)
+            text_bin = DialogueFile.textToBin(text, self.lang)
             text_bin_id_ptr_list.append(text_bin_size)
             text_bin_size += len(text_bin) + 1
             text_bin_list.append(text_bin)

@@ -596,9 +596,9 @@ class LongTextEdit(QtWidgets.QPlainTextEdit):
     def contextMenuOpen(self): #quick menu to insert special values in dialogue file
         self.context_menu = QtWidgets.QMenu(self)
         self.context_menu.setGeometry(self.cursor().pos().x(), self.cursor().pos().y(), 50, 50)
-        for char_index in range(len(lib.dialogue.SPECIAL_CHARACTER_LIST)):
-            if char_index >= 0xe0 and not isinstance(lib.dialogue.SPECIAL_CHARACTER_LIST[char_index], int):
-                self.context_menu.addAction(f"{lib.datconv.numToStr(char_index, self.window().displayBase, self.window().displayAlphanumeric).zfill(2)} - {lib.dialogue.SPECIAL_CHARACTER_LIST[char_index][1]}")
+        for char_index in range(len(lib.dialogue.SPCHARS_E)):
+            if char_index >= 0xf0 and not isinstance(lib.dialogue.SPCHARS_E[char_index], int):
+                self.context_menu.addAction(f"{lib.datconv.numToStr(char_index, self.window().displayBase, self.window().displayAlphanumeric).zfill(2)} - {lib.dialogue.SPCHARS_E[char_index][1]}")
         action2 = self.context_menu.exec()
         if action2 is not None:
             self.insertPlainText(action2.text()[action2.text().find("├"):])
