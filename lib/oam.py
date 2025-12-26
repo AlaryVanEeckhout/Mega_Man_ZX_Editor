@@ -44,10 +44,13 @@ class OAMSection:
         if len(self.header_items) == 4: # if palette and unk exist
             self.paletteTable_offset = self.header_items[2]
             self.unkTable_offset = self.header_items[3]
-            for i in range(self.paletteTable_offset,
-                           self.paletteTable_offset+0x200*int.from_bytes(self.data[self.paletteTable_offset:self.paletteTable_offset+1]),
+            for i in range(self.paletteTable_offset+4,
+                           self.paletteTable_offset+4+0x200*self.data[self.paletteTable_offset],
                            0x200):
-                self.paletteTable.append(datconv.BGR15_to_ARGB32(self.data[i:i+0x200]))
+                #(note that this section of the palette might still be used by the graphics and may not be white in-game)
+                pal = [0xffffffff]*(self.data[self.paletteTable_offset+1]) # add white to shift the palette
+                pal.extend(datconv.BGR15_to_ARGB32(self.data[i:i+0x200]))
+                self.paletteTable.append(pal)
     
     def headerToBytes(self):
         data = bytearray()

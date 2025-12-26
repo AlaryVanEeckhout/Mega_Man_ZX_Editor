@@ -2231,8 +2231,13 @@ class MainWindow(QtWidgets.QMainWindow):
             pal = [0xffffffff]*(gfxsec.graphics[index_img].unk13 & 0xf0)
             pal.extend(lib.datconv.BGR15_to_ARGB32(self.fileEdited_object.auxfile.data[pal_off:pal_off+gfxsec.graphics[index_img].palette_size]))
         else:
+            #print("palette changed")
             #print(int.from_bytes(self.fileEdited_object.oamsec.data[self.fileEdited_object.oamsec.paletteTable_offset:self.fileEdited_object.oamsec.paletteTable_offset+2]))
-            pal = self.GFX_PALETTES[2]#self.fileEdited_object.oamsec.paletteTable[0] # placeholder
+            if len(self.fileEdited_object.oamsec.header_items) == 4:
+                pal = self.fileEdited_object.oamsec.paletteTable[0]
+            else:
+                #print("to default")
+                pal = self.GFX_PALETTES[2]
         tileId = gfxsec.graphics[index_img].oam_tile_offset + obj.tileId
         gfxOffset = gfxsec.graphics[index_img].offset_start + gfxsec.graphics[index_img].gfx_offset
         # multiply oam tile id by indexingFactor(relative to 4bpp) and 4bpp tile size to get vram tile id
@@ -2785,7 +2790,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                     print(f"unk09: {gfxsec.graphics[header_index].unk09:02X}")
                                     if gfxsec.entry_size == 0x14:
                                         pal_off = gfxsec.graphics[header_index].offset_start + gfxsec.graphics[header_index].palette_offset+0xc
-                                        pal = [0xffffffff]*(gfxsec.graphics[header_index].unk13 & 0xf0)
+                                        pal = [0xffffffff]*(gfxsec.graphics[header_index].unk13 & 0xf0) # shift palette
                                         pal.extend(lib.datconv.BGR15_to_ARGB32(self.rom.files[current_id][pal_off:pal_off+gfxsec.graphics[header_index].palette_size]))
                                         print(f"unk13 & 0F: {gfxsec.graphics[header_index].unk13 & 0x0f:02X}")
                                     else:
@@ -2824,7 +2829,7 @@ class MainWindow(QtWidgets.QMainWindow):
                             self.fileEdited_object.oamsec = lib.oam.OAMSection(self.fileEdited_object,
                                                                                self.dropdown_oam_entry.currentIndex() if self.dropdown_oam_entry.currentIndex() != -1 else 0)
                             self.fileEdited_object.gfxsec = lib.graphic.GraphicSection.fromParent(self.fileEdited_object.auxfile, self.dropdown_oam_entry.currentIndex())
-                            print(f"offset: {self.fileEdited_object.oamsec.offset_start}")
+                            print(f"offset: {self.fileEdited_object.oamsec.offset_start:02X}")
                             print(f"header items: {[f"{header_item:02X}" for header_item in self.fileEdited_object.oamsec.header_items]}")
 
                             self.dropdown_oam_anim.clear()

@@ -96,9 +96,9 @@ class GraphicSection(DataStructure):
         self.header_size = int.from_bytes(self.data[0x00:0x04], byteorder='little')
         self.entry_size = 0x14
         if self.header_size % self.entry_size != 0:
-            print(f"Header size does not match entry size, reducing entry size from 0x{self.entry_size:02X} to 0x0C")
+            print(f"GFX Header size does not match entry size, reducing entry size from 0x{self.entry_size:02X} to 0x0C")
             self.entry_size = 0x0C
-        print(f"Header size: {self.header_size}", f"Entry size: {self.entry_size}")
+        print(f"GFX Header size: {self.header_size:02X}", f"Entry size: {self.entry_size:02X}")
         assert self.header_size % self.entry_size == 0
         assert self.header_size >= self.entry_size
         #print(f"header size: {self.header_size}")
