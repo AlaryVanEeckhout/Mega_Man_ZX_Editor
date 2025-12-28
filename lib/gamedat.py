@@ -2,9 +2,9 @@
 import enum
 
 # indicators determine what the file most likely contains based on its name
-I_GFX = ("obj_fnt",)
-I_GFX_ZX = ("face", "obj_fnt", "title", "bbom", "dm23", "elf", "g_", "game_parm", "lmlevel", "miss", "repair", "sec_disk", "sub")
-I_GFX_ZXA = ("face", "obj_fnt", "title", "cmm_frame_fnt", "cmm_mega_s", "cmm_rock_s", "ls_", "sub_db", "sub_oth")
+I_GFX = ("_fnt",)
+I_GFX_ZX = ("_fnt", "face", "title", "bbom", "dm", "elf", "g_", "game_parm", "lmlevel", "miss", "repair", "sec_disk", "sub")
+I_GFX_ZXA = ("_fnt", "face", "title", "cmm_", "ls_", "sub_")
 I_FONT = ("font",)
 I_DIALOGUE = ("talk", "m_")
 I_PANM = ("panm",)

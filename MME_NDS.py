@@ -1,6 +1,7 @@
 from PyQt6 import QtGui, QtWidgets, QtCore, QtMultimedia #Qt6, Qt6.qsci
 import sys, os, platform, re, math
 import argparse
+import traceback
 import bisect
 #import logging, time, random
 #import numpy
@@ -2493,6 +2494,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         else:
                             tree_folder[f.count("    ") - 1].addChild(tree_folder[f.count("    ")])
         except Exception: # if failed, do nothing
+            print("Failed to load filesystem")
             pass
         self.tree.clear()
         self.tree.addTopLevelItems(tree_files)
@@ -2674,14 +2676,14 @@ class MainWindow(QtWidgets.QMainWindow):
                         elif current_ext == "sdat":
                             self.fileDisplayState = "Sound"
                         elif current_ext == "bin":
-                            if any(indicator in current_name for indicator in indicator_list["Font"]):
+                            if any(current_name.startswith(indicator) for indicator in indicator_list["Font"]):
                                 self.fileDisplayState = "Font"
-                            elif any(indicator in current_name for indicator in indicator_list["Dialogue"]):
+                            elif any(current_name.startswith(indicator) for indicator in indicator_list["Dialogue"]):
                                 if "en" in current_name:
                                     self.fileDisplayState = "English dialogue"
                                 elif "jp" in current_name:
                                     self.fileDisplayState = "Japanese dialogue"
-                            elif any(indicator in current_name for indicator in indicator_list["Graphics"]):
+                            elif any(indicator in current_name for indicator in indicator_list["Graphics"]) and current_name.find("_dat") == -1:
                                 self.fileDisplayState = "Graphics"
                             elif any(indicator.replace("fnt", "dat") in current_name for indicator in indicator_list["Graphics"]):
                                 self.fileDisplayState = "OAM"
@@ -2759,7 +2761,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                 try:
                                     gfxsec = lib.graphic.GraphicSection.fromParent(self.fileEdited_object, self.dropdown_gfx_index.currentIndex())
                                 except AssertionError:
-                                    print("failed to load graphic section!")
+                                    print(f"failed to load graphic section at index {self.dropdown_gfx_index.currentIndex()}!")
                                     self.dropdown_gfx_subindex.clear()
                                     self.file_content_gfx.resetScene()
                                     return
@@ -2784,10 +2786,14 @@ class MainWindow(QtWidgets.QMainWindow):
                                     gfxOffset = gfxsec.graphics[header_index].offset_start + gfxsec.graphics[header_index].gfx_offset
                                     gfxSize = gfxsec.graphics[header_index].gfx_size
                                     print(f"{gfxsec.entryCount} sub-entrie(s)")
-                                    print(f"oam_tile_indexing: {gfxsec.graphics[header_index].oam_tile_indexing:02X}")
-                                    print(f"oam tile offset: {gfxsec.graphics[header_index].oam_tile_offset:02X}")
-                                    print(f"unk08: {gfxsec.graphics[header_index].unk08:02X}")
-                                    print(f"unk09: {gfxsec.graphics[header_index].unk09:02X}")
+                                    if hasattr(gfxsec.graphics[header_index], "oam_tile_indexing"):
+                                        print(f"oam_tile_indexing: {gfxsec.graphics[header_index].oam_tile_indexing:02X}")
+                                    if hasattr(gfxsec.graphics[header_index], "oam_tile_offset"):
+                                        print(f"oam tile offset: {gfxsec.graphics[header_index].oam_tile_offset:02X}")
+                                    if hasattr(gfxsec.graphics[header_index], "unk08"):
+                                        print(f"unk08: {gfxsec.graphics[header_index].unk08:02X}")
+                                    if hasattr(gfxsec.graphics[header_index], "unk09"):
+                                        print(f"unk09: {gfxsec.graphics[header_index].unk09:02X}")
                                     if gfxsec.entry_size == 0x14:
                                         pal_off = gfxsec.graphics[header_index].offset_start + gfxsec.graphics[header_index].palette_offset+0xc
                                         pal = [0xffffffff]*(gfxsec.graphics[header_index].unk13 & 0xf0) # shift palette
@@ -2808,8 +2814,13 @@ class MainWindow(QtWidgets.QMainWindow):
                         if self.file_content_gfx.pen.color().blue() >= 2**list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()].depth: # if color out of range
                             self.file_content_gfx.pen.setColor(0x00010101) # set to first color
                         self.file_content_gfx.resetScene()
+                        try:
+                            decoded = ndspy.lz10.decompress(self.rom.files[current_id][self.relative_address:])
+                            print("this image is compressed")
+                        except TypeError:
+                            decoded = self.rom.files[current_id][self.relative_address:]
                         draw_tilesQImage_fromBytes(self.file_content_gfx,
-                                                   self.rom.files[current_id][self.relative_address:],
+                                                   decoded,
                                                    algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
                                                    grid=True)
                     elif self.fileDisplayState == "OAM":
@@ -2857,6 +2868,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                     self.dropdown_oam_animFrame.addItem(f"frame {i}")
                                 self.dropdown_oam_animFrame.previousIndex = 0
                                 self.dropdown_oam_animFrame.setCurrentIndex(0)
+                            else:
+                                self.dropdown_oam_animFrame.previousIndex = -1
                         
                         if sender == self.button_oam_animFrameAdd:
                             self.button_file_save.setEnabled(True)
@@ -2871,19 +2884,23 @@ class MainWindow(QtWidgets.QMainWindow):
                             self.dropdown_oam_animFrame.removeItem(self.dropdown_oam_animFrame.count()-1)
 
                         if sender in [self.button_oam_animFrameAdd, self.button_oam_animFrameRemove, self.dropdown_oam_animFrame, self.dropdown_oam_entry, self.dropdown_oam_anim, *self.FILEOPEN_WIDGETS]:
-                            if sender is not self.button_oam_animFrameRemove and (self.dropdown_oam_animFrame.previousIndex != self.dropdown_oam_animFrame.currentIndex() and self.button_file_save.isEnabled()):
-                                isDurationfix = self.dropdown_oam_animFrame.previousIndex > 0 and self.field_oam_animFrameDuration.value() >= 0xFE
-                                if isDurationfix:
-                                    if self.field_oam_animFrameDuration.value() == 0xFE:
-                                        self.field_oam_animFrameId.setValue(self.dropdown_oam_animFrame.previousIndex) # loop to current index neutralizes the loop
-                                    elif self.field_oam_animFrameDuration.value() == 0xFF:
-                                        self.field_oam_animFrameDuration.setValue(0)
-                                self.fileEdited_object.oamsec_anim.frames[self.dropdown_oam_animFrame.previousIndex] = [
-                                    self.field_oam_animFrameId.value(),
-                                    self.field_oam_animFrameDuration.value()]
-                            self.field_oam_animFrameId.setValue(self.fileEdited_object.oamsec_anim.frames[self.dropdown_oam_animFrame.currentIndex()][0])
-                            self.field_oam_animFrameDuration.setValue(self.fileEdited_object.oamsec_anim.frames[self.dropdown_oam_animFrame.currentIndex()][1])
-                            self.dropdown_oam_animFrame.previousIndex = self.dropdown_oam_animFrame.currentIndex()
+                            if self.dropdown_oam_animFrame.count() == 0:
+                                self.field_oam_animFrameId.setValue(0)
+                                self.field_oam_animFrameDuration.setValue(0)
+                            else:
+                                if sender is not self.button_oam_animFrameRemove and (self.dropdown_oam_animFrame.previousIndex != self.dropdown_oam_animFrame.currentIndex() and self.button_file_save.isEnabled()):
+                                    isDurationfix = self.dropdown_oam_animFrame.previousIndex > 0 and self.field_oam_animFrameDuration.value() >= 0xFE
+                                    if isDurationfix:
+                                        if self.field_oam_animFrameDuration.value() == 0xFE:
+                                            self.field_oam_animFrameId.setValue(self.dropdown_oam_animFrame.previousIndex) # loop to current index neutralizes the loop
+                                        elif self.field_oam_animFrameDuration.value() == 0xFF:
+                                            self.field_oam_animFrameDuration.setValue(0)
+                                    self.fileEdited_object.oamsec_anim.frames[self.dropdown_oam_animFrame.previousIndex] = [
+                                        self.field_oam_animFrameId.value(),
+                                        self.field_oam_animFrameDuration.value()]
+                                self.field_oam_animFrameId.setValue(self.fileEdited_object.oamsec_anim.frames[self.dropdown_oam_animFrame.currentIndex()][0])
+                                self.field_oam_animFrameDuration.setValue(self.fileEdited_object.oamsec_anim.frames[self.dropdown_oam_animFrame.currentIndex()][1])
+                                self.dropdown_oam_animFrame.previousIndex = self.dropdown_oam_animFrame.currentIndex()
                         
                         if len(self.fileEdited_object.oamsec.frameTable) > 0:
                             try:
@@ -2993,7 +3010,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                     if isinstance(item, lib.widget.OAMObjectItem):
                                         item.setSelected(item.obj_id == self.dropdown_oam_obj.currentIndex())
                         else:
-                            print("empty frame!")
+                            print("empty frame!", self.fileEdited_object.oamsec.frameTable)
                     elif self.fileDisplayState == "Palette Animation":
                         self.widget_set = "PAnm"
                         if sender in self.FILEOPEN_WIDGETS:
@@ -3803,7 +3820,13 @@ def extract(data: bytes, name="", path="", format="", compress=0):
                 f.write(subdata)
     print("File extracted!")
 #run the app
-app.exec()
+try:
+    app.exec()
+except BaseException:
+    QtWidgets.QMessageBox.critical(None,
+                                   "Error handling test",
+                                   traceback.format_exc())
+    traceback.print_exc()
 # After execution
 w.firstLaunch = False
 lib.ini_rw.write(w)

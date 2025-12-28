@@ -24,6 +24,8 @@ class OAMSection:
         for i in range(0, self.header_size, 0x04):
             self.header_items.append(int.from_bytes(self.data[i:i+0x04], byteorder='little'))
         self.frameTable_constant = int.from_bytes(self.data[self.header_items[0]:self.header_items[0]+0x04], byteorder='little')
+        if self.frameTable_constant != 0x04:
+            print(f"unexpected frameTable constant value: {self.frameTable_constant}")
         self.frameTable_offset = self.header_items[0]+self.frameTable_constant # relative to section
         self.frameTable_size = int.from_bytes(self.data[self.frameTable_offset:self.frameTable_offset+0x02], byteorder='little')
         self.frameTable = []
@@ -33,12 +35,13 @@ class OAMSection:
             obj_sec = int.from_bytes(self.data[i+0x03:i+0x04], byteorder='little') # id of gfx section, apparently
             #print(f"pointer: {obj_ptr:02X}; count: {obj_cnt:02X};")
             self.frameTable.append([obj_ptr, obj_cnt, obj_sec]) # add frame data to frame list
-        self.animTable_constant = int.from_bytes(self.data[self.header_items[1]:self.header_items[1]+0x04], byteorder='little')
-        self.animTable_offset = self.header_items[1]+self.animTable_constant
-        self.animTable_size = int.from_bytes(self.data[self.animTable_offset:self.animTable_offset+0x02], byteorder='little')
         self.animTable = []
-        for i in range(self.animTable_offset, self.animTable_offset+self.animTable_size, 0x02):
-            self.animTable.append(int.from_bytes(self.data[i:i+0x02], byteorder='little'))
+        if len(self.header_items) > 1:
+            self.animTable_constant = int.from_bytes(self.data[self.header_items[1]:self.header_items[1]+0x04], byteorder='little')
+            self.animTable_offset = self.header_items[1]+self.animTable_constant
+            self.animTable_size = int.from_bytes(self.data[self.animTable_offset:self.animTable_offset+0x02], byteorder='little')
+            for i in range(self.animTable_offset, self.animTable_offset+self.animTable_size, 0x02):
+                self.animTable.append(int.from_bytes(self.data[i:i+0x02], byteorder='little'))
         self.paletteTable = []
         self.unkTable = []
         if len(self.header_items) == 4: # if palette and unk exist
@@ -82,6 +85,8 @@ class Animation:
         print(self.frames)
 
     def fromParent(oam: OAMSection, index: int):
+        if oam.animTable == []:
+            return Animation(bytes(), 0)
         frames_offset = int.from_bytes(oam.data[oam.animTable_offset+index*0x02:oam.animTable_offset+index*0x02+0x02], byteorder='little')
         return Animation(oam.data[oam.animTable_offset:], frames_offset)
     

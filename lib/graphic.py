@@ -95,9 +95,12 @@ class GraphicSection(DataStructure):
         super().__init__(*args, **kwargs)
         self.header_size = int.from_bytes(self.data[0x00:0x04], byteorder='little')
         self.entry_size = 0x14
-        if self.header_size % self.entry_size != 0:
-            print(f"GFX Header size does not match entry size, reducing entry size from 0x{self.entry_size:02X} to 0x0C")
-            self.entry_size = 0x0C
+        while self.header_size % self.entry_size != 0:
+            if self.entry_size == 0x08:
+                break
+            print(f"GFX Header size does not match entry size, reducing entry size from 0x{self.entry_size:02X} ", end="")
+            self.entry_size -= 0x04
+            print(f"to 0x{self.entry_size:02X}")
         print(f"GFX Header size: {self.header_size:02X}", f"Entry size: {self.entry_size:02X}")
         assert self.header_size % self.entry_size == 0
         assert self.header_size >= self.entry_size
@@ -143,11 +146,13 @@ class GraphicHeader(DataStructure):
         self.gfx_size = int.from_bytes(self.data[0x04:0x06], byteorder='little')
         self.oam_tile_indexing = int.from_bytes(self.data[0x06:0x07], byteorder='little') # related to tile indexing in oam (0=vram indexes, 0x18=1/4 vram indexes)
         self.oam_tile_offset = int.from_bytes(self.data[0x07:0x08], byteorder='little') # as oam tile id
+        if self.size <= 0x8: return
         self.unk08 = int.from_bytes(self.data[0x08:0x09], byteorder='little') # gfx size related???
         self.unk09 = int.from_bytes(self.data[0x09:0x0A], byteorder='little') # gfx format indicator?
         self.ram_palette_offset = int.from_bytes(self.data[0x0A:0x0C], byteorder='little')
         if self.size <= 0xC: return
         self.palette_offset = int.from_bytes(self.data[0x0C:0x10], byteorder='little') # offset from this address. palettes are usually stored right after the corresponding gfx
+        if self.size <= 0x10: return
         self.palette_size = int.from_bytes(self.data[0x10:0x12], byteorder='little') # in bytes (color count * 2)
         self.depth = int.from_bytes(self.data[0x12:0x13], byteorder='little') # color depth * 2
         self.unk13 = int.from_bytes(self.data[0x13:0x14], byteorder='little') # palette shift?
