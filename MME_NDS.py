@@ -2208,6 +2208,8 @@ class MainWindow(QtWidgets.QMainWindow):
         # in 8bpp, oam tile id * indexingFactor // 2 = vram tile id
         if gfxsec.entry_size == 0x14:
             depth = gfxsec.graphics[0].depth//2
+        else:
+            print("depth unknown")
         obj: lib.oam.Object = self.fileEdited_object.objs[obj_index]
         if item != None:
             obj.tileId = self.field_objTileId.value()
@@ -2477,6 +2479,10 @@ class MainWindow(QtWidgets.QMainWindow):
         tree_files: list[QtWidgets.QTreeWidgetItem] = []
         try: # convert NDS Py filenames to QTreeWidgetItems
             if self.rom.files != []:
+                tree_folder_ovlt = QtWidgets.QTreeWidgetItem([f"{0:04}", "ovltable", "Folder"])
+                for i in range(0, self.tree_arm9Ovltable.topLevelItemCount()):
+                    tree_folder_ovlt.addChild(QtWidgets.QTreeWidgetItem([f"{i:04}", f"overlay9_{i:04}", "bin"]))
+                tree_files.append(tree_folder_ovlt)
                 tree_folder: list[QtWidgets.QTreeWidgetItem] = []
                 for f in str(self.rom.filenames).split("\n"):
                     if not "/" in f: # if file
