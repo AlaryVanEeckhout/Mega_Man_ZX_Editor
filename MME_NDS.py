@@ -9,7 +9,7 @@ import ndspy
 #import ndspy.graphics2D
 #import ndspy.model
 import ndspy.lz10
-import ndspy.rom#, ndspy.code, ndspy.codeCompression
+import ndspy.rom, ndspy.codeCompression#, ndspy.code
 import ndspy.soundArchive
 import ndspy.soundSequenceArchive
 import lib
@@ -2076,7 +2076,11 @@ class MainWindow(QtWidgets.QMainWindow):
                                 #print(fileExt)
                                 # find a way to get attr and replace data at correct index.. maybe it's better to just save ROM and patch
                                 #self.rom.files[self.rom.files.index(self.file_fromItem(item)[0])]
-                                supported_list = ["txt", "swar", "sbnk", "ssar", "sseq", "cmp", "dec", "bin", ""]
+                                supported_list = ["txt",
+                                                  "swar", "sbnk", "ssar", "sseq",
+                                                  "cmp", "lz", "lz10", "lz77", 
+                                                  "dec", "decblz",
+                                                  "bin", ""]
                                 #print(selectedFiles)
                                 print(f.name)
                                 #print(fileName + "." + fileExt)
@@ -2094,7 +2098,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                                 data = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8")))
                                         else:
                                             data = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8")))
-                                    elif fileExt == "cmp":
+                                    elif fileExt in ["cmp", "lz", "lz10", "lz77"]:
                                         try:
                                             data = bytearray(ndspy.lz10.decompress(fileEdited))
                                         except TypeError as e:
@@ -2102,7 +2106,19 @@ class MainWindow(QtWidgets.QMainWindow):
                                             QtWidgets.QMessageBox.critical(
                                             self,
                                             "Decompression Failed",
-                                            str(e + "\nConsider trying again without the .cmp file extension.")
+                                            str(e + "\nMake sure the file has the correct extension.")
+                                            )
+                                            print("Aborted file replacement.")
+                                            return
+                                    elif fileExt == "decblz":
+                                        try:
+                                            data = bytearray(ndspy.codeCompression.compress(fileEdited))
+                                        except TypeError as e:
+                                            print(e)
+                                            QtWidgets.QMessageBox.critical(
+                                            self,
+                                            "Compression Failed",
+                                            str(e + "\nMake sure the file has the correct extension.")
                                             )
                                             print("Aborted file replacement.")
                                             return
