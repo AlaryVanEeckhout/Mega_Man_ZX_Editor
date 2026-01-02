@@ -69,7 +69,7 @@ class GraphicsTable(DataStructure): # possibly the same data structure as what I
         return self.data[self.getAddr(index)-self.offset_start:self.getAddrEnd(index)-self.offset_start]
     
     def joinData(self, index_start:int=0, index_end:int|None=None):
-        if index_end == None:
+        if index_end == None or index_end > self.offsetCount:
             index_end = self.offsetCount
         result = bytearray()
         result_indexes = []#[0]

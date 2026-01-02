@@ -283,8 +283,9 @@ class LevelView(View):
                 pass
             elif event.button() == QtCore.Qt.MouseButton.RightButton:
                 # bring up contextual menu to modify screen in room layout
-                print("screen options")
-                pass
+                item_target = self.itemAt(event.pos())
+                if isinstance(item_target, LevelTileItem):
+                    print(f"screen id: {item_target.screen}")
 
     def tileDraw(self, pos: QtCore.QPoint):
         sItem_event = self.window().gfx_scene_tileset.item_first

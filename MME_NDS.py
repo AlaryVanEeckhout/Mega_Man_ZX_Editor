@@ -284,8 +284,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.toolbar.setMaximumHeight(23)
         self.addToolBar(self.toolbar)
 
-        self.action_save = QtGui.QAction(QtGui.QIcon('icons\\disk.png'), "Save to ROM", self)
-        self.action_save.setStatusTip("Save changes to a ROM file")
+        self.action_save = QtGui.QAction(QtGui.QIcon('icons\\disk.png'), "Save ROM to Disk", self)
+        self.action_save.setStatusTip("Generate ROM with saved changes; unsaved changes will remain unsaved.")
         self.action_save.triggered.connect(self.saveCall)
         self.action_save.setDisabled(True)
         self.button_playtest = lib.widget.HoldButton(QtGui.QIcon('icons\\control.png'), "", self)
@@ -297,7 +297,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.button_playtest.held.connect(lambda: self.testCall(False))
         self.button_playtest.setDisabled(True)
         self.button_reload = lib.widget.HoldButton(QtGui.QIcon('icons\\arrow-circle-315.png'), "", self)
-        self.button_reload.setToolTip("Reload Interface (Hold for deep refresh)")
+        self.button_reload.setToolTip("Reload Interface (Hold for deep reload)")
         self.button_reload.setStatusTip("Reload the displayed data(all changes that aren't saved will be lost)")
         self.button_reload.allow_repeat = False
         self.button_reload.allow_press = True
@@ -1258,19 +1258,29 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_level_editpannel = QtWidgets.QVBoxLayout()
 
         self.button_level_save = QtWidgets.QPushButton("Save level", self.page_leveleditor)
-        self.button_level_save.setMaximumWidth(100)
+        self.button_level_save.setMaximumWidth(75)
         self.button_level_save.setToolTip("save this level's changes")
         self.button_level_save.pressed.connect(self.save_level)
         self.button_level_save.setDisabled(True)
 
+        self.button_level_load = QtWidgets.QPushButton("Load level", self.page_leveleditor)
+        self.button_level_load.setMaximumWidth(75)
+        self.button_level_load.setToolTip("Load tileset(s) and layout. May take some time")
+        self.button_level_load.pressed.connect(self.loadLevel)
+        self.button_level_load.setDisabled(True)
+
+        self.checkbox_level_fitInView = QtWidgets.QCheckBox("Reset view", self.page_leveleditor)
+        self.checkbox_level_fitInView.setChecked(True)
+
         self.dropdown_level_area = QtWidgets.QComboBox(self.page_leveleditor)
         self.dropdown_level_area.setToolTip("Choose an area to modify")
-        self.dropdown_level_area.currentIndexChanged.connect(self.loadLevel)
+        self.dropdown_level_area.currentIndexChanged.connect(self.updateLevelareaUI)
         self.dropdown_level_area.setDisabled(True)
 
         self.dropdown_level_type = QtWidgets.QComboBox(self.page_leveleditor)
+        self.dropdown_level_type.setMaximumWidth(100)
         self.dropdown_level_type.setToolTip("Choose between normal level and scanner map (if applicable)")
-        self.dropdown_level_type.currentIndexChanged.connect(self.loadLevel)
+        self.dropdown_level_type.currentIndexChanged.connect(lambda: self.group_radar_tilesetType.setEnabled(self.dropdown_level_type.currentIndex() == 1))
         self.dropdown_level_type.setDisabled(True)
 
         self.radio_radar_LX = QtWidgets.QRadioButton(self.page_leveleditor)
@@ -1280,7 +1290,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.buttonGroup_radar_tilesetType = QtWidgets.QButtonGroup()
         self.buttonGroup_radar_tilesetType.addButton(self.radio_radar_LX, 2) # rindex to getData
         self.buttonGroup_radar_tilesetType.addButton(self.radio_radar_PX, 1)
-        self.buttonGroup_radar_tilesetType.idReleased.connect(self.loadLevel)
+        #self.buttonGroup_radar_tilesetType.idReleased.connect(self.loadLevel)
         self.group_radar_tilesetType = QtWidgets.QGroupBox(self.page_leveleditor)
         self.group_radar_tilesetType.setTitle("Radar mode")
         self.group_radar_tilesetType.setLayout(QtWidgets.QVBoxLayout())
@@ -1288,7 +1298,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.group_radar_tilesetType.layout().addWidget(self.radio_radar_PX)
         self.group_radar_tilesetType.setDisabled(True)
 
-        self.dropdown_metaTile_collisionShape = QtWidgets.QComboBox(self.page_leveleditor)
+        self.tabs_level = QtWidgets.QTabWidget(self.page_leveleditor)
+        self.page_level_tileset = QtWidgets.QWidget(self.tabs_level)
+        self.page_level_tileset.setLayout(QtWidgets.QVBoxLayout())
+        self.page_level_screens = QtWidgets.QWidget(self.tabs_level)
+        self.page_level_screens.setLayout(QtWidgets.QVBoxLayout())
+
+        self.tabs_level.addTab(self.page_level_tileset, "Tileset")
+        self.tabs_level.addTab(self.page_level_screens, "Screens")
+
+        self.dropdown_metaTile_collisionShape = QtWidgets.QComboBox(self.page_level_tileset)
         self.dropdown_metaTile_collisionShape.setToolTip("Choose collision geometry to apply")
         self.dropdown_metaTile_collisionShape.addItems(["00 - Air",
                                                         "01 - Solid",
@@ -1309,7 +1328,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_metaTile_collisionShape.currentIndexChanged.connect(self.changeTileShape)
         self.dropdown_metaTile_collisionShape.setDisabled(True)
 
-        self.dropdown_metaTile_collisionMaterial = QtWidgets.QComboBox(self.page_leveleditor)
+        self.dropdown_metaTile_collisionMaterial = QtWidgets.QComboBox(self.page_level_tileset)
         self.dropdown_metaTile_collisionMaterial.setToolTip("Choose collision material (?) to apply")
         self.dropdown_metaTile_collisionMaterial.addItems(["00 - Normal",
                                                         "01 - ???",
@@ -1330,88 +1349,88 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_metaTile_collisionMaterial.currentIndexChanged.connect(self.changeTileMaterial)
         self.dropdown_metaTile_collisionMaterial.setDisabled(True)
 
-        self.group_metaTile_gfx = QtWidgets.QGroupBox(self.page_leveleditor)
+        self.group_metaTile_gfx = QtWidgets.QGroupBox(self.page_level_tileset)
         self.group_metaTile_gfx.setTitle("Meta Tile Graphics")
         self.group_metaTile_gfx.setLayout(QtWidgets.QGridLayout())
         self.group_metaTile_gfx.setDisabled(True)
 
-        self.field_metaTile_topLeft_id = lib.widget.BetterSpinBox(self.page_leveleditor)
+        self.field_metaTile_topLeft_id = lib.widget.BetterSpinBox(self.page_level_tileset)
         self.field_metaTile_topLeft_id.setToolTip("Tile ID")
         self.field_metaTile_topLeft_id.isInt = True
         self.field_metaTile_topLeft_id.numbase = self.displayBase
         self.field_metaTile_topLeft_id.numfill = 3
         self.field_metaTile_topLeft_id.setRange(0x0000, 0xFFFF)
         self.field_metaTile_topLeft_id.valueChanged.connect(lambda: self.changeTileGfx(0, 0xFFFF-0x03FF, self.field_metaTile_topLeft_id.value()))
-        self.checkbox_metaTile_topLeft_flipH = QtWidgets.QCheckBox(self.page_leveleditor)
+        self.checkbox_metaTile_topLeft_flipH = QtWidgets.QCheckBox(self.page_level_tileset)
         self.checkbox_metaTile_topLeft_flipH.setText("H")
         self.checkbox_metaTile_topLeft_flipH.checkStateChanged.connect(lambda: self.changeTileGfx(0, 0xFFFF-0x0400, self.checkbox_metaTile_topLeft_flipH.isChecked()))
-        self.field_metaTile_topLeft_attr = lib.widget.BetterSpinBox(self.page_leveleditor)
+        self.field_metaTile_topLeft_attr = lib.widget.BetterSpinBox(self.page_level_tileset)
         self.field_metaTile_topLeft_attr.setToolTip("Palette ID")
         self.field_metaTile_topLeft_attr.isInt = True
         self.field_metaTile_topLeft_attr.numbase = self.displayBase
         self.field_metaTile_topLeft_attr.setRange(0x0000, 0xFFFF)
         self.field_metaTile_topLeft_attr.valueChanged.connect(lambda: self.changeTileGfx(0, 0xFFFF-0xF000, self.field_metaTile_topLeft_attr.value()))
-        self.checkbox_metaTile_topLeft_flipV = QtWidgets.QCheckBox(self.page_leveleditor)
+        self.checkbox_metaTile_topLeft_flipV = QtWidgets.QCheckBox(self.page_level_tileset)
         self.checkbox_metaTile_topLeft_flipV.setText("V")
         self.checkbox_metaTile_topLeft_flipV.checkStateChanged.connect(lambda: self.changeTileGfx(0, 0xFFFF-0x0800, self.checkbox_metaTile_topLeft_flipV.isChecked()))
 
-        self.field_metaTile_topRight_id = lib.widget.BetterSpinBox(self.page_leveleditor)
+        self.field_metaTile_topRight_id = lib.widget.BetterSpinBox(self.page_level_tileset)
         self.field_metaTile_topRight_id.setToolTip("Tile ID")
         self.field_metaTile_topRight_id.isInt = True
         self.field_metaTile_topRight_id.numbase = self.displayBase
         self.field_metaTile_topRight_id.numfill = 3
         self.field_metaTile_topRight_id.setRange(0x0000, 0xFFFF)
         self.field_metaTile_topRight_id.valueChanged.connect(lambda: self.changeTileGfx(1, 0xFFFF-0x03FF, self.field_metaTile_topRight_id.value()))
-        self.checkbox_metaTile_topRight_flipH = QtWidgets.QCheckBox(self.page_leveleditor)
+        self.checkbox_metaTile_topRight_flipH = QtWidgets.QCheckBox(self.page_level_tileset)
         self.checkbox_metaTile_topRight_flipH.setText("H")
         self.checkbox_metaTile_topRight_flipH.checkStateChanged.connect(lambda: self.changeTileGfx(1, 0xFFFF-0x0400, self.checkbox_metaTile_topRight_flipH.isChecked()))
-        self.field_metaTile_topRight_attr = lib.widget.BetterSpinBox(self.page_leveleditor)
+        self.field_metaTile_topRight_attr = lib.widget.BetterSpinBox(self.page_level_tileset)
         self.field_metaTile_topRight_attr.setToolTip("Palette ID")
         self.field_metaTile_topRight_attr.isInt = True
         self.field_metaTile_topRight_attr.numbase = self.displayBase
         self.field_metaTile_topRight_attr.setRange(0x0000, 0xFFFF)
         self.field_metaTile_topRight_attr.valueChanged.connect(lambda: self.changeTileGfx(1, 0xFFFF-0xF000, self.field_metaTile_topRight_attr.value()))
-        self.checkbox_metaTile_topRight_flipV = QtWidgets.QCheckBox(self.page_leveleditor)
+        self.checkbox_metaTile_topRight_flipV = QtWidgets.QCheckBox(self.page_level_tileset)
         self.checkbox_metaTile_topRight_flipV.setText("V")
         self.checkbox_metaTile_topRight_flipV.checkStateChanged.connect(lambda: self.changeTileGfx(1, 0xFFFF-0x0800, self.checkbox_metaTile_topRight_flipV.isChecked()))
 
-        self.field_metaTile_bottomLeft_id = lib.widget.BetterSpinBox(self.page_leveleditor)
+        self.field_metaTile_bottomLeft_id = lib.widget.BetterSpinBox(self.page_level_tileset)
         self.field_metaTile_bottomLeft_id.setToolTip("Tile ID")
         self.field_metaTile_bottomLeft_id.isInt = True
         self.field_metaTile_bottomLeft_id.numbase = self.displayBase
         self.field_metaTile_bottomLeft_id.numfill = 3
         self.field_metaTile_bottomLeft_id.setRange(0x0000, 0xFFFF)
         self.field_metaTile_bottomLeft_id.valueChanged.connect(lambda: self.changeTileGfx(2, 0xFFFF-0x03FF, self.field_metaTile_bottomLeft_id.value()))
-        self.checkbox_metaTile_bottomLeft_flipH = QtWidgets.QCheckBox(self.page_leveleditor)
+        self.checkbox_metaTile_bottomLeft_flipH = QtWidgets.QCheckBox(self.page_level_tileset)
         self.checkbox_metaTile_bottomLeft_flipH.setText("H")
         self.checkbox_metaTile_bottomLeft_flipH.checkStateChanged.connect(lambda: self.changeTileGfx(2, 0xFFFF-0x0400, self.checkbox_metaTile_bottomLeft_flipH.isChecked()))
-        self.field_metaTile_bottomLeft_attr = lib.widget.BetterSpinBox(self.page_leveleditor)
+        self.field_metaTile_bottomLeft_attr = lib.widget.BetterSpinBox(self.page_level_tileset)
         self.field_metaTile_bottomLeft_attr.setToolTip("Palette ID")
         self.field_metaTile_bottomLeft_attr.isInt = True
         self.field_metaTile_bottomLeft_attr.numbase = self.displayBase
         self.field_metaTile_bottomLeft_attr.setRange(0x0000, 0xFFFF)
         self.field_metaTile_bottomLeft_attr.valueChanged.connect(lambda: self.changeTileGfx(2, 0xFFFF-0xF000, self.field_metaTile_bottomLeft_attr.value()))
-        self.checkbox_metaTile_bottomLeft_flipV = QtWidgets.QCheckBox(self.page_leveleditor)
+        self.checkbox_metaTile_bottomLeft_flipV = QtWidgets.QCheckBox(self.page_level_tileset)
         self.checkbox_metaTile_bottomLeft_flipV.setText("V")
         self.checkbox_metaTile_bottomLeft_flipV.checkStateChanged.connect(lambda: self.changeTileGfx(2, 0xFFFF-0x0800, self.checkbox_metaTile_bottomLeft_flipV.isChecked()))
 
-        self.field_metaTile_bottomRight_id = lib.widget.BetterSpinBox(self.page_leveleditor)
+        self.field_metaTile_bottomRight_id = lib.widget.BetterSpinBox(self.page_level_tileset)
         self.field_metaTile_bottomRight_id.setToolTip("Tile ID")
         self.field_metaTile_bottomRight_id.isInt = True
         self.field_metaTile_bottomRight_id.numbase = self.displayBase
         self.field_metaTile_bottomRight_id.numfill = 3
         self.field_metaTile_bottomRight_id.setRange(0x0000, 0xFFFF)
         self.field_metaTile_bottomRight_id.valueChanged.connect(lambda: self.changeTileGfx(3, 0xFFFF-0x03FF, self.field_metaTile_bottomRight_id.value()))
-        self.checkbox_metaTile_bottomRight_flipH = QtWidgets.QCheckBox(self.page_leveleditor)
+        self.checkbox_metaTile_bottomRight_flipH = QtWidgets.QCheckBox(self.page_level_tileset)
         self.checkbox_metaTile_bottomRight_flipH.setText("H")
         self.checkbox_metaTile_bottomRight_flipH.checkStateChanged.connect(lambda: self.changeTileGfx(3, 0xFFFF-0x0400, self.checkbox_metaTile_bottomRight_flipH.isChecked()))
-        self.field_metaTile_bottomRight_attr = lib.widget.BetterSpinBox(self.page_leveleditor)
+        self.field_metaTile_bottomRight_attr = lib.widget.BetterSpinBox(self.page_level_tileset)
         self.field_metaTile_bottomRight_attr.setToolTip("Palette ID")
         self.field_metaTile_bottomRight_attr.isInt = True
         self.field_metaTile_bottomRight_attr.numbase = self.displayBase
         self.field_metaTile_bottomRight_attr.setRange(0x0000, 0xFFFF)
         self.field_metaTile_bottomRight_attr.valueChanged.connect(lambda: self.changeTileGfx(3, 0xFFFF-0xF000, self.field_metaTile_bottomRight_attr.value()))
-        self.checkbox_metaTile_bottomRight_flipV = QtWidgets.QCheckBox(self.page_leveleditor)
+        self.checkbox_metaTile_bottomRight_flipV = QtWidgets.QCheckBox(self.page_level_tileset)
         self.checkbox_metaTile_bottomRight_flipV.setText("V")
         self.checkbox_metaTile_bottomRight_flipV.checkStateChanged.connect(lambda: self.changeTileGfx(3, 0xFFFF-0x0800, self.checkbox_metaTile_bottomRight_flipV.isChecked()))
 
@@ -1433,41 +1452,41 @@ class MainWindow(QtWidgets.QMainWindow):
         self.group_metaTile_gfx.layout().addWidget(self.field_metaTile_bottomRight_attr, 4, 2)
         self.group_metaTile_gfx.layout().addWidget(self.checkbox_metaTile_bottomRight_flipV, 4, 3)
 
-        self.checkbox_metaTile_attrSpike = QtWidgets.QCheckBox(self.page_leveleditor)
+        self.checkbox_metaTile_attrSpike = QtWidgets.QCheckBox(self.page_level_tileset)
         self.checkbox_metaTile_attrSpike.setText("Spike")
         self.checkbox_metaTile_attrSpike.checkStateChanged.connect(lambda: self.changeTileAttr(0b11111110, self.checkbox_metaTile_attrSpike.isChecked()))
         self.checkbox_metaTile_attrSpike.setDisabled(True)
-        self.checkbox_metaTile_attrWater = QtWidgets.QCheckBox(self.page_leveleditor)
+        self.checkbox_metaTile_attrWater = QtWidgets.QCheckBox(self.page_level_tileset)
         self.checkbox_metaTile_attrWater.setText("Underwater")
         self.checkbox_metaTile_attrWater.checkStateChanged.connect(lambda: self.changeTileAttr(0b11111101, self.checkbox_metaTile_attrWater.isChecked()))
         self.checkbox_metaTile_attrWater.setDisabled(True)
-        self.checkbox_metaTile_attrNoCeilHang = QtWidgets.QCheckBox(self.page_leveleditor)
+        self.checkbox_metaTile_attrNoCeilHang = QtWidgets.QCheckBox(self.page_level_tileset)
         self.checkbox_metaTile_attrNoCeilHang.setText("No ceiling hang")
         self.checkbox_metaTile_attrNoCeilHang.checkStateChanged.connect(lambda: self.changeTileAttr(0b11111011, self.checkbox_metaTile_attrNoCeilHang.isChecked()))
         self.checkbox_metaTile_attrNoCeilHang.setDisabled(True)
-        self.checkbox_metaTile_attrNoWalljump = QtWidgets.QCheckBox(self.page_leveleditor)
+        self.checkbox_metaTile_attrNoWalljump = QtWidgets.QCheckBox(self.page_level_tileset)
         self.checkbox_metaTile_attrNoWalljump.setText("No walljump")
         self.checkbox_metaTile_attrNoWalljump.checkStateChanged.connect(lambda: self.changeTileAttr(0b11110111, self.checkbox_metaTile_attrNoWalljump.isChecked()))
         self.checkbox_metaTile_attrNoWalljump.setDisabled(True)
-        self.checkbox_metaTile_attrSand = QtWidgets.QCheckBox(self.page_leveleditor)
+        self.checkbox_metaTile_attrSand = QtWidgets.QCheckBox(self.page_level_tileset)
         self.checkbox_metaTile_attrSand.setText("Quicksand")
         self.checkbox_metaTile_attrSand.checkStateChanged.connect(lambda: self.changeTileAttr(0b11101111, self.checkbox_metaTile_attrSand.isChecked()))
         self.checkbox_metaTile_attrSand.setDisabled(True)
-        self.radio_metaTile_attrNone = QtWidgets.QRadioButton(self.page_leveleditor)
+        self.radio_metaTile_attrNone = QtWidgets.QRadioButton(self.page_level_tileset)
         self.radio_metaTile_attrNone.setText("Normal")
-        self.radio_metaTile_attrConveyR = QtWidgets.QRadioButton(self.page_leveleditor)
+        self.radio_metaTile_attrConveyR = QtWidgets.QRadioButton(self.page_level_tileset)
         self.radio_metaTile_attrConveyR.setText("Conveyor >>")
-        self.radio_metaTile_attrConveyL = QtWidgets.QRadioButton(self.page_leveleditor)
+        self.radio_metaTile_attrConveyL = QtWidgets.QRadioButton(self.page_level_tileset)
         self.radio_metaTile_attrConveyL.setText("Conveyor <<")
-        self.radio_metaTile_attrIce = QtWidgets.QRadioButton(self.page_leveleditor)
+        self.radio_metaTile_attrIce = QtWidgets.QRadioButton(self.page_level_tileset)
         self.radio_metaTile_attrIce.setText("Ice")
-        self.buttonGroup_metaTile_attrConvey = QtWidgets.QButtonGroup(self.page_leveleditor)
+        self.buttonGroup_metaTile_attrConvey = QtWidgets.QButtonGroup(self.page_level_tileset)
         self.buttonGroup_metaTile_attrConvey.addButton(self.radio_metaTile_attrNone, 0)
         self.buttonGroup_metaTile_attrConvey.addButton(self.radio_metaTile_attrConveyR, 1)
         self.buttonGroup_metaTile_attrConvey.addButton(self.radio_metaTile_attrConveyL, 2)
         self.buttonGroup_metaTile_attrConvey.addButton(self.radio_metaTile_attrIce, 3)
         self.buttonGroup_metaTile_attrConvey.idReleased.connect(lambda: self.changeTileAttr(0b10011111, self.buttonGroup_metaTile_attrConvey.checkedId()))
-        self.group_metaTile_attrConvey = QtWidgets.QGroupBox(self.page_leveleditor)
+        self.group_metaTile_attrConvey = QtWidgets.QGroupBox(self.page_level_tileset)
         self.group_metaTile_attrConvey.setTitle("Grounded movement")
         self.group_metaTile_attrConvey.setLayout(QtWidgets.QVBoxLayout())
         self.group_metaTile_attrConvey.layout().addWidget(self.radio_metaTile_attrNone)
@@ -1475,7 +1494,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.group_metaTile_attrConvey.layout().addWidget(self.radio_metaTile_attrConveyL)
         self.group_metaTile_attrConvey.layout().addWidget(self.radio_metaTile_attrIce)
         self.group_metaTile_attrConvey.setDisabled(True)
-        self.checkbox_metaTile_attrPlat = QtWidgets.QCheckBox(self.page_leveleditor)
+        self.checkbox_metaTile_attrPlat = QtWidgets.QCheckBox(self.page_level_tileset)
         self.checkbox_metaTile_attrPlat.setText("Platform (top collision only)")
         self.checkbox_metaTile_attrPlat.checkStateChanged.connect(lambda: self.changeTileAttr(0b01111111, self.checkbox_metaTile_attrPlat.isChecked()))
         self.checkbox_metaTile_attrPlat.setDisabled(True)
@@ -1496,6 +1515,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrPlat, 5, 0)
 
         self.layout_level_area = QtWidgets.QHBoxLayout()
+        self.layout_level_area.addWidget(self.button_level_save)
+        self.layout_level_area.addWidget(self.button_level_load)
+        self.layout_level_area.addWidget(self.checkbox_level_fitInView)
         self.layout_level_area.addWidget(self.dropdown_level_area)
         self.layout_level_area.addWidget(self.dropdown_level_type)
         self.layout_level_area.addWidget(self.group_radar_tilesetType)
@@ -1503,17 +1525,23 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_metaTile_properties = QtWidgets.QHBoxLayout()
         self.layout_metaTile_properties.addItem(self.layout_metaTile_shape)
         self.layout_metaTile_properties.addItem(self.layout_metaTile_attr)
-
-        self.gfx_scene_level = lib.widget.LevelView(self.page_leveleditor)
-        self.gfx_scene_tileset = lib.widget.TilesetView(self.page_leveleditor)
+        self.gfx_scene_tileset = lib.widget.TilesetView(self.page_level_tileset)
         self.gfx_scene_tileset.scene().selectionChanged.connect(self.loadTileProperties)
 
-        self.page_leveleditor.layout().addItem(self.layout_level_editpannel)
-        self.layout_level_editpannel.addWidget(self.button_level_save)
-        self.layout_level_editpannel.addItem(self.layout_level_area)
-        self.layout_level_editpannel.addItem(self.layout_metaTile_properties)
-        self.layout_level_editpannel.addWidget(self.gfx_scene_tileset)
 
+        self.field_screen_tilesetOffset = lib.widget.BetterSpinBox(self.page_level_screens)
+        self.field_screen_tilesetOffset.setToolTip("Set tileset offset")
+        self.field_screen_tilesetOffset.setStatusTip("Set how many graphic entries from the graphic table to skip for the tileset")
+
+
+        self.gfx_scene_level = lib.widget.LevelView(self.page_leveleditor)
+
+        self.page_leveleditor.layout().addItem(self.layout_level_editpannel)
+        self.layout_level_editpannel.addItem(self.layout_level_area)
+        self.layout_level_editpannel.addWidget(self.tabs_level)
+        self.page_level_tileset.layout().addItem(self.layout_metaTile_properties)
+        self.page_level_tileset.layout().addWidget(self.gfx_scene_tileset)
+        self.page_level_screens.layout().addWidget(self.field_screen_tilesetOffset)
         self.page_leveleditor.layout().addWidget(self.gfx_scene_level)
 
         # Tweaks(Coming Soon™)
@@ -1862,6 +1890,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.layout_level_area.itemAt(i).widget().setEnabled(True)
         for w in self.findChildren(QtWidgets.QWidget):
             w.blockSignals(False)
+        self.updateLevelareaUI()
 
     def disable_editing_ui(self):
         #self.button_codeedit.setDisabled(False)
@@ -2763,13 +2792,20 @@ class MainWindow(QtWidgets.QMainWindow):
                                     print("failed to load graphic entry table!")
                                     self.fileEdited_object = None
                         if self.fileEdited_object != None:
+                            self.file_content_gfx.resetScene()
+                            self.dropdown_gfx_depth.setDisabled(True)
+                            self.field_address.setDisabled(True)
+                            self.dropdown_gfx_palette.setDisabled(True)
+                            self.field_tile_height.setDisabled(True)
+                            self.field_tile_width.setDisabled(True)
+                            self.field_tiles_per_row.setDisabled(True)
+                            self.field_tiles_per_column.setDisabled(True)
                             if isinstance(self.fileEdited_object, lib.graphic.File):
                                 try:
                                     gfxsec = lib.graphic.GraphicSection.fromParent(self.fileEdited_object, self.dropdown_gfx_index.currentIndex())
                                 except AssertionError:
                                     print(f"failed to load graphic section at index {self.dropdown_gfx_index.currentIndex()}!")
                                     self.dropdown_gfx_subindex.clear()
-                                    self.file_content_gfx.resetScene()
                                     return
                             elif isinstance(self.fileEdited_object, lib.graphic.GraphicSection):
                                 gfxsec = self.fileEdited_object
@@ -2791,7 +2827,14 @@ class MainWindow(QtWidgets.QMainWindow):
                                             self.dropdown_gfx_depth.setCurrentIndex(1)
                                     gfxOffset = gfxsec.graphics[header_index].offset_start + gfxsec.graphics[header_index].gfx_offset
                                     gfxSize = gfxsec.graphics[header_index].gfx_size
+                                    self.relative_address = gfxOffset
+                                    self.field_address.setRange(self.base_address+gfxOffset, self.base_address + gfxOffset+gfxSize)
+                                    self.field_address.setValue(self.base_address+self.relative_address)
+                                    if gfxSize <= 0:
+                                        print("There is no image to load.")
+                                        return
                                     print(f"{gfxsec.entryCount} sub-entrie(s)")
+                                    print(f"size: {gfxSize:02X}")
                                     if hasattr(gfxsec.graphics[header_index], "oam_tile_indexing"):
                                         print(f"oam_tile_indexing: {gfxsec.graphics[header_index].oam_tile_indexing:02X}")
                                     if hasattr(gfxsec.graphics[header_index], "oam_tile_offset"):
@@ -2808,9 +2851,6 @@ class MainWindow(QtWidgets.QMainWindow):
                                     else:
                                         pal = [] # empty palette because idk where it is
                                     self.setPalette(pal)
-                                    self.relative_address = gfxOffset
-                                    self.field_address.setRange(self.base_address+gfxOffset, self.base_address + gfxOffset+gfxSize)
-                                    self.field_address.setValue(self.base_address+self.relative_address)
                             else:
                                 print(f"{gfxsec.entryCount} graphic sub-entries!")
                                 #print(f"data: {gfxsec.data.hex()}")
@@ -2819,7 +2859,6 @@ class MainWindow(QtWidgets.QMainWindow):
                         # since the pen is in grayscale, we can use r, g or b as color index
                         if self.file_content_gfx.pen.color().blue() >= 2**list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()].depth: # if color out of range
                             self.file_content_gfx.pen.setColor(0x00010101) # set to first color
-                        self.file_content_gfx.resetScene()
                         try:
                             decoded = ndspy.lz10.decompress(self.rom.files[current_id][self.relative_address:])
                             print("this image is compressed")
@@ -2829,6 +2868,13 @@ class MainWindow(QtWidgets.QMainWindow):
                                                    decoded,
                                                    algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
                                                    grid=True)
+                        self.dropdown_gfx_depth.setDisabled(False)
+                        self.field_address.setDisabled(False)
+                        self.dropdown_gfx_palette.setDisabled(False)
+                        self.field_tile_height.setDisabled(False)
+                        self.field_tile_width.setDisabled(False)
+                        self.field_tiles_per_row.setDisabled(False)
+                        self.field_tiles_per_column.setDisabled(False)
                     elif self.fileDisplayState == "OAM":
                         self.widget_set = "OAM"
                         if sender in self.FILEOPEN_WIDGETS:
@@ -3263,9 +3309,43 @@ class MainWindow(QtWidgets.QMainWindow):
             level.metaTiles[metaTile_index][index] = \
                 (level.metaTiles[metaTile_index][index] & bitmask) | (val << shiftL)
 
-    def loadTileset(self, gfx_table: lib.graphic.GraphicsTable, pal_sec: lib.level.PaletteSection, gfx_ptrs: list[int]|None=None):
+    def updateLevelareaUI(self):
+        fileID = self.rom.filenames.idOf(self.dropdown_level_area.currentText()+".bin")
+        try :
+            self.levelEdited_object = lib.level.File(self.rom.files[fileID])
+        except TypeError:
+            self.gfx_scene_level.scene().clear()
+            self.gfx_scene_tileset.scene().clear()
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Level Corrupted",
+                "This file or its pointers may be corrupted"
+            )
+            return
+        file = self.levelEdited_object
+        self.buttonGroup_radar_tilesetType.blockSignals(True)
+        self.radio_radar_PX.setChecked(True)
+        self.buttonGroup_radar_tilesetType.blockSignals(False)
+        self.dropdown_level_type.clear()
+        self.dropdown_level_type.addItem("Normal Level")
+        if len(file.levels) > 1:
+            self.dropdown_level_type.addItem("Radar Level")
+        self.dropdown_level_type.setCurrentIndex(0)
+
+    def loadTileset(self, gfx_table: lib.graphic.GraphicsTable, pal_sec: lib.level.PaletteSection):
+        gfx_index = int(self.field_screen_tilesetOffset.value()) # tilesetOffset
+        if gfx_index > gfx_table.offsetCount-1:
+            print("tileset offset index out of range")
+            return
+        if len(gfx_table.getData(gfx_index)) == 0:
+            print("cannot load tileset without gfx")
+            return
         self.gfx_scene_tileset.scene().clear()
-        gfx = lib.graphic.GraphicHeader(gfx_table.joinData()[0])
+        #gfx = lib.graphic.GraphicHeader(gfx_table.joinData()[0])
+        try:
+            gfx = lib.graphic.GraphicHeader(ndspy.lz10.decompress(gfx_table.joinData(gfx_index, gfx_index+2)[0]))
+        except TypeError:
+            gfx = lib.graphic.GraphicHeader(gfx_table.joinData(gfx_index, gfx_index+2)[0])
         self.gfx_scene_tileset.metaTiles = []
         pixmap = QtGui.QPixmap(16, 16)
         painter = QtGui.QPainter()
@@ -3283,26 +3363,26 @@ class MainWindow(QtWidgets.QMainWindow):
                         pal_sec.data[pal_sec.paletteOffsets[i]+pal_sec.paletteHeaders[i].palettes[j][1]:
                                     pal_sec.paletteOffsets[i]+pal_sec.paletteHeaders[i].palettes[j][1]+0x200]))
             pal_list.append(pl.copy())
-        ptr_index = 0
         for metaTile_index, metaTile in enumerate(self.levelEdited_object.levels[self.dropdown_level_type.currentIndex()].metaTiles):
             for tile_index, tile in enumerate(metaTile):
                 flipH = (tile & 0x0400) >> (8+2)
                 flipV = (tile & 0x0800) >> (8+3)
                 tileId = (tile & 0x03FF)
                 tile_pal = (tile & 0xF000) >> (8+4)
-                # idk how to organize palettes and gfx chunks here
-                if gfx_ptrs != None:
-                    ptr_index = metaTile_index//(225)
-                    pal_index = max(0, bisect.bisect_left(gfx_ptrs, (64*tileId)+1)-1)
-                else:
-                    ptr_index = 0
-                    pal_index = 0
                 #print(pal_index, tile_pal)
                 try:
-                    pal = pal_list[pal_index][tile_pal]
+                    pal = pal_list[gfx_index][tile_pal]
                 except:
-                    #print("palette error at", pal_index, tile_pal)
-                    pal = list(pal_list[pal_index].values())[0]
+                    try:
+                        pal = pal_list[gfx_index+1][tile_pal]
+                    except:
+                        try:
+                            #print("palette error at", pal_index, tile_pal)
+                            pal = list(pal_list[gfx_index].values())[0]
+                        except:
+                            #print("palette error at", pal_index, tile_pal)
+                            pal = list(pal_list[gfx_index+1].values())[0]
+                #gfx_bin = gfx.data[gfx.gfx_offset:][64*tileId:]
                 gfx_bin = gfx.data[gfx.gfx_offset:][64*tileId:]
                 #gfx_bin = gfx.data[gfx.gfx_offset:][gfx_ptrs[ptr_index]+64*(tileId&0x3FF):]
                 painter.drawImage(QtCore.QRectF(8*(tile_index%2), 8*(tile_index//2), 8, 8), lib.datconv.binToQt(gfx_bin, pal, lib.datconv.CompressionAlgorithmEnum.EIGHTBPP, 1, 1).mirrored(flipH, flipV))
@@ -3336,32 +3416,21 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def loadLevel(self):
         self.button_level_save.setDisabled(True)
-        fileID = self.rom.filenames.idOf(self.dropdown_level_area.currentText()+".bin")
         print("Load level")
-        try :
-            self.levelEdited_object = lib.level.File(self.rom.files[fileID])
-        except TypeError:
-            self.gfx_scene_level.scene().clear()
-            self.gfx_scene_tileset.scene().clear()
-            QtWidgets.QMessageBox.critical(
-                self,
-                "Load Failed",
-                "This file or its pointers may be corrupted"
-            )
-            return
+        if self.levelEdited_object == None:
+            fileID = self.rom.filenames.idOf(self.dropdown_level_area.currentText()+".bin")
+            try :
+                self.levelEdited_object = lib.level.File(self.rom.files[fileID])
+            except TypeError:
+                self.gfx_scene_level.scene().clear()
+                self.gfx_scene_tileset.scene().clear()
+                QtWidgets.QMessageBox.critical(
+                    self,
+                    "Load Failed",
+                    "This file or its pointers may be corrupted"
+                )
+                return
         file = self.levelEdited_object
-        if self.sender() == self.dropdown_level_area:
-            self.buttonGroup_radar_tilesetType.blockSignals(True)
-            self.radio_radar_PX.setChecked(True)
-            self.buttonGroup_radar_tilesetType.blockSignals(False)
-            self.dropdown_level_type.blockSignals(True)
-            self.dropdown_level_type.clear()
-            self.dropdown_level_type.addItem("Normal Level")
-            if len(file.levels) > 1:
-                self.dropdown_level_type.addItem("Radar Level")
-            self.dropdown_level_type.setCurrentIndex(0)
-            self.dropdown_level_type.blockSignals(False)
-        self.group_radar_tilesetType.setEnabled(self.dropdown_level_type.currentIndex() == 1)
         level = file.levels[self.dropdown_level_type.currentIndex()]
         print(f"level offset: {file.level_offset_rom:02X}")
         print(f"gfx offset: {file.gfx_offset_rom:02X}")
@@ -3407,12 +3476,13 @@ class MainWindow(QtWidgets.QMainWindow):
         #print(gfx.gfx_offset)
         #self.loadTileset(gfx_sec.data[gfx.offset_start+gfx.gfx_offset:], pal)
         #self.loadTileset(gfx.data[gfx.gfx_offset:], pal_sec, gfx_ptrs)
-        self.loadTileset(gfx_table, pal_sec, gfx_ptrs)
+        self.loadTileset(gfx_table, pal_sec)
         self.gfx_scene_level.scene().clear()
         self.initScreens()
+        # todo: load ARM9 overlay for this level to get necessary info to load screens correctly
         for i in range(len(level.screens)):
             self.loadScreen(i, i*16*16.25)
-        if self.sender() != self.buttonGroup_radar_tilesetType:
+        if self.checkbox_level_fitInView.isChecked():
             self.gfx_scene_level.fitInView()
 
     def treeBaseUpdate(self, tree: lib.widget.EditorTree):
