@@ -60,3 +60,4 @@ Currently, there are no releases, so:
 Some parts of code I copied (and modified) from answers to other people who asked for help (for example, on stack overflow) on topics I myself needed help on.
 ### Special Thanks
 - My brother, who assisted me in the development of most editor features
+- [KnackiKitsune](https://github.com/KnackiKitsune), who helped me with ARM9 overlays containing level data

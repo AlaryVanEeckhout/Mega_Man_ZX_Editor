@@ -69,6 +69,8 @@ SPCHARS_E[0xfd] = [0, "├NEWPAGE┤"]
 SPCHARS_E[0xfe] = [0, "├END┤"]
 SPCHARS_E[0xff] = [0, "├ENDOFFILE┤"] #end of used file (duplicate text is used to fill the rest of the file)
 
+
+# todo: create another J table for ZXA
 CHARSF_J: list = ([0])*256
 CHARSF_J[0x00] = [0, "、"]
 CHARSF_J[0x01] = [0, "‐"]
@@ -186,7 +188,7 @@ CHARSF_J[0x70] = [0, "天"]
 CHARSF_J[0x71] = [0, "井"]
 CHARSF_J[0x72] = [0, "火"]
 CHARSF_J[0x73] = [0, "玉"]
-CHARSF_J[0x74] = [0, "一"] # maybe?
+CHARSF_J[0x74] = [0, "一"]
 CHARSF_J[0x75] = [0, "定"]
 CHARSF_J[0x76] = [0, "方"]
 CHARSF_J[0x77] = [0, "向"]
@@ -199,8 +201,8 @@ CHARSF_J[0x7D] = [0, "電"]
 CHARSF_J[0x7E] = [0, "固"]
 CHARSF_J[0x7F] = [0, "止"]
 CHARSF_J[0x80] = [0, "在"]
-CHARSF_J[0x81] = [0, "ー"] # maybe?
-CHARSF_J[0x82] = [0, "―"] # maybe?
+CHARSF_J[0x81] = [0, "—"] # maybe?
+CHARSF_J[0x82] = [0, "–"] # maybe?
 CHARSF_J[0x83] = [0, "仲"]
 CHARSF_J[0x84] = [0, "強"]
 CHARSF_J[0x85] = [0, "力"]

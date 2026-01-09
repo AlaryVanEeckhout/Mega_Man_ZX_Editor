@@ -9,20 +9,24 @@ I_FONT = ("font",)
 I_DIALOGUE = ("talk", "m_")
 I_PANM = ("panm",)
 I_MUGSHOT = ("face",)
+# level layout arm9 overlay struct RAM pointers
+LEVEL_ZX = 0x020CB9D4
+LEVEL_ZXA = 0x020FECD4
 
 class GameEnum(enum.Enum):
 
-  def __init__(self, id: enum.auto, fileIndicators: dict, patches: list[list]):
+  def __init__(self, id: enum.auto, ovlStructtableAddr: int, fileIndicators: dict, patches: list[list]):
       self.id = id
+      self.ovlStructtableAddr = ovlStructtableAddr
       self.fileIndicators = fileIndicators
       self.patches = patches
 
-  ROCKMANZX = enum.auto(), {"Graphics" : I_GFX_ZX,
+  ROCKMANZX = enum.auto(), LEVEL_ZX, {"Graphics" : I_GFX_ZX,
                             "Font" : I_FONT,
                             "Dialogue" : I_DIALOGUE,
                             "Palette Animation" : I_PANM,
                             "Mugshot" : I_MUGSHOT}, []
-  MEGAMANZX = enum.auto(), {"Graphics" : I_GFX_ZX,
+  MEGAMANZX = enum.auto(), LEVEL_ZX, {"Graphics" : I_GFX_ZX,
                             "Font" : I_FONT,
                             "Dialogue" : I_DIALOGUE,
                             "Palette Animation" : I_PANM,
@@ -33,18 +37,18 @@ class GameEnum(enum.Enum):
     [0x021AE600, "overwiting patch test", "text", 'f1', '20']
   ]
 
-  ROCKMANZXA = enum.auto(), {"Graphics" : I_GFX_ZXA,
+  ROCKMANZXA = enum.auto(), LEVEL_ZXA, {"Graphics" : I_GFX_ZXA,
                              "Font" : I_FONT,
                              "Dialogue" : I_DIALOGUE,
                              "Palette Animation" : I_PANM,
                              "Mugshot" : I_MUGSHOT}, []
-  MEGAMANZXA = enum.auto(), {"Graphics" : I_GFX_ZXA,
+  MEGAMANZXA = enum.auto(), LEVEL_ZXA, {"Graphics" : I_GFX_ZXA,
                              "Font" : I_FONT,
                              "Dialogue" : I_DIALOGUE,
                              "Palette Animation" : I_PANM,
                              "Mugshot" : I_MUGSHOT}, []
   # wildcard so that the keys in the fileIndicators dict can still be accessed for unsupported games
-  UNSUPPORTED = enum.auto(), {"Graphics" : I_GFX,
+  UNSUPPORTED = enum.auto(), 0, {"Graphics" : I_GFX,
                              "Font" : I_FONT,
                              "Dialogue" : I_DIALOGUE,
                              "Palette Animation" : I_PANM,

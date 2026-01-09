@@ -77,14 +77,14 @@ class GraphicsTable(DataStructure): # possibly the same data structure as what I
         for i in range(index_start, index_end):
             #if len(newData) > 0: result_indexes.append(len(result))
             result_indexes.append(len(result))
-            print(f"{self.getSize(i):04X}")
-            print(f"{self.getRAM(i):04X}")
+            #print(f"{self.getSize(i):04X}")
+            #print(f"{self.getRAM(i):04X}")
             try:
                 newData = ndspy.lz10.decompress(self.getData(i))
-                print("cmp")
+                #print("cmp")
             except:
                 newData = self.getData(i)
-                print("d")
+                #print("d")
             result += newData
             # 0x3800|0x7800 padding aligns gfx correctly to be read
             result += bytearray((-len(result)) & 0x37FF)

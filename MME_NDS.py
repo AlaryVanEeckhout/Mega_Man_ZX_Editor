@@ -82,6 +82,8 @@ class MainWindow(QtWidgets.QMainWindow):
         ]
         self.gfx_palette = self.GFX_PALETTES[0]
         self.fileEdited_object = None
+        self.levelEdited_ovlTable = []
+        self.levelEdited_ovl_object = None
         self.levelEdited_object = None
         self.resize(self.window_width, self.window_height)
         # Default Preferences
@@ -369,7 +371,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.page_arm9.layout().addWidget(self.tree_arm9)
         self.tree_arm9.ContextNameType = "code-section at "
         self.tree_arm9.setColumnCount(3)
-        self.tree_arm9.setHeaderLabels(["RAM Address", "Name", "Implicit"])
+        self.tree_arm9.setHeaderLabels(["RAM Address", "Name", "Implicit", "BSS Size"])
         self.tree_arm9.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
 
         self.tree_arm9Ovltable = lib.widget.EditorTree(self.page_arm9Ovltable)
@@ -503,7 +505,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_tile_width.numbase = self.displayBase
         self.field_tile_width.isInt = True
         self.field_tile_width.valueChanged.connect(lambda: self.value_update_Call("tile_width", int(self.field_tile_width.value()), True))
-        self.field_tile_width.valueChanged.connect(self.file_content_gfx.fitInView)
+        self.field_tile_width.valueChanged.connect(self.file_content_gfx.fitInView2)
 
         self.label_tile_width = QtWidgets.QLabel(self.page_explorer)
         self.label_tile_width.setText(" width")
@@ -521,7 +523,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_tile_height.numbase = self.displayBase
         self.field_tile_height.isInt = True
         self.field_tile_height.valueChanged.connect(lambda: self.value_update_Call("tile_height", int(self.field_tile_height.value()), True)) 
-        self.field_tile_height.valueChanged.connect(self.file_content_gfx.fitInView)
+        self.field_tile_height.valueChanged.connect(self.file_content_gfx.fitInView2)
 
         self.label_tile_height = QtWidgets.QLabel(self.page_explorer)
         self.label_tile_height.setText(" height")
@@ -540,7 +542,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_tiles_per_row.isInt = True
         self.field_tiles_per_row.numbase = self.displayBase
         self.field_tiles_per_row.valueChanged.connect(lambda: self.value_update_Call("tiles_per_row", int(self.field_tiles_per_row.value()), True))
-        self.field_tiles_per_row.valueChanged.connect(self.file_content_gfx.fitInView)
+        self.field_tiles_per_row.valueChanged.connect(self.file_content_gfx.fitInView2)
 
         self.label_tiles_per_row = QtWidgets.QLabel(self.page_explorer)
         self.label_tiles_per_row.setText(" columns")
@@ -559,7 +561,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_tiles_per_column.isInt = True
         self.field_tiles_per_column.numbase = self.displayBase
         self.field_tiles_per_column.valueChanged.connect(lambda: self.value_update_Call("tiles_per_column", int(self.field_tiles_per_column.value()), True))
-        self.field_tiles_per_column.valueChanged.connect(self.file_content_gfx.fitInView)
+        self.field_tiles_per_column.valueChanged.connect(self.file_content_gfx.fitInView2)
 
         self.label_tiles_per_column = QtWidgets.QLabel(self.page_explorer)
         self.label_tiles_per_column.setText(" rows")
@@ -916,7 +918,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_font_width.setStatusTip("Make sure that this is an even number to prevent the game from crashing")
         self.field_font_width.valueChanged.connect(lambda: self.treeCall())
         self.field_font_width.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
-        self.field_font_width.valueChanged.connect(self.file_content_gfx.fitInView)
+        self.field_font_width.valueChanged.connect(self.file_content_gfx.fitInView2)
         self.label_font_width = QtWidgets.QLabel(self.page_explorer)
         self.label_font_width.setText("char width")
         self.layout_font_width = QtWidgets.QVBoxLayout()
@@ -931,7 +933,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_font_height.numbase = self.displayBase
         self.field_font_height.valueChanged.connect(lambda: self.treeCall())
         self.field_font_height.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
-        self.field_font_height.valueChanged.connect(self.file_content_gfx.fitInView)
+        self.field_font_height.valueChanged.connect(self.file_content_gfx.fitInView2)
         self.label_font_height = QtWidgets.QLabel(self.page_explorer)
         self.label_font_height.setText("char height")
         self.layout_font_height = QtWidgets.QVBoxLayout()
@@ -1272,8 +1274,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.checkbox_level_fitInView = QtWidgets.QCheckBox("Reset view", self.page_leveleditor)
         self.checkbox_level_fitInView.setChecked(True)
 
+        self.label_level_tilesetName = QtWidgets.QLabel("N/A", self.page_leveleditor)
+
         self.dropdown_level_area = QtWidgets.QComboBox(self.page_leveleditor)
-        self.dropdown_level_area.setToolTip("Choose an area to modify")
+        self.dropdown_level_area.setPlaceholderText("select...")
+        self.dropdown_level_area.setToolTip("Choose an overlay to load")
         self.dropdown_level_area.currentIndexChanged.connect(self.updateLevelareaUI)
         self.dropdown_level_area.setDisabled(True)
 
@@ -1514,11 +1519,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_metaTile_attr.addWidget(self.group_metaTile_attrConvey, 0, 1, 6, 1)
         self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrPlat, 5, 0)
 
+        self.layout_level_areaName = QtWidgets.QVBoxLayout()
+        self.layout_level_areaName.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+        self.layout_level_areaName.setContentsMargins(0,15,0,0)
+        self.layout_level_areaName.addWidget(self.label_level_tilesetName)
+        self.layout_level_areaName.addWidget(self.dropdown_level_area)
+
         self.layout_level_area = QtWidgets.QHBoxLayout()
         self.layout_level_area.addWidget(self.button_level_save)
         self.layout_level_area.addWidget(self.button_level_load)
         self.layout_level_area.addWidget(self.checkbox_level_fitInView)
-        self.layout_level_area.addWidget(self.dropdown_level_area)
+        self.layout_level_area.addItem(self.layout_level_areaName)
         self.layout_level_area.addWidget(self.dropdown_level_type)
         self.layout_level_area.addWidget(self.group_radar_tilesetType)
 
@@ -1602,9 +1613,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_progress.setText("")
         self.window_progress.show()
 
-    def progressUpdate(self, percent: int, status: str="", title: str=None, pixmap: QtGui.QPixmap=None):
+    def progressUpdate(self, percent: int, status: str="", isgame: bool=None, title: str=None, pixmap: QtGui.QPixmap=None):
         self.progress.setValue(percent)
         self.label_progress.setText(status)
+        if isgame == True:
+            self.label_progress_title.show()
+            self.label_progress_icon.show()
+        elif isgame == False:
+            self.label_progress_title.hide()
+            self.label_progress_icon.hide()
         if title:
             self.label_progress_title.setText(title)
         if pixmap:
@@ -1792,7 +1809,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if fname == "" or not os.path.exists(fname): return
 
         self.progressShow() # progress bar
-        self.progressUpdate(0, "Loading ROM")
+        self.progressUpdate(0, "Loading ROM", False) # icon and title won't show until loaded
         #self.runTasks([[RunnableDisplayProgress, [], "valueChanged", self.progress.setValue]])
         pathSep = "/"
         if not "/" in fname:
@@ -1843,7 +1860,7 @@ class MainWindow(QtWidgets.QMainWindow):
             dialog.setText("Sound data archive was not found. \n This means that sound data may not be there or may not be in a recognizable format.")
             dialog.exec()
             self.progressShow()
-        self.progressUpdate(10, "Loading ARM9", icon_title, icon_pixmap)
+        self.progressUpdate(10, "Loading ARM9", True, icon_title, icon_pixmap)
         self.treeArm9Update()
         self.progressUpdate(20, "Loading ARM7")
         self.treeArm7Update()
@@ -1885,12 +1902,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_file_size.show()
         self.dropdown_level_area.blockSignals(True)
         # only levels are named like this except r01 is actually the minimap?
-        self.dropdown_level_area.addItems([item.text(1) for item in self.tree.findItems("^[a-z][0-9][0-9]", QtCore.Qt.MatchFlag.MatchRegularExpression, 1)])
+        self.dropdown_level_area.addItems([item.text(0) for item in self.tree_arm9Ovltable.findItems(self.tree_arm9Ovltable.topLevelItem(self.tree_arm9Ovltable.topLevelItemCount()-1).text(1), QtCore.Qt.MatchFlag.MatchExactly, 1)])
+        self.loadOvelrayStructAddressTable()
+        self.dropdown_level_area.setCurrentIndex(-1)
+        self.dropdown_level_area.setEnabled(True)
         for i in range(self.layout_level_area.count()):
-            self.layout_level_area.itemAt(i).widget().setEnabled(True)
-        for w in self.findChildren(QtWidgets.QWidget):
-            w.blockSignals(False)
-        self.updateLevelareaUI()
+            widget = self.layout_level_area.itemAt(i).widget()
+            if widget != None and widget != self.button_level_save:
+                widget.setEnabled(True)
+        for widget in self.findChildren(QtWidgets.QWidget):
+            widget.blockSignals(False)
 
     def disable_editing_ui(self):
         #self.button_codeedit.setDisabled(False)
@@ -1903,10 +1924,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_tweak_target.hide()
         self.field_address.hide()
         self.label_file_size.hide()
+        self.dropdown_level_area.setEnabled(False)
         for i in range(self.layout_level_area.count()):
-            self.layout_level_area.itemAt(i).widget().setEnabled(False)
-        for w in self.findChildren(QtWidgets.QWidget):
-            w.blockSignals(True)
+            widget = self.layout_level_area.itemAt(i).widget()
+            if widget != None:
+                widget.setEnabled(False)
+        for widget in self.findChildren(QtWidgets.QWidget):
+            widget.blockSignals(True)
         self.gfx_scene_level.scene().clear()
         self.gfx_scene_tileset.scene().clear()
         self.dropdown_level_area.clear()
@@ -2066,7 +2090,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     for file in selectedFiles:
                         try:
                             fileName = str(file).split("/")[-1].split(".")[0]
-                            fileExt = str(file).split("/")[-1].split(".")[1]
+                            fileExt = str(file).split("/")[-1].split(".")[-1]
                         except IndexError:
                             fileName = ""
                             fileExt = ""
@@ -2078,8 +2102,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                 #self.rom.files[self.rom.files.index(self.file_fromItem(item)[0])]
                                 supported_list = ["txt",
                                                   "swar", "sbnk", "ssar", "sseq",
-                                                  "cmp", "lz", "lz10", "lz77", 
-                                                  "dec", "decblz",
+                                                  "cmp", "blz", "lz", "lz10", "lz77", 
+                                                  "dec", "declz", "declz10", "declz77", "decblz",
                                                   "bin", ""]
                                 #print(selectedFiles)
                                 print(f.name)
@@ -2098,7 +2122,19 @@ class MainWindow(QtWidgets.QMainWindow):
                                                 data = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8")))
                                         else:
                                             data = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8")))
-                                    elif fileExt in ["cmp", "lz", "lz10", "lz77"]:
+                                    elif fileExt == "blz":
+                                        try:
+                                            data = bytearray(ndspy.codeCompression.decompress(fileEdited))
+                                        except TypeError as e:
+                                            print(e)
+                                            QtWidgets.QMessageBox.critical(
+                                            self,
+                                            "Compression Failed",
+                                            str(e + "\nMake sure the file has the correct extension.")
+                                            )
+                                            print("Aborted file replacement.")
+                                            return
+                                    elif fileExt == "cmp" or ("lz" in fileExt and not "dec" in fileExt):
                                         try:
                                             data = bytearray(ndspy.lz10.decompress(fileEdited))
                                         except TypeError as e:
@@ -2111,19 +2147,11 @@ class MainWindow(QtWidgets.QMainWindow):
                                             print("Aborted file replacement.")
                                             return
                                     elif fileExt == "decblz":
-                                        try:
-                                            data = bytearray(ndspy.codeCompression.compress(fileEdited))
-                                        except TypeError as e:
-                                            print(e)
-                                            QtWidgets.QMessageBox.critical(
-                                            self,
-                                            "Compression Failed",
-                                            str(e + "\nMake sure the file has the correct extension.")
-                                            )
-                                            print("Aborted file replacement.")
-                                            return
-                                    elif fileExt == "dec":
+                                        data = bytearray(ndspy.codeCompression.compress(fileEdited))
+                                        data += bytearray((-len(data)) & 0xF) # 16-byte padding
+                                    elif "dec" in fileExt:
                                         data = bytearray(ndspy.lz10.compress(fileEdited))
+                                        data += bytearray((-len(data)) & 3) # 4-byte padding
                                     else: # raw data
                                         data = bytearray(fileEdited)
                                 else:
@@ -2134,7 +2162,7 @@ class MainWindow(QtWidgets.QMainWindow):
                             if fileExt == "vx":
                                 print("is vx")
                                 self.progressShow()
-                                self.progressUpdate(0, "Loading folder")
+                                self.progressUpdate(0, "Loading folder", False)
                                 act = lib.act.ActImagine()
                                 try:
                                     import_vxfolder_iter = act.import_vxfolder(file)
@@ -2148,7 +2176,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                 vframe_strategy = lib.actEncStrats.KeyframeOnlySimple()
                                 for i, avframe in enumerate(act.avframes):
                                     avframe.encode(avframe.vframe.plane_buffers, vframe_strategy)
-                                    self.progressUpdate(int(((i+1)/act.frames_qty)*100), "Encoding VX folder")
+                                    self.progressUpdate(int(((i+1)/act.frames_qty)*100), f"Encoding VX folder (frame {i+1}/{act.frames_qty})")
                                 data = act.save_vx()
                                 self.progressHide()
                             else:
@@ -2523,7 +2551,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def treeUpdate(self): # files from filename table (fnt.bin)
         tree_files: list[QtWidgets.QTreeWidgetItem] = []
         try: # convert NDS Py filenames to QTreeWidgetItems
-            if self.rom.files != []:
+            if self.rom != None and self.rom.files != []:
                 tree_folder_ovlt = QtWidgets.QTreeWidgetItem([f"{0:04}", "ovltable", "Folder"])
                 for i in range(0, self.tree_arm9Ovltable.topLevelItemCount()):
                     tree_folder_ovlt.addChild(QtWidgets.QTreeWidgetItem([f"{i:04}", f"overlay9_{i:04}", "bin"]))
@@ -2544,23 +2572,30 @@ class MainWindow(QtWidgets.QMainWindow):
                             tree_files.append(tree_folder[f.count("    ")])
                         else:
                             tree_folder[f.count("    ") - 1].addChild(tree_folder[f.count("    ")])
-        except Exception: # if failed, do nothing
+        except Exception as e: # if failed, do nothing
             print("Failed to load filesystem")
-            pass
         self.tree.clear()
         self.tree.addTopLevelItems(tree_files)
 
     def treeArm9Update(self):
         self.tree_arm9.clear()
+        arm9 = self.rom.loadArm9()
         #print(self.rom.loadArm9Overlays())
         #item_mainCode = QtWidgets.QTreeWidgetItem([library.dataconverter.StrFromNumber(self.arm9.ramAddress, self.displayBase, self.displayAlphanumeric).zfill(8), "Main Code", "N/A"])
 
-        for e in self.rom.loadArm9().sections:
+        for e in arm9.sections:
             self.tree_arm9.addTopLevelItem(QtWidgets.QTreeWidgetItem([
-                lib.datconv.strSetAlnum(str(e).split()[2].removeprefix("0x").removesuffix(":"), self.displayBase, self.displayAlphanumeric).zfill(8), 
+                lib.datconv.numToStr(e.ramAddress, self.displayBase, self.displayAlphanumeric).zfill(8), 
                 str(e).split()[0].removeprefix("<"), 
-                str(e.implicit)
+                str(e.implicit),
+                lib.datconv.numToStr(e.bssSize, self.displayBase, self.displayAlphanumeric)
             ]))
+        
+        #print(arm9.save().hex().find("44431902".lower())) 
+        #.find("44431902".lower())
+        #.find("50D31B02".lower())
+        #021973A8 -> bin A8731902
+        #021FDFA8 -> bin A8DF1F02
         
         self.tree_arm9Ovltable.clear()
         arm9OvlDict = self.rom.loadArm9Overlays()
@@ -3017,7 +3052,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                     self.file_content_oam.scene().addItem(obj_item)
 
                                 if sender == self.dropdown_oam_entry:
-                                    self.file_content_oam.fitInView()
+                                    self.file_content_oam.fitInView2()
                                 self.dropdown_oam_obj.previousIndex = 0
                                 self.dropdown_oam_obj.setCurrentIndex(0)
 
@@ -3325,30 +3360,72 @@ class MainWindow(QtWidgets.QMainWindow):
             level.metaTiles[metaTile_index][index] = \
                 (level.metaTiles[metaTile_index][index] & bitmask) | (val << shiftL)
 
-    def updateLevelareaUI(self):
-        fileID = self.rom.filenames.idOf(self.dropdown_level_area.currentText()+".bin")
+    def loadOvelrayStructAddressTable(self):
+        arm9 = self.rom.loadArm9()
+        addr_table = lib.gamedat.GameEnum[self.rom.name.decode()].ovlStructtableAddr - arm9.ramAddress
+        self.levelEdited_ovlTable.clear()
+        arm9_bin = arm9.save()
+        skip = 0
+        for i in range(self.dropdown_level_area.count()):
+            addr = int.from_bytes(arm9_bin[addr_table+(i-skip)*0x04:addr_table+0x04+(i-skip)*0x04], byteorder='little')
+            if lib.datconv.strToNum(self.tree_arm9Ovltable.topLevelItem(int(self.dropdown_level_area.itemText(i))).text(4), self.displayBase) <= 0x60 and addr != 0x00000000:
+                print("re-ordering overlays struct table to fix alignment issue")
+                skip += 1
+                self.levelEdited_ovlTable.append(0)
+            else:
+                self.levelEdited_ovlTable.append(addr)
+
+    def openLevel(self):
+        self.button_level_save.setDisabled(True)
+        if self.dropdown_level_area.currentText() == "":
+            return
+        self.gfx_scene_level.scene().clear()
+        self.gfx_scene_tileset.scene().clear()
+        ovlID = int(self.dropdown_level_area.currentText())
+        self.levelEdited_ovl_object = lib.level.Overlay(self.rom.loadArm9Overlays([ovlID])[ovlID].save(),
+                                                        lib.datconv.strToNum(self.tree_arm9Ovltable.topLevelItem(ovlID).text(1), self.displayBase),
+                                                        self.levelEdited_ovlTable[self.dropdown_level_area.currentIndex()])
+        print(self.levelEdited_ovl_object.tileset_name)
+        try:
+            fileID = self.rom.filenames.idOf(self.levelEdited_ovl_object.tileset_name)
+        except IndexError:
+            print("This overlay has no proper tileset to load")
+            return
         try :
             self.levelEdited_object = lib.level.File(self.rom.files[fileID])
         except TypeError:
-            self.gfx_scene_level.scene().clear()
-            self.gfx_scene_tileset.scene().clear()
             QtWidgets.QMessageBox.critical(
                 self,
-                "Level Corrupted",
-                "This file or its pointers may be corrupted"
+                "Load Failed",
+                "The tileset or its pointers may be corrupted"
             )
             return
-        file = self.levelEdited_object
+
+    def updateLevelareaUI(self):
+        if self.button_level_save.isEnabled() and QtWidgets.QMessageBox.warning(
+                self,
+                "Unsaved changes",
+                "You are attempting to change levels with unsaved changes!\nDiscard changes and load new level?",
+                QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No
+            ) == QtWidgets.QMessageBox.StandardButton.No:
+            self.dropdown_level_area.blockSignals(True)
+            self.dropdown_level_area.setCurrentIndex(self.levelEdited_ovlTable.index(self.levelEdited_ovl_object.struct_RAMAddress)) # go back to level index
+            self.dropdown_level_area.blockSignals(False)
+            return
+        self.openLevel()
+        self.label_level_tilesetName.setText(self.levelEdited_ovl_object.tileset_name)
         self.buttonGroup_radar_tilesetType.blockSignals(True)
         self.radio_radar_PX.setChecked(True)
         self.buttonGroup_radar_tilesetType.blockSignals(False)
         self.dropdown_level_type.clear()
         self.dropdown_level_type.addItem("Normal Level")
-        if len(file.levels) > 1:
+        if self.levelEdited_object != None and len(self.levelEdited_object.levels) > 1:
             self.dropdown_level_type.addItem("Radar Level")
         self.dropdown_level_type.setCurrentIndex(0)
 
     def loadTileset(self, gfx_table: lib.graphic.GraphicsTable, pal_sec: lib.level.PaletteSection):
+        print("load tileset")
+        self.gfx_scene_tileset.metaTiles = []
         gfx_index = int(self.field_screen_tilesetOffset.value()) # tilesetOffset
         if gfx_index > gfx_table.offsetCount-1:
             print("tileset offset index out of range")
@@ -3359,10 +3436,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.gfx_scene_tileset.scene().clear()
         #gfx = lib.graphic.GraphicHeader(gfx_table.joinData()[0])
         try:
-            gfx = lib.graphic.GraphicHeader(ndspy.lz10.decompress(gfx_table.joinData(gfx_index, gfx_index+2)[0]))
+            gfx = lib.graphic.GraphicHeader(ndspy.lz10.decompress(gfx_table.joinData(gfx_index)[0]))
         except TypeError:
-            gfx = lib.graphic.GraphicHeader(gfx_table.joinData(gfx_index, gfx_index+2)[0])
-        self.gfx_scene_tileset.metaTiles = []
+            gfx = lib.graphic.GraphicHeader(gfx_table.joinData(gfx_index)[0])
         pixmap = QtGui.QPixmap(16, 16)
         painter = QtGui.QPainter()
         painter.begin(pixmap)
@@ -3371,6 +3447,7 @@ class MainWindow(QtWidgets.QMainWindow):
         ref = QtWidgets.QGraphicsPixmapItem(QtGui.QPixmap.fromImage(lib.datconv.binToQt(gfx.data, self.GFX_PALETTES[3], lib.datconv.CompressionAlgorithmEnum.EIGHTBPP, 32, len(gfx.data)//64//32)))
         ref.setPos(-32*8-self.gfx_scene_tileset.item_spacing*2, 0)
         self.gfx_scene_tileset.scene().addItem(ref) # to see the gfx used to construct tileset
+        print("loop start")
         for i in range(pal_sec.palHeaderCount):
             pl.clear()
             for j in range(pal_sec.paletteHeaders[i].palCount):
@@ -3379,6 +3456,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         pal_sec.data[pal_sec.paletteOffsets[i]+pal_sec.paletteHeaders[i].palettes[j][1]:
                                     pal_sec.paletteOffsets[i]+pal_sec.paletteHeaders[i].palettes[j][1]+0x200]))
             pal_list.append(pl.copy())
+        print("loop2 start")
         for metaTile_index, metaTile in enumerate(self.levelEdited_object.levels[self.dropdown_level_type.currentIndex()].metaTiles):
             for tile_index, tile in enumerate(metaTile):
                 flipH = (tile & 0x0400) >> (8+2)
@@ -3393,11 +3471,15 @@ class MainWindow(QtWidgets.QMainWindow):
                         pal = pal_list[gfx_index+1][tile_pal]
                     except:
                         try:
-                            #print("palette error at", pal_index, tile_pal)
+                            #print("palette error lv0 at", gfx_index, tile_pal)
                             pal = list(pal_list[gfx_index].values())[0]
                         except:
-                            #print("palette error at", pal_index, tile_pal)
-                            pal = list(pal_list[gfx_index+1].values())[0]
+                            try:
+                                #print("palette error lv1 at", gfx_index, tile_pal)
+                                pal = list(pal_list[gfx_index+1].values())[0]
+                            except:
+                                #print("palette error lvmax at", gfx_index, tile_pal)
+                                pal = list(pal_list[0].values())[0]
                 #gfx_bin = gfx.data[gfx.gfx_offset:][64*tileId:]
                 gfx_bin = gfx.data[gfx.gfx_offset:][64*tileId:]
                 #gfx_bin = gfx.data[gfx.gfx_offset:][gfx_ptrs[ptr_index]+64*(tileId&0x3FF):]
@@ -3408,7 +3490,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.gfx_scene_tileset.scene().addItem(metaTileItem)
             self.gfx_scene_tileset.metaTiles.append(metaTileItem)
         painter.end()
-        self.gfx_scene_tileset.fitInView()
+        self.gfx_scene_tileset.fitInView2()
+        print("load tileset end")
 
     def initScreens(self):
         self.gfx_scene_level.tileGroups = []
@@ -3431,21 +3514,17 @@ class MainWindow(QtWidgets.QMainWindow):
             #print(item.pos())
 
     def loadLevel(self):
+        if self.dropdown_level_area.currentIndex() == -1:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Load Failed",
+                "A level must be selected before loading it."
+            )
+            return
         self.button_level_save.setDisabled(True)
         print("Load level")
         if self.levelEdited_object == None:
-            fileID = self.rom.filenames.idOf(self.dropdown_level_area.currentText()+".bin")
-            try :
-                self.levelEdited_object = lib.level.File(self.rom.files[fileID])
-            except TypeError:
-                self.gfx_scene_level.scene().clear()
-                self.gfx_scene_tileset.scene().clear()
-                QtWidgets.QMessageBox.critical(
-                    self,
-                    "Load Failed",
-                    "This file or its pointers may be corrupted"
-                )
-                return
+            self.openLevel()
         file = self.levelEdited_object
         level = file.levels[self.dropdown_level_type.currentIndex()]
         print(f"level offset: {file.level_offset_rom:02X}")
@@ -3494,12 +3573,20 @@ class MainWindow(QtWidgets.QMainWindow):
         #self.loadTileset(gfx.data[gfx.gfx_offset:], pal_sec, gfx_ptrs)
         self.loadTileset(gfx_table, pal_sec)
         self.gfx_scene_level.scene().clear()
+        if self.gfx_scene_tileset.metaTiles == []:
+            return
         self.initScreens()
-        # todo: load ARM9 overlay for this level to get necessary info to load screens correctly
-        for i in range(len(level.screens)):
-            self.loadScreen(i, i*16*16.25)
+        screenSpacing = 4
+        if level == file.level:
+            for i in range(self.levelEdited_ovl_object.screenLayout0.height):
+                for j in range(self.levelEdited_ovl_object.screenLayout0.realWidth):
+                    self.loadScreen(self.levelEdited_ovl_object.screenLayout0.layout[i][j], j*(16*(8*2)+screenSpacing), i*(12*(8*2)+screenSpacing))
+        elif level == file.level_radar:
+            for i in range(self.levelEdited_ovl_object.screenLayout_radar.height):
+                for j in range(self.levelEdited_ovl_object.screenLayout_radar.realWidth):
+                    self.loadScreen(self.levelEdited_ovl_object.screenLayout_radar.layout[i][j], j*(16*(8*2)+screenSpacing), i*(12*(8*2)+screenSpacing))
         if self.checkbox_level_fitInView.isChecked():
-            self.gfx_scene_level.fitInView()
+            self.gfx_scene_level.fitInView2()
 
     def treeBaseUpdate(self, tree: lib.widget.EditorTree):
         for e in tree.findItems("", QtCore.Qt.MatchFlag.MatchContains | QtCore.Qt.MatchFlag.MatchRecursive):
@@ -3564,7 +3651,7 @@ class MainWindow(QtWidgets.QMainWindow):
             # Reset Values
             #self.field_address.setValue(self.base_address)
             if self.file_content_gfx.sceneRect().width() != 0: # disallow zero div
-                self.file_content_gfx.fitInView()
+                self.file_content_gfx.fitInView2()
             #print(f"{len(self.rom.save()):08X}")
         elif mode == "Font":
             pass
@@ -3890,10 +3977,10 @@ def extract(data: bytes, name="", path="", format="", compress=0):
             load_vx_iter = act.load_vx(data)
             w.progressShow()
             for i, _ in enumerate(load_vx_iter):
-                w.progressUpdate(int(((i+1)/act.frames_qty)*100), "Loading VX file")
+                w.progressUpdate(int(((i+1)/act.frames_qty)*100), f"Loading VX file (frame {i+1}/{act.frames_qty})", False)
             export_vx_iter = act.export_vxfolder(os.path.join(path + "/" + name + ext))
             for i, _ in enumerate(export_vx_iter):
-                w.progressUpdate(int(((i+1)/act.frames_qty)*100), "Exporting VX folder")
+                w.progressUpdate(int(((i+1)/act.frames_qty)*100), f"Exporting VX folder (frame {i+1}/{act.frames_qty})")
             w.progressHide()
             return
         else:

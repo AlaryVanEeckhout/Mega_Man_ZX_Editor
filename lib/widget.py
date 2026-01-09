@@ -4,42 +4,21 @@ import lib
 class View(QtWidgets.QGraphicsView):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._zoom = 0
-        self._zoom_limit = 70
+        self.SCALE_MIN = 0.075
+        self.SCALE_MAX = 50
+        self.SCALE_FACTOR = 1.25
         self.setOptimizationFlags(QtWidgets.QGraphicsView.OptimizationFlag.DontAdjustForAntialiasing |
                                   QtWidgets.QGraphicsView.OptimizationFlag.DontSavePainterState)
-        scene = QtWidgets.QGraphicsScene()
-        self.setScene(scene)
+        self.setTransformationAnchor(QtWidgets.QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.setScene(QtWidgets.QGraphicsScene())
         self.setMouseTracking(True)
         self.mousePressed = False
         self.mouseLeftPressed = False
         self.mouseRightPressed = False
 
-    def fitInView(self, scale=True):
-        if self.sceneRect().isEmpty(): return
-        rect = QtCore.QRectF(0, 0, 0, 0)
-        for item in self.items():
-            if isinstance(item, QtWidgets.QGraphicsLineItem): continue
-            item_rect =  item.boundingRect()
-            if item.pos().x() < rect.left():
-                rect.setLeft(item.pos().x())
-            if item.pos().y() < rect.top():
-                rect.setTop(item.pos().y())
-            if item.pos().x() + item_rect.width() > rect.right():
-                rect.setRight(item.pos().x() + item_rect.width())
-            if item.pos().y() + item_rect.height() > rect.bottom():
-                rect.setBottom(item.pos().y() + item_rect.height())
-        self.setSceneRect(rect)
-        if self.scene().isActive() and scale:
-            #print("fit")
-            unity = self.transform().mapRect(QtCore.QRectF(0, 0, 1, 1))
-            self.scale(1 / unity.width(), 1 / unity.height())
-            viewrect = self.viewport().rect()
-            scenerect = self.sceneRect()
-            factor = min(viewrect.width() / scenerect.width(),
-                            viewrect.height() / scenerect.height())
-            self.scale(factor, factor)
-        self._zoom = 0
+    def fitInView2(self, scale=True):
+        self.setSceneRect(self.scene().itemsBoundingRect())
+        self.fitInView(self.sceneRect(), QtCore.Qt.AspectRatioMode.KeepAspectRatio if scale else QtCore.Qt.AspectRatioMode.KeepAspectRatioByExpanding)
     
     def mousePressEvent(self, event):
         #print("QGraphicsView mousePress")
@@ -59,28 +38,41 @@ class View(QtWidgets.QGraphicsView):
     def wheelEvent(self, event):
         if event.modifiers() == QtCore.Qt.KeyboardModifier.ControlModifier:
             if event.angleDelta().y() > 0:
-                factor = 1.25
-                self._zoom += 1
+                factor = self.SCALE_FACTOR
+                if self.transform().m11() >= self.SCALE_MAX:
+                    factor = 1
             else:
-                factor = 0.80
-                self._zoom -= 1
-            if self._zoom >= self._zoom_limit:
-                factor = 1
-                self._zoom = self._zoom_limit
-            if self._zoom > 0:
-                view_pos = QtCore.QRect(event.position().toPoint(), QtCore.QSize(1, 1))
-                scene_pos = self.mapToScene(view_pos)
-                self.centerOn(scene_pos.boundingRect().center())
-                self.scale(factor, factor)
-                delta = self.mapToScene(view_pos.center()) - self.mapToScene(self.viewport().rect().center())
-                self.centerOn(scene_pos.boundingRect().center() - delta)
-            #print(self._zoom)
+                factor = 1/self.SCALE_FACTOR
+                if self.transform().m11() <= self.SCALE_MIN:
+                    factor = 1
+            """mouse_pos_in_view = event.position().toPoint()
+            viewport_center_in_view = self.viewport().rect().center()
+            delta_in_view = (viewport_center_in_view - mouse_pos_in_view).toPointF()
+            mouse_pos_in_scene = self.mapToScene(mouse_pos_in_view)
+            self.centerOn(mouse_pos_in_scene)
+            self.scale(factor, factor)
+            delta_in_scene = delta_in_view / self.transform().m11()
+            self.centerOn(mouse_pos_in_scene + delta_in_scene)"""
+            trans = QtGui.QTransform(self.transform().m11()*factor,0,0,0,self.transform().m22()*factor,0, 0, 0, 1)
+            self.setTransform(trans)
+            #print(self.viewportTransform().m11(), self.viewportTransform().m22())
+            #viewport_center_in_view = self.viewport().rect().center()
+            #self.centerOn(self.mapToScene(viewport_center_in_view))
+
         elif event.modifiers() == QtCore.Qt.KeyboardModifier.ShiftModifier:
             self.horizontalScrollBar().setSliderPosition(self.horizontalScrollBar().sliderPosition()-event.angleDelta().y())
         else:
             self.verticalScrollBar().setSliderPosition(self.verticalScrollBar().sliderPosition()-event.angleDelta().y())
-        if self._zoom <= 0:
-            self.fitInView()
+            
+    
+    def setScale(self, scale, mouse_pos_in_scene):
+        """scale = min(max(scale, self.SCALE_MIN), self.SCALE_MAX)
+        factor = scale/self.transform().m11()
+        self.centerOn(mouse_pos_in_scene)
+        self.scale(factor, factor)
+        delta = self.mapToScene(mouse_pos_in_view.center()) - self.mapToScene(self.viewport().rect().center())
+        self.centerOn(mouse_pos_in_scene - delta)"""
+
 
 class GFXView(View):
     def __init__(self, *args, **kwargs):
@@ -88,10 +80,6 @@ class GFXView(View):
         self.setInteractive(False)
         self.horizontalScrollBar().setCursor(QtCore.Qt.CursorShape.ArrowCursor)
         self.verticalScrollBar().setCursor(QtCore.Qt.CursorShape.ArrowCursor)
-        self._zoom = 0
-        self._zoom_limit = 70
-        scene = QtWidgets.QGraphicsScene()
-        self.setScene(scene)
         self._graphic = QtWidgets.QGraphicsPixmapItem()
         self.scene().addItem(self._graphic)
         self.pen = QtGui.QPen()
@@ -99,7 +87,6 @@ class GFXView(View):
         self.start = QtCore.QPoint()
         self.end = QtCore.QPoint()
         self.end_previous = QtCore.QPoint()
-        self.setMouseTracking(True)
         self.mousePressed = False
         self.draw_mode = "pixel"
         self.rectangle = None # used for drawing rectangles
@@ -111,7 +98,6 @@ class GFXView(View):
         self.scene().addItem(self._graphic)
 
     #def setGraphic(self, pixmap: QtGui.QPixmap=None):
-    #    self._zoom = 0
     #    if pixmap and not pixmap.isNull():
     #        self._empty = False
     #        self._graphic.setPixmap(pixmap)
@@ -204,18 +190,6 @@ class OAMView(View):
         self.scene().setParent(self) # allow to find MainWindow from scene
         self.item_current: OAMObjectItem | None = None
 
-    def fitInView(self, scale=True):
-        if self.scene().isActive() and scale:
-            #print("fit")
-            unity = self.transform().mapRect(QtCore.QRectF(0, 0, 1, 1))
-            self.scale(1 / unity.width(), 1 / unity.height())
-            viewrect = self.viewport().rect()
-            scenerect = self.sceneRect()
-            factor = min(viewrect.width() / scenerect.width(),
-                            viewrect.height() / scenerect.height())
-            self.scale(factor, factor)
-        self._zoom = 0
-
 class TilesetView(View):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -285,7 +259,7 @@ class LevelView(View):
                 # bring up contextual menu to modify screen in room layout
                 item_target = self.itemAt(event.pos())
                 if isinstance(item_target, LevelTileItem):
-                    print(f"screen id: {item_target.screen}")
+                    print(f"screen ID: 0x{item_target.screen:02X}")
 
     def tileDraw(self, pos: QtCore.QPoint):
         sItem_event = self.window().gfx_scene_tileset.item_first
@@ -311,6 +285,7 @@ class TilesetItem(QtWidgets.QGraphicsPixmapItem):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setFlags(QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIsSelectable)
+        self.pixmaps = [] # depending on tileset offset
 
 class LevelTileItem(QtWidgets.QGraphicsPixmapItem):
     def __init__(self, *args, index=0, id=0, screen=0, **kwargs):
