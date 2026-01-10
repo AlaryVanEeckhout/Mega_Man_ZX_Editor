@@ -7,6 +7,10 @@ class View(QtWidgets.QGraphicsView):
         self.SCALE_MIN = 0.075
         self.SCALE_MAX = 50
         self.SCALE_FACTOR = 1.25
+        #Antialiasing:
+        # OAMView = prevent weird scaling artifacts on overlapping items
+        # LevelView = Fix details disappearing at certain zoom levels
+        self.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing, True)
         self.setOptimizationFlags(QtWidgets.QGraphicsView.OptimizationFlag.DontAdjustForAntialiasing |
                                   QtWidgets.QGraphicsView.OptimizationFlag.DontSavePainterState)
         self.setTransformationAnchor(QtWidgets.QGraphicsView.ViewportAnchor.AnchorUnderMouse)
@@ -46,39 +50,18 @@ class View(QtWidgets.QGraphicsView):
                 factor = 1/self.SCALE_FACTOR
                 if self.transform().m11() <= self.SCALE_MIN:
                     factor = 1
-            """mouse_pos_in_view = event.position().toPoint()
-            viewport_center_in_view = self.viewport().rect().center()
-            delta_in_view = (viewport_center_in_view - mouse_pos_in_view).toPointF()
-            mouse_pos_in_scene = self.mapToScene(mouse_pos_in_view)
-            self.centerOn(mouse_pos_in_scene)
-            self.scale(factor, factor)
-            delta_in_scene = delta_in_view / self.transform().m11()
-            self.centerOn(mouse_pos_in_scene + delta_in_scene)"""
             trans = QtGui.QTransform(self.transform().m11()*factor,0,0,0,self.transform().m22()*factor,0, 0, 0, 1)
             self.setTransform(trans)
-            #print(self.viewportTransform().m11(), self.viewportTransform().m22())
-            #viewport_center_in_view = self.viewport().rect().center()
-            #self.centerOn(self.mapToScene(viewport_center_in_view))
 
         elif event.modifiers() == QtCore.Qt.KeyboardModifier.ShiftModifier:
             self.horizontalScrollBar().setSliderPosition(self.horizontalScrollBar().sliderPosition()-event.angleDelta().y())
         else:
             self.verticalScrollBar().setSliderPosition(self.verticalScrollBar().sliderPosition()-event.angleDelta().y())
-            
-    
-    def setScale(self, scale, mouse_pos_in_scene):
-        """scale = min(max(scale, self.SCALE_MIN), self.SCALE_MAX)
-        factor = scale/self.transform().m11()
-        self.centerOn(mouse_pos_in_scene)
-        self.scale(factor, factor)
-        delta = self.mapToScene(mouse_pos_in_view.center()) - self.mapToScene(self.viewport().rect().center())
-        self.centerOn(mouse_pos_in_scene - delta)"""
 
 
 class GFXView(View):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setInteractive(False)
         self.horizontalScrollBar().setCursor(QtCore.Qt.CursorShape.ArrowCursor)
         self.verticalScrollBar().setCursor(QtCore.Qt.CursorShape.ArrowCursor)
         self._graphic = QtWidgets.QGraphicsPixmapItem()
@@ -167,6 +150,7 @@ class GFXView(View):
         self.drawShape()
 
     def mouseMoveEvent(self, event):
+        super().mouseMoveEvent(event) # allow Anchor under mouse
         #print("QGraphicsView mouseMove")
         self.end = self.mapToScene(event.pos())
         if self._graphic.isUnderMouse():
@@ -185,8 +169,6 @@ class GFXView(View):
 class OAMView(View):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing, True) # prevent weird scaling artifacts on overlapping items
-        # find a way to eliminate spacing between adjacent items
         self.setSceneRect(QtCore.QRectF(-128, -128, 256, 256)) # dimensions correspond to max positions of object
         self.item_current: OAMObjectItem | None = None
 
@@ -231,8 +213,6 @@ class TilesetView(View):
 class LevelView(View):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.scene().setParent(self) # allow to find MainWindow from scene
-        self.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing, True)
         self.tileGroups: list[list[list[LevelTileItem]]] = []
 
     def mousePressEvent(self, event):
@@ -284,6 +264,7 @@ class LevelView(View):
 class PixmapItem(QtWidgets.QGraphicsPixmapItem):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.setCacheMode(QtWidgets.QGraphicsPixmapItem.CacheMode.ItemCoordinateCache) # fix unwanted gaps between items when scaling
 
     def getWindow(self):
         if self.scene():
