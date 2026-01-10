@@ -11,7 +11,7 @@ I_PANM = ("panm",)
 I_MUGSHOT = ("face",)
 # level layout arm9 overlay struct RAM pointers
 LEVEL_ZX = 0x020CB9D4
-LEVEL_ZXA = 0x020FECD4
+LEVEL_ZXA = 0x020FEFD4
 
 class GameEnum(enum.Enum):
 

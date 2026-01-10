@@ -1901,7 +1901,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_address.show()
         self.label_file_size.show()
         self.dropdown_level_area.blockSignals(True)
-        # only levels are named like this except r01 is actually the minimap?
         self.dropdown_level_area.addItems([item.text(0) for item in self.tree_arm9Ovltable.findItems(self.tree_arm9Ovltable.topLevelItem(self.tree_arm9Ovltable.topLevelItemCount()-1).text(1), QtCore.Qt.MatchFlag.MatchExactly, 1)])
         self.loadOvelrayStructAddressTable()
         self.dropdown_level_area.setCurrentIndex(-1)
@@ -1924,6 +1923,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_tweak_target.hide()
         self.field_address.hide()
         self.label_file_size.hide()
+        self.label_level_tilesetName.setText("N/A")
         self.dropdown_level_area.setEnabled(False)
         for i in range(self.layout_level_area.count()):
             widget = self.layout_level_area.itemAt(i).widget()
@@ -2591,11 +2591,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 lib.datconv.numToStr(e.bssSize, self.displayBase, self.displayAlphanumeric)
             ]))
         
-        #print(arm9.save().hex().find("44431902".lower())) 
+        #print(arm9.save().hex().find("50D31B02".lower())) 
         #.find("44431902".lower())
         #.find("50D31B02".lower())
-        #021973A8 -> bin A8731902
-        #021FDFA8 -> bin A8DF1F02
         
         self.tree_arm9Ovltable.clear()
         arm9OvlDict = self.rom.loadArm9Overlays()
@@ -3385,7 +3383,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.levelEdited_ovl_object = lib.level.Overlay(self.rom.loadArm9Overlays([ovlID])[ovlID].save(),
                                                         lib.datconv.strToNum(self.tree_arm9Ovltable.topLevelItem(ovlID).text(1), self.displayBase),
                                                         self.levelEdited_ovlTable[self.dropdown_level_area.currentIndex()])
-        print(self.levelEdited_ovl_object.tileset_name)
         try:
             fileID = self.rom.filenames.idOf(self.levelEdited_ovl_object.tileset_name)
         except IndexError:
@@ -3444,7 +3441,9 @@ class MainWindow(QtWidgets.QMainWindow):
         painter.begin(pixmap)
         pal_list: list[dict] = []
         pl: dict = {}
-        ref = QtWidgets.QGraphicsPixmapItem(QtGui.QPixmap.fromImage(lib.datconv.binToQt(gfx.data, self.GFX_PALETTES[3], lib.datconv.CompressionAlgorithmEnum.EIGHTBPP, 32, len(gfx.data)//64//32)))
+        depth_obj = lib.datconv.CompressionAlgorithmEnum.EIGHTBPP
+        print(f"depth: {gfx.depth}")
+        ref = QtWidgets.QGraphicsPixmapItem(QtGui.QPixmap.fromImage(lib.datconv.binToQt(gfx.data, self.GFX_PALETTES[3], depth_obj, 32, len(gfx.data)//64//32)))
         ref.setPos(-32*8-self.gfx_scene_tileset.item_spacing*2, 0)
         self.gfx_scene_tileset.scene().addItem(ref) # to see the gfx used to construct tileset
         print("loop start")
@@ -3483,7 +3482,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 #gfx_bin = gfx.data[gfx.gfx_offset:][64*tileId:]
                 gfx_bin = gfx.data[gfx.gfx_offset:][64*tileId:]
                 #gfx_bin = gfx.data[gfx.gfx_offset:][gfx_ptrs[ptr_index]+64*(tileId&0x3FF):]
-                painter.drawImage(QtCore.QRectF(8*(tile_index%2), 8*(tile_index//2), 8, 8), lib.datconv.binToQt(gfx_bin, pal, lib.datconv.CompressionAlgorithmEnum.EIGHTBPP, 1, 1).mirrored(flipH, flipV))
+                painter.drawImage(QtCore.QRectF(8*(tile_index%2), 8*(tile_index//2), 8, 8), lib.datconv.binToQt(gfx_bin, pal, depth_obj, 1, 1).mirrored(flipH, flipV))
             
             metaTileItem = lib.widget.TilesetItem(pixmap)
             metaTileItem.setPos((16+self.gfx_scene_tileset.item_spacing)*(metaTile_index%self.gfx_scene_tileset.item_columns), (16+self.gfx_scene_tileset.item_spacing)*(metaTile_index//self.gfx_scene_tileset.item_columns))

@@ -11,6 +11,7 @@ class View(QtWidgets.QGraphicsView):
                                   QtWidgets.QGraphicsView.OptimizationFlag.DontSavePainterState)
         self.setTransformationAnchor(QtWidgets.QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.setScene(QtWidgets.QGraphicsScene())
+        self.scene().setParent(self) # allow to find MainWindow from scene
         self.setMouseTracking(True)
         self.mousePressed = False
         self.mouseLeftPressed = False
@@ -187,7 +188,6 @@ class OAMView(View):
         self.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing, True) # prevent weird scaling artifacts on overlapping items
         # find a way to eliminate spacing between adjacent items
         self.setSceneRect(QtCore.QRectF(-128, -128, 256, 256)) # dimensions correspond to max positions of object
-        self.scene().setParent(self) # allow to find MainWindow from scene
         self.item_current: OAMObjectItem | None = None
 
 class TilesetView(View):
@@ -281,23 +281,27 @@ class LevelView(View):
         if isinstance(item_target, LevelTileItem):
             self.window().gfx_scene_tileset.metaTiles[item_target.id].setSelected(True)
 
-class TilesetItem(QtWidgets.QGraphicsPixmapItem):
+class PixmapItem(QtWidgets.QGraphicsPixmapItem):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def getWindow(self):
+        if self.scene():
+            return self.scene().parent().window()
+
+class TilesetItem(PixmapItem):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setFlags(QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIsSelectable)
         self.pixmaps = [] # depending on tileset offset
 
-class LevelTileItem(QtWidgets.QGraphicsPixmapItem):
+class LevelTileItem(PixmapItem):
     def __init__(self, *args, index=0, id=0, screen=0, **kwargs):
         super().__init__(*args, **kwargs)
         self.index = index
         self.id = id
         self.screen = screen
         self.tileGroup: list[LevelTileItem] = None
-
-    def getWindow(self):
-        if self.scene():
-            return self.scene().parent().window()
 
     def tileReplace(self, item: QtWidgets.QGraphicsPixmapItem):
         if item == None: return
@@ -306,7 +310,7 @@ class LevelTileItem(QtWidgets.QGraphicsPixmapItem):
         self.id = self.getWindow().gfx_scene_tileset.metaTiles.index(item)
         self.getWindow().button_level_save.setEnabled(True)
 
-class OAMObjectItem(QtWidgets.QGraphicsPixmapItem):
+class OAMObjectItem(PixmapItem):
     def __init__(self, *args, id=0, editable=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.obj_id = id
@@ -315,10 +319,6 @@ class OAMObjectItem(QtWidgets.QGraphicsPixmapItem):
             self.setFlags(QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIsSelectable |
                         QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIsMovable |
                         QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemSendsGeometryChanges)
-            
-    def getWindow(self):
-        if self.scene():
-            return self.scene().parent().window()
 
     def itemChange(self, change: QtWidgets.QGraphicsPixmapItem.GraphicsItemChange, value: QtCore.QVariant):
         if change == QtWidgets.QGraphicsPixmapItem.GraphicsItemChange.ItemPositionChange and self.scene():

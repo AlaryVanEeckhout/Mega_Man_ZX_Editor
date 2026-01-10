@@ -50,10 +50,10 @@ class GraphicsTable(DataStructure): # possibly the same data structure as what I
     def getSize(self, index: int) -> int:
         return self.offset_list[index][1] & 0x0000FFFF
     
-    def getOAMIndexing(self, index: int) -> int: # maybe?
+    def getVRAMIndexing(self, index: int) -> int: # maybe?
         return (self.offset_list[index][1] & 0x00FF0000) >> 0x10
     
-    def getOAMOffset(self, index: int) -> int: # maybe?
+    def getVRAMOffset(self, index: int) -> int: # maybe?
         return (self.offset_list[index][1] & 0xFF000000) >> 0x18
     
     def getRAM(self, index: int) -> int:
@@ -78,7 +78,7 @@ class GraphicsTable(DataStructure): # possibly the same data structure as what I
             #if len(newData) > 0: result_indexes.append(len(result))
             result_indexes.append(len(result))
             #print(f"{self.getSize(i):04X}")
-            #print(f"{self.getRAM(i):04X}")
+            #print(f"{self.getVRAMOffset(i):04X}")
             try:
                 newData = ndspy.lz10.decompress(self.getData(i))
                 #print("cmp")

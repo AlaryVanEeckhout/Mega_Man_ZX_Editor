@@ -24,8 +24,8 @@ The editor can edit, export and import english dialogue files and save them to t
 - OAM Editor (WIP)
 - Level Editor (WIP)
 - VX Export/Import to/from video format (Using the actimagine submodule)
-### To do
 - Loading room layout in Level Editor
+### To do
 - Graphics Editor additional features (exporting and importing)
 - Find actual patches for the game to add to the editor's "patches" tab*
 - Find patches and tweaks that are helpful for playtesting purposes*

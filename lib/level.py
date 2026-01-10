@@ -54,6 +54,7 @@ class Overlay:
         self.RAMAddress = baseRAMAddress
         self.struct_RAMAddress = structRAMAddress
         self.struct_address = self.struct_RAMAddress - self.RAMAddress
+        print(f"0x{self.struct_RAMAddress:08X}")
 
         self.firstTable_RAMAddress = int.from_bytes(self.data[self.struct_address+0x04:self.struct_address+0x08], byteorder='little')
         self.tileset_RAMAddress = int.from_bytes(self.data[self.struct_address+0x08:self.struct_address+0x10], byteorder='little')
@@ -63,34 +64,67 @@ class Overlay:
         self.screenLayout2_RAMAddress = int.from_bytes(self.data[self.struct_address+0x18:self.struct_address+0x1C], byteorder='little')
         self.screenLayout3_RAMAddress = int.from_bytes(self.data[self.struct_address+0x1C:self.struct_address+0x20], byteorder='little')
         self.screenLayout_radar_RAMAddress = int.from_bytes(self.data[self.struct_address+0x20:self.struct_address+0x24], byteorder='little')
-        self.map_tilesetOffset_RAMAddress = int.from_bytes(self.data[self.struct_address+0xCC:self.struct_address+0xD0], byteorder='little') # maybe?
-        self.unk_RAMAddress = int.from_bytes(self.data[self.struct_address+0xF0:self.struct_address+0xF4], byteorder='little')
-        self.map_behavior_RAMAddress = int.from_bytes(self.data[self.struct_address+0xF4:self.struct_address+0xF8], byteorder='little') # maybe?
-        self.screenLayout_camera_RAMAddress = int.from_bytes(self.data[self.struct_address+0xF8:self.struct_address+0xFC], byteorder='little')
+        self.map_tilesetOffset_RAMAddress = int.from_bytes(self.data[self.struct_address+0xC8:self.struct_address+0xCC], byteorder='little') # maybe?
+        self.unk_RAMAddress = int.from_bytes(self.data[self.struct_address+0xEC:self.struct_address+0xF0], byteorder='little')
+        self.map_behavior_RAMAddress = int.from_bytes(self.data[self.struct_address+0xF0:self.struct_address+0xF4], byteorder='little') # maybe?
+        self.screenLayout_camera_RAMAddress = int.from_bytes(self.data[self.struct_address+0xF4:self.struct_address+0xF8], byteorder='little')
 
+        print(f"0x{self.screenLayout0_RAMAddress:08X}: layout0")
         self.screenLayout0 = ScreenLayout(self.data, self.getFileAddress(self.screenLayout0_RAMAddress))
+        print(f"0x{self.screenLayout1_RAMAddress:08X}: layout1")
+        self.screenLayout1 = ScreenLayout(self.data, self.getFileAddress(self.screenLayout1_RAMAddress))
+        print(f"0x{self.screenLayout2_RAMAddress:08X}: layout2")
+        self.screenLayout2 = ScreenLayout(self.data, self.getFileAddress(self.screenLayout2_RAMAddress))
+        print(f"0x{self.screenLayout3_RAMAddress:08X}: layout3")
+        self.screenLayout3 = ScreenLayout(self.data, self.getFileAddress(self.screenLayout3_RAMAddress))
+        print(f"0x{self.map_tilesetOffset_RAMAddress:08X}: layout radar")
         self.screenLayout_radar = ScreenLayout(self.data, self.getFileAddress(self.screenLayout_radar_RAMAddress))
+        print(f"0x{self.map_tilesetOffset_RAMAddress:08X}: map tilesetOffset (?)")
+        self.map_tilesetOffset = ScreenMap(self.data, self.getFileAddress(self.map_tilesetOffset_RAMAddress))
+        print(f"0x{self.map_behavior_RAMAddress:08X}: map behavior (?)")
+        self.map_behavior = ScreenMap(self.data, self.getFileAddress(self.map_behavior_RAMAddress))
+        print(f"0x{self.screenLayout_camera_RAMAddress:08X}: layout camera")
+        self.screenLayout_camera = ScreenLayout(self.data, self.getFileAddress(self.screenLayout_camera_RAMAddress), loadReal=False)
 
     def getFileAddress(self, RAMAddress: int):
         return RAMAddress - self.RAMAddress
 
 class ScreenLayout:
-    def __init__(self, data: bytes, address: int):
+    def __init__(self, data: bytes, address: int, loadReal: bool=True):
         self.data = data
         self.realWidth = int.from_bytes(data[address:address+0x01], byteorder='little') # width used to load screens with correct alignment
         self.skip = int.from_bytes(data[address+0x01:address+0x02], byteorder='little') # idk
         self.width = int.from_bytes(data[address+0x02:address+0x03], byteorder='little') # width of used portion of layout
         self.height = int.from_bytes(data[address+0x03:address+0x04], byteorder='little')
+        loadWidth = self.realWidth if loadReal else self.width
         self.layout: list[list[int]] = []
         layoutRow = []
-        print(self.width, self.realWidth)
+        print(self.width, self.height)
 
-        for i in range(address+0x04, address+0x04+self.realWidth*self.height):
+        for i in range(address+0x04, address+0x04+loadWidth*self.height):
             layoutRow.append(int.from_bytes(self.data[i:i+0x01], byteorder='little'))
-            if len(layoutRow) == self.realWidth:
+            if len(layoutRow) == loadWidth:
                 self.layout.append(layoutRow.copy())
                 layoutRow.clear()
-        print(self.layout)
+        print([[f"{screenID:02X}" for screenID in row] for row in self.layout])
+
+class ScreenMap:
+    def __init__(self, data: bytes, address: int):
+        self.data = data
+        self.realWidth = int.from_bytes(data[address:address+0x02], byteorder='little') # width used for... what exactly??
+        self.skip = int.from_bytes(data[address+0x02:address+0x04], byteorder='little') # idk
+        self.width = int.from_bytes(data[address+0x04:address+0x06], byteorder='little') # width used to load all screens
+        self.height = int.from_bytes(data[address+0x06:address+0x08], byteorder='little')
+        self.layout: list[list[int]] = []
+        layoutRow = []
+        print(self.realWidth, self.skip, self.width, self.height)
+
+        for i in range(address+0x08, address+0x08+self.width*self.height*0x02, 0x02):
+            layoutRow.append(int.from_bytes(self.data[i:i+0x02], byteorder='little'))
+            if len(layoutRow) == self.width:
+                self.layout.append(layoutRow.copy())
+                layoutRow.clear()
+        print([[f"{screenID:04X}" for screenID in row] for row in self.layout])
 
 class Level: # LZ10 compressed
     def __init__(self, data: bytes, compressed: bool=True):
