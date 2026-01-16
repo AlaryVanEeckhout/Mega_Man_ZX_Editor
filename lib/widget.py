@@ -1,5 +1,15 @@
-from PyQt6 import QtGui, QtWidgets, QtCore
+from PyQt6 import QtGui, QtWidgets, QtCore, QtQuickWidgets, QtQuick
 import lib
+
+class Toolbar(QtWidgets.QToolBar):
+    def __init__(self, *args, span: list[int]=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.SPAN = span
+        if self.SPAN != None:
+            self.setMinimumSize(self.SPAN[0], self.SPAN[0])
+            self.orientationChanged.connect(lambda: self.setMaximumSize(
+                self.SPAN[1] if self.orientation() == QtCore.Qt.Orientation.Horizontal else self.SPAN[0],
+                self.SPAN[0] if self.orientation() == QtCore.Qt.Orientation.Horizontal else self.SPAN[1]))
 
 class View(QtWidgets.QGraphicsView):
     def __init__(self, *args, **kwargs):
@@ -169,7 +179,6 @@ class GFXView(View):
 class OAMView(View):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setSceneRect(QtCore.QRectF(-128, -128, 256, 256)) # dimensions correspond to max positions of object
         self.item_current: OAMObjectItem | None = None
 
 class TilesetView(View):
@@ -181,9 +190,9 @@ class TilesetView(View):
         self.item_first = None # first selected item
         self.scene().selectionChanged.connect(self.selectionChange)
         self.shortcut_left = QtGui.QShortcut(QtGui.QKeySequence("left"), self, lambda: self.moveSelection(-1), context=QtCore.Qt.ShortcutContext.WidgetShortcut)
-        self.shortcut_left = QtGui.QShortcut(QtGui.QKeySequence("right"), self, lambda: self.moveSelection(1), context=QtCore.Qt.ShortcutContext.WidgetShortcut)
-        self.shortcut_left = QtGui.QShortcut(QtGui.QKeySequence("up"), self, lambda: self.moveSelection(-self.item_columns), context=QtCore.Qt.ShortcutContext.WidgetShortcut)
-        self.shortcut_left = QtGui.QShortcut(QtGui.QKeySequence("down"), self, lambda: self.moveSelection(self.item_columns), context=QtCore.Qt.ShortcutContext.WidgetShortcut)
+        self.shortcut_right = QtGui.QShortcut(QtGui.QKeySequence("right"), self, lambda: self.moveSelection(1), context=QtCore.Qt.ShortcutContext.WidgetShortcut)
+        self.shortcut_up = QtGui.QShortcut(QtGui.QKeySequence("up"), self, lambda: self.moveSelection(-self.item_columns), context=QtCore.Qt.ShortcutContext.WidgetShortcut)
+        self.shortcut_down = QtGui.QShortcut(QtGui.QKeySequence("down"), self, lambda: self.moveSelection(self.item_columns), context=QtCore.Qt.ShortcutContext.WidgetShortcut)
 
     def moveSelection(self, direction:int):
         if len(self.scene().selectedItems()) >= 1:
@@ -250,7 +259,9 @@ class LevelView(View):
             item_target = self.itemAt(pos+sItem_delta_transformed)
             if isinstance(item_target, LevelTileItem):
                 for item in item_target.tileGroup:
-                    item.tileReplace(sItem)
+                    if item != sItem:
+                        item.tileReplace(sItem)
+                        self.window().button_level_save.setEnabled(True)
                 self.window().levelEdited_object.levels[self.window().dropdown_level_type.currentIndex()].screens[item_target.screen][item_target.index] = item_target.id
         
     def tilePick(self, pos: QtCore.QPoint, keepSelection=False):
@@ -264,7 +275,8 @@ class LevelView(View):
 class PixmapItem(QtWidgets.QGraphicsPixmapItem):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setCacheMode(QtWidgets.QGraphicsPixmapItem.CacheMode.ItemCoordinateCache) # fix unwanted gaps between items when scaling
+        # fix unwanted gaps between items when scaling, at the cost of performance
+        self.setCacheMode(QtWidgets.QGraphicsPixmapItem.CacheMode.ItemCoordinateCache)
 
     def getWindow(self):
         if self.scene():
@@ -289,7 +301,6 @@ class LevelTileItem(PixmapItem):
         #print(f"tile {self.index} of screen {self.screen} = {self.getWindow().gfx_scene_tileset.metaTiles.index(item)}")
         self.setPixmap(item.pixmap())
         self.id = self.getWindow().gfx_scene_tileset.metaTiles.index(item)
-        self.getWindow().button_level_save.setEnabled(True)
 
 class OAMObjectItem(PixmapItem):
     def __init__(self, *args, id=0, editable=False, **kwargs):
@@ -394,6 +405,12 @@ class EditorTree(QtWidgets.QTreeWidget):
         super().__init__(*args, **kwargs)
         self.ContextNameType = "[Filenames]"
 
+    def getMainWindow(self):
+        if hasattr(self.window(), "rom"):
+            return self.window()
+        else:
+            return self.window().parent()
+
     def contextMenuOpen(self): #quick menu to export or replace selected file
         self.context_menu = QtWidgets.QMenu(self)
         self.context_menu.setGeometry(self.cursor().pos().x(), self.cursor().pos().y(), 50, 50)
@@ -407,12 +424,12 @@ class EditorTree(QtWidgets.QTreeWidget):
         action2 = self.context_menu.exec()
         if action2 is not None:
             if action2 == exportAction:
-                self.window().exportCall(self.currentItem())
+                self.getMainWindow().exportCall(self.currentItem())
             elif action2 == importAction:
-                self.window().replaceCall(self.currentItem())
+                self.getMainWindow().replaceCall(self.currentItem())
             elif action2 == sdatAction:
-                self.window().dialog_sdat.show()
-                self.window().dialog_sdat.setFocus()
+                self.getMainWindow().dialog_sdat.show()
+                self.getMainWindow().dialog_sdat.setFocus()
     
     def mousePressEvent(self, event: QtCore.QEvent): #redefine mouse press to insert custom code on right click
         if event.type() == QtCore.QEvent.Type.MouseButtonPress:

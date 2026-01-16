@@ -10,23 +10,29 @@ I_DIALOGUE = ("talk", "m_")
 I_PANM = ("panm",)
 I_MUGSHOT = ("face",)
 # level layout arm9 overlay struct RAM pointers
-LEVEL_ZX = 0x020CB9D4
-LEVEL_ZXA = 0x020FEFD4
+ARM9_ZX = {"level": 0x020CB9D4,
+           "dialogue box" : 0x020BEC8C,
+           "dialogue names": 0x020BF5EC,
+           "dialogue font": 0x020BFE0C}
+ARM9_ZXA = {"level": 0x020FEFD4,
+            "dialogue box" : 0x020DC52C,
+            "dialogue names": 0x020DBC2C,
+            "dialogue font": 0x020DCF6C}
 
 class GameEnum(enum.Enum):
 
-  def __init__(self, id: enum.auto, ovlStructtableAddr: int, fileIndicators: dict, patches: list[list]):
+  def __init__(self, id: enum.auto, arm9Addrs: int, fileIndicators: dict, patches: list[list]):
       self.id = id
-      self.ovlStructtableAddr = ovlStructtableAddr
+      self.arm9Addrs = arm9Addrs
       self.fileIndicators = fileIndicators
       self.patches = patches
 
-  ROCKMANZX = enum.auto(), LEVEL_ZX, {"Graphics" : I_GFX_ZX,
+  ROCKMANZX = enum.auto(), ARM9_ZX, {"Graphics" : I_GFX_ZX,
                             "Font" : I_FONT,
                             "Dialogue" : I_DIALOGUE,
                             "Palette Animation" : I_PANM,
                             "Mugshot" : I_MUGSHOT}, []
-  MEGAMANZX = enum.auto(), LEVEL_ZX, {"Graphics" : I_GFX_ZX,
+  MEGAMANZX = enum.auto(), ARM9_ZX, {"Graphics" : I_GFX_ZX,
                             "Font" : I_FONT,
                             "Dialogue" : I_DIALOGUE,
                             "Palette Animation" : I_PANM,
@@ -37,18 +43,22 @@ class GameEnum(enum.Enum):
     [0x021AE600, "overwiting patch test", "text", 'f1', '20']
   ]
 
-  ROCKMANZXA = enum.auto(), LEVEL_ZXA, {"Graphics" : I_GFX_ZXA,
+  ROCKMANZXA = enum.auto(), ARM9_ZXA, {"Graphics" : I_GFX_ZXA,
                              "Font" : I_FONT,
                              "Dialogue" : I_DIALOGUE,
                              "Palette Animation" : I_PANM,
                              "Mugshot" : I_MUGSHOT}, []
-  MEGAMANZXA = enum.auto(), LEVEL_ZXA, {"Graphics" : I_GFX_ZXA,
+  MEGAMANZXA = enum.auto(), ARM9_ZXA, {"Graphics" : I_GFX_ZXA,
                              "Font" : I_FONT,
                              "Dialogue" : I_DIALOGUE,
                              "Palette Animation" : I_PANM,
                              "Mugshot" : I_MUGSHOT}, []
   # wildcard so that the keys in the fileIndicators dict can still be accessed for unsupported games
-  UNSUPPORTED = enum.auto(), 0, {"Graphics" : I_GFX,
+  UNSUPPORTED = enum.auto(), {"level": 0,
+                              "dialogue box" : 0,
+                              "dialogue names": 0,
+                              "dialogue font": 0
+                         }, {"Graphics" : I_GFX,
                              "Font" : I_FONT,
                              "Dialogue" : I_DIALOGUE,
                              "Palette Animation" : I_PANM,

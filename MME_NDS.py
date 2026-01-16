@@ -56,6 +56,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setWindowTitle("Mega Man ZX Editor")
         self.temp_path = f"{os.path.curdir}\\temp\\"
         self.rom = None #ndspy.rom.NintendoDSRom # placeholder definitions
+        self.isGameSupported = False
         self.rom_fat = [] # list of file addresses (see loadFat())
         self.sdat = None #ndspy.soundArchive.SDAT
         self.base_address = 0
@@ -282,8 +283,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.displayFormatSubmenu.addActions(self.viewFormatsGroup.actions()[1:])
 
         #Toolbar
-        self.toolbar = QtWidgets.QToolBar("Main Toolbar")
-        self.toolbar.setMaximumHeight(23)
+        self.toolbar = lib.widget.Toolbar("Main Toolbar", span=[23, self.width()])
+        self.toolbar.setSizePolicy(QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Ignored)
         self.addToolBar(self.toolbar)
 
         self.action_save = QtGui.QAction(QtGui.QIcon('icons\\disk.png'), "Save ROM to Disk", self)
@@ -307,15 +308,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.button_reload.held.connect(lambda: self.reloadCall(2))
         self.action_sdat = QtGui.QAction(QtGui.QIcon('icons\\speaker-volume.png'), "Open Sound Data Archive", self)
         self.action_sdat.setStatusTip("Show the contents of this ROM's sdat file")
-        self.action_sdat.triggered.connect(self.sdatOpenCall)
+        self.action_sdat.triggered.connect(lambda: self.dialogOpenCall("dialog_sdat"))
         self.action_sdat.setDisabled(True)
         self.action_arm9 = QtGui.QAction(QtGui.QIcon('icons\\processor-num-9.png'), "Open ARM9", self)
         self.action_arm9.setStatusTip("Show the contents of this ROM's ARM9")
-        self.action_arm9.triggered.connect(self.arm9OpenCall)
+        self.action_arm9.triggered.connect(lambda: self.dialogOpenCall("dialog_arm9"))
         self.action_arm9.setDisabled(True)
         self.action_arm7 = QtGui.QAction(QtGui.QIcon('icons\\processor-num-7.png'), "Open ARM7", self)
         self.action_arm7.setStatusTip("Show the contents of this ROM's ARM7")
-        self.action_arm7.triggered.connect(self.arm7OpenCall)
+        self.action_arm7.triggered.connect(lambda: self.dialogOpenCall("dialog_arm7"))
         self.action_arm7.setDisabled(True)
         #self.button_codeedit = QtGui.QAction(QtGui.QIcon('icons\\document-text.png'), "Open code", self)
         #self.button_codeedit.setStatusTip("Edit the ROM's code")
@@ -360,27 +361,40 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dialog_arm9.setCentralWidget(self.tabs_arm9)
 
         self.page_arm9 = QtWidgets.QWidget(self.tabs_arm9)
-        self.page_arm9.setLayout(QtWidgets.QHBoxLayout())
+        self.page_arm9.setLayout(QtWidgets.QVBoxLayout())
         self.page_arm9Ovltable = QtWidgets.QWidget(self.tabs_arm9)
         self.page_arm9Ovltable.setLayout(QtWidgets.QHBoxLayout())
+
+        self.dialog_arm9_dialogueNames = QtWidgets.QMainWindow(self)
+        self.dialog_arm9_dialogueNames.setWindowTitle("ARM9 - Dialogue Names")
+        self.dialog_arm9_dialogueNames.setWindowIcon(QtGui.QIcon('icons\\document-text.png'))
+        self.dialog_arm9_dialogueNames.resize(600, 400)
 
         self.tabs_arm9.addTab(self.page_arm9, "Main Code")
         self.tabs_arm9.addTab(self.page_arm9Ovltable, "Overlays")
 
+        self.action_arm9_dialogueNames = QtGui.QAction(QtGui.QIcon('icons\\document-text.png'), "Dialogue Names", self.dialog_arm9)
+        self.action_arm9_dialogueNames.triggered.connect(lambda: self.dialogOpenCall("dialog_arm9_dialogueNames"))
+        self.toolbar_arm9 = lib.widget.Toolbar("ARM9 Toolbar")
+        self.toolbar_arm9.addActions([self.action_arm9_dialogueNames])
+
         self.tree_arm9 = lib.widget.EditorTree(self.page_arm9)
-        self.page_arm9.layout().addWidget(self.tree_arm9)
         self.tree_arm9.ContextNameType = "code-section at "
         self.tree_arm9.setColumnCount(3)
         self.tree_arm9.setHeaderLabels(["RAM Address", "Name", "Implicit", "BSS Size"])
         self.tree_arm9.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
 
+        self.page_arm9.layout().addWidget(self.toolbar_arm9)
+        self.page_arm9.layout().addWidget(self.tree_arm9)
+
+
         self.tree_arm9Ovltable = lib.widget.EditorTree(self.page_arm9Ovltable)
-        self.page_arm9Ovltable.layout().addWidget(self.tree_arm9Ovltable)
         self.tree_arm9Ovltable.ContextNameType = "overlay "
         self.tree_arm9Ovltable.setColumnCount(10)
         self.tree_arm9Ovltable.setHeaderLabels(["File ID", "RAM Address", "Compressed", "Size", "RAM Size", "BSS Size", "StaticInit Start", "StaticInit End", "Flags", "Verify Hash"])
         self.tree_arm9Ovltable.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
 
+        self.page_arm9Ovltable.layout().addWidget(self.tree_arm9Ovltable)
 
 
         self.dialog_arm7 = QtWidgets.QMainWindow(self)
@@ -403,7 +417,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.page_arm7.layout().addWidget(self.tree_arm7)
         self.tree_arm7.ContextNameType = "code-section at "
         self.tree_arm7.setColumnCount(3)
-        self.tree_arm7.setHeaderLabels(["RAM Address", "Name", "Implicit"])
+        self.tree_arm7.setHeaderLabels(["RAM Address", "Name", "Implicit", "BSS Size"])
         self.tree_arm7.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
 
         self.tree_arm7Ovltable = lib.widget.EditorTree(self.page_arm7Ovltable)
@@ -988,7 +1002,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.mediaPlayer = QtMultimedia.QMediaPlayer(self)
         self.mediaPlayer.setAudioOutput(self.audioOutput)
 
-        self.toolbar_sdat = QtWidgets.QToolBar("SDAT Toolbar")
+        self.toolbar_sdat = lib.widget.Toolbar("SDAT Toolbar")
         self.dialog_sdat.addToolBar(self.toolbar_sdat)
 
         self.action_playSdat = QtGui.QAction(QtGui.QIcon('icons\\control.png'), "Play Sound", self)
@@ -1667,16 +1681,19 @@ class MainWindow(QtWidgets.QMainWindow):
                 name = tree.ContextNameType + item.text(0)
             if tree == self.tree_arm9: # 02000000 - 00004000 = 01FFC000
                 obj = self.rom.arm9
-                if item.text(2) == "True":
-                    try: # convert dynamically according to base (also arm9 window should update on base change)
-                        item_next = tree.itemBelow(item)
-                        data = self.rom.arm9[lib.datconv.strToNum(item.text(0), self.displayBase) - 0x01FFC000 - 0x00004000:lib.datconv.strToNum(item.text(0), self.displayBase) - 0x01FFC000 - 0x00004000 + (lib.datconv.strToNum(item_next.text(0), self.displayBase) - lib.datconv.strToNum(item.text(0), self.displayBase))]
-                    except Exception:
-                        data = self.rom.arm9[lib.datconv.strToNum(item.text(0), self.displayBase) - 0x01FFC000 - 0x00004000:]
+                if item.text(1) == "main code file":
+                    data = self.rom.arm9
                 else:
-                    print("Explicit ARM9 code-sections are not (yet) supported")
-                    return [b'', "", None, None]
-                    #data = ndspy.codeCompression._compress(self.rom.loadArm9().sections[int(tree.indexFromItem(item).row())].data) #compressed
+                    if item.text(2) == "True":
+                        try: # convert dynamically according to base (also arm9 window should update on base change)
+                            item_next = tree.itemBelow(item)
+                            data = self.rom.arm9[lib.datconv.strToNum(item.text(0), self.displayBase) - 0x01FFC000 - 0x00004000:lib.datconv.strToNum(item.text(0), self.displayBase) - 0x01FFC000 - 0x00004000 + (lib.datconv.strToNum(item_next.text(0), self.displayBase) - lib.datconv.strToNum(item.text(0), self.displayBase))]
+                        except Exception:
+                            data = self.rom.arm9[lib.datconv.strToNum(item.text(0), self.displayBase) - 0x01FFC000 - 0x00004000:]
+                    else:
+                        print("Explicit ARM9 code-sections are not (yet) supported")
+                        return [b'', "", None, None]
+                        #data = ndspy.codeCompression._compress(self.rom.loadArm9().sections[int(tree.indexFromItem(item).row())].data) #compressed
                 name += ".bin"
             if tree == self.tree_arm7: # 02380000 - 0014E000 = 02232000
                 self.rom.arm7EntryAddress
@@ -1874,6 +1891,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setWindowTitle("Mega Man ZX Editor" + " <" + self.rom.name.decode() + ", Serial ID " + ''.join(char for char in self.rom.idCode.decode("utf-8") if char.isalnum())  + ", Rev." + str(self.rom.version) + ", Region " + str(self.rom.region) + ">" + " \"" + self.romToEdit_name + self.romToEdit_ext + "\"")
         if not self.rom.name.decode() in lib.gamedat.GameEnum.__members__:
             print("ROM is NOT supported! Continue at your own risk!")
+            self.isGameSupported = False
             self.window_progress.hide()
             dialog = QtWidgets.QMessageBox(self)
             dialog.setWindowTitle("Warning!")
@@ -1881,6 +1899,8 @@ class MainWindow(QtWidgets.QMainWindow):
             dialog.setText("Game \"" + self.rom.name.decode() + "\" is NOT supported! Continue at your own risk!")
             dialog.exec()
             self.window_progress.show()
+        else:
+            self.isGameSupported = True
 
         self.treeUpdate()
         self.progressUpdate(100, "Finishing load")
@@ -1957,23 +1977,28 @@ class MainWindow(QtWidgets.QMainWindow):
             path = selectedFiles[0][:selectedFiles[0].rfind("/")]
             name = selectedFiles[0].split("/")[-1]
             print(path, name)
-            dialog_formatselect = QtWidgets.QDialog(self)
-            dialog_formatselect.setWindowTitle("Choose format and compression")
-            dropdown_formatselect = QtWidgets.QComboBox(dialog_formatselect)
-            dropdown_formatselect.addItems(["Raw", "English dialogue", "VX"])
-            dropdown_compressselect = QtWidgets.QComboBox(dialog_formatselect)
-            dropdown_compressselect.addItems(["No compression change", "LZ10 compression", "LZ10 decompression"])
-            button_OK = QtWidgets.QPushButton("OK", dialog_formatselect)
-            button_OK.pressed.connect(lambda: dialog_formatselect.close())
-            button_OK.pressed.connect(lambda: dialog_formatselect.setResult(1))
-            dialog_formatselect.setLayout(QtWidgets.QGridLayout())
-            dialog_formatselect.layout().addWidget(dropdown_formatselect)
-            dialog_formatselect.layout().addWidget(dropdown_compressselect)
-            dialog_formatselect.layout().addWidget(button_OK)
-            dialog_formatselect.resize(250, 200)
-            dialog_formatselect.exec()
-            if dialog_formatselect.result():
-                print("Selected: " + dropdown_formatselect.currentText() + ", " + dropdown_compressselect.currentText())
+            dialog_formatSelect = QtWidgets.QDialog(self)
+            dialog_formatSelect.setWindowTitle("Choose format and compression")
+            dropdown_formatSelect = QtWidgets.QComboBox(dialog_formatSelect)
+            dropdown_formatSelect.addItems(["Raw", "English dialogue", "VX"])
+            dropdown_compressSelect = QtWidgets.QComboBox(dialog_formatSelect)
+            dropdown_compressSelect.addItems(["No compression change", "compression", "decompression"])
+            dropdown_compressSelect.currentIndexChanged.connect(lambda: dropdown_compresstypeSelect.setDisabled(dropdown_compressSelect.currentIndex() == 0))
+            dropdown_compresstypeSelect = QtWidgets.QComboBox(dialog_formatSelect)
+            dropdown_compresstypeSelect.addItems(["LZ10", "BLZ"])
+            dropdown_compresstypeSelect.setDisabled(True)
+            button_OK = QtWidgets.QPushButton("OK", dialog_formatSelect)
+            button_OK.pressed.connect(lambda: dialog_formatSelect.close())
+            button_OK.pressed.connect(lambda: dialog_formatSelect.setResult(1))
+            dialog_formatSelect.setLayout(QtWidgets.QGridLayout())
+            dialog_formatSelect.layout().addWidget(dropdown_formatSelect, 0,0,1,2)
+            dialog_formatSelect.layout().addWidget(dropdown_compressSelect, 1,0,1,1)
+            dialog_formatSelect.layout().addWidget(dropdown_compresstypeSelect, 1,1,1,1)
+            dialog_formatSelect.layout().addWidget(button_OK, 2,0,1,2)
+            dialog_formatSelect.resize(250, 200)
+            dialog_formatSelect.exec()
+            if dialog_formatSelect.result():
+                print("Selected: " + dropdown_formatSelect.currentText() + ", " + dropdown_compressSelect.currentText())
                 print("Item: " + item.text(0))
                 if item != None:
                     fileInfo = self.file_fromItem(item)
@@ -1993,7 +2018,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     else:
                         fileData = fileInfo[0] # fileInfo[0] is already the expected data
                     if not "Folder" in item.text(2): # if file
-                        extract(fileData, name=name, path=path, format=dropdown_formatselect.currentText(), compress=dropdown_compressselect.currentIndex())
+                        extract(fileData, name=name, path=path, format=dropdown_formatSelect.currentText(), compress=[dropdown_compressSelect.currentText(), dropdown_compresstypeSelect.currentText()])
                         dialog2.setText(f"file \"{item.text(1)}\" exported!")
                     else: # if folder
                         folder_path = os.path.join(selectedFiles[0]) # here, "file name" specifies folder name instead
@@ -2006,7 +2031,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         for i in range(item.childCount()):
                             print(item.child(i).text(0))
                             # file_fromItem gets the name automatically
-                            extract(*self.file_fromItem(item.child(i))[:2], path=folder_path, format=dropdown_formatselect.currentText(), compress=dropdown_compressselect.currentIndex())#, w.fileToEdit_name.replace(".Folder", "/")
+                            extract(*self.file_fromItem(item.child(i))[:2], path=folder_path, format=dropdown_formatSelect.currentText(), compress=[dropdown_compressSelect.currentText(), dropdown_compresstypeSelect.currentText()])#, w.fileToEdit_name.replace(".Folder", "/")
                             #str(w.tree.currentItem().child(i).text(1) + "." + w.tree.currentItem().child(i).text(2)), 
                         dialog2.setText(f"folder \"{item.text(1)}\" exported!")
                     dialog2.exec()
@@ -2506,20 +2531,11 @@ class MainWindow(QtWidgets.QMainWindow):
             os.startfile(self.temp_path)
             print("game will start in a few seconds")
 
-    def arm9OpenCall(self):
-        if hasattr(self, 'dialog_arm9'):
-            self.dialog_arm9.show()
-            self.dialog_arm9.setWindowState(QtCore.Qt.WindowState.WindowActive) # un-minimize window
-
-    def arm7OpenCall(self):
-        if hasattr(self, 'dialog_arm7'):
-            self.dialog_arm7.show()
-            self.dialog_arm7.setWindowState(QtCore.Qt.WindowState.WindowActive)
-
-    def sdatOpenCall(self):
-        if hasattr(self, 'dialog_sdat'):
-            self.dialog_sdat.show()
-            self.dialog_sdat.setWindowState(QtCore.Qt.WindowState.WindowActive)
+    def dialogOpenCall(self, dialog_name: str):
+        if hasattr(self, dialog_name):
+            dialog: QtWidgets.QMainWindow = getattr(self, dialog_name)
+            dialog.show()
+            dialog.setWindowState(QtCore.Qt.WindowState.WindowActive) # un-minimize window
 
     def sdatPlayCall(self):
         items = self.tree_sdat.selectedItems()
@@ -2536,7 +2552,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.audioBuffer.open(QtCore.QBuffer.OpenModeFlag.ReadOnly)
             self.mediaPlayer.setSourceDevice(self.audioBuffer)
             self.mediaPlayer.play()
-        elif snd_type == "SSEQ":
+        elif snd_type == "SSEQ": # Incomplete
             print("play SSEQ")
             sseq: ndspy.soundArchive.soundSequence.SSEQ = self.file_fromItem(items[0])[0][1]
             lib.sdat.play(self.audioBuffer, sseq, self.sdat)
@@ -2582,9 +2598,15 @@ class MainWindow(QtWidgets.QMainWindow):
         arm9 = self.rom.loadArm9()
         #print(self.rom.loadArm9Overlays())
         #item_mainCode = QtWidgets.QTreeWidgetItem([library.dataconverter.StrFromNumber(self.arm9.ramAddress, self.displayBase, self.displayAlphanumeric).zfill(8), "Main Code", "N/A"])
-
+        item_main = QtWidgets.QTreeWidgetItem([
+                lib.datconv.numToStr(arm9.ramAddress, self.displayBase, self.displayAlphanumeric).zfill(8), 
+                "main code file", 
+                "N/A",
+                "N/A"
+            ])
+        self.tree_arm9.addTopLevelItem(item_main)
         for e in arm9.sections:
-            self.tree_arm9.addTopLevelItem(QtWidgets.QTreeWidgetItem([
+            item_main.addChild(QtWidgets.QTreeWidgetItem([
                 lib.datconv.numToStr(e.ramAddress, self.displayBase, self.displayAlphanumeric).zfill(8), 
                 str(e).split()[0].removeprefix("<"), 
                 str(e.implicit),
@@ -2616,13 +2638,20 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def treeArm7Update(self):
         self.tree_arm7.clear()
-        #item_mainCode = QtWidgets.QTreeWidgetItem([library.dataconverter.StrFromNumber(self.arm7.ramAddress, self.displayBase, self.displayAlphanumeric).zfill(8), "Main Code", "N/A"])
-
-        for e in self.rom.loadArm7().sections:
-            self.tree_arm7.addTopLevelItem(QtWidgets.QTreeWidgetItem([
+        arm7 = self.rom.loadArm7()
+        item_mainCode = QtWidgets.QTreeWidgetItem([
+                lib.datconv.numToStr(arm7.ramAddress, self.displayBase, self.displayAlphanumeric).zfill(8), 
+                "main code file", 
+                "N/A",
+                "N/A"
+            ])
+        self.tree_arm7.addTopLevelItem(item_mainCode)
+        for e in arm7.sections:
+            item_mainCode.addChild(QtWidgets.QTreeWidgetItem([
                 lib.datconv.strSetAlnum(str(e).split()[2].removeprefix("0x").removesuffix(":"), self.displayBase, self.displayAlphanumeric).zfill(8), 
                 str(e).split()[0].removeprefix("<"), 
-                str(e.implicit)
+                str(e.implicit),
+                str(e.bssSize)
             ]))
 
         self.tree_arm7Ovltable.clear()
@@ -2749,10 +2778,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if not ".Folder" in self.fileToEdit_name:# if it's a file
                 self.label_file_size.setText(f"Size: {lib.datconv.numToStr(len(self.rom.files[current_id]), self.displayBase, self.displayAlphanumeric).zfill(0)} bytes")
                 if self.fileDisplayRaw == False:
-                    try:
-                        indicator_list = lib.gamedat.GameEnum[self.rom.name.decode()].fileIndicators
-                    except KeyError:
-                        indicator_list = lib.gamedat.GameEnum["UNSUPPORTED"].fileIndicators
+                    indicator_list = lib.gamedat.GameEnum[self.rom.name.decode() if self.isGameSupported else "UNSUPPORTED"].fileIndicators
                     if self.fileDisplayMode == "Adapt":
                         self.fileDisplayState = "None"
                         if current_ext == "vx":
@@ -3022,12 +3048,12 @@ class MainWindow(QtWidgets.QMainWindow):
                                           self.button_oam_animFrameAdd, self.button_oam_animFrameRemove, 
                                           self.dropdown_oam_objFrame, self.tabs_oam, self.button_reload, *self.FILEOPEN_WIDGETS]:
                                 self.file_content_oam.scene().clear()
-                                sceneRect = self.file_content_oam.sceneRect()
+                                OAMRect = QtCore.QRectF(-128, -128, 256, 256)
                                 crosshairPen = QtGui.QPen()
                                 crosshairPen.setWidthF(0.05) # extra thin line
-                                self.file_content_oam.scene().addRect(sceneRect)
-                                self.file_content_oam.scene().addLine(sceneRect.left(), 0, sceneRect.right(), 0, crosshairPen)
-                                self.file_content_oam.scene().addLine(0, sceneRect.top(), 0, sceneRect.bottom(), crosshairPen)
+                                self.file_content_oam.scene().addRect(OAMRect)
+                                self.file_content_oam.scene().addLine(OAMRect.left(), 0, OAMRect.right(), 0, crosshairPen)
+                                self.file_content_oam.scene().addLine(0, OAMRect.top(), 0, OAMRect.bottom(), crosshairPen)
                                 if not isinstance(sender, lib.widget.BetterSpinBox) and sender not in [
                                     self.button_oam_animFrameAdd, self.button_oam_animFrameRemove, self.dropdown_oam_animFrame]:
                                     self.button_file_save.setDisabled(True)
@@ -3360,7 +3386,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def loadOvelrayStructAddressTable(self):
         arm9 = self.rom.loadArm9()
-        addr_table = lib.gamedat.GameEnum[self.rom.name.decode()].ovlStructtableAddr - arm9.ramAddress
+        addr_table = lib.gamedat.GameEnum[self.rom.name.decode() if self.isGameSupported else "UNSUPPORTED"].arm9Addrs["level"] - arm9.ramAddress
         self.levelEdited_ovlTable.clear()
         arm9_bin = arm9.save()
         skip = 0
@@ -3376,7 +3402,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def openLevel(self):
         self.button_level_save.setDisabled(True)
         if self.dropdown_level_area.currentText() == "":
-            return
+            return 1 # error code
         self.gfx_scene_level.scene().clear()
         self.gfx_scene_tileset.scene().clear()
         ovlID = int(self.dropdown_level_area.currentText())
@@ -3387,7 +3413,7 @@ class MainWindow(QtWidgets.QMainWindow):
             fileID = self.rom.filenames.idOf(self.levelEdited_ovl_object.tileset_name)
         except IndexError:
             print("This overlay has no proper tileset to load")
-            return
+            return 1
         try :
             self.levelEdited_object = lib.level.File(self.rom.files[fileID])
         except TypeError:
@@ -3396,7 +3422,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 "Load Failed",
                 "The tileset or its pointers may be corrupted"
             )
-            return
+            return 1
+        return 0
 
     def updateLevelareaUI(self):
         if self.button_level_save.isEnabled() and QtWidgets.QMessageBox.warning(
@@ -3442,7 +3469,7 @@ class MainWindow(QtWidgets.QMainWindow):
         pal_list: list[dict] = []
         pl: dict = {}
         depth_obj = lib.datconv.CompressionAlgorithmEnum.EIGHTBPP
-        print(f"depth: {gfx.depth}")
+        print(f"unk: {gfx.unk13}")
         ref = QtWidgets.QGraphicsPixmapItem(QtGui.QPixmap.fromImage(lib.datconv.binToQt(gfx.data, self.GFX_PALETTES[3], depth_obj, 32, len(gfx.data)//64//32)))
         ref.setPos(-32*8-self.gfx_scene_tileset.item_spacing*2, 0)
         self.gfx_scene_tileset.scene().addItem(ref) # to see the gfx used to construct tileset
@@ -3523,7 +3550,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.button_level_save.setDisabled(True)
         print("Load level")
         if self.levelEdited_object == None:
-            self.openLevel()
+            if self.openLevel() == 1:
+                return
         file = self.levelEdited_object
         level = file.levels[self.dropdown_level_type.currentIndex()]
         print(f"level offset: {file.level_offset_rom:02X}")
@@ -3579,10 +3607,14 @@ class MainWindow(QtWidgets.QMainWindow):
         if level == file.level:
             for i in range(self.levelEdited_ovl_object.screenLayout0.height):
                 for j in range(self.levelEdited_ovl_object.screenLayout0.realWidth):
+                    if j >= self.levelEdited_ovl_object.screenLayout0.width:
+                        break # skip unused screens
                     self.loadScreen(self.levelEdited_ovl_object.screenLayout0.layout[i][j], j*(16*(8*2)+screenSpacing), i*(12*(8*2)+screenSpacing))
         elif level == file.level_radar:
             for i in range(self.levelEdited_ovl_object.screenLayout_radar.height):
                 for j in range(self.levelEdited_ovl_object.screenLayout_radar.realWidth):
+                    if j >= self.levelEdited_ovl_object.screenLayout0.width:
+                        break # skip unused screens
                     self.loadScreen(self.levelEdited_ovl_object.screenLayout_radar.layout[i][j], j*(16*(8*2)+screenSpacing), i*(12*(8*2)+screenSpacing))
         if self.checkbox_level_fitInView.isChecked():
             self.gfx_scene_level.fitInView2()
@@ -3936,14 +3968,17 @@ def draw_tilesQImage_fromBytes(view: lib.widget.GFXView, data: bytearray, algori
     if grid:
         view.createGrid(w.tile_width, w.tile_height)
 
-def extract(data: bytes, name="", path="", format="", compress=0):
+def extract(data: bytes, name="", path="", format="", compress=["", ""]):
     ext = ""
     if name == "":
         print("Error, tried to extract nameless file!")
         return
-    if compress == 2:
+    if compress[0] == "decompression":
         try:
-            data = ndspy.lz10.decompress(data)
+            if compress[1] == "LZ10":
+                data = ndspy.lz10.decompress(data)
+            elif compress[1] == "BLZ":
+                data = ndspy.codeCompression.decompress(data)
         except TypeError as e:
             print(e)
             QtWidgets.QMessageBox.critical(
@@ -3985,8 +4020,11 @@ def extract(data: bytes, name="", path="", format="", compress=0):
         else:
             print("could not find method for converting to specified format.")
             return
-    if compress == 1:
-        data = ndspy.lz10.compress(data)
+    if compress[0] == " compression":
+        if compress[1] == "LZ10":
+            data = ndspy.lz10.compress(data)
+        elif compress[1] == "BLZ":
+            data = ndspy.codeCompression.compress(data)
 
     print(os.path.join(path + "/" + name.split(".")[0] + ext))
     if isinstance(data, (bytes, bytearray)): # one file
@@ -3997,6 +4035,10 @@ def extract(data: bytes, name="", path="", format="", compress=0):
             with open(os.path.join(path + "/" + name.split(".")[0] + "_" + str(subdata_i) + ext), 'wb') as f:
                 f.write(subdata)
     print("File extracted!")
+
+
+
+
 #run the app
 try:
     app.exec()
