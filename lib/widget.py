@@ -31,6 +31,12 @@ class View(QtWidgets.QGraphicsView):
         self.mouseLeftPressed = False
         self.mouseRightPressed = False
 
+    def getMainWindow(self):
+        if hasattr(self.window(), "rom"):
+            return self.window()
+        else:
+            return self.window().parent()
+
     def fitInView2(self, scale=True):
         self.setSceneRect(self.scene().itemsBoundingRect())
         self.fitInView(self.sceneRect(), QtCore.Qt.AspectRatioMode.KeepAspectRatio if scale else QtCore.Qt.AspectRatioMode.KeepAspectRatioByExpanding)
@@ -115,9 +121,9 @@ class GFXView(View):
             painter.end() # release resources to prevent crash
             # unfortunately, toImage does not return a QImage in indexed format, so the format must be corrected manually
             img = gfx_zone.toImage().convertToFormat(QtGui.QImage.Format.Format_Grayscale8).convertToFormat(QtGui.QImage.Format.Format_Indexed8) # convert from grayscale to indexed
-            img.setColorTable(self.window().gfx_palette) # re-apply colors
+            img.setColorTable(self.getMainWindow().gfx_palette) # re-apply colors
             self._graphic.setPixmap(QtGui.QPixmap.fromImage(img, QtCore.Qt.ImageConversionFlag.NoFormatConversion))
-            self.window().button_file_save.setDisabled(False)
+            self.getMainWindow().button_file_save.setDisabled(False)
         elif self.draw_mode == "rectangle":
             width = abs(self.start.x() - self.end.x())
             height = abs(self.start.y() - self.end.y())
@@ -234,7 +240,7 @@ class LevelView(View):
 
     def levelInteract(self, event: QtGui.QMouseEvent):
         if not self.mousePressed: return
-        if len(self.window().gfx_scene_tileset.scene().selectedItems()) > 0:
+        if len(self.getMainWindow().gfx_scene_tileset.scene().selectedItems()) > 0:
             if self.mouseLeftPressed:
                 self.tileDraw(event.pos())
             elif self.mouseRightPressed:
@@ -251,26 +257,26 @@ class LevelView(View):
                     print(f"screen ID: 0x{item_target.screen:02X}")
 
     def tileDraw(self, pos: QtCore.QPoint):
-        sItem_event = self.window().gfx_scene_tileset.item_first
-        for sItem in self.window().gfx_scene_tileset.scene().selectedItems():
+        sItem_event = self.getMainWindow().gfx_scene_tileset.item_first
+        for sItem in self.getMainWindow().gfx_scene_tileset.scene().selectedItems():
             sItem_delta = sItem.pos().toPoint()-sItem_event.pos().toPoint()
             sItem_delta_spacing = QtCore.QPoint(sItem_delta.x()//16, sItem_delta.y()//16)
-            sItem_delta_transformed = (sItem_delta-sItem_delta_spacing)*self.window().gfx_scene_level.transform().m11()
+            sItem_delta_transformed = (sItem_delta-sItem_delta_spacing)*self.getMainWindow().gfx_scene_level.transform().m11()
             item_target = self.itemAt(pos+sItem_delta_transformed)
             if isinstance(item_target, LevelTileItem):
                 for item in item_target.tileGroup:
                     if item != sItem:
                         item.tileReplace(sItem)
-                        self.window().button_level_save.setEnabled(True)
-                self.window().levelEdited_object.levels[self.window().dropdown_level_type.currentIndex()].screens[item_target.screen][item_target.index] = item_target.id
+                        self.getMainWindow().button_level_save.setEnabled(True)
+                self.getMainWindow().levelEdited_object.levels[self.getMainWindow().dropdown_level_type.currentIndex()].screens[item_target.screen][item_target.index] = item_target.id
         
     def tilePick(self, pos: QtCore.QPoint, keepSelection=False):
         item_target = self.itemAt(pos)
         if not keepSelection:
-            for item in self.window().gfx_scene_tileset.scene().selectedItems():
+            for item in self.getMainWindow().gfx_scene_tileset.scene().selectedItems():
                 item.setSelected(False)
         if isinstance(item_target, LevelTileItem):
-            self.window().gfx_scene_tileset.metaTiles[item_target.id].setSelected(True)
+            self.getMainWindow().gfx_scene_tileset.metaTiles[item_target.id].setSelected(True)
 
 class PixmapItem(QtWidgets.QGraphicsPixmapItem):
     def __init__(self, *args, **kwargs):
@@ -560,6 +566,12 @@ class BetterSpinBox(QtWidgets.QDoubleSpinBox):
 class LongTextEdit(QtWidgets.QPlainTextEdit):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+    
+    def getMainWindow(self):
+        if hasattr(self.window(), "rom"):
+            return self.window()
+        else:
+            return self.window().parent()
         
     def page_charcount(self):
         return int(int(self.width()/self.fontMetrics().averageCharWidth() - 1)*self.page_linecount()/2)
@@ -572,7 +584,7 @@ class LongTextEdit(QtWidgets.QPlainTextEdit):
         self.context_menu.setGeometry(self.cursor().pos().x(), self.cursor().pos().y(), 50, 50)
         for char_index in range(len(lib.dialogue.SPCHARS_E)):
             if char_index >= 0xf0 and not isinstance(lib.dialogue.SPCHARS_E[char_index], int):
-                self.context_menu.addAction(f"{lib.datconv.numToStr(char_index, self.window().displayBase, self.window().displayAlphanumeric).zfill(2)} - {lib.dialogue.SPCHARS_E[char_index][1]}")
+                self.context_menu.addAction(f"{lib.datconv.numToStr(char_index, self.getMainWindow().displayBase, self.getMainWindow().displayAlphanumeric).zfill(2)} - {lib.dialogue.SPCHARS_E[char_index][1]}")
         action2 = self.context_menu.exec()
         if action2 is not None:
             self.insertPlainText(action2.text()[action2.text().find("├"):])

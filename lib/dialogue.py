@@ -341,40 +341,37 @@ class DialogueFile:
                     #print(params)
                     #print(special_character[1][:special_character[1].replace("0x", "  ", p).find(" 0x")] + "┤")
                     chars.append(special_character[1][:special_character[1].replace("0x", "  ", p).find(" 0x")].format(*params) + "┤")# add the char and insert the incomplete amount of param values
-                    data = ''.join(chars)# join all converted chars into one full string
-                    return data
+                    return ''.join(chars) # join all converted chars into one full string
             chars.append(special_character[1].format(*params))# add the char and insert the param values, if applicable
         else:# undefined hex values
             chars.append(f"├0x{data[i]:02X}┤")
         i+=1
         return [chars, i]
 
-    def binToText_until_end(self, data: bytearray): # used to convert individual messages in file
+    def binToText_until_end(self, data: bytearray) -> str: # used to convert individual messages in file
         chars = []
         i=0
         while i < len(data):# while file not fully read
-            if data[i] == 0xFE:
-                data = ''.join(chars)# join all converted chars of current page into one full string
-                return data
+            if data[i] == 0xFE: 
+                return ''.join(chars) # join all converted chars of current page into one full string
             result = DialogueFile.binToText_iterate(data, chars, i, self.lang)
-            if type(result) == bytearray:
+            if type(result) == str:
                 return result
             elif type(result) == list:
                 chars, i = result
         raise Exception("no end found for DialogueFile text")
         
 
-    def binToText(data: bytearray, lang="en"): # used when forcing dialogue display state
+    def binToText(data: bytearray, lang="en") -> str: # used when forcing dialogue display state
         chars = []
         i=0
         while i < len(data):# while file not fully read
             result = DialogueFile.binToText_iterate(data, chars, i, lang)
-            if type(result) == bytearray:
+            if type(result) == str:
                 return result
             elif type(result) == list:
                 chars, i = result
-        data = ''.join(chars)# join all converted chars into one full string
-        return data
+        return "".join(chars) # join all converted chars into one full string
 
     def textToBin(data: str, lang: str="en"):
             file_text = data

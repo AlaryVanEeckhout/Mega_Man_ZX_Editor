@@ -57,6 +57,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.temp_path = f"{os.path.curdir}\\temp\\"
         self.rom = None #ndspy.rom.NintendoDSRom # placeholder definitions
         self.isGameSupported = False
+        self.gamedat = None
         self.rom_fat = [] # list of file addresses (see loadFat())
         self.sdat = None #ndspy.soundArchive.SDAT
         self.base_address = 0
@@ -368,7 +369,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dialog_arm9_dialogueNames = QtWidgets.QMainWindow(self)
         self.dialog_arm9_dialogueNames.setWindowTitle("ARM9 - Dialogue Names")
         self.dialog_arm9_dialogueNames.setWindowIcon(QtGui.QIcon('icons\\document-text.png'))
-        self.dialog_arm9_dialogueNames.resize(600, 400)
+
+        self.page_dialoguenames = QtWidgets.QWidget(self.dialog_arm9_dialogueNames)
+        self.page_dialoguenames.setLayout(QtWidgets.QGridLayout())
+        self.dropdown_dialogueNames = QtWidgets.QComboBox(self.page_dialoguenames)
+        self.dropdown_dialogueNames.currentIndexChanged.connect(self.loadDialogueName)
+        self.textEdit_dialogueNames = lib.widget.LongTextEdit(self.page_dialoguenames)
+        self.textEdit_dialogueNames.setMaximumHeight(30)
+
+        self.dialog_arm9_dialogueNames.setCentralWidget(self.page_dialoguenames)
+        self.page_dialoguenames.layout().addWidget(self.dropdown_dialogueNames)
+        self.page_dialoguenames.layout().addWidget(self.textEdit_dialogueNames)
 
         self.tabs_arm9.addTab(self.page_arm9, "Main Code")
         self.tabs_arm9.addTab(self.page_arm9Ovltable, "Overlays")
@@ -1747,9 +1758,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tree_patches.blockSignals(True)
         #self.progress.show()
         self.tree_patches.clear()
-        if self.rom.name.decode() in lib.gamedat.GameEnum.__members__:
+        if self.isGameSupported:
             patches = []
-            for patch in lib.gamedat.GameEnum[self.rom.name.decode()].patches:
+            for patch in self.gamedat.patches:
                 #self.progress.setValue(self.progress.value()+12)
                 #QtWidgets.QTreeWidgetItem(None, ["", "<address>", "<patch name>", "<patch type>", "<size>"])
                 if isinstance(patch[2], list): # if patch contains patches
@@ -1878,6 +1889,7 @@ class MainWindow(QtWidgets.QMainWindow):
             dialog.exec()
             self.progressShow()
         self.progressUpdate(10, "Loading ARM9", True, icon_title, icon_pixmap)
+        self.rom.arm9_decompressed = self.rom.loadArm9()
         self.treeArm9Update()
         self.progressUpdate(20, "Loading ARM7")
         self.treeArm7Update()
@@ -1902,6 +1914,17 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             self.isGameSupported = True
 
+        self.gamedat = lib.gamedat.GameEnum[self.rom.name.decode() if self.isGameSupported else "UNSUPPORTED"]
+
+        self.progressUpdate(90, "Loading game-specific content")
+        arm9_data = self.rom.arm9_decompressed.save()
+        arm9_dialogueAddr = self.gamedat.arm9Addrs["dialogue names en"]
+        self.dropdown_dialogueNames.clear()
+        for i in range(0x100):
+            arm9_dialogueName = arm9_data[arm9_dialogueAddr+i*0x0C:arm9_dialogueAddr+i*0x0C+0x0C]
+            if not 0xFF in arm9_dialogueName:
+                break
+            self.dropdown_dialogueNames.addItem(f"Name 0x{i:02X}")
         self.treeUpdate()
         self.progressUpdate(100, "Finishing load")
         self.enable_editing_ui()
@@ -2535,7 +2558,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if hasattr(self, dialog_name):
             dialog: QtWidgets.QMainWindow = getattr(self, dialog_name)
             dialog.show()
-            dialog.setWindowState(QtCore.Qt.WindowState.WindowActive) # un-minimize window
+            dialog.activateWindow()
 
     def sdatPlayCall(self):
         items = self.tree_sdat.selectedItems()
@@ -2595,17 +2618,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def treeArm9Update(self):
         self.tree_arm9.clear()
-        arm9 = self.rom.loadArm9()
         #print(self.rom.loadArm9Overlays())
         #item_mainCode = QtWidgets.QTreeWidgetItem([library.dataconverter.StrFromNumber(self.arm9.ramAddress, self.displayBase, self.displayAlphanumeric).zfill(8), "Main Code", "N/A"])
         item_main = QtWidgets.QTreeWidgetItem([
-                lib.datconv.numToStr(arm9.ramAddress, self.displayBase, self.displayAlphanumeric).zfill(8), 
+                lib.datconv.numToStr(self.rom.arm9RamAddress, self.displayBase, self.displayAlphanumeric).zfill(8), 
                 "main code file", 
                 "N/A",
                 "N/A"
             ])
         self.tree_arm9.addTopLevelItem(item_main)
-        for e in arm9.sections:
+        for e in self.rom.arm9_decompressed.sections:
             item_main.addChild(QtWidgets.QTreeWidgetItem([
                 lib.datconv.numToStr(e.ramAddress, self.displayBase, self.displayAlphanumeric).zfill(8), 
                 str(e).split()[0].removeprefix("<"), 
@@ -2778,7 +2800,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if not ".Folder" in self.fileToEdit_name:# if it's a file
                 self.label_file_size.setText(f"Size: {lib.datconv.numToStr(len(self.rom.files[current_id]), self.displayBase, self.displayAlphanumeric).zfill(0)} bytes")
                 if self.fileDisplayRaw == False:
-                    indicator_list = lib.gamedat.GameEnum[self.rom.name.decode() if self.isGameSupported else "UNSUPPORTED"].fileIndicators
+                    indicator_list = self.gamedat.fileIndicators
                     if self.fileDisplayMode == "Adapt":
                         self.fileDisplayState = "None"
                         if current_ext == "vx":
@@ -3262,6 +3284,12 @@ class MainWindow(QtWidgets.QMainWindow):
             self.exportAction.setDisabled(True)
             self.replaceAction.setDisabled(True)
 
+    def loadDialogueName(self):
+        arm9_data = self.rom.arm9_decompressed.save()
+        addr = self.gamedat.arm9Addrs["dialogue names en"]
+        name = arm9_data[addr+self.dropdown_dialogueNames.currentIndex()*0x0C:addr+self.dropdown_dialogueNames.currentIndex()*0x0C+0x0C]
+        self.textEdit_dialogueNames.setPlainText(lib.dialogue.DialogueFile.binToText(name))
+
     def loadTileProperties(self):
         if not self.gfx_scene_tileset.scene().isActive(): return
         if len(self.gfx_scene_tileset.scene().selectedItems()) == 0:
@@ -3385,10 +3413,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 (level.metaTiles[metaTile_index][index] & bitmask) | (val << shiftL)
 
     def loadOvelrayStructAddressTable(self):
-        arm9 = self.rom.loadArm9()
-        addr_table = lib.gamedat.GameEnum[self.rom.name.decode() if self.isGameSupported else "UNSUPPORTED"].arm9Addrs["level"] - arm9.ramAddress
+        addr_table = self.gamedat.arm9Addrs["level"]
         self.levelEdited_ovlTable.clear()
-        arm9_bin = arm9.save()
+        arm9_bin = self.rom.arm9_decompressed.save()
         skip = 0
         for i in range(self.dropdown_level_area.count()):
             addr = int.from_bytes(arm9_bin[addr_table+(i-skip)*0x04:addr_table+0x04+(i-skip)*0x04], byteorder='little')
@@ -3901,7 +3928,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tree_patches.blockSignals(True)
         rom_patched = bytearray(self.rom.save()) # Create temporary ROM to write patch to
         patch_list = []
-        for patch in lib.gamedat.GameEnum[self.rom.name.decode()].patches: # create a patch list with a consistent format
+        for patch in self.gamedat.patches: # create a patch list with a consistent format
             if isinstance(patch[2], list):
                 patch_list.append(['N/A', patch[0], patch[1], 'N/A', 'N/A'])
                 for subPatch in patch:
