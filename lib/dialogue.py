@@ -1,3 +1,4 @@
+#this file is no longer used
 # dialogue conversion for english (and japanese scripts eventually)
 #https://www.rapidtables.com/code/text/ascii-table.html
 SPCHARS_E: list = ([0])*256
@@ -232,7 +233,7 @@ CHARSF_J[0x9C] = [0, "⯈"]
 
 class DialogueFile:
     def __init__(self, data: bytes, lang: str="en"):
-        self.lang = lang
+        self.lang = lang # en, jp, or names
         file_size = int.from_bytes(data[0x00:0x02], "little")
         text_bin_ptr_array_size = int.from_bytes(data[0x02:0x04], "little")
         assert file_size > text_bin_ptr_array_size
@@ -308,7 +309,7 @@ class DialogueFile:
                     chars.append(chr(0x3000))
                 elif 0x01 <= data[i] <= 0x0A:
                     chars.append(chr(data[i]-0x01 + 0xFF10))
-                elif 0xB <= data[i] <= 0x24:
+                elif 0x0B <= data[i] <= 0x24:
                     chars.append(chr(data[i]-0x0B + 0xFF21))
                 elif 0x25 <= data[i] <= 0x3E:
                     chars.append(chr(data[i]-0x25 + 0xFF41))
@@ -374,92 +375,92 @@ class DialogueFile:
         return "".join(chars) # join all converted chars into one full string
 
     def textToBin(data: str, lang: str="en"):
-            file_text = data
-            file_data = []
-            c=0
-            while c < len(file_text):
-                if file_text[c] == "├": #extra special chars
-                    if file_text[c+1:c+3] == "0x": # undefined hex values
-                        file_data.append(int.to_bytes(int(file_text[c+3:c+5], 16)))
-                        c+=len("├0xXX┤")-1
+        file_text = data
+        file_data = []
+        c=0
+        while c < len(file_text):
+            if file_text[c] == "├": #extra special chars
+                if file_text[c+1:c+3] == "0x": # undefined hex values
+                    file_data.append(int.to_bytes(int(file_text[c+3:c+5], 16)))
+                    c+=len("├0xXX┤")-1
+                else:
+                    #special_string = file_text[c:file_text.find("┤", c)+1]
+                    special_string = file_text[c:DialogueFile.match_paren(file_text, c, {"├": "┤"})+1]
+                    #print("special: " +special_string)
+                    #print(special_string.split(' ')[0])
+                    for d in range(len(SPCHARS_E)): # iterate through special chars
+                        if type(SPCHARS_E[d]) == type([]) and SPCHARS_E[d][1].split(' ')[0] == special_string.split(' ')[0]: # if special char matches(remove variable 0xXX part to check)
+                            file_data.append(int.to_bytes(d))
+                            for p in range(SPCHARS_E[d][0]): # iterate through argument count
+                                if len(special_string.split())-2 >= p: #if index is within range(to exclude functions with invalid argument count)
+                                    if special_string.replace('0x', '').split()[p+1][0] == "├": # if function passed as arg
+                                        #print(special_string.replace('0x', '').split())
+                                        #print(special_string.replace('0x', '').split()[p+1].replace('┤┤', '┤') + " was not inserted because it is nested.")
+                                        for pd in range(len(SPCHARS_E)): # iterate through special chars
+                                            #if type(SPCHARS_E[pd]) == type([]):
+                                            #    print(SPCHARS_E[pd][1].split()[0].removesuffix('┤') + " VS " + special_string.replace('0x', '').split()[p+1].removesuffix('┤').removesuffix('┤'))
+                                            if type(SPCHARS_E[pd]) == type([]) and SPCHARS_E[pd][1].split()[0].removesuffix('┤') == special_string.replace('0x', '').split()[p+1].removesuffix('┤').removesuffix('┤'): # if special char matches(remove variable 0xXX part to check)
+                                                file_data.append(int.to_bytes(pd))
+                                    elif special_string.replace('0x', '').split()[p+1].find("{") != -1: # args is undefined
+                                        print(special_string + ": Missing argument" + str(p) + "! setting to 0x00.")
+                                        file_data.append(int.to_bytes(0x00))
+                                    else:
+                                        #print(p)
+                                        #print(file_text[c+len(special_string)+2-(5+p*5)]+file_text[c+len(special_string)+3-(5+p*5)])
+                                        #file_data.append(int.to_bytes(int(file_text[c+len(special_string)+2-(5+p*5)]+file_text[c+len(special_string)+3-(5+p*5)], 16)))
+                                        file_data.append(int.to_bytes(int(special_string.split()[p+1].removesuffix('┤').removesuffix('┤'), 16)))
+                            c+=len(special_string)-1
+            elif lang == "en" and any(file_text[c] in sublist for sublist in SPCHARS_E if isinstance(sublist, list)) \
+            or lang == "jp" and any(file_text[c] in sublist for sublist in CHARSF_J if isinstance(sublist, list)): #game's extended char table
+                if lang == "en":
+                    for d in range(len(SPCHARS_E)):
+                        if type(SPCHARS_E[d]) == type([]) and SPCHARS_E[d][1] == file_text[c]:
+                            file_data.append(int.to_bytes(d))
+                elif lang == "jp":
+                    for d in range(len(CHARSF_J)):
+                        if type(CHARSF_J[d]) == type([]) and CHARSF_J[d][1] == file_text[c]:
+                            file_data.append(int.to_bytes(0xF0))
+                            file_data.append(int.to_bytes(d))
+            else: #normal ASCII chars
+                if lang == "en":
+                    file_data.append(int.to_bytes(ord(file_text[c]) - 0x20 & 0xFF))
+                elif lang == "jp":
+                    if ord(file_text[c]) == 0x3000:
+                        file_data.append(int.to_bytes(0x00))
+                    elif 0xFF10 <= ord(file_text[c]) <= 0xFF19:
+                        file_data.append(int.to_bytes(ord(file_text[c])-0xFF10 + 0x01))
+                    elif 0xFF21 <= ord(file_text[c]) <= 0xFF3A:
+                        file_data.append(int.to_bytes(ord(file_text[c])-0xFF21 + 0x0B))
+                    elif 0xFF41 <= ord(file_text[c]) <= 0xFF5A:
+                        file_data.append(int.to_bytes(ord(file_text[c])-0xFF41 + 0x25))
+                    elif ord(file_text[c]) == 0x30FC:
+                        file_data.append(int.to_bytes(0x3F))
+                    elif 0x3041 <= ord(file_text[c]) <= 0x308F:
+                        file_data.append(int.to_bytes(ord(file_text[c])-0x3041 + 0x40))
+                    elif 0x3092 <= ord(file_text[c]) <= 0x3093:
+                        file_data.append(int.to_bytes(ord(file_text[c])-0x3092 + 0x8F))
+                    elif 0x30A1 <= ord(file_text[c]) <= 0x30EF:
+                        file_data.append(int.to_bytes(ord(file_text[c])-0x30A1 + 0x91))
+                    elif 0x30F2 <= ord(file_text[c]) <= 0x30F6:
+                        file_data.append(int.to_bytes(ord(file_text[c])-0x30F2 + 0xE0))
+                    elif 0x0021 <= ord(file_text[c]) <= 0x002B:
+                        file_data.append(int.to_bytes(ord(file_text[c])-0x0021 + 0xE5))
                     else:
-                        #special_string = file_text[c:file_text.find("┤", c)+1]
-                        special_string = file_text[c:DialogueFile.match_paren(file_text, c, {"├": "┤"})+1]
-                        #print("special: " +special_string)
-                        #print(special_string.split(' ')[0])
-                        for d in range(len(SPCHARS_E)): # iterate through special chars
-                            if type(SPCHARS_E[d]) == type([]) and SPCHARS_E[d][1].split(' ')[0] == special_string.split(' ')[0]: # if special char matches(remove variable 0xXX part to check)
-                                file_data.append(int.to_bytes(d))
-                                for p in range(SPCHARS_E[d][0]): # iterate through argument count
-                                    if len(special_string.split())-2 >= p: #if index is within range(to exclude functions with invalid argument count)
-                                        if special_string.replace('0x', '').split()[p+1][0] == "├": # if function passed as arg
-                                            #print(special_string.replace('0x', '').split())
-                                            #print(special_string.replace('0x', '').split()[p+1].replace('┤┤', '┤') + " was not inserted because it is nested.")
-                                            for pd in range(len(SPCHARS_E)): # iterate through special chars
-                                                #if type(SPCHARS_E[pd]) == type([]):
-                                                #    print(SPCHARS_E[pd][1].split()[0].removesuffix('┤') + " VS " + special_string.replace('0x', '').split()[p+1].removesuffix('┤').removesuffix('┤'))
-                                                if type(SPCHARS_E[pd]) == type([]) and SPCHARS_E[pd][1].split()[0].removesuffix('┤') == special_string.replace('0x', '').split()[p+1].removesuffix('┤').removesuffix('┤'): # if special char matches(remove variable 0xXX part to check)
-                                                    file_data.append(int.to_bytes(pd))
-                                        elif special_string.replace('0x', '').split()[p+1].find("{") != -1: # args is undefined
-                                            print(special_string + ": Missing argument" + str(p) + "! setting to 0x00.")
-                                            file_data.append(int.to_bytes(0x00))
-                                        else:
-                                            #print(p)
-                                            #print(file_text[c+len(special_string)+2-(5+p*5)]+file_text[c+len(special_string)+3-(5+p*5)])
-                                            #file_data.append(int.to_bytes(int(file_text[c+len(special_string)+2-(5+p*5)]+file_text[c+len(special_string)+3-(5+p*5)], 16)))
-                                            file_data.append(int.to_bytes(int(special_string.split()[p+1].removesuffix('┤').removesuffix('┤'), 16)))
-                                c+=len(special_string)-1
-                elif lang == "en" and any(file_text[c] in sublist for sublist in SPCHARS_E if isinstance(sublist, list)) \
-                or lang == "jp" and any(file_text[c] in sublist for sublist in CHARSF_J if isinstance(sublist, list)): #game's extended char table
-                    if lang == "en":
-                        for d in range(len(SPCHARS_E)):
-                            if type(SPCHARS_E[d]) == type([]) and SPCHARS_E[d][1] == file_text[c]:
-                                file_data.append(int.to_bytes(d))
-                    elif lang == "jp":
-                        for d in range(len(CHARSF_J)):
-                            if type(CHARSF_J[d]) == type([]) and CHARSF_J[d][1] == file_text[c]:
-                                file_data.append(int.to_bytes(0xF0))
-                                file_data.append(int.to_bytes(d))
-                else: #normal ASCII chars
-                    if lang == "en":
-                        file_data.append(int.to_bytes(ord(file_text[c]) - 0x20 & 0xFF))
-                    elif lang == "jp":
-                        if ord(file_text[c]) == 0x3000:
+                        print(f"char \"{file_text[c]}\" not directly in font, attempting conversion")
+                        if ord(file_text[c]) == 0x0020:
                             file_data.append(int.to_bytes(0x00))
-                        elif 0xFF10 <= ord(file_text[c]) <= 0xFF19:
-                            file_data.append(int.to_bytes(ord(file_text[c])-0xFF10 + 0x01))
-                        elif 0xFF21 <= ord(file_text[c]) <= 0xFF3A:
-                            file_data.append(int.to_bytes(ord(file_text[c])-0xFF21 + 0x0B))
-                        elif 0xFF41 <= ord(file_text[c]) <= 0xFF5A:
-                            file_data.append(int.to_bytes(ord(file_text[c])-0xFF41 + 0x25))
-                        elif ord(file_text[c]) == 0x30FC:
-                            file_data.append(int.to_bytes(0x3F))
-                        elif 0x3041 <= ord(file_text[c]) <= 0x308F:
-                            file_data.append(int.to_bytes(ord(file_text[c])-0x3041 + 0x40))
-                        elif 0x3092 <= ord(file_text[c]) <= 0x3093:
-                            file_data.append(int.to_bytes(ord(file_text[c])-0x3092 + 0x8F))
-                        elif 0x30A1 <= ord(file_text[c]) <= 0x30EF:
-                            file_data.append(int.to_bytes(ord(file_text[c])-0x30A1 + 0x91))
-                        elif 0x30F2 <= ord(file_text[c]) <= 0x30F6:
-                            file_data.append(int.to_bytes(ord(file_text[c])-0x30F2 + 0xE0))
-                        elif 0x0021 <= ord(file_text[c]) <= 0x002B:
-                            file_data.append(int.to_bytes(ord(file_text[c])-0x0021 + 0xE5))
+                        elif 0x0030 <= ord(file_text[c]) <= 0x0039:
+                            file_data.append(int.to_bytes(ord(file_text[c])-0x0030 + 0x01))
+                        elif 0x0041 <= ord(file_text[c]) <= 0x005A:
+                            file_data.append(int.to_bytes(ord(file_text[c])-0x0041 + 0x0B))
+                        elif 0x0061 <= ord(file_text[c]) <= 0x007A:
+                            file_data.append(int.to_bytes(ord(file_text[c])-0x0061 + 0x25))
                         else:
-                            print(f"char \"{file_text[c]}\" not directly in font, attempting conversion")
-                            if ord(file_text[c]) == 0x0020:
-                                file_data.append(int.to_bytes(0x00))
-                            elif 0x0030 <= ord(file_text[c]) <= 0x0039:
-                                file_data.append(int.to_bytes(ord(file_text[c])-0x0030 + 0x01))
-                            elif 0x0041 <= ord(file_text[c]) <= 0x005A:
-                                file_data.append(int.to_bytes(ord(file_text[c])-0x0041 + 0x0B))
-                            elif 0x0061 <= ord(file_text[c]) <= 0x007A:
-                                file_data.append(int.to_bytes(ord(file_text[c])-0x0061 + 0x25))
-                            else:
-                                print(f"unhandled char \"{file_text[c]}\" (0x{ord(file_text[c]):02X}) !")
-                                file_data.append(int.to_bytes(ord(file_text[c]) & 0xEF))
-                c+=1
-            file_data = b''.join(file_data)
-            return file_data
+                            print(f"unhandled char \"{file_text[c]}\" (0x{ord(file_text[c]):02X}) !")
+                            file_data.append(int.to_bytes(ord(file_text[c]) & 0xEF))
+            c+=1
+        file_data = b''.join(file_data)
+        return file_data
 
 
     def toBytes(self):

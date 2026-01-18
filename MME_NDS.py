@@ -9,7 +9,7 @@ import ndspy
 #import ndspy.graphics2D
 #import ndspy.model
 import ndspy.lz10
-import ndspy.rom, ndspy.codeCompression#, ndspy.code
+import ndspy.rom, ndspy.codeCompression, ndspy.code
 import ndspy.soundArchive
 import ndspy.soundSequenceArchive
 import lib
@@ -46,7 +46,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         # expected module versions
-        self.VERSION_EDITOR = "0.4.4" # objective, feature, WIP
+        self.VERSION_EDITOR = "0.4.5" # objective, feature, WIP
         self.VERSION_PYTHON = "3.13.2"
         self.VERSION_PYQT = "6.9.1"
         self.VERSION_NDSPY = "4.2.0"
@@ -124,7 +124,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                                   \r- Sound data editor
                                                   \r- VX file editor
                                                   \r- OAM editor
-                                                  \r- Level editor""")
+                                                  \r- Level editor
+                                                  \r- Dialogue name editor""")
             #firstLaunch_dialog.setDetailedText("abc")
             firstLaunch_dialog.exec()
 
@@ -372,14 +373,24 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.page_dialoguenames = QtWidgets.QWidget(self.dialog_arm9_dialogueNames)
         self.page_dialoguenames.setLayout(QtWidgets.QGridLayout())
+        self.button_dialogueNames_save = QtWidgets.QPushButton("Save Name", self.page_dialoguenames)
+        self.button_dialogueNames_save.pressed.connect(self.saveDialogueName)
+        self.button_dialogueNames_save.setDisabled(True)
         self.dropdown_dialogueNames = QtWidgets.QComboBox(self.page_dialoguenames)
+        self.dropdown_dialogueNames.setPlaceholderText("Select name index...")
         self.dropdown_dialogueNames.currentIndexChanged.connect(self.loadDialogueName)
-        self.textEdit_dialogueNames = lib.widget.LongTextEdit(self.page_dialoguenames)
+        self.dropdown_dialogueNames_lang = QtWidgets.QComboBox(self.page_dialoguenames)
+        self.dropdown_dialogueNames_lang.addItems(["jp", "en"])
+        self.dropdown_dialogueNames_lang.currentIndexChanged.connect(lambda: self.dropdown_dialogueNames.setCurrentIndex(-1))
+        self.textEdit_dialogueNames = lib.widget.LongTextEdit(self.page_dialoguenames, charmap=lib.dialogue2.CHARMAP_DIALOGUENAME_EN)
+        self.textEdit_dialogueNames.textChanged.connect(lambda: self.button_dialogueNames_save.setDisabled(False))
         self.textEdit_dialogueNames.setMaximumHeight(30)
 
         self.dialog_arm9_dialogueNames.setCentralWidget(self.page_dialoguenames)
-        self.page_dialoguenames.layout().addWidget(self.dropdown_dialogueNames)
-        self.page_dialoguenames.layout().addWidget(self.textEdit_dialogueNames)
+        self.page_dialoguenames.layout().addWidget(self.button_dialogueNames_save, 0,0,1,2)
+        self.page_dialoguenames.layout().addWidget(self.dropdown_dialogueNames, 1,0,1,1)
+        self.page_dialoguenames.layout().addWidget(self.dropdown_dialogueNames_lang, 1,1,1,1)
+        self.page_dialoguenames.layout().addWidget(self.textEdit_dialogueNames, 2,0,1,2)
 
         self.tabs_arm9.addTab(self.page_arm9, "Main Code")
         self.tabs_arm9.addTab(self.page_arm9Ovltable, "Overlays")
@@ -1918,13 +1929,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.progressUpdate(90, "Loading game-specific content")
         arm9_data = self.rom.arm9_decompressed.save()
-        arm9_dialogueAddr = self.gamedat.arm9Addrs["dialogue names en"]
+        arm9_dialogueAddr = self.gamedat.arm9Addrs["dialogue names jp"]
         self.dropdown_dialogueNames.clear()
         for i in range(0x100):
             arm9_dialogueName = arm9_data[arm9_dialogueAddr+i*0x0C:arm9_dialogueAddr+i*0x0C+0x0C]
             if not 0xFF in arm9_dialogueName:
                 break
             self.dropdown_dialogueNames.addItem(f"Name 0x{i:02X}")
+        self.dropdown_dialogueNames.setCurrentIndex(-1)
         self.treeUpdate()
         self.progressUpdate(100, "Finishing load")
         self.enable_editing_ui()
@@ -1978,6 +1990,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.gfx_scene_tileset.scene().clear()
         self.dropdown_level_area.clear()
         self.dropdown_level_type.clear()
+        self.textEdit_dialogueNames.clear()
 
     def exportCall(self, item: QtWidgets.QTreeWidgetItem):
         dialog = QtWidgets.QFileDialog(
@@ -2087,9 +2100,9 @@ class MainWindow(QtWidgets.QMainWindow):
                         if str(f.name).split("/")[-1].split(".")[1] == "txt":
                             #print(w.rom.filenames.idOf(str(selectedFiles).split("/")[-1].removesuffix("']").replace(".txt", ".bin")))
                             if "en" in str(f.name):
-                                w.rom.files[w.rom.filenames.idOf(str(f.name).split("/")[-1].replace(".txt", ".bin"))] = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8"), "en"))
+                                w.rom.files[w.rom.filenames.idOf(str(f.name).split("/")[-1].replace(".txt", ".bin"))] = bytearray(lib.dialogue2.DialogueFile.textToBin(fileEdited.decode("utf-8"), lib.dialogue2.CHARMAP_DIALOGUE_EN))
                             elif "jp" in str(f.name):
-                                w.rom.files[w.rom.filenames.idOf(str(f.name).split("/")[-1].replace(".txt", ".bin"))] = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8"), "jp"))
+                                w.rom.files[w.rom.filenames.idOf(str(f.name).split("/")[-1].replace(".txt", ".bin"))] = bytearray(lib.dialogue2.DialogueFile.textToBin(fileEdited.decode("utf-8"), lib.dialogue2.CHARMAP_DIALOGUE_JP))
                             dialog2.exec()
                         else:
                             QtWidgets.QMessageBox.critical(
@@ -2134,7 +2147,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     dialog2.setText("File import failed!")
                     fileInfo = self.file_fromItem(item)
                     if not isFolder and str(selectedFiles[0]).split("/")[-1].split(".")[1] == "txt" and re.search(r".*(_\d+)$", str(selectedFiles[0]).split("/")[-1].split(".")[0]): # fileExt and fileName
-                        dialogue = lib.dialogue.DialogueFile(fileInfo[2][fileInfo[2].index(fileInfo[0])]) # object created before loop to improve performance
+                        dialogue = lib.dialogue2.DialogueFile(fileInfo[2][fileInfo[2].index(fileInfo[0])]) # object created before loop to improve performance
                     for file in selectedFiles:
                         try:
                             fileName = str(file).split("/")[-1].split(".")[0]
@@ -2167,9 +2180,9 @@ class MainWindow(QtWidgets.QMainWindow):
                                                 if selectedFiles.index(file) == len(selectedFiles)-1: # if at last selected file
                                                     data = dialogue.toBytes() # generate final binary to import (done only once to improve performance)
                                             else: # forced dialogue state
-                                                data = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8")))
+                                                data = bytearray(lib.dialogue2.DialogueFile.textToBin(fileEdited.decode("utf-8")))
                                         else:
-                                            data = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8")))
+                                            data = bytearray(lib.dialogue2.DialogueFile.textToBin(fileEdited.decode("utf-8")))
                                     elif fileExt == "blz":
                                         try:
                                             data = bytearray(ndspy.codeCompression.decompress(fileEdited))
@@ -2832,13 +2845,13 @@ class MainWindow(QtWidgets.QMainWindow):
                             self.dropdown_textindex.clear()
                             try:
                                 if self.fileDisplayState == "English dialogue":
-                                    self.fileEdited_object = lib.dialogue.DialogueFile(self.rom.files[current_id], "en")
+                                    self.fileEdited_object = lib.dialogue2.DialogueFile(self.rom.files[current_id], lib.dialogue2.CHARMAP_DIALOGUE_EN)
                                 elif self.fileDisplayState == "Japanese dialogue":
-                                    self.fileEdited_object = lib.dialogue.DialogueFile(self.rom.files[current_id], "jp")
+                                    self.fileEdited_object = lib.dialogue2.DialogueFile(self.rom.files[current_id], lib.dialogue2.CHARMAP_DIALOGUE_JP)
                             except AssertionError: # forcing text view on non-text file = simple conversion mode
                                 self.file_content_text.setEnabled(True)
                                 self.dropdown_textindex.setDisabled(True)
-                                self.fileEdited_object = lib.dialogue.DialogueFile.binToText(self.rom.files[current_id][self.relative_address:self.relative_address+0xFFFF])
+                                self.fileEdited_object = lib.dialogue2.DialogueFile.binToText(self.rom.files[current_id][self.relative_address:self.relative_address+0xFFFF])
                                 self.file_content_text.setPlainText(self.fileEdited_object)
                                 return
                             for i in range(len(self.fileEdited_object.text_list)):
@@ -2850,7 +2863,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.fileEdited_object.text_list[self.dropdown_textindex.previousIndex] = self.file_content_text.toPlainText() # keep changes to text on previous index
                                 self.dropdown_textindex.previousIndex = self.dropdown_textindex.currentIndex()
                         else: # simple conversion mode during address change
-                            self.fileEdited_object = lib.dialogue.DialogueFile.binToText(self.rom.files[current_id][self.relative_address:self.relative_address+0xFFFF])
+                            self.fileEdited_object = lib.dialogue2.DialogueFile.binToText(self.rom.files[current_id][self.relative_address:self.relative_address+0xFFFF])
                             self.file_content_text.setPlainText(self.fileEdited_object)
                             return
                         textIndex = self.dropdown_textindex.currentIndex()
@@ -3285,10 +3298,15 @@ class MainWindow(QtWidgets.QMainWindow):
             self.replaceAction.setDisabled(True)
 
     def loadDialogueName(self):
+        index = self.dropdown_dialogueNames.currentIndex()
+        if index == -1:
+            self.textEdit_dialogueNames.clear()
+            return
         arm9_data = self.rom.arm9_decompressed.save()
-        addr = self.gamedat.arm9Addrs["dialogue names en"]
-        name = arm9_data[addr+self.dropdown_dialogueNames.currentIndex()*0x0C:addr+self.dropdown_dialogueNames.currentIndex()*0x0C+0x0C]
-        self.textEdit_dialogueNames.setPlainText(lib.dialogue.DialogueFile.binToText(name))
+        addr = self.gamedat.arm9Addrs["dialogue names " + self.dropdown_dialogueNames_lang.currentText()]
+        name = arm9_data[addr+index*0x0C:addr+index*0x0C+0x0C]
+        self.textEdit_dialogueNames.setPlainText(lib.dialogue2.DialogueFile.binToText(name, 
+                                                                                      lib.dialogue2.CHARMAP_DIALOGUENAME_EN if self.dropdown_dialogueNames_lang.currentText() == "en" else lib.dialogue2.CHARMAP_DIALOGUENAME_JP))
 
     def loadTileProperties(self):
         if not self.gfx_scene_tileset.scene().isActive(): return
@@ -3723,7 +3741,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     #dialog.text_id_list = 
                     self.rom.files[file_id] = self.fileEdited_object.toBytes()
                 else: # forced dialogue state 
-                    self.rom.files[file_id][self.relative_address:self.relative_address+0xFFFF] = lib.dialogue.DialogueFile.textToBin(self.file_content_text.toPlainText())
+                    self.rom.files[file_id][self.relative_address:self.relative_address+0xFFFF] = lib.dialogue2.DialogueFile.textToBin(self.file_content_text.toPlainText())
             elif self.fileDisplayState == "Graphics":
                 save_data = lib.datconv.qtToBin(self.file_content_gfx._graphic.pixmap().toImage(),
                                                 algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
@@ -3871,6 +3889,21 @@ class MainWindow(QtWidgets.QMainWindow):
         # fat is only recalculated when entire rom is saved, so it keeps outdated values
         self.button_file_save.setDisabled(True)
     
+    def saveDialogueName(self):
+        self.button_dialogueNames_save.setDisabled(True)
+        addr = self.gamedat.arm9Addrs["dialogue names " + self.dropdown_dialogueNames_lang.currentText()]
+        index = self.dropdown_dialogueNames.currentIndex()
+        arm9_bin = self.rom.arm9_decompressed.save()
+        new_data = lib.dialogue2.DialogueFile.textToBin(self.textEdit_dialogueNames.toPlainText(),
+                                                        lib.dialogue2.CHARMAP_DIALOGUENAME_EN if self.dropdown_dialogueNames_lang.currentText() == "en" else lib.dialogue2.CHARMAP_DIALOGUENAME_JP)
+        new_data += bytearray(0x0C)
+        arm9_bin[addr+index*0x0C:addr+index*0x0C+0x0C] = bytearray(new_data[:0x0C])
+        self.rom.arm9_decompressed = ndspy.code.MainCodeFile(arm9_bin, self.rom.arm9RamAddress, self.rom.arm9_decompressed.codeSettingsOffs)
+        print(len(self.rom.arm9))
+        self.rom.arm9 = self.rom.arm9_decompressed.save(compress=True)
+        print(len(self.rom.arm9))
+        print("name saved!")
+
     def save_level(self):
         self.button_level_save.setDisabled(True)
         
@@ -4026,12 +4059,12 @@ def extract(data: bytes, name="", path="", format="", compress=["", ""]):
         if format == "English dialogue":
             ext = ".txt"
             try: # create multiple text files
-                text_list = lib.dialogue.DialogueFile(data).text_list
+                text_list = lib.dialogue2.DialogueFile(data).text_list
                 data = [""]*len(text_list)
                 for text_i, text in enumerate(text_list):
                     data[text_i] = bytes(text, "utf-8")
             except AssertionError: # not a real dialogue file
-                data = bytes(lib.dialogue.DialogueFile.binToText(data), "utf-8")
+                data = bytes(lib.dialogue2.DialogueFile.binToText(data), "utf-8")
         elif format == "VX":
             ext = ".vx" # even if it is a folder, use extension to know what it contains when importing
             act = lib.act.ActImagine()

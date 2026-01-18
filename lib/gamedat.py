@@ -10,16 +10,26 @@ I_DIALOGUE = ("talk", "m_")
 I_PANM = ("panm",)
 I_MUGSHOT = ("face",)
 # relative ROM pointers to uncompressed ARM9
-ARM9_ZX = {"level": 0x000CB9D4,
+ARM9_ZX_E = {"level": 0x000CB9D4,
            "dialogue box" : 0x000BEC8C,
            "dialogue names jp": 0x000BF5CC,
            "dialogue names en": 0x000BF9EC,
            "dialogue font": 0x000BFE0C}
-ARM9_ZXA = {"level": 0x000FEFD4,
+ARM9_ZX_J = {"level": 0x000C7E88,
+           "dialogue box" : 0x000BEAD8, # gfx split in two places???
+           "dialogue names jp": 0x000BE6B8,
+           "dialogue names en": 0,
+           "dialogue font": 0x000BF118}
+ARM9_ZXA_E = {"level": 0x000FEFD4,
             "dialogue box" : 0x000DC52C,
             "dialogue names jp": 0x000DBC2C,
             "dialogue names en": 0x000DC0AC,
             "dialogue font": 0x000DCF6C}
+ARM9_ZXA_J = {"level": 0x000FF55C,
+            "dialogue box" : 0x000DEF28,
+            "dialogue names jp": 0x000DEAA8,
+            "dialogue names en": 0,
+            "dialogue font": 0x000DF968}
 
 class GameEnum(enum.Enum):
 
@@ -29,12 +39,12 @@ class GameEnum(enum.Enum):
       self.fileIndicators = fileIndicators
       self.patches = patches
 
-  ROCKMANZX = enum.auto(), ARM9_ZX, {"Graphics" : I_GFX_ZX,
+  ROCKMANZX = enum.auto(), ARM9_ZX_J, {"Graphics" : I_GFX_ZX,
                             "Font" : I_FONT,
                             "Dialogue" : I_DIALOGUE,
                             "Palette Animation" : I_PANM,
                             "Mugshot" : I_MUGSHOT}, []
-  MEGAMANZX = enum.auto(), ARM9_ZX, {"Graphics" : I_GFX_ZX,
+  MEGAMANZX = enum.auto(), ARM9_ZX_E, {"Graphics" : I_GFX_ZX,
                             "Font" : I_FONT,
                             "Dialogue" : I_DIALOGUE,
                             "Palette Animation" : I_PANM,
@@ -45,12 +55,12 @@ class GameEnum(enum.Enum):
     [0x021AE600, "overwiting patch test", "text", 'f1', '20']
   ]
 
-  ROCKMANZXA = enum.auto(), ARM9_ZXA, {"Graphics" : I_GFX_ZXA,
+  ROCKMANZXA = enum.auto(), ARM9_ZXA_J, {"Graphics" : I_GFX_ZXA,
                              "Font" : I_FONT,
                              "Dialogue" : I_DIALOGUE,
                              "Palette Animation" : I_PANM,
                              "Mugshot" : I_MUGSHOT}, []
-  MEGAMANZXA = enum.auto(), ARM9_ZXA, {"Graphics" : I_GFX_ZXA,
+  MEGAMANZXA = enum.auto(), ARM9_ZXA_E, {"Graphics" : I_GFX_ZXA,
                              "Font" : I_FONT,
                              "Dialogue" : I_DIALOGUE,
                              "Palette Animation" : I_PANM,

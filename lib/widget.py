@@ -564,8 +564,9 @@ class BetterSpinBox(QtWidgets.QDoubleSpinBox):
             return super().value()
 
 class LongTextEdit(QtWidgets.QPlainTextEdit):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, charmap=lib.dialogue2.CHARMAP_DIALOGUE_EN, **kwargs):
         super().__init__(*args, **kwargs)
+        self.charmap = charmap
     
     def getMainWindow(self):
         if hasattr(self.window(), "rom"):
@@ -582,12 +583,13 @@ class LongTextEdit(QtWidgets.QPlainTextEdit):
     def contextMenuOpen(self): #quick menu to insert special values in dialogue file
         self.context_menu = QtWidgets.QMenu(self)
         self.context_menu.setGeometry(self.cursor().pos().x(), self.cursor().pos().y(), 50, 50)
-        for char_index in range(len(lib.dialogue.SPCHARS_E)):
-            if char_index >= 0xf0 and not isinstance(lib.dialogue.SPCHARS_E[char_index], int):
-                self.context_menu.addAction(f"{lib.datconv.numToStr(char_index, self.getMainWindow().displayBase, self.getMainWindow().displayAlphanumeric).zfill(2)} - {lib.dialogue.SPCHARS_E[char_index][1]}")
+        for char_index in range(0xF1, 0x100):
+            self.context_menu.addAction(f"{lib.datconv.numToStr(char_index,
+                                                                self.getMainWindow().displayBase,
+                                                                self.getMainWindow().displayAlphanumeric).zfill(2)} - {self.charmap.get_byte_mapping(bytearray([char_index, 0x00, 0x00]))[0]}")
         action2 = self.context_menu.exec()
         if action2 is not None:
-            self.insertPlainText(action2.text()[action2.text().find("├"):])
+            self.insertPlainText(action2.text()[action2.text().find(" - ")+3:])
 
     def mousePressEvent(self, event: QtCore.QEvent): #redefine mouse press to insert custom code on right click
         if event.type() == QtCore.QEvent.Type.MouseButtonPress:
