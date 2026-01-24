@@ -1,5 +1,6 @@
 # patches database
 import enum
+from . import dialogue
 
 # indicators determine what the file most likely contains based on its name
 I_GFX = ("_fnt",)
@@ -30,21 +31,25 @@ ARM9_ZXA_J = {"level": 0x000FF55C,
             "dialogue names jp": 0x000DEAA8,
             "dialogue names en": 0,
             "dialogue font": 0x000DF968}
+# add dicts for charmaps? (en, jp, names en, names jp)
+CHARMAPS_ZX = {"en": dialogue.CHARMAP_DIALOGUE_EN, "jp": dialogue.CHARMAP_DIALOGUE_JP, "names en": dialogue.CHARMAP_DIALOGUENAME_EN, "names jp": dialogue.CHARMAP_DIALOGUENAME_JP}
+CHARMAPS_ZXA = {"en": dialogue.CHARMAP_DIALOGUE_EN, "jp": dialogue.CHARMAP_DIALOGUE_JP, "names en": dialogue.CHARMAP_DIALOGUENAME_EN, "names jp": dialogue.CHARMAP_DIALOGUENAME_JP}
 
 class GameEnum(enum.Enum):
 
-  def __init__(self, id: enum.auto, arm9Addrs: int, fileIndicators: dict, patches: list[list]):
+  def __init__(self, id: enum.auto, arm9Addrs: int, charmaps: dict, fileIndicators: dict, patches: list[list]):
       self.id = id
       self.arm9Addrs = arm9Addrs
+      self.charmaps = charmaps
       self.fileIndicators = fileIndicators
       self.patches = patches
 
-  ROCKMANZX = enum.auto(), ARM9_ZX_J, {"Graphics" : I_GFX_ZX,
+  ROCKMANZX = enum.auto(), ARM9_ZX_J, CHARMAPS_ZX, {"Graphics" : I_GFX_ZX,
                             "Font" : I_FONT,
                             "Dialogue" : I_DIALOGUE,
                             "Palette Animation" : I_PANM,
                             "Mugshot" : I_MUGSHOT}, []
-  MEGAMANZX = enum.auto(), ARM9_ZX_E, {"Graphics" : I_GFX_ZX,
+  MEGAMANZX = enum.auto(), ARM9_ZX_E, CHARMAPS_ZX, {"Graphics" : I_GFX_ZX,
                             "Font" : I_FONT,
                             "Dialogue" : I_DIALOGUE,
                             "Palette Animation" : I_PANM,
@@ -55,12 +60,12 @@ class GameEnum(enum.Enum):
     [0x021AE600, "overwiting patch test", "text", 'f1', '20']
   ]
 
-  ROCKMANZXA = enum.auto(), ARM9_ZXA_J, {"Graphics" : I_GFX_ZXA,
+  ROCKMANZXA = enum.auto(), ARM9_ZXA_J, {}, {"Graphics" : I_GFX_ZXA,
                              "Font" : I_FONT,
                              "Dialogue" : I_DIALOGUE,
                              "Palette Animation" : I_PANM,
                              "Mugshot" : I_MUGSHOT}, []
-  MEGAMANZXA = enum.auto(), ARM9_ZXA_E, {"Graphics" : I_GFX_ZXA,
+  MEGAMANZXA = enum.auto(), ARM9_ZXA_E, {}, {"Graphics" : I_GFX_ZXA,
                              "Font" : I_FONT,
                              "Dialogue" : I_DIALOGUE,
                              "Palette Animation" : I_PANM,
@@ -71,7 +76,7 @@ class GameEnum(enum.Enum):
                               "dialogue names jp": 0,
                               "dialogue names en": 0,
                               "dialogue font": 0
-                         }, {"Graphics" : I_GFX,
+                         }, CHARMAPS_ZX, {"Graphics" : I_GFX,
                              "Font" : I_FONT,
                              "Dialogue" : I_DIALOGUE,
                              "Palette Animation" : I_PANM,

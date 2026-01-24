@@ -1,239 +1,457 @@
-#this file is no longer used
-# dialogue conversion for english (and japanese scripts eventually)
-#https://www.rapidtables.com/code/text/ascii-table.html
-SPCHARS_E: list = ([0])*256
-
-SPCHARS_E[0x5f] = [0, "⠂"]
-SPCHARS_E[0x60] = [0, "€"]
-#SPCHARS_E[0x61] = [0, ""] #unknown char, empty in font
-SPCHARS_E[0x62] = [0, "𐄀"]
-#SPCHARS_E[0x63] = [0, ""] #unknown char, empty in font
-SPCHARS_E[0x64] = [0, "⠤"]
-SPCHARS_E[0x65] = [0, "┅"]
-#SPCHARS_E[0x66] = [0, ""] #unknown char, empty in font
-#SPCHARS_E[0x67] = [0, ""] #unknown char, empty in font
-SPCHARS_E[0x68] = [0, "ˆ"]
-#SPCHARS_E[0x69] = [0, ""] #unknown char, empty in font
-SPCHARS_E[0x6a] = [0, "Š"]
-SPCHARS_E[0x6b] = [0, "⟨"]
-SPCHARS_E[0x6c] = [0, "Œ"]
-#SPCHARS_E[0x6d] = [0, ""] #unknown char, empty in font
-SPCHARS_E[0x6e] = [0, "Ž"]
-#SPCHARS_E[0x6f] = [0, ""] #unknown char, empty in font
-#SPCHARS_E[0x70] = [0, ""] #unknown char, empty in font
-SPCHARS_E[0x71] = [0, "‘"]
-SPCHARS_E[0x72] = [0, "’"]
-SPCHARS_E[0x73] = [0, "“"]
-SPCHARS_E[0x74] = [0, "”"]
-SPCHARS_E[0x75] = [0, "•"]
-#SPCHARS_E[0x76] = [0, ""] #unknown char, empty in font
-#SPCHARS_E[0x77] = [0, ""] #unknown char, empty in font
-SPCHARS_E[0x78] = [0, "˜"]
-SPCHARS_E[0x79] = [0, "™"]
-SPCHARS_E[0x7a] = [0, "š"]
-SPCHARS_E[0x7b] = [0, "⟩"]
-SPCHARS_E[0x7c] = [0, "œ"]
-#SPCHARS_E[0x7d] = [0, ""] #unknown char, empty in font
-SPCHARS_E[0x7e] = [0, "ž"]
-SPCHARS_E[0x7f] = [0, "Ÿ"]
-
-SPCHARS_E[0xe0] = [0, "├DPAD_LEFT┤"]
-SPCHARS_E[0xe1] = [0, "├DPAD_RIGHT┤"]
-SPCHARS_E[0xe2] = [0, "├BUTTON_A_LEFT┤"]
-SPCHARS_E[0xe3] = [0, "├BUTTON_A_RIGHT┤"]
-SPCHARS_E[0xe4] = [0, "├BUTTON_B_LEFT┤"]
-SPCHARS_E[0xe5] = [0, "├BUTTON_B_RIGHT┤"]
-SPCHARS_E[0xe6] = [0, "├BUTTON_X_LEFT┤"]
-SPCHARS_E[0xe7] = [0, "├BUTTON_X_RIGHT┤"]
-SPCHARS_E[0xe8] = [0, "├BUTTON_Y_LEFT┤"]
-SPCHARS_E[0xe9] = [0, "├BUTTON_Y_RIGHT┤"]
-SPCHARS_E[0xea] = [0, "├BUTTON_L_LEFT┤"]
-SPCHARS_E[0xeb] = [0, "├BUTTON_L_RIGHT┤"]
-SPCHARS_E[0xec] = [0, "├BUTTON_R_LEFT┤"]
-SPCHARS_E[0xed] = [0, "├BUTTON_R_RIGHT┤"]
-SPCHARS_E[0xee] = [0, "🡅"]
-SPCHARS_E[0xef] = [0, "🡇"]
-SPCHARS_E[0xf0] = [1, "├CHAR_F 0x{0:02X}┤"] #sets char to 0xF0 + arg
-SPCHARS_E[0xf1] = [1, "├COLOR 0x{0:02X}┤"]
-SPCHARS_E[0xf2] = [1, "├PLACEMENT 0x{0:02X}┤"]
-SPCHARS_E[0xf3] = [1, "├MUGSHOT 0x{0:02X}┤"]
-SPCHARS_E[0xf4] = [1, "├ISOLATE 0x{0:02X}┤"] #hides the next char and draws function arguments.
-SPCHARS_E[0xf5] = [1, "├REQUESTEND 0x{0:02X}┤"] #same as 0xfe, but does not interrupt current dialogue
-SPCHARS_E[0xf6] = [1, "├TWOCHOICES 0x{0:02X}┤"]
-SPCHARS_E[0xf7] = [1, "├ISOLATE2 0x{0:02X}┤"] #same as 0xf4
-SPCHARS_E[0xf8] = [1, "├NAME 0x{0:02X}┤"]
-SPCHARS_E[0xf9] = [2, "├COUNTER 0x{0:02X} 0x{1:02X}┤"] #dialogue page counter???
-SPCHARS_E[0xfa] = [0, "├PLAYERNAME┤"] # writes player name
-SPCHARS_E[0xfb] = [0, "├THREECHOICES┤"]
-SPCHARS_E[0xfc] = [0, "├NEWLINE┤"]
-SPCHARS_E[0xfd] = [0, "├NEWPAGE┤"]
-SPCHARS_E[0xfe] = [0, "├END┤"]
-SPCHARS_E[0xff] = [0, "├ENDOFFILE┤"] #end of used file (duplicate text is used to fill the rest of the file)
+from .charmap import CharMap
 
 
-# todo: create another J table for ZXA
-CHARSF_J: list = ([0])*256
-CHARSF_J[0x00] = [0, "、"]
-CHARSF_J[0x01] = [0, "‐"]
-CHARSF_J[0x02] = [0, "。"]
-CHARSF_J[0x03] = [0, "／"]
-CHARSF_J[0x04] = [0, "："]
-CHARSF_J[0x05] = [0, "〈"]
-CHARSF_J[0x06] = [0, "＝"]
-CHARSF_J[0x07] = [0, "〉"]
-CHARSF_J[0x08] = [0, "？"]
-CHARSF_J[0x09] = [0, "［"]
-CHARSF_J[0x0A] = [0, "］"]
-CHARSF_J[0x0B] = [0, "＿"]
-CHARSF_J[0x0C] = [0, "～"]
-CHARSF_J[0x0D] = [0, "「"]
-CHARSF_J[0x0E] = [0, "」"]
-CHARSF_J[0x0F] = [0, "…"]
-CHARSF_J[0x10] = [0, "運"]
-CHARSF_J[0x11] = [0, "屋"]
-CHARSF_J[0x12] = [0, "部"]
-CHARSF_J[0x13] = [0, "隊"]
-CHARSF_J[0x14] = [0, "合"]
-CHARSF_J[0x15] = [0, "流"]
-CHARSF_J[0x16] = [0, "本"]
-CHARSF_J[0x17] = [0, "社"]
-CHARSF_J[0x18] = [0, "何"]
-CHARSF_J[0x19] = [0, "者"]
-CHARSF_J[0x1A] = [0, "出"]
-CHARSF_J[0x1B] = [0, "現"]
-CHARSF_J[0x1C] = [0, "原"]
-CHARSF_J[0x1D] = [0, "因"]
-CHARSF_J[0x1E] = [0, "調"]
-CHARSF_J[0x1F] = [0, "査"]
-CHARSF_J[0x20] = [0, "子"]
-CHARSF_J[0x21] = [0, "生"]
-CHARSF_J[0x22] = [0, "命"]
-CHARSF_J[0x23] = [0, "体"]
-CHARSF_J[0x24] = [0, "戦"]
-CHARSF_J[0x25] = [0, "争"]
-CHARSF_J[0x26] = [0, "発"]
-CHARSF_J[0x27] = [0, "地"]
-CHARSF_J[0x28] = [0, "見"]
-CHARSF_J[0x29] = [0, "会"]
-CHARSF_J[0x2A] = [0, "国"]
-CHARSF_J[0x2B] = [0, "助"]
-CHARSF_J[0x2C] = [0, "年"]
-CHARSF_J[0x2D] = [0, "新"]
-CHARSF_J[0x2E] = [0, "今"]
-CHARSF_J[0x2F] = [0, "回"]
-CHARSF_J[0x30] = [0, "変"]
-CHARSF_J[0x31] = [0, "身"]
-CHARSF_J[0x32] = [0, "少"]
-CHARSF_J[0x33] = [0, "女"]
-CHARSF_J[0x34] = [0, "転"]
-CHARSF_J[0x35] = [0, "送"]
-CHARSF_J[0x36] = [0, "青"]
-CHARSF_J[0x37] = [0, "赤"]
-CHARSF_J[0x38] = [0, "上"]
-CHARSF_J[0x39] = [0, "後"]
-CHARSF_J[0x3A] = [0, "世"]
-CHARSF_J[0x3B] = [0, "界"]
-CHARSF_J[0x3C] = [0, "進"]
-CHARSF_J[0x3D] = [0, "化"]
-CHARSF_J[0x3E] = [0, "王"]
-CHARSF_J[0x3F] = [0, "人"]
-CHARSF_J[0x40] = [0, "間"]
-CHARSF_J[0x41] = [0, "数"]
-CHARSF_J[0x42] = [0, "百"]
-CHARSF_J[0x43] = [0, "支"]
-CHARSF_J[0x44] = [0, "配"]
-CHARSF_J[0x45] = [0, "男"]
-CHARSF_J[0x46] = [0, "勇"]
-CHARSF_J[0x47] = [0, "気"]
-CHARSF_J[0x48] = [0, "前"]
-CHARSF_J[0x49] = [0, "闘"]
-CHARSF_J[0x4A] = [0, "用"]
-CHARSF_J[0x4B] = [0, "時"]
-CHARSF_J[0x4C] = [0, "代"]
-CHARSF_J[0x4D] = [0, "平"]
-CHARSF_J[0x4E] = [0, "和"]
-CHARSF_J[0x4F] = [0, "死"]
-CHARSF_J[0x50] = [0, "名"]
-CHARSF_J[0x51] = [0, "・"] # maybe?
-CHARSF_J[0x52] = [0, "血"]
-CHARSF_J[0x53] = [0, "下"]
-CHARSF_J[0x54] = [0, "左"]
-CHARSF_J[0x55] = [0, "右"]
-CHARSF_J[0x56] = [0, "├DPAD┤"]
-CHARSF_J[0x57] = [0, "├BUTTON_A┤"]
-CHARSF_J[0x58] = [0, "├BUTTON_B┤"]
-CHARSF_J[0x59] = [0, "├BUTTON_X┤"]
-CHARSF_J[0x5A] = [0, "├BUTTON_Y┤"]
-CHARSF_J[0x5B] = [0, "├BUTTON_L┤"]
-CHARSF_J[0x5C] = [0, "├BUTTON_R┤"]
-CHARSF_J[0x5D] = [0, "中"]
-CHARSF_J[0x5E] = [0, "開"]
-CHARSF_J[0x5F] = [0, "分"]
-CHARSF_J[0x60] = [0, "型"]
-CHARSF_J[0x61] = [0, "長"]
-CHARSF_J[0x62] = [0, "大"]
-CHARSF_J[0x63] = [0, "量"]
-CHARSF_J[0x64] = [0, "内"]
-CHARSF_J[0x65] = [0, "同"]
-CHARSF_J[0x66] = [0, "動"]
-CHARSF_J[0x67] = [0, "続"]
-CHARSF_J[0x68] = [0, "悪"]
-CHARSF_J[0x69] = [0, "活"]
-CHARSF_J[0x6A] = [0, "利"]
-CHARSF_J[0x6B] = [0, "空"]
-CHARSF_J[0x6C] = [0, "日"]
-CHARSF_J[0x6D] = [0, "産"]
-CHARSF_J[0x6E] = [0, "使"]
-CHARSF_J[0x6F] = [0, "単"]
-CHARSF_J[0x70] = [0, "天"]
-CHARSF_J[0x71] = [0, "井"]
-CHARSF_J[0x72] = [0, "火"]
-CHARSF_J[0x73] = [0, "玉"]
-CHARSF_J[0x74] = [0, "一"]
-CHARSF_J[0x75] = [0, "定"]
-CHARSF_J[0x76] = [0, "方"]
-CHARSF_J[0x77] = [0, "向"]
-CHARSF_J[0x78] = [0, "背"]
-CHARSF_J[0x79] = [0, "水"]
-CHARSF_J[0x7A] = [0, "両"]
-CHARSF_J[0x7B] = [0, "各"]
-CHARSF_J[0x7C] = [0, "古"]
-CHARSF_J[0x7D] = [0, "電"]
-CHARSF_J[0x7E] = [0, "固"]
-CHARSF_J[0x7F] = [0, "止"]
-CHARSF_J[0x80] = [0, "在"]
-CHARSF_J[0x81] = [0, "—"] # maybe?
-CHARSF_J[0x82] = [0, "–"] # maybe?
-CHARSF_J[0x83] = [0, "仲"]
-CHARSF_J[0x84] = [0, "強"]
-CHARSF_J[0x85] = [0, "力"]
-CHARSF_J[0x86] = [0, "面"]
-CHARSF_J[0x87] = [0, "小"]
-CHARSF_J[0x88] = [0, "所"]
-CHARSF_J[0x89] = [0, "目"]
-CHARSF_J[0x8A] = [0, "々"]
-CHARSF_J[0x8B] = [0, "都"]
-CHARSF_J[0x8C] = [0, "市"]
-CHARSF_J[0x8D] = [0, "伝"]
-CHARSF_J[0x8E] = [0, "説"]
-CHARSF_J[0x8F] = [0, "入"]
-CHARSF_J[0x90] = [0, "魚"]
-CHARSF_J[0x91] = [0, "路"]
-CHARSF_J[0x92] = [0, "守"]
-CHARSF_J[0x93] = [0, "手"]
-CHARSF_J[0x94] = [0, "木"]
-CHARSF_J[0x95] = [0, "葉"]
-CHARSF_J[0x96] = [0, "囗"]
-CHARSF_J[0x97] = [0, "重"]
-CHARSF_J[0x98] = [0, "半"]
-CHARSF_J[0x99] = [0, "正"]
-CHARSF_J[0x9A] = [0, "式"]
-CHARSF_J[0x9B] = [0, "．"]
-CHARSF_J[0x9C] = [0, "⯈"]
+CHARMAP_DIALOGUE_EN = CharMap()
+CHARMAP_DIALOGUE_EN.add_mapping_range((0x00,), " ", 0x5f)
+CHARMAP_DIALOGUE_EN.add_mapping((0x5f,), "⠂")
+CHARMAP_DIALOGUE_EN.add_mapping((0x60,), "€")
+#CHARMAP_DIALOGUE_EN.add_mapping((0x61,), "") #unknown char, empty in font
+CHARMAP_DIALOGUE_EN.add_mapping((0x62,), "𐄀")
+#CHARMAP_DIALOGUE_EN.add_mapping((0x63,), "") #unknown char, empty in font
+CHARMAP_DIALOGUE_EN.add_mapping((0x64,), "⠤")
+CHARMAP_DIALOGUE_EN.add_mapping((0x65,), "┅")
+#CHARMAP_DIALOGUE_EN.add_mapping((0x66,), "") #unknown char, empty in font
+#CHARMAP_DIALOGUE_EN.add_mapping((0x67,), "") #unknown char, empty in font
+CHARMAP_DIALOGUE_EN.add_mapping((0x68,), "ˆ")
+#CHARMAP_DIALOGUE_EN.add_mapping((0x69,), "") #unknown char, empty in font
+CHARMAP_DIALOGUE_EN.add_mapping((0x6a,), "Š")
+CHARMAP_DIALOGUE_EN.add_mapping((0x6b,), "⟨")
+CHARMAP_DIALOGUE_EN.add_mapping((0x6c,), "Œ")
+#CHARMAP_DIALOGUE_EN.add_mapping((0x6d,), "") #unknown char, empty in font
+CHARMAP_DIALOGUE_EN.add_mapping((0x6e,), "Ž")
+#CHARMAP_DIALOGUE_EN.add_mapping((0x6f,), "") #unknown char, empty in font
+#CHARMAP_DIALOGUE_EN.add_mapping((0x70,), "") #unknown char, empty in font
+CHARMAP_DIALOGUE_EN.add_mapping((0x71,), "‘")
+CHARMAP_DIALOGUE_EN.add_mapping((0x72,), "’")
+CHARMAP_DIALOGUE_EN.add_mapping((0x73,), "“")
+CHARMAP_DIALOGUE_EN.add_mapping((0x74,), "”")
+CHARMAP_DIALOGUE_EN.add_mapping((0x75,), "•")
+#CHARMAP_DIALOGUE_EN.add_mapping((0x76,), "") #unknown char, empty in font
+#CHARMAP_DIALOGUE_EN.add_mapping((0x77,), "") #unknown char, empty in font
+CHARMAP_DIALOGUE_EN.add_mapping((0x78,), "˜")
+CHARMAP_DIALOGUE_EN.add_mapping((0x79,), "™")
+CHARMAP_DIALOGUE_EN.add_mapping((0x7a,), "š")
+CHARMAP_DIALOGUE_EN.add_mapping((0x7b,), "⟩")
+CHARMAP_DIALOGUE_EN.add_mapping((0x7c,), "œ")
+#CHARMAP_DIALOGUE_EN.add_mapping((0x7d,), "") #unknown char, empty in font
+CHARMAP_DIALOGUE_EN.add_mapping((0x7e,), "ž")
+CHARMAP_DIALOGUE_EN.add_mapping((0x7f,), "Ÿ")
+
+CHARMAP_DIALOGUE_EN.add_mapping_range((0x81,), "¡", 3)
+
+CHARMAP_DIALOGUE_EN.add_mapping_range((0x88,), "¨", 4)
+
+CHARMAP_DIALOGUE_EN.add_mapping((0x8e,), "®")
+
+CHARMAP_DIALOGUE_EN.add_mapping_range((0x90,), "°", 2)
+
+CHARMAP_DIALOGUE_EN.add_mapping((0x94,), "´")
+
+CHARMAP_DIALOGUE_EN.add_mapping((0x97,), "·")
+
+CHARMAP_DIALOGUE_EN.add_mapping_range((0x9a,), "º", 2)
+
+CHARMAP_DIALOGUE_EN.add_mapping_range((0x9f,), "¿", 0x41)
+CHARMAP_DIALOGUE_EN.add_mapping((0xe0,), "├DPAD_LEFT┤")
+CHARMAP_DIALOGUE_EN.add_mapping((0xe1,), "├DPAD_RIGHT┤")
+CHARMAP_DIALOGUE_EN.add_mapping((0xe2,), "├BUTTON_A_LEFT┤")
+CHARMAP_DIALOGUE_EN.add_mapping((0xe3,), "├BUTTON_A_RIGHT┤")
+CHARMAP_DIALOGUE_EN.add_mapping((0xe4,), "├BUTTON_B_LEFT┤")
+CHARMAP_DIALOGUE_EN.add_mapping((0xe5,), "├BUTTON_B_RIGHT┤")
+CHARMAP_DIALOGUE_EN.add_mapping((0xe6,), "├BUTTON_X_LEFT┤")
+CHARMAP_DIALOGUE_EN.add_mapping((0xe7,), "├BUTTON_X_RIGHT┤")
+CHARMAP_DIALOGUE_EN.add_mapping((0xe8,), "├BUTTON_Y_LEFT┤")
+CHARMAP_DIALOGUE_EN.add_mapping((0xe9,), "├BUTTON_Y_RIGHT┤")
+CHARMAP_DIALOGUE_EN.add_mapping((0xea,), "├BUTTON_L_LEFT┤")
+CHARMAP_DIALOGUE_EN.add_mapping((0xeb,), "├BUTTON_L_RIGHT┤")
+CHARMAP_DIALOGUE_EN.add_mapping((0xec,), "├BUTTON_R_LEFT┤")
+CHARMAP_DIALOGUE_EN.add_mapping((0xed,), "├BUTTON_R_RIGHT┤")
+CHARMAP_DIALOGUE_EN.add_mapping((0xee,), "🡅")
+CHARMAP_DIALOGUE_EN.add_mapping((0xef,), "🡇")
+CHARMAP_DIALOGUE_EN.add_mapping((0xf0, 0x00), "🡄")
+CHARMAP_DIALOGUE_EN.add_mapping((0xf0, 0x01), "🡆")
+CHARMAP_DIALOGUE_EN.add_mapping((0xf0, 0x02), "⯈")
+
+
+CHARMAP_DIALOGUE_JP = CharMap()
+CHARMAP_DIALOGUE_JP.add_mapping((0x00,), "　")
+CHARMAP_DIALOGUE_JP.add_mapping_range((0x01,), "０", 0xa)
+CHARMAP_DIALOGUE_JP.add_mapping_range((0x0b,), "Ａ", 0x1a)
+CHARMAP_DIALOGUE_JP.add_mapping_range((0x25,), "ａ", 0x1a)
+CHARMAP_DIALOGUE_JP.add_mapping((0x3f,), "ー")
+CHARMAP_DIALOGUE_JP.add_mapping_range((0x40,), "ぁ", 0x4f)
+CHARMAP_DIALOGUE_JP.add_mapping_range((0x8f,), "を", 2)
+CHARMAP_DIALOGUE_JP.add_mapping_range((0x91,), "ァ", 0x4f)
+CHARMAP_DIALOGUE_JP.add_mapping_range((0xe0,), "ヲ", 5)
+CHARMAP_DIALOGUE_JP.add_mapping_range((0xe5,), "！", 0xb)
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x00), "、")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x01), "‐")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x02), "。")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x03), "／")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x04), "：")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x05), "〈")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x06), "＝")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x07), "〉")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x08), "？")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x09), "［")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x0A), "］")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x0B), "＿")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x0C), "～")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x0D), "「")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x0E), "」")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x0F), "…")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x10), "運")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x11), "屋")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x12), "部")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x13), "隊")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x14), "合")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x15), "流")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x16), "本")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x17), "社")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x18), "何")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x19), "者")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x1A), "出")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x1B), "現")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x1C), "原")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x1D), "因")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x1E), "調")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x1F), "査")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x20), "子")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x21), "生")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x22), "命")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x23), "体")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x24), "戦")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x25), "争")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x26), "発")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x27), "地")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x28), "見")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x29), "会")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x2A), "国")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x2B), "助")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x2C), "年")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x2D), "新")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x2E), "今")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x2F), "回")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x30), "変")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x31), "身")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x32), "少")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x33), "女")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x34), "転")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x35), "送")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x36), "青")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x37), "赤")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x38), "上")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x39), "後")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x3A), "世")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x3B), "界")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x3C), "進")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x3D), "化")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x3E), "王")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x3F), "人")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x40), "間")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x41), "数")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x42), "百")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x43), "支")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x44), "配")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x45), "男")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x46), "勇")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x47), "気")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x48), "前")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x49), "闘")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x4A), "用")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x4B), "時")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x4C), "代")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x4D), "平")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x4E), "和")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x4F), "死")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x50), "名")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x51), "・") # maybe?
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x52), "血")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x53), "下")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x54), "左")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x55), "右")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x56), "├DPAD┤")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x57), "├BUTTON_A┤")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x58), "├BUTTON_B┤")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x59), "├BUTTON_X┤")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x5A), "├BUTTON_Y┤")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x5B), "├BUTTON_L┤")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x5C), "├BUTTON_R┤")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x5D), "中")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x5E), "開")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x5F), "分")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x60), "型")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x61), "長")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x62), "大")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x63), "量")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x64), "内")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x65), "同")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x66), "動")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x67), "続")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x68), "悪")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x69), "活")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x6A), "利")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x6B), "空")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x6C), "日")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x6D), "産")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x6E), "使")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x6F), "単")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x70), "天")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x71), "井")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x72), "火")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x73), "玉")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x74), "一")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x75), "定")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x76), "方")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x77), "向")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x78), "背")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x79), "水")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x7A), "両")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x7B), "各")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x7C), "古")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x7D), "電")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x7E), "固")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x7F), "止")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x80), "在")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x81), "—") # maybe?
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x82), "–") # maybe?
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x83), "仲")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x84), "強")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x85), "力")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x86), "面")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x87), "小")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x88), "所")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x89), "目")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x8A), "々")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x8B), "都")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x8C), "市")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x8D), "伝")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x8E), "説")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x8F), "入")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x90), "魚")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x91), "路")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x92), "守")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x93), "手")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x94), "木")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x95), "葉")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x96), "囗")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x97), "重")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x98), "半")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x99), "正")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x9A), "式")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x9B), "．")
+CHARMAP_DIALOGUE_JP.add_mapping((0xf0, 0x9C), "⯈")
+
+
+CHARMAP_DIALOGUENAME_EN = CharMap()
+CHARMAP_DIALOGUENAME_EN.add_mapping_range((0x00,), " ", 0x5b)
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x5b,), "é")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x5c,), "ê")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x5d,), "ア") # AIUEO
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x5e,), "イ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x5f,), "ウ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x60,), "エ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x61,), "オ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x62,), "ァ") # aiueo
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x63,), "ィ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x64,), "ゥ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x65,), "ェ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x66,), "ォ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x67,), "ヴ") # VU
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x68,), "カ") # KAIUEO
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x69,), "キ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x6a,), "ク")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x6b,), "ケ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x6c,), "コ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x6d,), "ガ") # GAIUEO
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x6e,), "ギ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x6f,), "グ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x70,), "ゲ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x71,), "ゴ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x72,), "サ") # SAIUEO
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x73,), "シ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x74,), "ス")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x75,), "セ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x76,), "ソ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x77,), "ザ") # ZAIUEO
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x78,), "ジ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x79,), "ズ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x7a,), "ゼ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x7b,), "ゾ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x7c,), "タ") # TAIUEO
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x7d,), "チ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x7e,), "ツ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x7f,), "テ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x80,), "ト")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x81,), "ダ") # DAIUEO
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x82,), "ヂ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x83,), "ヅ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x84,), "デ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x85,), "ド")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x86,), "ッ") # sokuon
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x87,), "ナ") # NAIUEO
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x88,), "ニ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x89,), "ヌ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x8a,), "ネ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x8b,), "ノ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x8c,), "ハ") # HAIUEO
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x8d,), "ヒ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x8e,), "フ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x8f,), "へ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x90,), "ホ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x91,), "バ") # BAIUEO
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x92,), "ビ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x93,), "ブ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x94,), "べ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x95,), "ボ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x96,), "パ") # PAIUEO
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x97,), "ピ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x98,), "プ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x99,), "ペ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x9a,), "ポ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x9b,), "マ") # MAIUEO
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x9c,), "ミ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x9d,), "ム")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x9e,), "メ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0x9f,), "モ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0xa0,), "ヤ") # YAUO
+CHARMAP_DIALOGUENAME_EN.add_mapping((0xa1,), "ユ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0xa2,), "ヨ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0xa3,), "ャ") # yauo
+CHARMAP_DIALOGUENAME_EN.add_mapping((0xa4,), "ュ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0xa5,), "ョ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0xa6,), "ラ") # RAIUEO
+CHARMAP_DIALOGUENAME_EN.add_mapping((0xa7,), "リ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0xa8,), "ル")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0xa9,), "レ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0xaa,), "ロ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0xab,), "ワ") # WAO
+CHARMAP_DIALOGUENAME_EN.add_mapping((0xac,), "ヲ")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0xad,), "ン") # N
+CHARMAP_DIALOGUENAME_EN.add_mapping_range((0xae,), "Ａ", 0x1a)
+CHARMAP_DIALOGUENAME_EN.add_mapping((0xc8,), "－")
+CHARMAP_DIALOGUENAME_EN.add_mapping_range((0xc9,), "０", 0xa)
+CHARMAP_DIALOGUENAME_EN.add_mapping((0xd3,), "？")
+CHARMAP_DIALOGUENAME_EN.add_mapping((0xff,), "├ENDNAME┤")
+
+CHARMAP_DIALOGUENAME_JP = CharMap()
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x00,), "ア") # AIUEO
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x01,), "イ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x02,), "ウ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x03,), "エ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x04,), "オ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x05,), "ァ") # aiueo
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x06,), "ィ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x07,), "ゥ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x08,), "ェ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x09,), "ォ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x0a,), "ヴ") # VU
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x0b,), "カ") # KAIUEO
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x0c,), "キ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x0d,), "ク")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x0e,), "ケ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x0f,), "コ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x10,), "ガ") # GAIUEO
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x11,), "ギ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x12,), "グ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x13,), "ゲ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x14,), "ゴ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x15,), "サ") # SAIUEO
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x16,), "シ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x17,), "ス")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x18,), "セ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x19,), "ソ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x1a,), "ザ") # ZAIUEO
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x1b,), "ジ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x1c,), "ズ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x1d,), "ゼ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x1e,), "ゾ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x1f,), "タ") # TAIUEO
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x20,), "チ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x21,), "ツ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x22,), "テ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x23,), "ト")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x24,), "ダ") # DAIUEO
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x25,), "ヂ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x26,), "ヅ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x27,), "デ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x28,), "ド")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x29,), "ッ") # sokuon
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x2a,), "ナ") # NAIUEO
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x2b,), "ニ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x2c,), "ヌ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x2d,), "ネ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x2e,), "ノ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x2f,), "ハ") # HAIUEO
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x30,), "ヒ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x31,), "フ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x32,), "へ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x33,), "ホ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x34,), "バ") # BAIUEO
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x35,), "ビ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x36,), "ブ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x37,), "べ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x38,), "ボ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x39,), "パ") # PAIUEO
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x3a,), "ピ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x3b,), "プ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x3c,), "ペ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x3d,), "ポ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x3e,), "マ") # MAIUEO
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x3f,), "ミ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x40,), "ム")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x41,), "メ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x42,), "モ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x43,), "ヤ") # YAUO
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x44,), "ユ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x45,), "ヨ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x46,), "ャ") # yauo
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x47,), "ュ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x48,), "ョ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x49,), "ラ") # RAIUEO
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x4a,), "リ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x4b,), "ル")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x4c,), "レ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x4d,), "ロ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x4e,), "ワ") # WAO
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x4f,), "ヲ")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x50,), "ン") # N
+CHARMAP_DIALOGUENAME_JP.add_mapping_range((0x51,), "Ａ", 0x1a)
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x6b,), "－")
+CHARMAP_DIALOGUENAME_JP.add_mapping_range((0x6c,), "０", 0xa)
+CHARMAP_DIALOGUENAME_JP.add_mapping((0x76,), "？")
+CHARMAP_DIALOGUENAME_JP.add_mapping((0xff,), "├ENDNAME┤")
+
+
+for CHARMAP in [CHARMAP_DIALOGUE_EN, CHARMAP_DIALOGUE_JP]:
+    CHARMAP.add_mapping((0xf1, None), "├COLOR 0x{0:02X}┤")
+    CHARMAP.add_mapping((0xf2, None), "├PLACEMENT 0x{0:02X}┤")
+    CHARMAP.add_mapping((0xf3, None), "├MUGSHOT 0x{0:02X}┤")
+    CHARMAP.add_mapping((0xf4, None), "├ISOLATE 0x{0:02X}┤") #hides the next char and draws function arguments.
+    CHARMAP.add_mapping((0xf5, None), "├REQUESTEND 0x{0:02X}┤") #same as 0xfe, but does not interrupt current dialogue
+    CHARMAP.add_mapping((0xf6, None), "├TWOCHOICES 0x{0:02X}┤")
+    CHARMAP.add_mapping((0xf7, None), "├ISOLATE2 0x{0:02X}┤") #same as 0xf4
+    CHARMAP.add_mapping((0xf8, None), "├NAME 0x{0:02X}┤")
+    CHARMAP.add_mapping((0xf9, None, None), "├COUNTER 0x{0:02X} 0x{1:02X}┤") #dialogue page counter???
+    CHARMAP.add_mapping((0xfa,), "├PLAYERNAME┤") # writes player name
+    CHARMAP.add_mapping((0xfb,), "├THREECHOICES┤")
+    CHARMAP.add_mapping((0xfc,), "├NEWLINE┤")
+    CHARMAP.add_mapping((0xfd,), "├NEWPAGE┤")
+    CHARMAP.add_mapping((0xfe,), "├END┤")
+    CHARMAP.add_mapping((0xff,), "├ENDOFFILE┤") #end of used file (duplicate text is used to fill the rest of the file)
+
+"""
+CHARMAP_DIALOGUE = {
+    "en": CHARMAP_DIALOGUE_EN,
+    "jp": CHARMAP_DIALOGUE_JP,
+    "names": CHARMAP_DIALOGUENAME_ENJP
+}
+"""
+
 
 class DialogueFile:
-    def __init__(self, data: bytes, lang: str="en"):
-        self.lang = lang # en, jp, or names
+    def __init__(self, data: bytes, charmap: CharMap=CHARMAP_DIALOGUE_EN):
+        self.charmap = charmap # en, jp, or names
         file_size = int.from_bytes(data[0x00:0x02], "little")
         text_bin_ptr_array_size = int.from_bytes(data[0x02:0x04], "little")
         assert file_size > text_bin_ptr_array_size
@@ -268,199 +486,34 @@ class DialogueFile:
             id += 1
 
 
-    def match_paren(s: str, i: int, braces=None): # find index of closing brace for specified opening brace in string
-        openers = braces or {"(": ")"}
-        closers = {v: k for k, v in openers.items()}
-        stack = []
-        result = []
-
-        if s[i] not in openers:
-            raise ValueError(f"char at index {i} was not an opening brace")
-
-        for ii in range(i, len(s)):
-            c = s[ii]
-
-            if c in openers:
-                stack.append([c, ii])
-            elif c in closers:
-                if not stack:
-                    raise ValueError(f"tried to close brace without an open at position {i}")
-
-                pair, idx = stack.pop()
-
-                if pair != closers[c]:
-                    raise ValueError(f"mismatched brace at position {i}")
-
-                if idx == i:
-                    return ii
-        
-        if stack:
-            raise ValueError(f"no closing brace at position {i}")
-
-        return result
-
-    def binToText_iterate(data: bytearray, chars: list[str], i: int, lang: str="en"):
-        if lang == "en" and (data[i] <= 0x5E or (data[i] >= 0x80 and data[i] <= 0xDF and data[i] not in [0x80, 0x84, 0x85, 0x86, 0x87, 0x8c, 0x8d, 0x8f, 0x92, 0x93, 0x95, 0x96, 0x98, 0x99, 0x9c, 0x9d, 0x9e])) \
-        or lang == "jp" and (data[i] <= 0xF0):# ASCII chars
-            if lang == "en":
-                chars.append(chr(data[i] + 0x20 & 0xFF))
-            elif lang == "jp":
-                if data[i] == 0x00:
-                    chars.append(chr(0x3000))
-                elif 0x01 <= data[i] <= 0x0A:
-                    chars.append(chr(data[i]-0x01 + 0xFF10))
-                elif 0x0B <= data[i] <= 0x24:
-                    chars.append(chr(data[i]-0x0B + 0xFF21))
-                elif 0x25 <= data[i] <= 0x3E:
-                    chars.append(chr(data[i]-0x25 + 0xFF41))
-                elif data[i] == 0x3F:
-                    chars.append(chr(0x30FC))
-                elif 0x40 <= data[i] <= 0x8E:
-                    chars.append(chr(data[i]-0x40 + 0x3041))
-                elif 0x8F <= data[i] <= 0x90:
-                    chars.append(chr(data[i]-0x8F + 0x3092))
-                elif 0x91 <= data[i] <= 0xDF:
-                    chars.append(chr(data[i]-0x91 + 0x30A1))
-                elif 0xE0 <= data[i] <= 0xE4:
-                    chars.append(chr(data[i]-0xE0 + 0x30F2))
-                elif 0xE5 <= data[i] <= 0xEF:
-                    chars.append(chr(data[i]-0xE5 + 0x0021))
-                elif data[i] == 0xF0 and type(CHARSF_J[data[i+1]]) == list:
-                    chars.append(CHARSF_J[data[i+1]][1])
-                    i+=1 # count 0xF0 command AND the argument
-                else:
-                    print(f"unhandled char \"{chr(data[i])}\" (0x{data[i]:02X}) !")
-                    chars.append(chr(data[i]))
-        elif type(SPCHARS_E[data[i]]) == type([]):# game specific chars
-            special_character = SPCHARS_E[data[i]]
-            params = []
-            for p in range(special_character[0]):# if char is a "function", append params and count the file chars read
-                i+=1
-                if i <= len(data)-1: # if not at end of file
-                    params.append(data[i])
-                else: # if data incomplete
-                    #print(params)
-                    #print(special_character[1][:special_character[1].replace("0x", "  ", p).find(" 0x")] + "┤")
-                    chars.append(special_character[1][:special_character[1].replace("0x", "  ", p).find(" 0x")].format(*params) + "┤")# add the char and insert the incomplete amount of param values
-                    return ''.join(chars) # join all converted chars into one full string
-            chars.append(special_character[1].format(*params))# add the char and insert the param values, if applicable
-        else:# undefined hex values
-            chars.append(f"├0x{data[i]:02X}┤")
-        i+=1
-        return [chars, i]
 
     def binToText_until_end(self, data: bytearray) -> str: # used to convert individual messages in file
-        chars = []
-        i=0
-        while i < len(data):# while file not fully read
-            if data[i] == 0xFE: 
-                return ''.join(chars) # join all converted chars of current page into one full string
-            result = DialogueFile.binToText_iterate(data, chars, i, self.lang)
-            if type(result) == str:
-                return result
-            elif type(result) == list:
-                chars, i = result
+        text = ""
+        while len(data) > 0:
+            if data[0] == 0xFE: 
+                return text
+            t, l = self.charmap.get_byte_mapping(data)
+            text += t
+            data = data[l:]
         raise Exception("no end found for DialogueFile text")
         
 
-    def binToText(data: bytearray, lang="en") -> str: # used when forcing dialogue display state
-        chars = []
-        i=0
-        while i < len(data):# while file not fully read
-            result = DialogueFile.binToText_iterate(data, chars, i, lang)
-            if type(result) == str:
-                return result
-            elif type(result) == list:
-                chars, i = result
-        return "".join(chars) # join all converted chars into one full string
+    def binToText(data: bytearray, charmap: CharMap=CHARMAP_DIALOGUE_EN) -> str: # used when forcing dialogue display state
+        text = ""
+        while len(data) > 0:
+            t, l = charmap.get_byte_mapping(data)
+            text += t
+            data = data[l:]
+        return text
 
-    def textToBin(data: str, lang: str="en"):
-        file_text = data
-        file_data = []
-        c=0
-        while c < len(file_text):
-            if file_text[c] == "├": #extra special chars
-                if file_text[c+1:c+3] == "0x": # undefined hex values
-                    file_data.append(int.to_bytes(int(file_text[c+3:c+5], 16)))
-                    c+=len("├0xXX┤")-1
-                else:
-                    #special_string = file_text[c:file_text.find("┤", c)+1]
-                    special_string = file_text[c:DialogueFile.match_paren(file_text, c, {"├": "┤"})+1]
-                    #print("special: " +special_string)
-                    #print(special_string.split(' ')[0])
-                    for d in range(len(SPCHARS_E)): # iterate through special chars
-                        if type(SPCHARS_E[d]) == type([]) and SPCHARS_E[d][1].split(' ')[0] == special_string.split(' ')[0]: # if special char matches(remove variable 0xXX part to check)
-                            file_data.append(int.to_bytes(d))
-                            for p in range(SPCHARS_E[d][0]): # iterate through argument count
-                                if len(special_string.split())-2 >= p: #if index is within range(to exclude functions with invalid argument count)
-                                    if special_string.replace('0x', '').split()[p+1][0] == "├": # if function passed as arg
-                                        #print(special_string.replace('0x', '').split())
-                                        #print(special_string.replace('0x', '').split()[p+1].replace('┤┤', '┤') + " was not inserted because it is nested.")
-                                        for pd in range(len(SPCHARS_E)): # iterate through special chars
-                                            #if type(SPCHARS_E[pd]) == type([]):
-                                            #    print(SPCHARS_E[pd][1].split()[0].removesuffix('┤') + " VS " + special_string.replace('0x', '').split()[p+1].removesuffix('┤').removesuffix('┤'))
-                                            if type(SPCHARS_E[pd]) == type([]) and SPCHARS_E[pd][1].split()[0].removesuffix('┤') == special_string.replace('0x', '').split()[p+1].removesuffix('┤').removesuffix('┤'): # if special char matches(remove variable 0xXX part to check)
-                                                file_data.append(int.to_bytes(pd))
-                                    elif special_string.replace('0x', '').split()[p+1].find("{") != -1: # args is undefined
-                                        print(special_string + ": Missing argument" + str(p) + "! setting to 0x00.")
-                                        file_data.append(int.to_bytes(0x00))
-                                    else:
-                                        #print(p)
-                                        #print(file_text[c+len(special_string)+2-(5+p*5)]+file_text[c+len(special_string)+3-(5+p*5)])
-                                        #file_data.append(int.to_bytes(int(file_text[c+len(special_string)+2-(5+p*5)]+file_text[c+len(special_string)+3-(5+p*5)], 16)))
-                                        file_data.append(int.to_bytes(int(special_string.split()[p+1].removesuffix('┤').removesuffix('┤'), 16)))
-                            c+=len(special_string)-1
-            elif lang == "en" and any(file_text[c] in sublist for sublist in SPCHARS_E if isinstance(sublist, list)) \
-            or lang == "jp" and any(file_text[c] in sublist for sublist in CHARSF_J if isinstance(sublist, list)): #game's extended char table
-                if lang == "en":
-                    for d in range(len(SPCHARS_E)):
-                        if type(SPCHARS_E[d]) == type([]) and SPCHARS_E[d][1] == file_text[c]:
-                            file_data.append(int.to_bytes(d))
-                elif lang == "jp":
-                    for d in range(len(CHARSF_J)):
-                        if type(CHARSF_J[d]) == type([]) and CHARSF_J[d][1] == file_text[c]:
-                            file_data.append(int.to_bytes(0xF0))
-                            file_data.append(int.to_bytes(d))
-            else: #normal ASCII chars
-                if lang == "en":
-                    file_data.append(int.to_bytes(ord(file_text[c]) - 0x20 & 0xFF))
-                elif lang == "jp":
-                    if ord(file_text[c]) == 0x3000:
-                        file_data.append(int.to_bytes(0x00))
-                    elif 0xFF10 <= ord(file_text[c]) <= 0xFF19:
-                        file_data.append(int.to_bytes(ord(file_text[c])-0xFF10 + 0x01))
-                    elif 0xFF21 <= ord(file_text[c]) <= 0xFF3A:
-                        file_data.append(int.to_bytes(ord(file_text[c])-0xFF21 + 0x0B))
-                    elif 0xFF41 <= ord(file_text[c]) <= 0xFF5A:
-                        file_data.append(int.to_bytes(ord(file_text[c])-0xFF41 + 0x25))
-                    elif ord(file_text[c]) == 0x30FC:
-                        file_data.append(int.to_bytes(0x3F))
-                    elif 0x3041 <= ord(file_text[c]) <= 0x308F:
-                        file_data.append(int.to_bytes(ord(file_text[c])-0x3041 + 0x40))
-                    elif 0x3092 <= ord(file_text[c]) <= 0x3093:
-                        file_data.append(int.to_bytes(ord(file_text[c])-0x3092 + 0x8F))
-                    elif 0x30A1 <= ord(file_text[c]) <= 0x30EF:
-                        file_data.append(int.to_bytes(ord(file_text[c])-0x30A1 + 0x91))
-                    elif 0x30F2 <= ord(file_text[c]) <= 0x30F6:
-                        file_data.append(int.to_bytes(ord(file_text[c])-0x30F2 + 0xE0))
-                    elif 0x0021 <= ord(file_text[c]) <= 0x002B:
-                        file_data.append(int.to_bytes(ord(file_text[c])-0x0021 + 0xE5))
-                    else:
-                        print(f"char \"{file_text[c]}\" not directly in font, attempting conversion")
-                        if ord(file_text[c]) == 0x0020:
-                            file_data.append(int.to_bytes(0x00))
-                        elif 0x0030 <= ord(file_text[c]) <= 0x0039:
-                            file_data.append(int.to_bytes(ord(file_text[c])-0x0030 + 0x01))
-                        elif 0x0041 <= ord(file_text[c]) <= 0x005A:
-                            file_data.append(int.to_bytes(ord(file_text[c])-0x0041 + 0x0B))
-                        elif 0x0061 <= ord(file_text[c]) <= 0x007A:
-                            file_data.append(int.to_bytes(ord(file_text[c])-0x0061 + 0x25))
-                        else:
-                            print(f"unhandled char \"{file_text[c]}\" (0x{ord(file_text[c]):02X}) !")
-                            file_data.append(int.to_bytes(ord(file_text[c]) & 0xEF))
-            c+=1
-        file_data = b''.join(file_data)
-        return file_data
+
+    def textToBin(data: str, charmap: CharMap=CHARMAP_DIALOGUE_EN) -> bytearray:
+        bin = bytearray()
+        while len(data) > 0:
+            b, l = charmap.get_unicode_mapping(data)
+            bin += b
+            data = data[l:]
+        return bin
 
 
     def toBytes(self):
@@ -468,12 +521,12 @@ class DialogueFile:
         text_bin_id_ptr_list = []
         text_bin_size = 0
         for text in self.text_list:
-            text_bin = DialogueFile.textToBin(text, self.lang)
+            text_bin = DialogueFile.textToBin(text, self.charmap)
             text_bin_id_ptr_list.append(text_bin_size)
             text_bin_size += len(text_bin) + 1
             text_bin_list.append(text_bin)
 
-        text_bin_ptr_array = []
+        text_bin_ptr_array: list[int] = []
         for id in self.text_id_list:
             if id is None:
                 text_bin_ptr_array.append(text_bin_size)
