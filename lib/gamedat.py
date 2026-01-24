@@ -32,8 +32,8 @@ ARM9_ZXA_J = {"level": 0x000FF55C,
             "dialogue names en": 0,
             "dialogue font": 0x000DF968}
 # add dicts for charmaps? (en, jp, names en, names jp)
-CHARMAPS_ZX = {"en": dialogue.CHARMAP_DIALOGUE_EN, "jp": dialogue.CHARMAP_DIALOGUE_JP, "names en": dialogue.CHARMAP_DIALOGUENAME_EN, "names jp": dialogue.CHARMAP_DIALOGUENAME_JP}
-CHARMAPS_ZXA = {"en": dialogue.CHARMAP_DIALOGUE_EN, "jp": dialogue.CHARMAP_DIALOGUE_JP, "names en": dialogue.CHARMAP_DIALOGUENAME_EN, "names jp": dialogue.CHARMAP_DIALOGUENAME_JP}
+CHARMAPS_ZX = {"en": dialogue.CHARMAP_DIALOGUE_ZX_EN, "jp": dialogue.CHARMAP_DIALOGUE_ZX_JP, "names en": dialogue.CHARMAP_DIALOGUENAME_ZX_EN, "names jp": dialogue.CHARMAP_DIALOGUENAME_ZX_JP}
+CHARMAPS_ZXA = {"en": dialogue.CHARMAP_DIALOGUE_ZX_EN, "jp": dialogue.CHARMAP_DIALOGUE_ZXA_JP, "names en": dialogue.CHARMAP_DIALOGUENAME_ZX_EN, "names jp": dialogue.CHARMAP_DIALOGUENAME_ZX_JP}
 
 class GameEnum(enum.Enum):
 
@@ -60,12 +60,12 @@ class GameEnum(enum.Enum):
     [0x021AE600, "overwiting patch test", "text", 'f1', '20']
   ]
 
-  ROCKMANZXA = enum.auto(), ARM9_ZXA_J, {}, {"Graphics" : I_GFX_ZXA,
+  ROCKMANZXA = enum.auto(), ARM9_ZXA_J, CHARMAPS_ZXA, {"Graphics" : I_GFX_ZXA,
                              "Font" : I_FONT,
                              "Dialogue" : I_DIALOGUE,
                              "Palette Animation" : I_PANM,
                              "Mugshot" : I_MUGSHOT}, []
-  MEGAMANZXA = enum.auto(), ARM9_ZXA_E, {}, {"Graphics" : I_GFX_ZXA,
+  MEGAMANZXA = enum.auto(), ARM9_ZXA_E, CHARMAPS_ZXA, {"Graphics" : I_GFX_ZXA,
                              "Font" : I_FONT,
                              "Dialogue" : I_DIALOGUE,
                              "Palette Animation" : I_PANM,

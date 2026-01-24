@@ -382,7 +382,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_dialogueNames_lang = QtWidgets.QComboBox(self.page_dialoguenames)
         self.dropdown_dialogueNames_lang.addItems(["jp", "en"])
         self.dropdown_dialogueNames_lang.currentIndexChanged.connect(lambda: self.dropdown_dialogueNames.setCurrentIndex(-1))
-        self.textEdit_dialogueNames = lib.widget.LongTextEdit(self.page_dialoguenames, charmap=lib.dialogue.CHARMAP_DIALOGUENAME_EN)
+        self.textEdit_dialogueNames = lib.widget.LongTextEdit(self.page_dialoguenames, charmap=lib.dialogue.CHARMAP_DIALOGUENAME_ZX_EN)
         self.textEdit_dialogueNames.textChanged.connect(lambda: self.button_dialogueNames_save.setDisabled(False))
         self.textEdit_dialogueNames.setMaximumHeight(30)
 
@@ -2100,9 +2100,9 @@ class MainWindow(QtWidgets.QMainWindow):
                         if str(f.name).split("/")[-1].split(".")[1] == "txt":
                             #print(w.rom.filenames.idOf(str(selectedFiles).split("/")[-1].removesuffix("']").replace(".txt", ".bin")))
                             if "en" in str(f.name):
-                                w.rom.files[w.rom.filenames.idOf(str(f.name).split("/")[-1].replace(".txt", ".bin"))] = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8"), lib.dialogue.CHARMAP_DIALOGUE_EN))
+                                w.rom.files[w.rom.filenames.idOf(str(f.name).split("/")[-1].replace(".txt", ".bin"))] = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8"), lib.dialogue.CHARMAP_DIALOGUE_ZX_EN))
                             elif "jp" in str(f.name):
-                                w.rom.files[w.rom.filenames.idOf(str(f.name).split("/")[-1].replace(".txt", ".bin"))] = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8"), lib.dialogue.CHARMAP_DIALOGUE_JP))
+                                w.rom.files[w.rom.filenames.idOf(str(f.name).split("/")[-1].replace(".txt", ".bin"))] = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8"), lib.dialogue.CHARMAP_DIALOGUE_ZX_JP))
                             dialog2.exec()
                         else:
                             QtWidgets.QMessageBox.critical(
@@ -2845,9 +2845,9 @@ class MainWindow(QtWidgets.QMainWindow):
                             self.dropdown_textindex.clear()
                             try:
                                 if self.fileDisplayState == "English dialogue":
-                                    self.fileEdited_object = lib.dialogue.DialogueFile(self.rom.files[current_id], lib.dialogue.CHARMAP_DIALOGUE_EN)
+                                    self.fileEdited_object = lib.dialogue.DialogueFile(self.rom.files[current_id], lib.dialogue.CHARMAP_DIALOGUE_ZX_EN)
                                 elif self.fileDisplayState == "Japanese dialogue":
-                                    self.fileEdited_object = lib.dialogue.DialogueFile(self.rom.files[current_id], lib.dialogue.CHARMAP_DIALOGUE_JP)
+                                    self.fileEdited_object = lib.dialogue.DialogueFile(self.rom.files[current_id], lib.dialogue.CHARMAP_DIALOGUE_ZX_JP)
                             except AssertionError: # forcing text view on non-text file = simple conversion mode
                                 self.file_content_text.setEnabled(True)
                                 self.dropdown_textindex.setDisabled(True)
@@ -3306,7 +3306,7 @@ class MainWindow(QtWidgets.QMainWindow):
         addr = self.gamedat.arm9Addrs["dialogue names " + self.dropdown_dialogueNames_lang.currentText()]
         name = arm9_data[addr+index*0x0C:addr+index*0x0C+0x0C]
         self.textEdit_dialogueNames.setPlainText(lib.dialogue.DialogueFile.binToText(name, 
-                                                                                      lib.dialogue.CHARMAP_DIALOGUENAME_EN if self.dropdown_dialogueNames_lang.currentText() == "en" else lib.dialogue.CHARMAP_DIALOGUENAME_JP))
+                                                                                      lib.dialogue.CHARMAP_DIALOGUENAME_ZX_EN if self.dropdown_dialogueNames_lang.currentText() == "en" else lib.dialogue.CHARMAP_DIALOGUENAME_ZX_JP))
 
     def loadTileProperties(self):
         if not self.gfx_scene_tileset.scene().isActive(): return
@@ -3895,7 +3895,7 @@ class MainWindow(QtWidgets.QMainWindow):
         index = self.dropdown_dialogueNames.currentIndex()
         arm9_bin = self.rom.arm9_decompressed.save()
         new_data = lib.dialogue.DialogueFile.textToBin(self.textEdit_dialogueNames.toPlainText(),
-                                                        lib.dialogue.CHARMAP_DIALOGUENAME_EN if self.dropdown_dialogueNames_lang.currentText() == "en" else lib.dialogue.CHARMAP_DIALOGUENAME_JP)
+                                                        lib.dialogue.CHARMAP_DIALOGUENAME_ZX_EN if self.dropdown_dialogueNames_lang.currentText() == "en" else lib.dialogue.CHARMAP_DIALOGUENAME_ZX_JP)
         new_data += bytearray(0x0C)
         arm9_bin[addr+index*0x0C:addr+index*0x0C+0x0C] = bytearray(new_data[:0x0C])
         self.rom.arm9_decompressed = ndspy.code.MainCodeFile(arm9_bin, self.rom.arm9RamAddress, self.rom.arm9_decompressed.codeSettingsOffs)
