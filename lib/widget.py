@@ -564,9 +564,9 @@ class BetterSpinBox(QtWidgets.QDoubleSpinBox):
             return super().value()
 
 class LongTextEdit(QtWidgets.QPlainTextEdit):
-    def __init__(self, *args, charmap=lib.dialogue2.CHARMAP_DIALOGUE_EN, **kwargs):
+    def __init__(self, *args, charmap=lib.dialogue.CHARMAP_DIALOGUE_ZX_EN, **kwargs):
         super().__init__(*args, **kwargs)
-        self.charmap = charmap
+        self.charmap = charmap # needs to be updated externally each time a new charmap is used
     
     def getMainWindow(self):
         if hasattr(self.window(), "rom"):

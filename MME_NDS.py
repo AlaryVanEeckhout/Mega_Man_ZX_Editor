@@ -66,7 +66,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.romToEdit_ext = ''
         self.fileToEdit_name = ''
         self.fileDisplayRaw = False # Display file in 'raw'(hex) format. Else, displayed in readable format
-        self.fileDisplayMode = "Adapt" # Modes: Adapt, Binary, English dialogue, Japanese dialogue, Graphics, Font, Sound, Movie, Code
+        self.fileDisplayMode = "Adapt" # Modes: Adapt, Binary, Dialogue, Graphics, Font, Sound, Movie, Code
         self.fileDisplayState = "None" # Same states as mode
         self.widget_set = "Empty" # Empty, Text, Graphics, Font, Sound, VX
         self.GFX_PALETTES = [
@@ -115,7 +115,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                        \rThe current version is {self.VERSION_EDITOR}."""
                                        )
             firstLaunch_dialog.setInformativeText(f"""Editor's current features ({self.VERSION_EDITOR.split('.')[1]}):
-                                                  \r- English dialogue text editor
+                                                  \r- Dialogue text editor
                                                   \r- Patcher(no patches available yet)
                                                   \r- Graphics editor
                                                   \r- Font editor
@@ -260,11 +260,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.viewAdaptAction.triggered.connect(lambda: setattr(self, "fileDisplayMode", "Adapt"))
         self.viewAdaptAction.triggered.connect(lambda: self.treeCall())
 
-        self.viewEndialogAction = QtGui.QAction(QtGui.QIcon('icons\\document-text.png'), '&English Dialogue', self)
-        self.viewEndialogAction.setStatusTip('Files will be decrypted as in-game english dialogues.')
-        self.viewEndialogAction.setCheckable(True)
-        self.viewEndialogAction.triggered.connect(lambda: setattr(self, "fileDisplayMode", "English dialogue"))
-        self.viewEndialogAction.triggered.connect(lambda: self.treeCall())
+        self.viewDialogueAction = QtGui.QAction(QtGui.QIcon('icons\\document-text.png'), '&Dialogue', self)
+        self.viewDialogueAction.setStatusTip('Files will be decrypted as in-game dialogues.')
+        self.viewDialogueAction.setCheckable(True)
+        self.viewDialogueAction.triggered.connect(lambda: setattr(self, "fileDisplayMode", "Dialogue"))
+        self.viewDialogueAction.triggered.connect(lambda: self.treeCall())
 
         self.viewGraphicAction = QtGui.QAction(QtGui.QIcon('icons\\appicon.ico'), '&Graphics', self)
         self.viewGraphicAction.setStatusTip('Files will be decrypted as graphics.')
@@ -274,7 +274,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.viewFormatsGroup = QtGui.QActionGroup(self) #group for mutually exclusive togglable items
         self.viewFormatsGroup.addAction(self.viewAdaptAction)
-        self.viewFormatsGroup.addAction(self.viewEndialogAction)
+        self.viewFormatsGroup.addAction(self.viewDialogueAction)
         self.viewFormatsGroup.addAction(self.viewGraphicAction)
 
         self.viewMenu = self.menu_bar.addMenu('&View')
@@ -1207,7 +1207,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.file_content.addItem(self.layout_vx_seekTable)
 
         # File callers
-        self.FILEOPEN_WIDGETS: list[QtWidgets.QWidget] = [self.tree, self.viewAdaptAction, self.viewEndialogAction, self.viewGraphicAction, self.displayRawAction]
+        self.FILEOPEN_WIDGETS: list[QtWidgets.QWidget] = [self.tree, self.viewAdaptAction, self.viewDialogueAction, self.viewGraphicAction, self.displayRawAction]
         # Contents of widget sets
         self.WIDGETS_EMPTY: list[QtWidgets.QWidget] = [self.file_content_text]
         self.WIDGETS_HEX: list[QtWidgets.QWidget] = [self.file_content_text, self.checkbox_textoverwite]
@@ -2100,9 +2100,9 @@ class MainWindow(QtWidgets.QMainWindow):
                         if str(f.name).split("/")[-1].split(".")[1] == "txt":
                             #print(w.rom.filenames.idOf(str(selectedFiles).split("/")[-1].removesuffix("']").replace(".txt", ".bin")))
                             if "en" in str(f.name):
-                                w.rom.files[w.rom.filenames.idOf(str(f.name).split("/")[-1].replace(".txt", ".bin"))] = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8"), lib.dialogue.CHARMAP_DIALOGUE_ZX_EN))
+                                w.rom.files[w.rom.filenames.idOf(str(f.name).split("/")[-1].replace(".txt", ".bin"))] = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8"), self.gamedat.charmaps["en"]))
                             elif "jp" in str(f.name):
-                                w.rom.files[w.rom.filenames.idOf(str(f.name).split("/")[-1].replace(".txt", ".bin"))] = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8"), lib.dialogue.CHARMAP_DIALOGUE_ZX_JP))
+                                w.rom.files[w.rom.filenames.idOf(str(f.name).split("/")[-1].replace(".txt", ".bin"))] = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8"), self.gamedat.charmaps["jp"]))
                             dialog2.exec()
                         else:
                             QtWidgets.QMessageBox.critical(
@@ -2824,10 +2824,7 @@ class MainWindow(QtWidgets.QMainWindow):
                             if any(current_name.startswith(indicator) for indicator in indicator_list["Font"]):
                                 self.fileDisplayState = "Font"
                             elif any(current_name.startswith(indicator) for indicator in indicator_list["Dialogue"]):
-                                if "en" in current_name:
-                                    self.fileDisplayState = "English dialogue"
-                                elif "jp" in current_name:
-                                    self.fileDisplayState = "Japanese dialogue"
+                                self.fileDisplayState = "Dialogue"
                             elif any(indicator in current_name for indicator in indicator_list["Graphics"]) and current_name.find("_dat") == -1:
                                 self.fileDisplayState = "Graphics"
                             elif any(indicator.replace("fnt", "dat") in current_name for indicator in indicator_list["Graphics"]):
@@ -2838,20 +2835,23 @@ class MainWindow(QtWidgets.QMainWindow):
                         self.fileDisplayState = self.fileDisplayMode
 
                     self.file_content_text.setLineWrapMode(lib.widget.LongTextEdit.LineWrapMode.WidgetWidth)
-                    if self.fileDisplayState in ["English dialogue", "Japanese dialogue"]:
+                    if self.fileDisplayState == "Dialogue":
                         self.widget_set = "Text"
                         if sender in self.FILEOPEN_WIDGETS:
+                            if "en" in current_name:
+                                self.file_content_text.charmap = self.gamedat.charmaps["en"]
+                            elif "jp" in current_name:
+                                self.file_content_text.charmap = self.gamedat.charmaps["jp"]
+                            else:
+                                self.file_content_text.charmap = lib.dialogue.CharMap()
                             self.dropdown_textindex.setEnabled(True)
                             self.dropdown_textindex.clear()
                             try:
-                                if self.fileDisplayState == "English dialogue":
-                                    self.fileEdited_object = lib.dialogue.DialogueFile(self.rom.files[current_id], lib.dialogue.CHARMAP_DIALOGUE_ZX_EN)
-                                elif self.fileDisplayState == "Japanese dialogue":
-                                    self.fileEdited_object = lib.dialogue.DialogueFile(self.rom.files[current_id], lib.dialogue.CHARMAP_DIALOGUE_ZX_JP)
+                                self.fileEdited_object = lib.dialogue.DialogueFile(self.rom.files[current_id], self.file_content_text.charmap)
                             except AssertionError: # forcing text view on non-text file = simple conversion mode
                                 self.file_content_text.setEnabled(True)
                                 self.dropdown_textindex.setDisabled(True)
-                                self.fileEdited_object = lib.dialogue.DialogueFile.binToText(self.rom.files[current_id][self.relative_address:self.relative_address+0xFFFF])
+                                self.fileEdited_object = lib.dialogue.DialogueFile.binToText(self.rom.files[current_id][self.relative_address:self.relative_address+0x1FFF], self.file_content_text.charmap)
                                 self.file_content_text.setPlainText(self.fileEdited_object)
                                 return
                             for i in range(len(self.fileEdited_object.text_list)):
@@ -2863,7 +2863,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.fileEdited_object.text_list[self.dropdown_textindex.previousIndex] = self.file_content_text.toPlainText() # keep changes to text on previous index
                                 self.dropdown_textindex.previousIndex = self.dropdown_textindex.currentIndex()
                         else: # simple conversion mode during address change
-                            self.fileEdited_object = lib.dialogue.DialogueFile.binToText(self.rom.files[current_id][self.relative_address:self.relative_address+0xFFFF])
+                            self.fileEdited_object = lib.dialogue.DialogueFile.binToText(self.rom.files[current_id][self.relative_address:self.relative_address+0x1FFF], self.file_content_text.charmap)
                             self.file_content_text.setPlainText(self.fileEdited_object)
                             return
                         textIndex = self.dropdown_textindex.currentIndex()
@@ -3298,15 +3298,18 @@ class MainWindow(QtWidgets.QMainWindow):
             self.replaceAction.setDisabled(True)
 
     def loadDialogueName(self):
+        self.button_dialogueNames_save.setDisabled(True)
         index = self.dropdown_dialogueNames.currentIndex()
+        self.textEdit_dialogueNames.blockSignals(True)
         if index == -1:
             self.textEdit_dialogueNames.clear()
             return
         arm9_data = self.rom.arm9_decompressed.save()
         addr = self.gamedat.arm9Addrs["dialogue names " + self.dropdown_dialogueNames_lang.currentText()]
         name = arm9_data[addr+index*0x0C:addr+index*0x0C+0x0C]
-        self.textEdit_dialogueNames.setPlainText(lib.dialogue.DialogueFile.binToText(name, 
-                                                                                      lib.dialogue.CHARMAP_DIALOGUENAME_ZX_EN if self.dropdown_dialogueNames_lang.currentText() == "en" else lib.dialogue.CHARMAP_DIALOGUENAME_ZX_JP))
+        self.textEdit_dialogueNames.charmap = self.gamedat.charmaps["names "+self.dropdown_dialogueNames_lang.currentText()]
+        self.textEdit_dialogueNames.setPlainText(lib.dialogue.DialogueFile.binToText(name, self.textEdit_dialogueNames.charmap))
+        self.textEdit_dialogueNames.blockSignals(False)
 
     def loadTileProperties(self):
         if not self.gfx_scene_tileset.scene().isActive(): return
@@ -3735,13 +3738,13 @@ class MainWindow(QtWidgets.QMainWindow):
     def save_filecontent(self): #Save to virtual ROM
         file_id = int(self.tree.currentItem().text(0))
         if self.fileDisplayRaw == False:
-            if self.fileDisplayState in ["English dialogue", "Japanese dialogue"]: # if english text
+            if self.fileDisplayState == "Dialogue": # dialogue names are handled in a separate function
                 if self.dropdown_textindex.isEnabled():
                     self.fileEdited_object.text_list[self.dropdown_textindex.currentIndex()] = self.file_content_text.toPlainText()
                     #dialog.text_id_list = 
                     self.rom.files[file_id] = self.fileEdited_object.toBytes()
                 else: # forced dialogue state 
-                    self.rom.files[file_id][self.relative_address:self.relative_address+0xFFFF] = lib.dialogue.DialogueFile.textToBin(self.file_content_text.toPlainText())
+                    self.rom.files[file_id][self.relative_address:self.relative_address+0x1FFF] = lib.dialogue.DialogueFile.textToBin(self.file_content_text.toPlainText(), self.file_content_text.charmap)
             elif self.fileDisplayState == "Graphics":
                 save_data = lib.datconv.qtToBin(self.file_content_gfx._graphic.pixmap().toImage(),
                                                 algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
@@ -3894,8 +3897,7 @@ class MainWindow(QtWidgets.QMainWindow):
         addr = self.gamedat.arm9Addrs["dialogue names " + self.dropdown_dialogueNames_lang.currentText()]
         index = self.dropdown_dialogueNames.currentIndex()
         arm9_bin = self.rom.arm9_decompressed.save()
-        new_data = lib.dialogue.DialogueFile.textToBin(self.textEdit_dialogueNames.toPlainText(),
-                                                        lib.dialogue.CHARMAP_DIALOGUENAME_ZX_EN if self.dropdown_dialogueNames_lang.currentText() == "en" else lib.dialogue.CHARMAP_DIALOGUENAME_ZX_JP)
+        new_data = lib.dialogue.DialogueFile.textToBin(self.textEdit_dialogueNames.toPlainText(), self.textEdit_dialogueNames.charmap)
         new_data += bytearray(0x0C)
         arm9_bin[addr+index*0x0C:addr+index*0x0C+0x0C] = bytearray(new_data[:0x0C])
         self.rom.arm9_decompressed = ndspy.code.MainCodeFile(arm9_bin, self.rom.arm9RamAddress, self.rom.arm9_decompressed.codeSettingsOffs)

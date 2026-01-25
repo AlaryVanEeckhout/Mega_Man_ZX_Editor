@@ -1,7 +1,7 @@
 class CharMap:
     def __init__(self):
-        self.dict_byte_to_unicode = {}
-        self.dict_unicode_to_byte = {}
+        self.dict_byte_to_unicode: dict[str, str] = {}
+        self.dict_unicode_to_byte: dict[str, tuple] = {}
     
     def add_mapping(self, map_byte: tuple[int], map_unicode: str):
         self.add_byte_mapping(map_byte, map_unicode)
@@ -68,7 +68,10 @@ class CharMap:
                 if mb is None:
                     byte_params.append(sb)
             
-            search_unicode = self.dict_byte_to_unicode[found_map_byte].format(*byte_params)
+            if len(byte_params) > 0:
+                search_unicode = self.dict_byte_to_unicode[found_map_byte].format(*byte_params)
+            else:
+                search_unicode = self.dict_byte_to_unicode[found_map_byte]
             search_byte_len = len(found_map_byte)
         return (search_unicode, search_byte_len)
     
