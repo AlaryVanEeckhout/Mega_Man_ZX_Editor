@@ -53,7 +53,7 @@ Currently, there are no releases, so:
 - Extract the contents of the .zip file wherever you want
 - That's it! Now you can run RunEditor.bat (or run MME_NDS.py directly, from command line)
 ## Credits
-- Filesystem handling: https://ndspy.readthedocs.io/en/latest/
+- Nitro filesystem handling: https://ndspy.readthedocs.io/en/latest/
 - GUI (PyQt6): https://www.riverbankcomputing.com/software/pyqt/
 - Icons (with shadow): https://p.yusukekamiyamane.com/
 - appicon.ico: Mega Man ZX devs, taken from [here](https://www.spriters-resource.com/ds_dsi/megamanzx/sheet/180723/) and truncated by me using GIMP

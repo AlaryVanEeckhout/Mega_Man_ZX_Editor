@@ -32,8 +32,14 @@ ARM9_ZXA_J = {"level": 0x000FF55C,
             "dialogue names en": 0,
             "dialogue font": 0x000DF968}
 # add dicts for charmaps? (en, jp, names en, names jp)
-CHARMAPS_ZX = {"en": dialogue.CHARMAP_DIALOGUE_ZX_EN, "jp": dialogue.CHARMAP_DIALOGUE_ZX_JP, "names en": dialogue.CHARMAP_DIALOGUENAME_ZX_EN, "names jp": dialogue.CHARMAP_DIALOGUENAME_ZX_JP}
-CHARMAPS_ZXA = {"en": dialogue.CHARMAP_DIALOGUE_ZX_EN, "jp": dialogue.CHARMAP_DIALOGUE_ZXA_JP, "names en": dialogue.CHARMAP_DIALOGUENAME_ZX_EN, "names jp": dialogue.CHARMAP_DIALOGUENAME_ZX_JP}
+CHARMAPS_ZX = {"en": dialogue.CHARMAP_DIALOGUE_ZX_EN,
+               "jp": dialogue.CHARMAP_DIALOGUE_ZX_JP,
+               "names en": dialogue.CHARMAP_DIALOGUENAME_ZX_EN,
+               "names jp": dialogue.CHARMAP_DIALOGUENAME_ZX_JP}
+CHARMAPS_ZXA = {"en": dialogue.CHARMAP_DIALOGUE_ZX_EN,
+                "jp": dialogue.CHARMAP_DIALOGUE_ZXA_JP,
+                "names en": dialogue.CHARMAP_DIALOGUENAME_ZX_EN,
+                "names jp": dialogue.CHARMAP_DIALOGUENAME_ZX_JP}
 
 class GameEnum(enum.Enum):
 

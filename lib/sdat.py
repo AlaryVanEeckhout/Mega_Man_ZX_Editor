@@ -40,9 +40,11 @@ def loadBank(bank: ndspy.soundArchive.soundBank.SBNK, sdat: ndspy.soundArchive.S
     return pcm_list
 
 def loadSWAV(snd_data: ndspy.soundArchive.soundWaveArchive.soundWave.SWAV):
+    assert type(snd_data) == ndspy.soundArchive.soundWaveArchive.soundWave.SWAV
     if snd_data.waveType == ndspy.soundArchive.soundWaveArchive.soundWave.WaveType.ADPCM:
         pcm_data, _ = audioop.adpcm2lin(snd_data.save(), 2, None)
     else:
+        print("audio data was not converted")
         pcm_data = snd_data.save()
     pcm_file = io.BytesIO(pcm_data)
     wav = wave.open(pcm_file, "wb")

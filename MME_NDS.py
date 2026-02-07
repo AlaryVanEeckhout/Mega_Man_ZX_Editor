@@ -59,7 +59,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.isGameSupported = False
         self.gamedat = None
         self.rom_fat = [] # list of file addresses (see loadFat())
-        self.sdat = None #ndspy.soundArchive.SDAT
+        self.sdats: list[ndspy.soundArchive.SDAT] = [] #ndspy.soundArchive.SDAT
         self.base_address = 0
         self.relative_address = 0
         self.romToEdit_name = ''
@@ -1017,6 +1017,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dialog_sdat.setWindowTitle("Sound Data Archive")
         self.dialog_sdat.setWindowIcon(QtGui.QIcon('icons\\speaker-volume.png'))
         self.dialog_sdat.resize(600, 400)
+        self.dialog_sdat.setCentralWidget(QtWidgets.QWidget())
+        self.dialog_sdat.centralWidget().setLayout(QtWidgets.QVBoxLayout())
 
         self.audioOutput = QtMultimedia.QAudioOutput(self)
         self.audioOutput.setVolume(0.2)
@@ -1033,11 +1035,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.toolbar_sdat.addAction(self.action_playSdat)
 
-        self.tree_sdat = lib.widget.EditorTree()
-        self.tree_sdat.setColumnCount(3)
-        self.dialog_sdat.setCentralWidget(self.tree_sdat)
-        self.tree_sdat.setHeaderLabels(["File ID", "Name", "Type"])
-        self.tree_sdat.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+        self.page_sdat = QtWidgets.QWidget()
+        self.page_sdat.setLayout(QtWidgets.QStackedLayout())
+        self.dropdown_sdat = QtWidgets.QComboBox()
+        self.dropdown_sdat.currentIndexChanged.connect(self.page_sdat.layout().setCurrentIndex)
+
+        self.dialog_sdat.centralWidget().layout().addWidget(self.dropdown_sdat)
+        self.dialog_sdat.centralWidget().layout().addWidget(self.page_sdat)
+
+        self.trees_sdat = []
 
         #VX
         self.label_vxHeader_length = QtWidgets.QLabel(self.page_explorer)
@@ -1737,17 +1743,17 @@ class MainWindow(QtWidgets.QMainWindow):
             if tree == self.tree_arm7Ovltable:
                 data = self.rom.files[int(item.text(0))] #.loadArm7Overlays()[int(item.text(0))].data
                 name += ".bin"
-            if tree == self.tree_sdat:
-                obj2 = self.sdat
+            if tree in self.trees_sdat:
+                obj2 = self.sdats[self.dropdown_sdat.currentIndex()]
                 data_list = [
-                self.sdat.sequences,
-                self.sdat.sequenceArchives,
-                self.sdat.banks,
-                self.sdat.waveArchives,
-                self.sdat.sequencePlayers,
-                self.sdat.streams,
-                self.sdat.streamPlayers,
-                self.sdat.groups
+                obj2.sequences,
+                obj2.sequenceArchives,
+                obj2.banks,
+                obj2.waveArchives,
+                obj2.sequencePlayers,
+                obj2.streams,
+                obj2.streamPlayers,
+                obj2.groups
                 ]
                 for category in data_list:
                     for file in category:
@@ -1759,7 +1765,8 @@ class MainWindow(QtWidgets.QMainWindow):
                             #    data = data[0]
                         elif item.parent() != None and file[0] == item.parent().text(1):
                             if item.text(2) == "SWAV":
-                                data = file[1].waves[int(item.text(0))]
+                                data = file[1].waves[int(item.text(0))].save()
+                                print(type(data))
                             else:
                                 data = file
         return [data, name, obj, obj2]
@@ -1837,12 +1844,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def loadROM(self, fname: str):
         # reset stuff to prevent conflicts
-        self.tree.setCurrentItem(None)
-        self.field_address.setRange(0,0) # set address to 0 for consistency with the fact that no file is selected
         self.rom = None
-        self.sdat = None
-        self.treeUpdate()
-        self.tree_patches.clear()
+        self.sdats = []
         self.disable_editing_ui()
 
         if fname == "" or not os.path.exists(fname): return
@@ -1859,6 +1862,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setWindowTitle("Mega Man ZX Editor" + " \"" + self.romToEdit_name + self.romToEdit_ext + "\"")
         try:
             self.rom = ndspy.rom.NintendoDSRom.fromFile(fname)
+            self.treeUpdate()
             # create a file attribute table that can be read rapidly because ndspy does not provide any
             self.loadFat()
             offset_icon_pal = 0x220
@@ -1883,16 +1887,18 @@ class MainWindow(QtWidgets.QMainWindow):
             self.setWindowIcon(QtGui.QIcon("icons\\appicon.ico"))
             return
         try:
-            fileID = str(self.rom.filenames).rpartition(".sdat")[0].split()[-2]
-            self.sdat = ndspy.soundArchive.SDAT(self.rom.files[int(fileID)])# manually search for sdat file because getFileByName does not find it when it is in a folder
-            self.sdat.fileID = int(fileID)
-            print("SDAT at " + fileID)
-            #self.sdat.fatLengthsIncludePadding = True
+            #fileID = str(self.rom.filenames).rpartition(".sdat")[0].split()[-2]
+            for i, item in enumerate(self.tree.findItems("sdat", QtCore.Qt.MatchFlag.MatchRecursive, column=2)):
+                fileID = int(item.text(0))
+                self.sdats.append(ndspy.soundArchive.SDAT(self.rom.files[fileID]))
+                self.sdats[i].fileID = fileID
+                print("SDAT at " + str(fileID))
+            #self.sdats[self.dropdown_sdat.currentIndex()].fatLengthsIncludePadding = True
             self.action_sdat.setEnabled(True)
         except Exception as e:
             print(e)
             self.window_progress.hide()
-            self.sdat = None
+            self.sdats = []
             dialog = QtWidgets.QMessageBox(self)
             dialog.setWindowTitle("No SDAT")
             dialog.setWindowIcon(QtGui.QIcon("icons\\exclamation"))
@@ -1937,7 +1943,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 break
             self.dropdown_dialogueNames.addItem(f"Name 0x{i:02X}")
         self.dropdown_dialogueNames.setCurrentIndex(-1)
-        self.treeUpdate()
         self.progressUpdate(100, "Finishing load")
         self.enable_editing_ui()
         self.file_content_text.setDisabled(True)
@@ -1952,6 +1957,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.action_arm9.setDisabled(False)
         self.action_arm7.setDisabled(False)
         self.button_playtest.setDisabled(False)
+        for i in range(self.tree.columnCount()):
+            self.tree.showColumn(i)
         self.dropdown_tweak_target.show()
         self.field_address.show()
         self.label_file_size.show()
@@ -1968,6 +1975,9 @@ class MainWindow(QtWidgets.QMainWindow):
             widget.blockSignals(False)
 
     def disable_editing_ui(self):
+        self.tree.setCurrentItem(None)
+        self.field_address.setRange(0,0) # set address to 0 for consistency with the fact that no file is selected
+        self.tree_patches.clear()
         #self.button_codeedit.setDisabled(False)
         self.importSubmenu.setDisabled(True)
         self.button_file_save.hide()
@@ -1975,6 +1985,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.action_arm9.setDisabled(True)
         self.action_arm7.setDisabled(True)
         self.button_playtest.setDisabled(True)
+        for i in range(self.tree.columnCount()):
+            self.tree.hideColumn(i)
         self.dropdown_tweak_target.hide()
         self.field_address.hide()
         self.label_file_size.hide()
@@ -1991,6 +2003,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_level_area.clear()
         self.dropdown_level_type.clear()
         self.textEdit_dialogueNames.clear()
+        self.dropdown_sdat.clear()
+        for widget in self.trees_sdat:
+            self.page_sdat.layout().removeWidget(widget)
 
     def exportCall(self, item: QtWidgets.QTreeWidgetItem):
         dialog = QtWidgets.QFileDialog(
@@ -2250,7 +2265,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     elif fileInfo[3] == None: # rom files
                         fileInfo[2][fileInfo[2].index(fileInfo[0])] = data
                         print(data[:0x15].hex())
-                    elif any(x for x in self.sdat.__dict__.values() if x == fileInfo[3]):
+                    elif any(x for x in self.sdats[self.dropdown_sdat.currentIndex()].__dict__.values() if x == fileInfo[3]):
                         newName = fileName
                         if type(fileInfo[0]) == tuple: # object listed within object in one of the sdat sections
                             oldObject = fileInfo[0][1]
@@ -2282,7 +2297,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                 fileInfo[3].sequences[fileInfo[3].sequences.index(fileInfo[0])] = (newObject) 
                             else:
                                 print("unhandled case")
-                        fileInfo[2][self.sdat.fileID] = self.sdat.save() # save sdat to its parent object
+                        fileInfo[2][self.sdats[self.dropdown_sdat.currentIndex()].fileID] = self.sdats[self.dropdown_sdat.currentIndex()].save() # save sdat to its parent object
                         self.treeSdatUpdate() # refresh tree to avoid interactions with files that are not in the new state
                     else: # subfile
                         for file in fileInfo[2]:
@@ -2574,14 +2589,14 @@ class MainWindow(QtWidgets.QMainWindow):
             dialog.activateWindow()
 
     def sdatPlayCall(self):
-        items = self.tree_sdat.selectedItems()
+        items = self.trees_sdat[self.dropdown_sdat.currentIndex()].selectedItems()
         if len(items) == 0: return
         if items[0].text(0) == "N/A": return
         snd_type = items[0].text(2)
         if snd_type == "SWAV": # WIP, need to use QAudioFormat probably
             self.mediaPlayer.stop()
             print("play SWAV")
-            snd_data: ndspy.soundArchive.soundWaveArchive.soundWave.SWAV = self.file_fromItem(items[0])[0]
+            snd_data = ndspy.soundArchive.soundWaveArchive.soundWave.SWAV(self.file_fromItem(items[0])[0])
             self.mediaPlayer.setSourceDevice(None) # to prevent buffer corruption
             self.audioBuffer.close()
             self.audioBuffer.setData(lib.sdat.loadSWAV(snd_data))
@@ -2591,7 +2606,7 @@ class MainWindow(QtWidgets.QMainWindow):
         elif snd_type == "SSEQ": # Incomplete
             print("play SSEQ")
             sseq: ndspy.soundArchive.soundSequence.SSEQ = self.file_fromItem(items[0])[0][1]
-            lib.sdat.play(self.audioBuffer, sseq, self.sdat)
+            lib.sdat.play(self.audioBuffer, sseq, self.sdats[self.dropdown_sdat.currentIndex()])
 
 
     #def codeeditCall(self):
@@ -2707,12 +2722,23 @@ class MainWindow(QtWidgets.QMainWindow):
                 ]))
     
     def treeSdatUpdate(self):
-        #print(str(self.sdat.groups)[:13000])
+        #print(str(self.sdats[self.dropdown_sdat.currentIndex()].groups)[:13000])
         #progress = QtWidgets.QProgressBar()
         #progress.setValue(0)
         #progress.show()
-        self.tree_sdat.clear() 
-        if self.sdat != None:
+        self.trees_sdat.clear()
+        for i in range(len(self.sdats)):
+            self.dropdown_sdat.addItem(f"SDAT {self.sdats[i].fileID:04}")
+            tree_sdat = lib.widget.EditorTree(self.page_sdat)
+            tree_sdat.setColumnCount(3)
+            tree_sdat.setHeaderLabels(["File ID", "Name", "Type"])
+            tree_sdat.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+            self.page_sdat.layout().addWidget(tree_sdat)
+            setattr(self, f"tree_sdat_{i}", tree_sdat)
+            self.trees_sdat.append(getattr(self, f"tree_sdat_{i}"))
+        self.dropdown_sdat.setCurrentIndex(0)
+
+        for i, sdat in enumerate(self.sdats):
             # all sdat sections follow the [(Name, object(data)), ...] format except swar with [(Name, object([object(data), ...])), ...] and groups, which have [(Name, [object(data), ...]), ...]
             item_sseq = QtWidgets.QTreeWidgetItem(["N/A", "Sequenced Music", "SSEQ"]) #SSEQ
             item_ssar = QtWidgets.QTreeWidgetItem(["N/A", "Sequenced Sound Effects", "SSAR"]) #SSAR
@@ -2733,14 +2759,14 @@ class MainWindow(QtWidgets.QMainWindow):
                 item_group
             ]
             data_list = [
-                self.sdat.sequences,
-                self.sdat.sequenceArchives,
-                self.sdat.banks,
-                self.sdat.waveArchives,
-                self.sdat.sequencePlayers,
-                self.sdat.streams,
-                self.sdat.streamPlayers,
-                self.sdat.groups
+                sdat.sequences,
+                sdat.sequenceArchives,
+                sdat.banks,
+                sdat.waveArchives,
+                sdat.sequencePlayers,
+                sdat.streams,
+                sdat.streamPlayers,
+                sdat.groups
             ]
             for category in item_list:
                 for section in data_list[item_list.index(category)]:
@@ -2758,7 +2784,7 @@ class MainWindow(QtWidgets.QMainWindow):
                             child.addChild(subChild)
                 #progress.setValue(progress.value()+ 100//len(item_list))
 
-            self.tree_sdat.addTopLevelItems([*item_list])
+            getattr(self, f"tree_sdat_{i}").addTopLevelItems([*item_list])
             #progress.setValue(100)
             #progress.close()
 
@@ -2838,11 +2864,10 @@ class MainWindow(QtWidgets.QMainWindow):
                     if self.fileDisplayState == "Dialogue":
                         self.widget_set = "Text"
                         if sender in self.FILEOPEN_WIDGETS:
-                            if "en" in current_name:
-                                self.file_content_text.charmap = self.gamedat.charmaps["en"]
-                            elif "jp" in current_name:
-                                self.file_content_text.charmap = self.gamedat.charmaps["jp"]
-                            else:
+                            dialogue_lang = current_name.split("_")[-1][:2] # get the two letters that indicate language
+                            try:
+                                self.file_content_text.charmap = self.gamedat.charmaps[dialogue_lang]
+                            except KeyError:
                                 self.file_content_text.charmap = lib.dialogue.CharMap()
                             self.dropdown_textindex.setEnabled(True)
                             self.dropdown_textindex.clear()

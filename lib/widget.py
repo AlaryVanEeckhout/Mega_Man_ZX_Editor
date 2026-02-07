@@ -434,8 +434,8 @@ class EditorTree(QtWidgets.QTreeWidget):
             elif action2 == importAction:
                 self.getMainWindow().replaceCall(self.currentItem())
             elif action2 == sdatAction:
-                self.getMainWindow().dialog_sdat.show()
-                self.getMainWindow().dialog_sdat.setFocus()
+                self.getMainWindow().dialogOpenCall("dialog_sdat")
+                self.getMainWindow().dropdown_sdat.setCurrentIndex(self.getMainWindow().dropdown_sdat.findText(self.currentItem().text(0), QtCore.Qt.MatchFlag.MatchContains))
     
     def mousePressEvent(self, event: QtCore.QEvent): #redefine mouse press to insert custom code on right click
         if event.type() == QtCore.QEvent.Type.MouseButtonPress:
