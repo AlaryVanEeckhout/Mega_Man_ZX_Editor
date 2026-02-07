@@ -1,4 +1,4 @@
-from PyQt6 import QtGui, QtWidgets, QtCore, QtMultimedia #Qt6, Qt6.qsci
+from PyQt6 import QtGui, QtWidgets, QtCore#, QtMultimedia Qt6, Qt6.qsci
 import sys, os, platform, re, math
 import argparse
 import traceback
@@ -1020,12 +1020,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dialog_sdat.setCentralWidget(QtWidgets.QWidget())
         self.dialog_sdat.centralWidget().setLayout(QtWidgets.QVBoxLayout())
 
-        self.audioOutput = QtMultimedia.QAudioOutput(self)
-        self.audioOutput.setVolume(0.2)
-        self.audioBuffer = QtCore.QBuffer()
-        self.mediaPlayer = QtMultimedia.QMediaPlayer(self)
-        self.mediaPlayer.setAudioOutput(self.audioOutput)
-
         self.toolbar_sdat = lib.widget.Toolbar("SDAT Toolbar")
         self.dialog_sdat.addToolBar(self.toolbar_sdat)
 
@@ -1033,7 +1027,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.action_playSdat.setStatusTip("Play a SWAV or SSEQ")
         self.action_playSdat.triggered.connect(self.sdatPlayCall)
 
-        self.toolbar_sdat.addAction(self.action_playSdat)
+        self.action_stopSdat = QtGui.QAction(QtGui.QIcon('icons\\control-stop-square.png'), "Stop Sound", self)
+        self.action_stopSdat.setStatusTip("Play a SWAV or SSEQ")
+        self.action_stopSdat.triggered.connect(lambda: lib.sdat.stopSound())
+
+        self.toolbar_sdat.addActions([self.action_playSdat, self.action_stopSdat])
 
         self.page_sdat = QtWidgets.QWidget()
         self.page_sdat.setLayout(QtWidgets.QStackedLayout())
@@ -1766,7 +1764,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         elif item.parent() != None and file[0] == item.parent().text(1):
                             if item.text(2) == "SWAV":
                                 data = file[1].waves[int(item.text(0))].save()
-                                print(type(data))
+                                #print(type(data))
                             else:
                                 data = file
         return [data, name, obj, obj2]
@@ -2593,20 +2591,14 @@ class MainWindow(QtWidgets.QMainWindow):
         if len(items) == 0: return
         if items[0].text(0) == "N/A": return
         snd_type = items[0].text(2)
-        if snd_type == "SWAV": # WIP, need to use QAudioFormat probably
-            self.mediaPlayer.stop()
+        if snd_type == "SWAV": # WIP
             print("play SWAV")
             snd_data = ndspy.soundArchive.soundWaveArchive.soundWave.SWAV(self.file_fromItem(items[0])[0])
-            self.mediaPlayer.setSourceDevice(None) # to prevent buffer corruption
-            self.audioBuffer.close()
-            self.audioBuffer.setData(lib.sdat.loadSWAV(snd_data))
-            self.audioBuffer.open(QtCore.QBuffer.OpenModeFlag.ReadOnly)
-            self.mediaPlayer.setSourceDevice(self.audioBuffer)
-            self.mediaPlayer.play()
+            lib.sdat.playSWAV(snd_data)
         elif snd_type == "SSEQ": # Incomplete
             print("play SSEQ")
             sseq: ndspy.soundArchive.soundSequence.SSEQ = self.file_fromItem(items[0])[0][1]
-            lib.sdat.play(self.audioBuffer, sseq, self.sdats[self.dropdown_sdat.currentIndex()])
+            lib.sdat.playSSEQ(sseq, self.sdats[self.dropdown_sdat.currentIndex()])
 
 
     #def codeeditCall(self):
