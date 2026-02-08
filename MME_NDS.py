@@ -1,5 +1,5 @@
 from PyQt6 import QtGui, QtWidgets, QtCore#, QtMultimedia Qt6, Qt6.qsci
-import sys, os, platform, re, math
+import sys, os, platform, re, math, matplotlib.pyplot as pyplt, numpy
 import argparse
 import traceback
 import bisect
@@ -1028,10 +1028,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.action_playSdat.triggered.connect(self.sdatPlayCall)
 
         self.action_stopSdat = QtGui.QAction(QtGui.QIcon('icons\\control-stop-square.png'), "Stop Sound", self)
-        self.action_stopSdat.setStatusTip("Play a SWAV or SSEQ")
+        self.action_stopSdat.setStatusTip("Stop Sound")
         self.action_stopSdat.triggered.connect(lambda: lib.sdat.stopSound())
 
-        self.toolbar_sdat.addActions([self.action_playSdat, self.action_stopSdat])
+        self.action_plotSdat = QtGui.QAction(QtGui.QIcon('icons\\blueprint--arrow.png'), "Plot Sound", self)
+        self.action_plotSdat.setStatusTip("Plot current soud")
+        self.action_plotSdat.triggered.connect(self.sdatPlotCall)
+
+        self.toolbar_sdat.addActions([self.action_playSdat, self.action_stopSdat, self.action_plotSdat])
 
         self.page_sdat = QtWidgets.QWidget()
         self.page_sdat.setLayout(QtWidgets.QStackedLayout())
@@ -1692,11 +1696,13 @@ class MainWindow(QtWidgets.QMainWindow):
     """
 
     def file_fromItem(self, item: QtWidgets.QTreeWidgetItem):
+        RESULT_EMPTY = [b'', "", None, None, None]
         tree = item.treeWidget()
         name = ""
         data = bytes()
         obj = self.rom.files
-        obj2 = None
+        obj2 = None # allow ref to object
+        obj3 = None # for sdat objects in sections
         if tree == self.tree:
             name = item.text(1) + "." + item.text(2)
             data = obj[int(item.text(0))]
@@ -1718,7 +1724,7 @@ class MainWindow(QtWidgets.QMainWindow):
                             data = self.rom.arm9[lib.datconv.strToNum(item.text(0), self.displayBase) - 0x01FFC000 - 0x00004000:]
                     else:
                         print("Explicit ARM9 code-sections are not (yet) supported")
-                        return [b'', "", None, None]
+                        return RESULT_EMPTY
                         #data = ndspy.codeCompression._compress(self.rom.loadArm9().sections[int(tree.indexFromItem(item).row())].data) #compressed
                 name += ".bin"
             if tree == self.tree_arm7: # 02380000 - 0014E000 = 02232000
@@ -1727,12 +1733,14 @@ class MainWindow(QtWidgets.QMainWindow):
                 if item.text(2) == "True":
                     try:
                         item_next = tree.itemBelow(item)
-                        data = self.rom.arm7[lib.datconv.strToNum(item.text(0), self.displayBase) - 0x02232000 - 0x0014E000:lib.datconv.strToNum(item.text(0), self.displayBase) - 0x02232000 - 0x0014E000 + (lib.datconv.strToNum(item_next.text(0), self.displayBase) - lib.datconv.strToNum(item.text(0), self.displayBase))]
+                        data = self.rom.arm7[
+                            lib.datconv.strToNum(item.text(0), self.displayBase) - 0x02232000 - 0x0014E000
+                            :lib.datconv.strToNum(item.text(0), self.displayBase) - 0x02232000 - 0x0014E000 + (lib.datconv.strToNum(item_next.text(0), self.displayBase) - lib.datconv.strToNum(item.text(0), self.displayBase))]
                     except Exception:
                         data = self.rom.arm7[lib.datconv.strToNum(item.text(0), self.displayBase) - 0x02232000 - 0x0014E000]
                 else:
                     print("Explicit ARM7 code-sections are not (yet) supported")
-                    return [b'', "", None, None]
+                    return RESULT_EMPTY
                     #ndspy.codeCompression.compress(self.rom.loadArm7().sections[int(tree.indexFromItem(item).row())].data)
                 name += ".bin"
             if tree == self.tree_arm9Ovltable:
@@ -1755,19 +1763,29 @@ class MainWindow(QtWidgets.QMainWindow):
                 ]
                 for category in data_list:
                     for file in category:
+                        obj3 = file[1]
+                        obj2 = category
                         if file[0] == item.text(1):
-                            obj2 = category
-                            data = file#[1].save()
-                            #print(data)
-                            #if isinstance(data, tuple):
-                            #    data = data[0]
+                            data = obj3.save()
+                            if isinstance(data, tuple):
+                                data = data[0]
+                            break
                         elif item.parent() != None and file[0] == item.parent().text(1):
                             if item.text(2) == "SWAV":
-                                data = file[1].waves[int(item.text(0))].save()
+                                data = obj3.waves[int(item.text(0))].save()
                                 #print(type(data))
+                                break
+                            elif item.text(2) == "SSARS":
+                                data = obj3.sequences[int(item.text(0))][1].save()
+                                print(data)
+                                if isinstance(data, tuple):
+                                    data = data[0]
+                                break
                             else:
+                                print("unhandled data type")
                                 data = file
-        return [data, name, obj, obj2]
+                                break
+        return [data, name, obj, obj2, obj3]
     
     def patches_reload(self):
         #print("call")
@@ -2264,9 +2282,14 @@ class MainWindow(QtWidgets.QMainWindow):
                         fileInfo[2][fileInfo[2].index(fileInfo[0])] = data
                         print(data[:0x15].hex())
                     elif any(x for x in self.sdats[self.dropdown_sdat.currentIndex()].__dict__.values() if x == fileInfo[3]):
+                        #SDAT. this code is very experimental and should not be expected to work perfectly
+                        for key, value in self.sdats[self.dropdown_sdat.currentIndex()].__dict__.items():
+                            if value == fileInfo[3]:
+                                categoryName = key
+                                break
                         newName = fileName
-                        if type(fileInfo[0]) == tuple: # object listed within object in one of the sdat sections
-                            oldObject = fileInfo[0][1]
+                        if fileInfo[4] is not None: # object listed within object in one of the sdat sections
+                            oldObject = fileInfo[4]#fileInfo[0][1]
                         else:
                             oldObject = fileInfo[0]
                         try:
@@ -2286,15 +2309,16 @@ class MainWindow(QtWidgets.QMainWindow):
                             #        newName = fileInfo[0][0]
                         print(oldObject)
                         print(newObject)
-                        if type(fileInfo[0]) == tuple:
-                            fileInfo[3][fileInfo[3].index(fileInfo[0])] = (newName, newObject) 
-                        else: # sub-object
-                            if hasattr(fileInfo[3], "waves"):
-                                fileInfo[3].waves[fileInfo[3].waves.index(fileInfo[0])] = (newObject) 
-                            elif hasattr(fileInfo[3], "sequences"):
-                                fileInfo[3].sequences[fileInfo[3].sequences.index(fileInfo[0])] = (newObject) 
-                            else:
-                                print("unhandled case")
+                        objectIndex = fileInfo[3].index([x for x in fileInfo[3] if fileInfo[4] in x])
+                        if hasattr(fileInfo[4], "waves"):
+                                fileInfo[4].waves[fileInfo[4].waves.index(fileInfo[0])] = (newObject) 
+                                fileInfo[3][objectIndex][1] = fileInfo[4]
+                        elif hasattr(fileInfo[4], "sequences"):
+                            fileInfo[4].sequences[fileInfo[4].sequences.index(fileInfo[0])] = (newObject) 
+                            fileInfo[3][objectIndex][1] = fileInfo[4]
+                        else: # category object
+                            fileInfo[3][objectIndex] = (newName, newObject) 
+                        setattr(self.sdats[self.dropdown_sdat.currentIndex()], categoryName, fileInfo[3])
                         fileInfo[2][self.sdats[self.dropdown_sdat.currentIndex()].fileID] = self.sdats[self.dropdown_sdat.currentIndex()].save() # save sdat to its parent object
                         self.treeSdatUpdate() # refresh tree to avoid interactions with files that are not in the new state
                     else: # subfile
@@ -2587,7 +2611,7 @@ class MainWindow(QtWidgets.QMainWindow):
             dialog.activateWindow()
 
     def sdatPlayCall(self):
-        items = self.trees_sdat[self.dropdown_sdat.currentIndex()].selectedItems()
+        items: list[QtWidgets.QTreeWidgetItem] = self.trees_sdat[self.dropdown_sdat.currentIndex()].selectedItems()
         if len(items) == 0: return
         if items[0].text(0) == "N/A": return
         snd_type = items[0].text(2)
@@ -2597,9 +2621,18 @@ class MainWindow(QtWidgets.QMainWindow):
             lib.sdat.playSWAV(snd_data)
         elif snd_type == "SSEQ": # Incomplete
             print("play SSEQ")
-            sseq: ndspy.soundArchive.soundSequence.SSEQ = self.file_fromItem(items[0])[0][1]
+            sseq = ndspy.soundArchive.soundSequence.SSEQ(self.file_fromItem(items[0])[0], bankID=int(items[0].toolTip(0).removeprefix("bankID: ")))
             lib.sdat.playSSEQ(sseq, self.sdats[self.dropdown_sdat.currentIndex()])
 
+    def sdatPlotCall(self):
+        items = self.trees_sdat[self.dropdown_sdat.currentIndex()].selectedItems()
+        if len(items) == 0: return
+        if items[0].text(0) == "N/A": return
+        if items[0].text(2) != "SWAV": return
+        fig, ax = pyplt.subplots()
+        snd_data = ndspy.soundArchive.soundWaveArchive.soundWave.SWAV(self.file_fromItem(items[0])[0])
+        ax.plot(lib.sdat.loadSWAV(snd_data))
+        pyplt.show()
 
     #def codeeditCall(self):
         #self.tree.clearSelection()
@@ -2768,7 +2801,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     category.addChild(child)
                     if hasattr(section[1], "sequences"):
                         for sseq_i, sseq in enumerate(section[1].sequences): # actually a list with [name, SSARSequence]
-                            subChild = QtWidgets.QTreeWidgetItem([str(sseq_i), sseq[0], "SSEQ"])
+                            subChild = QtWidgets.QTreeWidgetItem([str(sseq_i), sseq[0], "SSARS"])
                             child.addChild(subChild)
                     if hasattr(section[1], "waves"):
                         for wave_i, wave in enumerate(section[1].waves):
