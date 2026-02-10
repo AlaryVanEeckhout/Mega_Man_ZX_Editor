@@ -1,10 +1,9 @@
 from PyQt6 import QtGui, QtWidgets, QtCore#, QtMultimedia Qt6, Qt6.qsci
-import sys, os, platform, re, math, matplotlib.pyplot as pyplt, numpy
+import sys, os, platform, re, math
 import argparse
 import traceback
 import bisect
 #import logging, time, random
-#import numpy
 import ndspy
 #import ndspy.graphics2D
 #import ndspy.model
@@ -13,6 +12,11 @@ import ndspy.rom, ndspy.codeCompression, ndspy.code
 import ndspy.soundArchive
 import ndspy.soundSequenceArchive
 import lib
+
+try:
+    import matplotlib.pyplot as pyplt#, matplotlib.backends.backend_qtagg as qtagg
+except ImportError:
+    pass
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-R", "--ROM", help="NDS ROM to open using the editor.", dest="openPath")
@@ -1035,7 +1039,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.action_plotSdat.setStatusTip("Plot current soud")
         self.action_plotSdat.triggered.connect(self.sdatPlotCall)
 
-        self.toolbar_sdat.addActions([self.action_playSdat, self.action_stopSdat, self.action_plotSdat])
+        self.toolbar_sdat.addActions([self.action_playSdat, self.action_stopSdat])
+        if "matplotlib" in sys.modules:
+            self.toolbar_sdat.addAction(self.action_plotSdat)
 
         self.page_sdat = QtWidgets.QWidget()
         self.page_sdat.setLayout(QtWidgets.QStackedLayout())
@@ -2629,8 +2635,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if len(items) == 0: return
         if items[0].text(0) == "N/A": return
         if items[0].text(2) != "SWAV": return
-        fig, ax = pyplt.subplots()
         snd_data = ndspy.soundArchive.soundWaveArchive.soundWave.SWAV(self.file_fromItem(items[0])[0])
+        fig, ax = pyplt.subplots()
         ax.plot(lib.sdat.loadSWAV(snd_data))
         pyplt.show()
 

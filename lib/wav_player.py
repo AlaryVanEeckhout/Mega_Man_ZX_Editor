@@ -1,12 +1,12 @@
 import sounddevice, numpy
 
 class WAVPlayer:
-    def __init__(self, data: numpy.ndarray, samplerate: int, loop: int|None, totalLen):
+    def __init__(self, data: numpy.ndarray, samplerate: int, loop: int|None, totalLen:int=None):
         self.data = data # 1d array
         assert len(data.shape) == 1
         self.loop = loop
         self.current_frame = 0
-        self.totalLen = totalLen
+        self.totalLen = totalLen # for debug purposes
         self.stream = sounddevice.OutputStream(
             samplerate=samplerate, 
             dtype="int16", 
@@ -33,7 +33,7 @@ class WAVPlayer:
                 add_mono_outdata = self.data[self.current_frame:self.current_frame+frames_remaining]
                 self.current_frame += add_mono_outdata.shape[0]
                 mono_outdata = numpy.append(mono_outdata, add_mono_outdata)
-        print(len(self.data), self.totalLen)
+        #print(len(self.data), self.totalLen)
         #print(mono_outdata)
         # fill stereo outdata
         for i in range(outdata.shape[1]):
