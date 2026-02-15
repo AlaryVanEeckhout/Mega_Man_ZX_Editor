@@ -230,6 +230,11 @@ class LevelView(View):
         super().__init__(*args, **kwargs)
         self.tileGroups: list[list[list[LevelTileItem]]] = []
 
+    def addItem(self, item: LevelTileItem):
+        if self.window().checkbox_fastLevel.isChecked():
+            item.setCacheMode(QtWidgets.QGraphicsPixmapItem.CacheMode.NoCache)
+        self.scene().addItem(item)
+
     def mousePressEvent(self, event):
         super().mousePressEvent(event)
         self.levelInteract(event)

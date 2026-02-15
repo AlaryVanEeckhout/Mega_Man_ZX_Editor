@@ -20,6 +20,8 @@ f"""[SETTINGS]
 theme_index={obj.theme_index}
 displayBase={obj.displayBase}
 displayAlphanumeric={obj.displayAlphanumeric}
+[PERFORMANCE]
+fastLevel={obj.fastLevel}
 [MISC]
 firstLaunch={obj.firstLaunch}"""
         )

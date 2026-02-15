@@ -42,10 +42,10 @@ The editor can edit, export and import english dialogue files and save them to t
 *This feature may not be implemented/is not currently prioritized since I haven't looked into it and/or it looks/is hard to do. 
 ## Setup for usage
 Currently, there are no releases, so:
-- [Download&Install Python](https://www.python.org/downloads/) (using 3.13.2) <!--- Python 3.10.11 or lower will cause crashes -->
+- [Download&Install Python](https://www.python.org/downloads/) (using 3.14.3) <!--- Python 3.10.11 or lower will cause crashes -->
 - Now that you have Python, you can use pip (Package Installer for Python) to install the two following modules:
 - [Download&Install NDSPy](https://pypi.org/project/ndspy/) (using 4.2.0)
-- [Download&Install PyQt6](https://pypi.org/project/PyQt6/) (using 6.9.1)
+- [Download&Install PyQt6](https://pypi.org/project/PyQt6/) (using 6.10.2)
 - [Download&Install audioop-lts](https://pypi.org/project/audioop-lts/) (required for audio processing, using 0.2.2)
 - [Download&Install sounddevice](https://pypi.org/project/sounddevice/) (required for audio playback, using 0.5.5)
 - [Download&Install matplotlib](https://pypi.org/project/matplotlib/) (required for audio waveform plotting, using 3.10.8)

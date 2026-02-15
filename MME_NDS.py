@@ -51,8 +51,8 @@ class MainWindow(QtWidgets.QMainWindow):
         super().__init__()
         # expected module versions
         self.VERSION_EDITOR = "0.4.5" # objective, feature, WIP
-        self.VERSION_PYTHON = "3.13.2"
-        self.VERSION_PYQT = "6.9.1"
+        self.VERSION_PYTHON = "3.14.3"
+        self.VERSION_PYQT = "6.10.2"
         self.VERSION_NDSPY = "4.2.0"
         self.window_width = 1024
         self.window_height = 720
@@ -98,6 +98,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.displayBase_old = 16
         self.displayAlphanumeric = True
         self.firstLaunch = True
+        self.fastLevel = False
         self.load_preferences()
         self.UiComponents()
         self.show()
@@ -105,10 +106,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.loadROM(args.openPath)
 
     def load_preferences(self):
-        #SETTINGS
         lib.ini_rw.read(self, "SETTINGS", property_type="int", exc=["displayAlphanumeric"])
         lib.ini_rw.read(self, "SETTINGS", property_type="bool", inc=["displayAlphanumeric"])
-        #MISC
+        lib.ini_rw.read(self, "PERFORMANCE", property_type="bool", inc=["fastLevel"])
         lib.ini_rw.read(self, "MISC", property_type="bool")
         if self.firstLaunch:
             firstLaunch_dialog = QtWidgets.QMessageBox()
@@ -201,7 +201,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.text_about.resize(self.dialog_about.width(), self.dialog_about.height())
         self.text_about.setText(f"""Supports:\
                                 \rMEGAMANZX (Mega Man ZX)\
+                                \rROCKMANZX (ロックマン ゼクス)\
                                 \rMEGAMANZXA (Mega Man ZX Advent)\
+                                \rROCKMANZXA (ロックマンゼクス アドベント)\
 
                                 \rVersionning:\
                                 \rEditor version: {self.VERSION_EDITOR} (final objective(s) completed, major functional features, WIP features)\
@@ -214,31 +216,48 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.dialog_settings = QtWidgets.QDialog(self)
         self.dialog_settings.setWindowTitle("Settings")
-        self.dialog_settings.resize(100, 50)
+        self.dialog_settings.resize(250, 50)
         self.dialog_settings.setLayout(QtWidgets.QGridLayout())
-        self.label_theme = QtWidgets.QLabel("Theme", self.dialog_settings)
-        self.dropdown_theme = QtWidgets.QComboBox(self.dialog_settings)
+        self.tabs_settings = QtWidgets.QTabWidget(self.dialog_settings)
+        self.page_settings_general = QtWidgets.QWidget(self.tabs_settings)
+        self.page_settings_general.setLayout(QtWidgets.QGridLayout())
+        self.page_settings_performance = QtWidgets.QWidget(self.tabs_settings)
+        self.page_settings_performance.setLayout(QtWidgets.QGridLayout())
+        self.tabs_settings.addTab(self.page_settings_general, "General")
+        self.tabs_settings.addTab(self.page_settings_performance, "Performance")
+        # General Settings
+        self.label_theme = QtWidgets.QLabel("Theme", self.page_settings_general)
+        self.dropdown_theme = QtWidgets.QComboBox(self.page_settings_general)
         self.dropdown_theme.addItems(QtWidgets.QStyleFactory.keys())
         self.dropdown_theme.addItem("Custom")
-        self.switch_theme(True)# Update theme dropdown with current option
+        self.switch_theme(True) # Update theme dropdown with current option
         self.dropdown_theme.activated.connect(lambda: self.switch_theme())
-        self.label_base = QtWidgets.QLabel("Numeric Base", self.dialog_settings)
-        self.field_base = QtWidgets.QSpinBox(self.dialog_settings)
+        self.label_base = QtWidgets.QLabel("Numeric Base", self.page_settings_general)
+        self.field_base = QtWidgets.QSpinBox(self.page_settings_general)
         self.field_base.setValue(self.displayBase)
         self.field_base.setRange(-1000, 1000)
         self.field_base.editingFinished.connect(lambda: setattr(self, "displayBase", self.field_base.value()))
         self.field_base.editingFinished.connect(self.reloadCall)
-        self.label_alphanumeric = QtWidgets.QLabel("Alphanumeric Numbers", self.dialog_settings)
-        self.checkbox_alphanumeric = QtWidgets.QCheckBox(self.dialog_settings)
+        self.checkbox_alphanumeric = QtWidgets.QCheckBox(self.page_settings_general)
+        self.checkbox_alphanumeric.setText("Alphanumeric Numbers")
         self.checkbox_alphanumeric.setChecked(self.displayAlphanumeric)
         self.checkbox_alphanumeric.toggled.connect(lambda: setattr(self, "displayAlphanumeric", not self.displayAlphanumeric))
         self.checkbox_alphanumeric.toggled.connect(self.reloadCall)
-        self.dialog_settings.layout().addWidget(self.label_theme)
-        self.dialog_settings.layout().addWidget(self.dropdown_theme)
-        self.dialog_settings.layout().addWidget(self.label_base)
-        self.dialog_settings.layout().addWidget(self.field_base)
-        self.dialog_settings.layout().addWidget(self.label_alphanumeric)
-        self.dialog_settings.layout().addWidget(self.checkbox_alphanumeric)
+        # Performance Settings
+        self.checkbox_fastLevel = QtWidgets.QCheckBox(self.page_settings_performance)
+        self.checkbox_fastLevel.checkStateChanged.connect(lambda: setattr(self, "fastLevel", self.checkbox_fastLevel.isChecked()))
+        self.checkbox_fastLevel.setChecked(self.fastLevel)
+        self.checkbox_fastLevel.setText("Disable LevelTileItem coordinate cache")
+        self.checkbox_fastLevel.setToolTip("Sacrifices some graphical fidelity in favor of faster rendering when zooming in/out")
+        self.checkbox_fastLevel.setToolTipDuration(10000)
+
+        self.dialog_settings.layout().addWidget(self.tabs_settings)
+        self.page_settings_general.layout().addWidget(self.label_theme)
+        self.page_settings_general.layout().addWidget(self.dropdown_theme)
+        self.page_settings_general.layout().addWidget(self.label_base)
+        self.page_settings_general.layout().addWidget(self.field_base)
+        self.page_settings_general.layout().addWidget(self.checkbox_alphanumeric)
+        self.page_settings_performance.layout().addWidget(self.checkbox_fastLevel)
 
         self.settingsAction = QtGui.QAction(QtGui.QIcon('icons\\gear.png'), '&Settings', self)
         self.settingsAction.setStatusTip('Settings')
@@ -2461,7 +2480,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return obj_item
         
     def OAM_playAnimFrame(self):
-        if self.fileDisplayState != "OAM": # prevents crash when loading another file
+        if self.fileDisplayState != "OAM" or self.fileEdited_object is None: # prevents crash when loading another file or refreshing
             self.button_oam_animPlay.autoPause()
             return
         anim: lib.oam.Animation = self.fileEdited_object.oamsec_anim
@@ -2651,7 +2670,7 @@ class MainWindow(QtWidgets.QMainWindow):
         try: # convert NDS Py filenames to QTreeWidgetItems
             if self.rom != None and self.rom.files != []:
                 tree_folder_ovlt = QtWidgets.QTreeWidgetItem([f"{0:04}", "ovltable", "Folder"])
-                for i in range(0, self.tree_arm9Ovltable.topLevelItemCount()):
+                for i in range(0, len(self.rom.arm9OverlayTable)//0x20):
                     tree_folder_ovlt.addChild(QtWidgets.QTreeWidgetItem([f"{i:04}", f"overlay9_{i:04}", "bin"]))
                 tree_files.append(tree_folder_ovlt)
                 tree_folder: list[QtWidgets.QTreeWidgetItem] = []
@@ -3025,13 +3044,18 @@ class MainWindow(QtWidgets.QMainWindow):
                         # since the pen is in grayscale, we can use r, g or b as color index
                         if self.file_content_gfx.pen.color().blue() >= 2**list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()].depth: # if color out of range
                             self.file_content_gfx.pen.setColor(0x00010101) # set to first color
-                        try:
-                            decoded = ndspy.lz10.decompress(self.rom.files[current_id][self.relative_address:])
-                            print("this image is compressed")
-                        except TypeError:
-                            decoded = self.rom.files[current_id][self.relative_address:]
+                        gfx_viewed = self.rom.files[current_id][self.relative_address:]
+                        if len(gfx_viewed) > 0:
+                            try:
+                                gfx_viewed = ndspy.lz10.decompress(gfx_viewed)
+                                print("this image is compressed")
+                            except TypeError:
+                                pass
+                        else:
+                            print("no graphic data to process! This address is most likely invalid.")
+                            return
                         draw_tilesQImage_fromBytes(self.file_content_gfx,
-                                                   decoded,
+                                                   gfx_viewed,
                                                    algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
                                                    grid=True)
                         self.dropdown_gfx_depth.setDisabled(False)
@@ -3561,6 +3585,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if len(gfx_table.getData(gfx_index)) == 0:
             print("cannot load tileset without gfx")
             return
+        self.gfx_scene_tileset.scene().clearSelection() # prevent crash if multiple items selected
         self.gfx_scene_tileset.scene().clear()
         #gfx = lib.graphic.GraphicHeader(gfx_table.joinData()[0])
         try:
@@ -3638,7 +3663,7 @@ class MainWindow(QtWidgets.QMainWindow):
             item = lib.widget.LevelTileItem(index=metaTile_index, id=metaTile, screen=screen_id)
             item.setPixmap(self.gfx_scene_tileset.metaTiles[metaTile].pixmap())
             item.setPos(x + 16*(metaTile_index%16),y + 16*(metaTile_index//16))
-            self.gfx_scene_level.scene().addItem(item)
+            self.gfx_scene_level.addItem(item)
             self.gfx_scene_level.tileGroups[screen_id][metaTile_index].append(item)
             item.tileGroup = self.gfx_scene_level.tileGroups[screen_id][metaTile_index]
             #print(item.pos())
@@ -3966,7 +3991,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.button_level_save.setDisabled(True)
         
         # find level file in rom
-        fileID = self.rom.filenames.idOf(self.dropdown_level_area.currentText()+".bin")
+        fileID_tileset = self.rom.filenames.idOf(self.label_level_tilesetName.text())
         if hasattr(self.levelEdited_object, "level"):
             level_bin = bytearray(self.levelEdited_object.level.toBytes())
         else:
@@ -3991,13 +4016,13 @@ class MainWindow(QtWidgets.QMainWindow):
             bin_06 += bytearray((-len(bin_06)) & 3)
 
         if self.levelEdited_object.entryCount == 7:
-            self.rom.files[fileID][self.levelEdited_object.address_list[6][0]:] = bin_06
-            self.rom.files[fileID][self.levelEdited_object.address_list[5][0]:self.levelEdited_object.address_list[6][0]] = bin_05
-            self.rom.files[fileID][self.levelEdited_object.address_list[4][0]:self.levelEdited_object.address_list[5][0]] = bin_04
-            self.rom.files[fileID][self.levelEdited_object.address_list[3][0]:self.levelEdited_object.address_list[4][0]] = bin_03
-            self.rom.files[fileID][self.levelEdited_object.pal_offset_rom:self.levelEdited_object.address_list[3][0]] = pal_bin
-        self.rom.files[fileID][self.levelEdited_object.gfx_offset_rom:self.levelEdited_object.pal_offset_rom] = gfx_bin
-        self.rom.files[fileID][self.levelEdited_object.level_offset_rom:self.levelEdited_object.gfx_offset_rom] = level_bin
+            self.rom.files[fileID_tileset][self.levelEdited_object.address_list[6][0]:] = bin_06
+            self.rom.files[fileID_tileset][self.levelEdited_object.address_list[5][0]:self.levelEdited_object.address_list[6][0]] = bin_05
+            self.rom.files[fileID_tileset][self.levelEdited_object.address_list[4][0]:self.levelEdited_object.address_list[5][0]] = bin_04
+            self.rom.files[fileID_tileset][self.levelEdited_object.address_list[3][0]:self.levelEdited_object.address_list[4][0]] = bin_03
+            self.rom.files[fileID_tileset][self.levelEdited_object.pal_offset_rom:self.levelEdited_object.address_list[3][0]] = pal_bin
+        self.rom.files[fileID_tileset][self.levelEdited_object.gfx_offset_rom:self.levelEdited_object.pal_offset_rom] = gfx_bin
+        self.rom.files[fileID_tileset][self.levelEdited_object.level_offset_rom:self.levelEdited_object.gfx_offset_rom] = level_bin
 
         self.levelEdited_object.gfx_offset_rom = self.levelEdited_object.level_offset_rom + len(level_bin)
         self.levelEdited_object.pal_offset_rom = self.levelEdited_object.gfx_offset_rom + len(gfx_bin)
@@ -4006,13 +4031,13 @@ class MainWindow(QtWidgets.QMainWindow):
             self.levelEdited_object.address_list[4][0] = self.levelEdited_object.address_list[3][0] + len(bin_03)
             self.levelEdited_object.address_list[5][0] = self.levelEdited_object.address_list[4][0] + len(bin_04)
             self.levelEdited_object.address_list[6][0] = self.levelEdited_object.address_list[5][0] + len(bin_05)
-        self.levelEdited_object.fileSize = len(self.rom.files[fileID])
-        self.rom.files[fileID][:self.levelEdited_object.level_offset_rom] = self.levelEdited_object.headerToBytes()
+        self.levelEdited_object.fileSize = len(self.rom.files[fileID_tileset])
+        self.rom.files[fileID_tileset][:self.levelEdited_object.level_offset_rom] = self.levelEdited_object.headerToBytes()
         print(f"Level data {self.dropdown_level_area.currentText()} has been saved!")
-        self.levelEdited_object = lib.level.File(self.rom.files[fileID]) # update data
-        #print(f"{len(self.rom.files[fileID][self.levelEdited_object.level_offset_rom:self.levelEdited_object.gfx_offset_rom])} {self.levelEdited_object.level_offset_rom}")
-        #print(f"{len(self.rom.files[fileID][self.levelEdited_object.gfx_offset_rom:self.levelEdited_object.pal_offset_rom])} {self.levelEdited_object.gfx_offset_rom}")
-        #print(f"{len(self.rom.files[fileID][self.levelEdited_object.pal_offset_rom:])} {self.levelEdited_object.pal_offset_rom}")
+        self.levelEdited_object = lib.level.File(self.rom.files[fileID_tileset]) # update data
+        #print(f"{len(self.rom.files[fileID_tileset][self.levelEdited_object.level_offset_rom:self.levelEdited_object.gfx_offset_rom])} {self.levelEdited_object.level_offset_rom}")
+        #print(f"{len(self.rom.files[fileID_tileset][self.levelEdited_object.gfx_offset_rom:self.levelEdited_object.pal_offset_rom])} {self.levelEdited_object.gfx_offset_rom}")
+        #print(f"{len(self.rom.files[fileID_tileset][self.levelEdited_object.pal_offset_rom:])} {self.levelEdited_object.pal_offset_rom}")
 
     def patch_game(self):# Currently a workaround to having no easy way of writing directly to any address in the ndspy rom object
         #print("call")

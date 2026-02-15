@@ -22,6 +22,7 @@
 *.wav
 *.mp4
 #specific files
+!requirements.txt
 devtools/*
 export/*
 temp/*
