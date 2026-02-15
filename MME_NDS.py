@@ -1668,6 +1668,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.page_patches.layout().addWidget(self.tree_patches)
         self.tree_patches.setColumnCount(4)
         self.tree_patches.setHeaderLabels(["Enabed", "Address", "Name", "Type", "Size"])
+        self.tree_patches.header().resizeSection(2, 250)
         self.tree_patches.itemChanged.connect(self.patch_game)
         self.tree_patches_checkboxes = [] # stores the state of checkboxes for complex checkbox logic
 
@@ -1930,10 +1931,15 @@ class MainWindow(QtWidgets.QMainWindow):
         try:
             #fileID = str(self.rom.filenames).rpartition(".sdat")[0].split()[-2]
             for i, item in enumerate(self.tree.findItems("sdat", QtCore.Qt.MatchFlag.MatchRecursive, column=2)):
-                fileID = int(item.text(0))
-                self.sdats.append(ndspy.soundArchive.SDAT(self.rom.files[fileID]))
-                self.sdats[i].fileID = fileID
-                print("SDAT at " + str(fileID))
+                try:
+                    fileID = int(item.text(0))
+                    sdat = ndspy.soundArchive.SDAT(self.rom.files[fileID])
+                    sdat.fileID = fileID
+                    self.sdats.append(sdat)
+                    print(f"SDAT at {fileID}")
+                except Exception:
+                    print(f"Failed to load SDAT at {fileID}")
+                    continue
             #self.sdats[self.dropdown_sdat.currentIndex()].fatLengthsIncludePadding = True
             self.action_sdat.setEnabled(True)
         except Exception as e:
@@ -1946,17 +1952,7 @@ class MainWindow(QtWidgets.QMainWindow):
             dialog.setText("Sound data archive was not found. \n This means that sound data may not be there or may not be in a recognizable format.")
             dialog.exec()
             self.progressShow()
-        self.progressUpdate(10, "Loading ARM9", True, icon_title, icon_pixmap)
-        self.rom.arm9_decompressed = self.rom.loadArm9()
-        self.treeArm9Update()
-        self.progressUpdate(20, "Loading ARM7")
-        self.treeArm7Update()
-        self.progressUpdate(30, "Loading SDAT")
-        self.treeSdatUpdate()
-        #print(self.rom.filenames)
-        self.progressUpdate(50, "Loading Patches")
-        self.patches_reload()
-        self.progressUpdate(80, "Finishing load")
+        self.progressUpdate(10, "Obtaining metadata")
         self.temp_path = f"{os.path.curdir}\\temp\\{self.romToEdit_name+self.romToEdit_ext}"
         self.setWindowTitle("Mega Man ZX Editor" + " <" + self.rom.name.decode() + ", Serial ID " + ''.join(char for char in self.rom.idCode.decode("utf-8") if char.isalnum())  + ", Rev." + str(self.rom.version) + ", Region " + str(self.rom.region) + ">" + " \"" + self.romToEdit_name + self.romToEdit_ext + "\"")
         if not self.rom.name.decode() in lib.gamedat.GameEnum.__members__:
@@ -1974,6 +1970,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.gamedat = lib.gamedat.GameEnum[self.rom.name.decode() if self.isGameSupported else "UNSUPPORTED"]
 
+        self.progressUpdate(20, "Loading ARM9", True, icon_title, icon_pixmap)
+        self.rom.arm9_decompressed = self.rom.loadArm9()
+        self.treeArm9Update()
+        self.progressUpdate(30, "Loading ARM7")
+        self.treeArm7Update()
+        self.progressUpdate(40, "Loading SDAT")
+        self.treeSdatUpdate()
+        #print(self.rom.filenames)
+        self.progressUpdate(50, "Loading Patches")
+        self.patches_reload()
         self.progressUpdate(90, "Loading game-specific content")
         arm9_data = self.rom.arm9_decompressed.save()
         arm9_dialogueAddr = self.gamedat.arm9Addrs["dialogue names jp"]
@@ -2733,6 +2739,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     lib.datconv.numToStr(overlay.flags, self.displayBase, self.displayAlphanumeric), 
                     str(overlay.verifyHash)
                 ]))
+        self.tree_arm9Ovltable.header().resizeSections(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
 
         #self.tree_arm9.addTopLevelItem(item_mainCode)
 
@@ -2770,6 +2777,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     lib.datconv.numToStr(overlay.flags, self.displayBase, self.displayAlphanumeric), 
                     str(overlay.verifyHash)
                 ]))
+        self.tree_arm7Ovltable.header().resizeSections(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
     
     def treeSdatUpdate(self):
         #print(str(self.sdats[self.dropdown_sdat.currentIndex()].groups)[:13000])
@@ -2789,6 +2797,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_sdat.setCurrentIndex(0)
 
         for i, sdat in enumerate(self.sdats):
+            tree_current: lib.widget.EditorTree = getattr(self, f"tree_sdat_{i}")
+
             # all sdat sections follow the [(Name, object(data)), ...] format except swar with [(Name, object([object(data), ...])), ...] and groups, which have [(Name, [object(data), ...]), ...]
             item_sseq = QtWidgets.QTreeWidgetItem(["N/A", "Sequenced Music", "SSEQ"]) #SSEQ
             item_ssar = QtWidgets.QTreeWidgetItem(["N/A", "Sequenced Sound Effects", "SSAR"]) #SSAR
@@ -2834,7 +2844,8 @@ class MainWindow(QtWidgets.QMainWindow):
                             child.addChild(subChild)
                 #progress.setValue(progress.value()+ 100//len(item_list))
 
-            getattr(self, f"tree_sdat_{i}").addTopLevelItems([*item_list])
+            tree_current.addTopLevelItems(item_list)
+            tree_current.header().resizeSection(1, 250)
             #progress.setValue(100)
             #progress.close()
 
@@ -3598,8 +3609,13 @@ class MainWindow(QtWidgets.QMainWindow):
         pal_list: list[dict] = []
         pl: dict = {}
         depth_obj = lib.datconv.CompressionAlgorithmEnum.EIGHTBPP
+        palette_ref = self.GFX_PALETTES[3]
+        if not len(set(gfx.data[:64])) <= 1: #hotfixy way of checking for depth
+            print("First tile is not uniform in 8bpp. Switching to 4bpp.")
+            depth_obj = lib.datconv.CompressionAlgorithmEnum.FOURBPP
+            palette_ref = self.GFX_PALETTES[2]
         print(f"unk: {gfx.unk13}")
-        ref = QtWidgets.QGraphicsPixmapItem(QtGui.QPixmap.fromImage(lib.datconv.binToQt(gfx.data, self.GFX_PALETTES[3], depth_obj, 32, len(gfx.data)//64//32)))
+        ref = QtWidgets.QGraphicsPixmapItem(QtGui.QPixmap.fromImage(lib.datconv.binToQt(gfx.data, palette_ref, depth_obj, 32, len(gfx.data)//64//32)))
         ref.setPos(-32*8-self.gfx_scene_tileset.item_spacing*2, 0)
         self.gfx_scene_tileset.scene().addItem(ref) # to see the gfx used to construct tileset
         print("loop start")
@@ -3635,9 +3651,9 @@ class MainWindow(QtWidgets.QMainWindow):
                             except:
                                 #print("palette error lvmax at", gfx_index, tile_pal)
                                 pal = list(pal_list[0].values())[0]
-                #gfx_bin = gfx.data[gfx.gfx_offset:][64*tileId:]
-                gfx_bin = gfx.data[gfx.gfx_offset:][64*tileId:]
-                #gfx_bin = gfx.data[gfx.gfx_offset:][gfx_ptrs[ptr_index]+64*(tileId&0x3FF):]
+                #gfx_bin = gfx.data[gfx.gfx_offset:][8*depth_obj.depth*tileId:]
+                gfx_bin = gfx.data[gfx.gfx_offset:][8*depth_obj.depth*tileId:]
+                #gfx_bin = gfx.data[gfx.gfx_offset:][gfx_ptrs[ptr_index]+8*depth_obj.depth*(tileId&0x3FF):]
                 painter.drawImage(QtCore.QRectF(8*(tile_index%2), 8*(tile_index//2), 8, 8), lib.datconv.binToQt(gfx_bin, pal, depth_obj, 1, 1).mirrored(flipH, flipV))
             
             metaTileItem = lib.widget.TilesetItem(pixmap)

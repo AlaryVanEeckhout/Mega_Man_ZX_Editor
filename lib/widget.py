@@ -414,6 +414,7 @@ class GridLayout(QtWidgets.QGridLayout):
 class EditorTree(QtWidgets.QTreeWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.header().setMinimumSectionSize(2)
         self.ContextNameType = "[Filenames]"
 
     def getMainWindow(self):
