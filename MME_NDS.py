@@ -88,7 +88,7 @@ class MainWindow(QtWidgets.QMainWindow):
         ]
         self.gfx_palette = self.GFX_PALETTES[0]
         self.fileEdited_object = None
-        self.levelEdited_ovlTable = []
+        self.levelEdited_ovlTable = {"entity slot": [], "entity coord": [], "level": []}
         self.levelEdited_ovl_object = None
         self.levelEdited_object = None
         self.resize(self.window_width, self.window_height)
@@ -1377,9 +1377,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.page_level_tileset.setLayout(QtWidgets.QVBoxLayout())
         self.page_level_screens = QtWidgets.QWidget(self.tabs_level)
         self.page_level_screens.setLayout(QtWidgets.QVBoxLayout())
+        self.page_level_entities = QtWidgets.QWidget(self.tabs_level)
+        self.page_level_entities.setLayout(QtWidgets.QVBoxLayout())
 
         self.tabs_level.addTab(self.page_level_tileset, "Tileset")
         self.tabs_level.addTab(self.page_level_screens, "Screens")
+        self.tabs_level.addTab(self.page_level_entities, "Entities")
 
         self.dropdown_metaTile_collisionShape = QtWidgets.QComboBox(self.page_level_tileset)
         self.dropdown_metaTile_collisionShape.setToolTip("Choose collision geometry to apply")
@@ -1608,20 +1611,42 @@ class MainWindow(QtWidgets.QMainWindow):
         self.gfx_scene_tileset = lib.widget.TilesetView(self.page_level_tileset)
         self.gfx_scene_tileset.scene().selectionChanged.connect(self.loadTileProperties)
 
-
-        self.field_screen_tilesetOffset = lib.widget.BetterSpinBox(self.page_level_screens)
+        self.field_screen_tilesetOffset = lib.widget.BetterSpinBox(self.page_level_tileset)
         self.field_screen_tilesetOffset.setToolTip("Set tileset offset")
         self.field_screen_tilesetOffset.setStatusTip("Set how many graphic entries from the graphic table to skip for the tileset")
 
+        self.tabs_level_Screens = QtWidgets.QTabWidget(self.page_level_screens)
+        self.page_level_screens_layout0 = QtWidgets.QWidget(self.tabs_level_Screens)
+        self.page_level_screens_layout1 = QtWidgets.QWidget(self.tabs_level_Screens)
+        self.page_level_screens_layout2 = QtWidgets.QWidget(self.tabs_level_Screens)
+        self.page_level_screens_layout3 = QtWidgets.QWidget(self.tabs_level_Screens)
+        self.page_level_screens_layout_camera = QtWidgets.QWidget(self.tabs_level_Screens)
+        self.page_level_screens_layout_radar = QtWidgets.QWidget(self.tabs_level_Screens)
+        self.page_level_screens_map_offset = QtWidgets.QWidget(self.tabs_level_Screens)
+        self.page_level_screens_map_behavior = QtWidgets.QWidget(self.tabs_level_Screens)
+        self.tabs_level_Screens.addTab(self.page_level_screens_layout0, "Layout 0")
+        self.tabs_level_Screens.addTab(self.page_level_screens_layout1, "Layout 1")
+        self.tabs_level_Screens.addTab(self.page_level_screens_layout2, "Layout 2")
+        self.tabs_level_Screens.addTab(self.page_level_screens_layout3, "Layout 3")
+        self.tabs_level_Screens.addTab(self.page_level_screens_layout_camera, "Camera Scroll Layout")
+        self.tabs_level_Screens.addTab(self.page_level_screens_layout_radar, "Radar Scope Layout")
+        self.tabs_level_Screens.addTab(self.page_level_screens_map_offset, "Tileset Offset Map")
+        self.tabs_level_Screens.addTab(self.page_level_screens_map_behavior, "Behavior Map")
+
+        self.checkbox_entities_enable = QtWidgets.QCheckBox(self.page_level_entities)
+        self.checkbox_entities_enable.setChecked(True)
+        self.checkbox_entities_enable.setText("Load Entities")
 
         self.gfx_scene_level = lib.widget.LevelView(self.page_leveleditor)
 
         self.page_leveleditor.layout().addItem(self.layout_level_editpannel)
         self.layout_level_editpannel.addItem(self.layout_level_area)
         self.layout_level_editpannel.addWidget(self.tabs_level)
+        self.page_level_tileset.layout().addWidget(self.field_screen_tilesetOffset)
         self.page_level_tileset.layout().addItem(self.layout_metaTile_properties)
         self.page_level_tileset.layout().addWidget(self.gfx_scene_tileset)
-        self.page_level_screens.layout().addWidget(self.field_screen_tilesetOffset)
+        self.page_level_screens.layout().addWidget(self.tabs_level_Screens)
+        self.page_level_entities.layout().addWidget(self.checkbox_entities_enable)
         self.page_leveleditor.layout().addWidget(self.gfx_scene_level)
 
         # Tweaks(Coming Soon™)
@@ -2227,7 +2252,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                                   "swar", "sbnk", "ssar", "sseq",
                                                   "cmp", "blz", "lz", "lz10", "lz77", 
                                                   "dec", "declz", "declz10", "declz77", "decblz",
-                                                  "bin", ""]
+                                                  "bin", "vx", ""]
                                 #print(selectedFiles)
                                 print(f.name)
                                 #print(fileName + "." + fileExt)
@@ -2289,16 +2314,19 @@ class MainWindow(QtWidgets.QMainWindow):
                                 act = lib.act.ActImagine()
                                 try:
                                     import_vxfolder_iter = act.import_vxfolder(file)
-                                except:
+                                except Exception as e:
+                                    print(e)
                                     print("This folder is not formatted properly!")
+                                    self.progressHide()
                                     return
                                 self.progressUpdate(0, "Preparing encoding")
                                 for i, _ in enumerate(import_vxfolder_iter):
                                     self.progressUpdate(50, f"Preparing encoding (processing frame {i+1}/???)")
                                 self.progressUpdate(100, "Preparing encoding")
-                                vframe_strategy = lib.actEncStrats.KeyframeOnlySimple()
+                                vframe_strategy = lib.actEncVStrats.SimpleKeyframeOnly()
+                                aframe_strategy = lib.actEncAStrats.SimplePulseExtend()
                                 for i, avframe in enumerate(act.avframes):
-                                    avframe.encode(avframe.vframe.plane_buffers, vframe_strategy)
+                                    avframe.encode(avframe.vframe.plane_buffers, vframe_strategy, aframe_strategy)
                                     self.progressUpdate(int(((i+1)/act.frames_qty)*100), f"Encoding VX folder (frame {i+1}/{act.frames_qty})")
                                 data = act.save_vx()
                                 self.progressHide()
@@ -3524,19 +3552,40 @@ class MainWindow(QtWidgets.QMainWindow):
             level.metaTiles[metaTile_index][index] = \
                 (level.metaTiles[metaTile_index][index] & bitmask) | (val << shiftL)
 
-    def loadOvelrayStructAddressTable(self):
-        addr_table = self.gamedat.arm9Addrs["level"]
-        self.levelEdited_ovlTable.clear()
+    def loadOvelrayStructAddressTable(self): # called on ROM load
+        addr_levelt = self.gamedat.arm9Addrs["level"]
+        print(f"calculated overlay table size: 0x{0x4*self.dropdown_level_area.count():02X}", "vs expected (ZX) 0x120")
+        addr_entityCoordt = self.gamedat.arm9Addrs["entity"]+2*0x120
+        addr_entitySlott = self.gamedat.arm9Addrs["entity"]+3*0x120
+        #there is also a table at 4*0x4*self.dropdown_level_area.count()-x
+        self.levelEdited_ovlTable["entity slot"].clear()
+        self.levelEdited_ovlTable["entity coord"].clear()
+        self.levelEdited_ovlTable["level"].clear()
         arm9_bin = self.rom.arm9_decompressed.save()
-        skip = 0
+        skip_level = 0
+        skip_entity = 0
+        if addr_levelt == 0:
+            print("No ARM9 overlay pointer table address provided for entities of current game!")
         for i in range(self.dropdown_level_area.count()):
-            addr = int.from_bytes(arm9_bin[addr_table+(i-skip)*0x04:addr_table+0x04+(i-skip)*0x04], byteorder='little')
-            if lib.datconv.strToNum(self.tree_arm9Ovltable.topLevelItem(int(self.dropdown_level_area.itemText(i))).text(4), self.displayBase) <= 0x60 and addr != 0x00000000:
-                print("re-ordering overlays struct table to fix alignment issue")
-                skip += 1
-                self.levelEdited_ovlTable.append(0)
+            addr_level = int.from_bytes(arm9_bin[addr_levelt+(i-skip_level)*0x04:addr_levelt+0x04+(i-skip_level)*0x04], byteorder='little')
+            addr_entityCoord = int.from_bytes(arm9_bin[addr_entityCoordt+(i-skip_entity)*0x04:addr_entityCoordt+0x04+(i-skip_entity)*0x04], byteorder='little')
+            addr_entitySlot = int.from_bytes(arm9_bin[addr_entitySlott+(i-skip_entity)*0x04:addr_entitySlott+0x04+(i-skip_entity)*0x04], byteorder='little')
+            if lib.datconv.strToNum(self.tree_arm9Ovltable.topLevelItem(int(self.dropdown_level_area.itemText(i))).text(4), self.displayBase) <= 0x60 and addr_level != 0x00000000:
+                print("re-ordering overlays struct table to fix level data alignment issue at", i)
+                skip_level += 1
+                self.levelEdited_ovlTable["level"].append(0)
             else:
-                self.levelEdited_ovlTable.append(addr)
+                self.levelEdited_ovlTable["level"].append(addr_level)
+            if lib.datconv.strToNum(self.tree_arm9Ovltable.topLevelItem(int(self.dropdown_level_area.itemText(i))).text(4), self.displayBase) <= 0x20 and addr_entityCoord != 0x00000000:
+                print("re-ordering overlays struct table to fix entity data alignment issue at", i)
+                skip_entity += 1
+                self.levelEdited_ovlTable["entity coord"].append(0)
+                self.levelEdited_ovlTable["entity slot"].append(0)
+            else:
+                self.levelEdited_ovlTable["entity coord"].append(addr_entityCoord)
+                self.levelEdited_ovlTable["entity slot"].append(addr_entitySlot)
+        #print(arm9_bin[addr_entityt:addr_entityt+0x04*68].hex())
+        #print([f"{addr:08X}" for addr in self.levelEdited_ovlTable["entity"]])
 
     def openLevel(self):
         self.button_level_save.setDisabled(True)
@@ -3547,7 +3596,9 @@ class MainWindow(QtWidgets.QMainWindow):
         ovlID = int(self.dropdown_level_area.currentText())
         self.levelEdited_ovl_object = lib.level.Overlay(self.rom.loadArm9Overlays([ovlID])[ovlID].save(),
                                                         lib.datconv.strToNum(self.tree_arm9Ovltable.topLevelItem(ovlID).text(1), self.displayBase),
-                                                        self.levelEdited_ovlTable[self.dropdown_level_area.currentIndex()])
+                                                        self.levelEdited_ovlTable["level"][self.dropdown_level_area.currentIndex()],
+                                                        self.levelEdited_ovlTable["entity slot"][self.dropdown_level_area.currentIndex()],
+                                                        self.levelEdited_ovlTable["entity coord"][self.dropdown_level_area.currentIndex()])
         try:
             fileID = self.rom.filenames.idOf(self.levelEdited_ovl_object.tileset_name)
         except IndexError:
@@ -3572,7 +3623,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No
             ) == QtWidgets.QMessageBox.StandardButton.No:
             self.dropdown_level_area.blockSignals(True)
-            self.dropdown_level_area.setCurrentIndex(self.levelEdited_ovlTable.index(self.levelEdited_ovl_object.struct_RAMAddress)) # go back to level index
+            self.dropdown_level_area.setCurrentIndex(self.levelEdited_ovlTable["level"].index(self.levelEdited_ovl_object.struct_RAMAddress)) # go back to level index
             self.dropdown_level_area.blockSignals(False)
             return
         self.openLevel()
@@ -3610,7 +3661,7 @@ class MainWindow(QtWidgets.QMainWindow):
         pl: dict = {}
         depth_obj = lib.datconv.CompressionAlgorithmEnum.EIGHTBPP
         palette_ref = self.GFX_PALETTES[3]
-        if not len(set(gfx.data[:64])) <= 1: #hotfixy way of checking for depth
+        if len(set(gfx.data[:64])) > 1 and len(set(gfx.data[:32])) <= 1: #hotfixy way of checking for depth
             print("First tile is not uniform in 8bpp. Switching to 4bpp.")
             depth_obj = lib.datconv.CompressionAlgorithmEnum.FOURBPP
             palette_ref = self.GFX_PALETTES[2]
@@ -3683,6 +3734,26 @@ class MainWindow(QtWidgets.QMainWindow):
             self.gfx_scene_level.tileGroups[screen_id][metaTile_index].append(item)
             item.tileGroup = self.gfx_scene_level.tileGroups[screen_id][metaTile_index]
             #print(item.pos())
+
+    def loadEntities(self, screenSpacing:int=0):
+        if not self.checkbox_entities_enable.isChecked(): return
+        entities = self.levelEdited_ovl_object.entities
+        if not hasattr(entities, "coords"): return
+        for i in range(len(entities.coords.entityList[1:-1])):
+            entityCoord = entities.coords.entityList[1:-1][i]
+            try:
+                entitySlot = entities.slots.entityList[entityCoord["slot"]]
+            except IndexError:
+                entitySlot = {"kind": "Undefined"}
+                print("Entity slots did not load correclty")
+            x = entityCoord["x"]+screenSpacing*(entityCoord["x"]//256)
+            y = entityCoord["y"]+screenSpacing*(entityCoord["y"]//192)
+            item_rect = self.gfx_scene_level.scene().addRect(x-8, y-8, 16, 16, 0x001090)
+            item_text = self.gfx_scene_level.scene().addText(str(entityCoord["slot"]))
+            item_text.setDefaultTextColor(0x80FF80)
+            item_text.setPos(QtCore.QPointF(x, y)-item_text.boundingRect().center())
+            # Entities are ordered from top to bottom, left to right
+            item_text.setToolTip(f"Entity {i}\nX: {entityCoord["x"]}\nY: {entityCoord["y"]}\nSlot: {entityCoord["slot"]}\nType: {entitySlot["kind"]}")
 
     def loadLevel(self):
         if self.dropdown_level_area.currentIndex() == -1:
@@ -3761,6 +3832,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     if j >= self.levelEdited_ovl_object.screenLayout0.width:
                         break # skip unused screens
                     self.loadScreen(self.levelEdited_ovl_object.screenLayout_radar.layout[i][j], j*(16*(8*2)+screenSpacing), i*(12*(8*2)+screenSpacing))
+        self.loadEntities(screenSpacing)
         if self.checkbox_level_fitInView.isChecked():
             self.gfx_scene_level.fitInView2()
 

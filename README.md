@@ -51,6 +51,7 @@ Currently, there are no releases, so:
 - [Download&Install matplotlib](https://pypi.org/project/matplotlib/) (required for audio waveform plotting, using 3.10.8)
 - [Download&Install NumPy](https://pypi.org/project/numpy/) (submodule dependency)
 - [Download&Install Pillow](https://pypi.org/project/Pillow/) (submodule dependency)
+- [Download&Install SciPy](https://pypi.org/project/scipy/) (submodule dependency)
 - This project > Code > Download ZIP
 - Extract the contents of the .zip file wherever you want
 - That's it! Now you can run RunEditor.bat (or run MME_NDS.py directly, from command line)

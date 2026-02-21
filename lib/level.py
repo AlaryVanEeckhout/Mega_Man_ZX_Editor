@@ -49,16 +49,26 @@ class File(common.File):
         return bytes(self.data)
 
 class Overlay:
-    def __init__(self, data: bytes, baseRAMAddress: int, structRAMAddress: int):
+    def __init__(self, data: bytes, baseRAMAddress: int, structRAMAddress: int, entitySlotRAMAddress: int, entityCoordRAMAddress: int):
         self.data = data
         self.RAMAddress = baseRAMAddress
+
         self.struct_RAMAddress = structRAMAddress
-        self.struct_address = self.struct_RAMAddress - self.RAMAddress
+        self.struct_address = self.getFileAddress(self.struct_RAMAddress)
+        self.entityCoord_RAMAddress = entityCoordRAMAddress
+        self.entityCoord_address = self.getFileAddress(self.entityCoord_RAMAddress)
+        self.entitySlot_RAMAddress = entitySlotRAMAddress
+        self.entitySlot_address = self.getFileAddress(self.entitySlot_RAMAddress)
+
+
         print(f"0x{self.struct_RAMAddress:08X}")
 
         self.firstTable_RAMAddress = int.from_bytes(self.data[self.struct_address+0x04:self.struct_address+0x08], byteorder='little')
         self.tileset_RAMAddress = int.from_bytes(self.data[self.struct_address+0x08:self.struct_address+0x10], byteorder='little')
-        self.tileset_name = data[self.getFileAddress(self.tileset_RAMAddress):self.getFileAddress(self.tileset_RAMAddress)+0x08].decode().replace("\x00", "")
+        if self.tileset_RAMAddress != 0:
+            self.tileset_name = data[self.getFileAddress(self.tileset_RAMAddress):self.getFileAddress(self.tileset_RAMAddress)+0x08].decode().replace("\x00", "")
+        else:
+            self.tileset_name = ""
         self.screenLayout0_RAMAddress = int.from_bytes(self.data[self.struct_address+0x10:self.struct_address+0x14], byteorder='little')
         self.screenLayout1_RAMAddress = int.from_bytes(self.data[self.struct_address+0x14:self.struct_address+0x18], byteorder='little')
         self.screenLayout2_RAMAddress = int.from_bytes(self.data[self.struct_address+0x18:self.struct_address+0x1C], byteorder='little')
@@ -86,6 +96,12 @@ class Overlay:
         print(f"0x{self.screenLayout_camera_RAMAddress:08X}: layout camera")
         self.screenLayout_camera = ScreenLayout(self.data, self.getFileAddress(self.screenLayout_camera_RAMAddress), loadReal=False)
 
+        print("Entities")
+        print(f"0x{self.entityCoord_RAMAddress:08X}")
+
+        # todo: identify enemies based on id
+        self.entities = Entities(self.data, self.entitySlot_address, self.entityCoord_address)
+
     def getFileAddress(self, RAMAddress: int):
         return RAMAddress - self.RAMAddress
 
@@ -99,7 +115,7 @@ class ScreenLayout:
         loadWidth = self.realWidth if loadReal else self.width
         self.layout: list[list[int]] = []
         layoutRow = []
-        print(self.width, self.height)
+        print(self.realWidth, self.skip, self.width, self.height)
 
         for i in range(address+0x04, address+0x04+loadWidth*self.height):
             layoutRow.append(int.from_bytes(self.data[i:i+0x01], byteorder='little'))
@@ -111,7 +127,7 @@ class ScreenLayout:
 class ScreenMap:
     def __init__(self, data: bytes, address: int):
         self.data = data
-        self.realWidth = int.from_bytes(data[address:address+0x02], byteorder='little') # width used for... what exactly??
+        self.realWidth = int.from_bytes(data[address:address+0x02], byteorder='little') # width used to define effective screen space
         self.skip = int.from_bytes(data[address+0x02:address+0x04], byteorder='little') # idk
         self.width = int.from_bytes(data[address+0x04:address+0x06], byteorder='little') # width used to load all screens
         self.height = int.from_bytes(data[address+0x06:address+0x08], byteorder='little')
@@ -125,6 +141,51 @@ class ScreenMap:
                 self.layout.append(layoutRow.copy())
                 layoutRow.clear()
         print([[f"{screenID:04X}" for screenID in row] for row in self.layout])
+
+class Entities:
+    def __init__(self, data: bytes, entitySlotaddress: int, entityCoordAddress: int):
+        self.data = data
+        if entitySlotaddress > 0:
+            self.slots = EntitySlots(self.data, entitySlotaddress)
+            print(self.slots.entityList)
+        if entityCoordAddress > 0:
+            self.coords = EntityCoordinates(self.data, entityCoordAddress)
+            print(self.coords.entityList)
+
+class EntitySlots:
+    def __init__(self, data: bytes, address: int):
+        ENTITYKINDS = {
+            0x02: "Enemy",
+            0x05: "Background",
+            0x06: "Item"
+        }
+        self.data = data
+        self.bytesList = []
+        self.entityList: list[dict] = []
+        index = address
+        while True:
+            entity_data = self.data[index:index+0x0C]
+            if len(entity_data) != 0x0C or entity_data[11] != 0x00: # idk if this is the right way to see if structure ends
+                print(entity_data.hex())
+                break
+            self.bytesList.append(entity_data)
+            self.entityList.append({
+                "kind": ENTITYKINDS[entity_data[1]] if entity_data[1] in ENTITYKINDS else str(entity_data[1])
+            })
+            index += 0x0C
+
+class EntityCoordinates:
+    def __init__(self, data: bytes, address: int):
+        self.data = data
+        self.startOffset = address
+        self.endOffset = self.startOffset + self.data[self.startOffset:].find(bytes.fromhex("FFFFFF7FFF7F0000"))+0x08
+        self.entityList: list[dict] = []
+        if self.startOffset == 0: return
+        for i in range(self.startOffset, self.endOffset, 0x08):
+            self.entityList.append({
+                "x": int.from_bytes(self.data[i:i+4], byteorder='little'),
+                "y": int.from_bytes(self.data[i+4:i+6], byteorder='little'),
+                "slot": int.from_bytes(self.data[i+6:i+8], byteorder='little')})
 
 class Level: # LZ10 compressed
     def __init__(self, data: bytes, compressed: bool=True):
