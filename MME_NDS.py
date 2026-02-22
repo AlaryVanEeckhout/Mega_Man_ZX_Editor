@@ -3554,14 +3554,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def loadOvelrayStructAddressTable(self): # called on ROM load
         addr_levelt = self.gamedat.arm9Addrs["level"]
-        print(f"calculated overlay table size: 0x{0x4*self.dropdown_level_area.count():02X}", "vs expected (ZX) 0x120")
-        addr_entityCoordt = self.gamedat.arm9Addrs["entity"]+2*0x120
-        addr_entitySlott = self.gamedat.arm9Addrs["entity"]+3*0x120
-        #there is also a table at 4*0x4*self.dropdown_level_area.count()-x
+        arm9_bin = self.rom.arm9_decompressed.save()
+        entityt_size = arm9_bin[self.gamedat.arm9Addrs["entity"]+0x04:].find(bytes(4))+0x04
+        #print(f"calculated overlay table size: 0x{entityt_size:02X}", "vs expected (ZX/ZXA) 0x120/0x10C")
+        addr_entityCoordt = self.gamedat.arm9Addrs["entity"]+2*entityt_size
+        addr_entitySlott = self.gamedat.arm9Addrs["entity"]+3*entityt_size
+        #there is also a table at 4*entityt_size
         self.levelEdited_ovlTable["entity slot"].clear()
         self.levelEdited_ovlTable["entity coord"].clear()
         self.levelEdited_ovlTable["level"].clear()
-        arm9_bin = self.rom.arm9_decompressed.save()
         skip_level = 0
         skip_entity = 0
         if addr_levelt == 0:
@@ -3748,12 +3749,14 @@ class MainWindow(QtWidgets.QMainWindow):
                 print("Entity slots did not load correclty")
             x = entityCoord["x"]+screenSpacing*(entityCoord["x"]//256)
             y = entityCoord["y"]+screenSpacing*(entityCoord["y"]//192)
-            item_rect = self.gfx_scene_level.scene().addRect(x-8, y-8, 16, 16, 0x001090)
-            item_text = self.gfx_scene_level.scene().addText(str(entityCoord["slot"]))
-            item_text.setDefaultTextColor(0x80FF80)
+            item_rect = self.gfx_scene_level.scene().addRect(x-8, y-8, 16, 16, 0x0010A0)
+            item_rect.screenSpacing = screenSpacing
+            item_text = QtWidgets.QGraphicsSimpleTextItem(str(entityCoord["slot"]), item_rect)
+            item_text.setPen(QtGui.QPen(0x220000, 0.5))
+            item_text.setBrush(0x80FF80)
             item_text.setPos(QtCore.QPointF(x, y)-item_text.boundingRect().center())
             # Entities are ordered from top to bottom, left to right
-            item_text.setToolTip(f"Entity {i}\nX: {entityCoord["x"]}\nY: {entityCoord["y"]}\nSlot: {entityCoord["slot"]}\nType: {entitySlot["kind"]}")
+            item_rect.setToolTip(f"Entity {i}\nX: {entityCoord["x"]}\nY: {entityCoord["y"]}\nSlot: {entityCoord["slot"]}\nType: {entitySlot["kind"]}")
 
     def loadLevel(self):
         if self.dropdown_level_area.currentIndex() == -1:

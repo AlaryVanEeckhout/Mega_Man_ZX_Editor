@@ -24,10 +24,15 @@ class DataStructure: # make the initialization with offsets more consistant
         self.offset_end = end
         self.size = self.offset_end - self.offset_start
         self.data = data
+        if not isinstance(self.data, (bytes, bytearray)):
+            raise TypeError(f"Expected 'bytes' object, got '{type(self.data).__name__}'")
+        self._init2()
+
+    def _init2(self):
+        raise NotImplementedError("Subclasses must implement _init2")
 
 class GraphicsTable(DataStructure): # possibly the same data structure as what I identified as GraphicsSection?
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def _init2(self):
         self.ENTRY_SIZE = 0x14
         self.table_size = int.from_bytes(self.data[0x00:0x04], 'little')
         assert self.table_size % self.ENTRY_SIZE == 0 and self.table_size >= self.ENTRY_SIZE
@@ -91,8 +96,7 @@ class GraphicsTable(DataStructure): # possibly the same data structure as what I
         return [result, result_indexes]
 
 class GraphicSection(DataStructure):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def _init2(self):
         self.header_size = int.from_bytes(self.data[0x00:0x04], byteorder='little')
         self.entry_size = 0x14
         while self.header_size % self.entry_size != 0:
@@ -137,10 +141,7 @@ class GraphicSection(DataStructure):
         return GraphicSection(file.data[offset_start:offset_end], start=offset_start, end=offset_end)
     
 class GraphicHeader(DataStructure):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if not isinstance(self.data, (bytes, bytearray)):
-            raise TypeError(f"Expected 'bytes' object, got '{type(self.data).__name__}'")
+    def _init2(self):
         #print(type(self.data))
         self.gfx_offset = int.from_bytes(self.data[0x00:0x04], byteorder='little') # offset from this address
         self.gfx_size = int.from_bytes(self.data[0x04:0x06], byteorder='little')

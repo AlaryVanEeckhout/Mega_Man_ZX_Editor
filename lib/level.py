@@ -142,6 +142,7 @@ class ScreenMap:
                 layoutRow.clear()
         print([[f"{screenID:04X}" for screenID in row] for row in self.layout])
 
+# for convenience
 class Entities:
     def __init__(self, data: bytes, entitySlotaddress: int, entityCoordAddress: int):
         self.data = data
@@ -152,6 +153,7 @@ class Entities:
             self.coords = EntityCoordinates(self.data, entityCoordAddress)
             print(self.coords.entityList)
 
+# EntityTemplate of rmz3 decomp
 class EntitySlots:
     def __init__(self, data: bytes, address: int):
         ENTITYKINDS = {
@@ -166,7 +168,7 @@ class EntitySlots:
         while True:
             entity_data = self.data[index:index+0x0C]
             if len(entity_data) != 0x0C or entity_data[11] != 0x00: # idk if this is the right way to see if structure ends
-                print(entity_data.hex())
+                #print(entity_data.hex())
                 break
             self.bytesList.append(entity_data)
             self.entityList.append({
@@ -174,6 +176,7 @@ class EntitySlots:
             })
             index += 0x0C
 
+# EntityTemplateCoord of rmz3 decomp
 class EntityCoordinates:
     def __init__(self, data: bytes, address: int):
         self.data = data
