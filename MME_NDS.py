@@ -3557,9 +3557,11 @@ class MainWindow(QtWidgets.QMainWindow):
         arm9_bin = self.rom.arm9_decompressed.save()
         entityt_size = arm9_bin[self.gamedat.arm9Addrs["entity"]+0x04:].find(bytes(4))+0x04
         #print(f"calculated overlay table size: 0x{entityt_size:02X}", "vs expected (ZX/ZXA) 0x120/0x10C")
-        addr_entityCoordt = self.gamedat.arm9Addrs["entity"]+2*entityt_size
-        addr_entitySlott = self.gamedat.arm9Addrs["entity"]+3*entityt_size
-        #there is also a table at 4*entityt_size
+        #addr_entityunkt = self.gamedat.arm9Addrs["entity"]+0*entityt_size # 4 bytes of data, usually at 0x01 after start of overlay?
+        #addr_entityunkt = self.gamedat.arm9Addrs["entity"]+1*entityt_size # table of some kind
+        addr_entityCoordt = self.gamedat.arm9Addrs["entity"]+2*entityt_size # coordinates
+        addr_entitySlott = self.gamedat.arm9Addrs["entity"]+3*entityt_size # slot defs
+        #addr_entityunkt = self.gamedat.arm9Addrs["entity"]+4*entityt_size #???
         self.levelEdited_ovlTable["entity slot"].clear()
         self.levelEdited_ovlTable["entity coord"].clear()
         self.levelEdited_ovlTable["level"].clear()
@@ -3599,7 +3601,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                                         lib.datconv.strToNum(self.tree_arm9Ovltable.topLevelItem(ovlID).text(1), self.displayBase),
                                                         self.levelEdited_ovlTable["level"][self.dropdown_level_area.currentIndex()],
                                                         self.levelEdited_ovlTable["entity slot"][self.dropdown_level_area.currentIndex()],
-                                                        self.levelEdited_ovlTable["entity coord"][self.dropdown_level_area.currentIndex()])
+                                                        self.levelEdited_ovlTable["entity coord"][self.dropdown_level_area.currentIndex()],
+                                                        self.gamedat.entityNames)
         try:
             fileID = self.rom.filenames.idOf(self.levelEdited_ovl_object.tileset_name)
         except IndexError:
@@ -3756,7 +3759,15 @@ class MainWindow(QtWidgets.QMainWindow):
             item_text.setBrush(0x80FF80)
             item_text.setPos(QtCore.QPointF(x, y)-item_text.boundingRect().center())
             # Entities are ordered from top to bottom, left to right
-            item_rect.setToolTip(f"Entity {i}\nX: {entityCoord["x"]}\nY: {entityCoord["y"]}\nSlot: {entityCoord["slot"]}\nType: {entitySlot["kind"]}")
+            item_rect.setToolTip(f"""Entity {i}\
+                                 \nX: {entityCoord["x"]}\
+                                 \nY: {entityCoord["y"]}\
+                                 \nSlot: {entityCoord["slot"]}\
+                                 \nAttributes(?): {entitySlot["attr"]}\
+                                 \nKind: {entitySlot["kind"]}\
+                                 \nSub-Kind: {entitySlot["subkind"]}\
+                                 \nRole: {entitySlot["role"]}\
+                                 \nModifier: {entitySlot["modifier"]}""")
 
     def loadLevel(self):
         if self.dropdown_level_area.currentIndex() == -1:

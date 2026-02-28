@@ -49,7 +49,7 @@ class File(common.File):
         return bytes(self.data)
 
 class Overlay:
-    def __init__(self, data: bytes, baseRAMAddress: int, structRAMAddress: int, entitySlotRAMAddress: int, entityCoordRAMAddress: int):
+    def __init__(self, data: bytes, baseRAMAddress: int, structRAMAddress: int, entitySlotRAMAddress: int, entityCoordRAMAddress: int, entitynamedict: dict[str, dict]):
         self.data = data
         self.RAMAddress = baseRAMAddress
 
@@ -99,8 +99,7 @@ class Overlay:
         print("Entities")
         print(f"0x{self.entityCoord_RAMAddress:08X}")
 
-        # todo: identify enemies based on id
-        self.entities = Entities(self.data, self.entitySlot_address, self.entityCoord_address)
+        self.entities = Entities(self.data, self.entitySlot_address, self.entityCoord_address, entitynamedict)
 
     def getFileAddress(self, RAMAddress: int):
         return RAMAddress - self.RAMAddress
@@ -144,10 +143,10 @@ class ScreenMap:
 
 # for convenience
 class Entities:
-    def __init__(self, data: bytes, entitySlotaddress: int, entityCoordAddress: int):
+    def __init__(self, data: bytes, entitySlotaddress: int, entityCoordAddress: int, namedict: dict[str, dict]):
         self.data = data
         if entitySlotaddress > 0:
-            self.slots = EntitySlots(self.data, entitySlotaddress)
+            self.slots = EntitySlots(self.data, entitySlotaddress, namedict)
             print(self.slots.entityList)
         if entityCoordAddress > 0:
             self.coords = EntityCoordinates(self.data, entityCoordAddress)
@@ -155,12 +154,7 @@ class Entities:
 
 # EntityTemplate of rmz3 decomp
 class EntitySlots:
-    def __init__(self, data: bytes, address: int):
-        ENTITYKINDS = {
-            0x02: "Enemy",
-            0x05: "Background",
-            0x06: "Item"
-        }
+    def __init__(self, data: bytes, address: int, namedict: dict[str, dict]):
         self.data = data
         self.bytesList = []
         self.entityList: list[dict] = []
@@ -171,8 +165,34 @@ class EntitySlots:
                 #print(entity_data.hex())
                 break
             self.bytesList.append(entity_data)
+            dict_current = namedict
+            dict_previous = None
+            param_list = []
+            param_size = 4 # how many levels of dicts there are
+            for i in range(1, param_size+1):
+                if (not len(param_list) or (len(param_list) and not param_list[i-2].startswith("0x"))) and entity_data[i] in dict_current:
+                    param_list.append(dict_current[entity_data[i]][0])
+                elif dict_previous is not None and None in dict_previous.keys() and entity_data[i] in dict_previous[None][1]: # search for wildcard info
+                    param_list.append(dict_previous[None][1][entity_data[i]][0])
+                else: # no matches found
+                    param_list.append(f"0x{entity_data[i]:02X}")
+                if len(param_list) == param_size: break
+                dict_previous = dict_current
+                try:
+                    dict_current = dict_current[entity_data[i]][1] # go to dict nested inside
+                except KeyError:
+                    dict_current = {}
+            #kind = dict_current[entity_data[1]][0] if entity_data[1] in dict_current else f"0x{entity_data[1]:02X}"
+            #dict_current = dict_current[entity_data[1]][1]
+            #subkind = dict_current[entity_data[2]][0] if not kind.startswith("0x") and entity_data[2] in dict_current else f"0x{entity_data[2]:02X}"
+            #dict_current = dict_current[entity_data[2]][1]
+            #role = dict_current[entity_data[3]][0] if not id.startswith("0x") and entity_data[3] in dict_current else f"0x{entity_data[3]:02X}"
             self.entityList.append({
-                "kind": ENTITYKINDS[entity_data[1]] if entity_data[1] in ENTITYKINDS else str(entity_data[1])
+                "attr": f"0x{entity_data[0]:02X}", # might be some kind of bitmask: 0x02 for collectibles(?), 0x40 is used sometimes...
+                "kind": param_list[0],
+                "subkind": param_list[1],
+                "role": param_list[2],
+                "modifier": param_list[3]
             })
             index += 0x0C
 
