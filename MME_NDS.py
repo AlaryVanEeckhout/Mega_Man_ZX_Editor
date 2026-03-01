@@ -1615,29 +1615,128 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_screen_tilesetOffset.setToolTip("Set tileset offset")
         self.field_screen_tilesetOffset.setStatusTip("Set how many graphic entries from the graphic table to skip for the tileset")
 
-        self.tabs_level_Screens = QtWidgets.QTabWidget(self.page_level_screens)
-        self.page_level_screens_layout0 = QtWidgets.QWidget(self.tabs_level_Screens)
-        self.page_level_screens_layout1 = QtWidgets.QWidget(self.tabs_level_Screens)
-        self.page_level_screens_layout2 = QtWidgets.QWidget(self.tabs_level_Screens)
-        self.page_level_screens_layout3 = QtWidgets.QWidget(self.tabs_level_Screens)
-        self.page_level_screens_layout_camera = QtWidgets.QWidget(self.tabs_level_Screens)
-        self.page_level_screens_layout_radar = QtWidgets.QWidget(self.tabs_level_Screens)
-        self.page_level_screens_map_offset = QtWidgets.QWidget(self.tabs_level_Screens)
-        self.page_level_screens_map_behavior = QtWidgets.QWidget(self.tabs_level_Screens)
-        self.tabs_level_Screens.addTab(self.page_level_screens_layout0, "Layout 0")
-        self.tabs_level_Screens.addTab(self.page_level_screens_layout1, "Layout 1")
-        self.tabs_level_Screens.addTab(self.page_level_screens_layout2, "Layout 2")
-        self.tabs_level_Screens.addTab(self.page_level_screens_layout3, "Layout 3")
-        self.tabs_level_Screens.addTab(self.page_level_screens_layout_camera, "Camera Scroll Layout")
-        self.tabs_level_Screens.addTab(self.page_level_screens_layout_radar, "Radar Scope Layout")
-        self.tabs_level_Screens.addTab(self.page_level_screens_map_offset, "Tileset Offset Map")
-        self.tabs_level_Screens.addTab(self.page_level_screens_map_behavior, "Behavior Map")
+        self.tabs_level_screens = QtWidgets.QTabWidget(self.page_level_screens)
+        self.page_level_screens_layout0 = QtWidgets.QWidget(self.tabs_level_screens)
+        self.page_level_screens_layout1 = QtWidgets.QWidget(self.tabs_level_screens)
+        self.page_level_screens_layout2 = QtWidgets.QWidget(self.tabs_level_screens)
+        self.page_level_screens_layout3 = QtWidgets.QWidget(self.tabs_level_screens)
+        self.page_level_screens_layout_camera = QtWidgets.QWidget(self.tabs_level_screens)
+        self.page_level_screens_layout_radar = QtWidgets.QWidget(self.tabs_level_screens)
+        self.page_level_screens_map_offset = QtWidgets.QWidget(self.tabs_level_screens)
+        self.page_level_screens_map_behavior = QtWidgets.QWidget(self.tabs_level_screens)
+        self.tabs_level_screens.addTab(self.page_level_screens_layout0, "Layout 0")
+        self.tabs_level_screens.addTab(self.page_level_screens_layout1, "Layout 1")
+        self.tabs_level_screens.addTab(self.page_level_screens_layout2, "Layout 2")
+        self.tabs_level_screens.addTab(self.page_level_screens_layout3, "Layout 3")
+        self.tabs_level_screens.addTab(self.page_level_screens_layout_camera, "Camera Scroll Layout")
+        self.tabs_level_screens.addTab(self.page_level_screens_layout_radar, "Radar Scope Layout")
+        self.tabs_level_screens.addTab(self.page_level_screens_map_offset, "Tileset Offset Map")
+        self.tabs_level_screens.addTab(self.page_level_screens_map_behavior, "Behavior Map")
 
         self.checkbox_entities_enable = QtWidgets.QCheckBox(self.page_level_entities)
         self.checkbox_entities_enable.setChecked(True)
         self.checkbox_entities_enable.setText("Load Entities")
 
+        self.tabs_level_entities = QtWidgets.QTabWidget(self.page_level_entities)
+        self.page_level_entities_coords = QtWidgets.QWidget(self.tabs_level_entities)
+        self.page_level_entities_coords.setLayout(QtWidgets.QGridLayout())
+        self.field_level_entities_coords_x = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_coords_x.isInt = True
+        self.field_level_entities_coords_x.numbase = self.displayBase
+        self.field_level_entities_coords_x.setRange(0, 0xFFFFFF)
+        self.field_level_entities_coords_x.setToolTip("X")
+        self.field_level_entities_coords_y = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_coords_y.isInt = True
+        self.field_level_entities_coords_y.numbase = self.displayBase
+        self.field_level_entities_coords_y.setRange(0, 0xFFFF)
+        self.field_level_entities_coords_y.setToolTip("Y")
+        self.field_level_entities_coords_slot = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_coords_slot.isInt = True
+        self.field_level_entities_coords_slot.numbase = self.displayBase
+        self.field_level_entities_coords_slot.setRange(0, 0xFFFF)
+        self.field_level_entities_coords_slot.setToolTip("Slot ID")
+        self.page_level_entities_coords.layout().addWidget(self.field_level_entities_coords_x, 0, 0)
+        self.page_level_entities_coords.layout().addWidget(self.field_level_entities_coords_y, 0, 1)
+        self.page_level_entities_coords.layout().addWidget(self.field_level_entities_coords_slot, 1, 0, 1, 2)
+        self.page_level_entities_slots = QtWidgets.QWidget(self.tabs_level_entities)
+        self.page_level_entities_slots.setLayout(QtWidgets.QGridLayout())
+        self.field_level_entities_slots_attr = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_slots_attr.isInt = True
+        self.field_level_entities_slots_attr.numbase = self.displayBase
+        self.field_level_entities_slots_attr.setRange(0, 0xFF)
+        self.field_level_entities_slots_attr.setToolTip("Attributes(?)")
+        self.field_level_entities_slots_kind = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_slots_kind.isInt = True
+        self.field_level_entities_slots_kind.numbase = self.displayBase
+        self.field_level_entities_slots_kind.setRange(0, 0xFF)
+        self.field_level_entities_slots_kind.setToolTip("Kind")
+        self.field_level_entities_slots_subkind = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_slots_subkind.isInt = True
+        self.field_level_entities_slots_subkind.numbase = self.displayBase
+        self.field_level_entities_slots_subkind.setRange(0, 0xFF)
+        self.field_level_entities_slots_subkind.setToolTip("Sub kind")
+        self.field_level_entities_slots_role = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_slots_role.isInt = True
+        self.field_level_entities_slots_role.numbase = self.displayBase
+        self.field_level_entities_slots_role.setRange(0, 0xFF)
+        self.field_level_entities_slots_role.setToolTip("Role")
+        self.field_level_entities_slots_modifier = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_slots_modifier.isInt = True
+        self.field_level_entities_slots_modifier.numbase = self.displayBase
+        self.field_level_entities_slots_modifier.setRange(0, 0xFF)
+        self.field_level_entities_slots_modifier.setToolTip("Modifier")
+        self.field_level_entities_slots_unk5 = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_slots_unk5.isInt = True
+        self.field_level_entities_slots_unk5.numbase = self.displayBase
+        self.field_level_entities_slots_unk5.setRange(0, 0xFF)
+        self.field_level_entities_slots_unk5.setToolTip("5")
+        self.field_level_entities_slots_unk6 = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_slots_unk6.isInt = True
+        self.field_level_entities_slots_unk6.numbase = self.displayBase
+        self.field_level_entities_slots_unk6.setRange(0, 0xFF)
+        self.field_level_entities_slots_unk6.setToolTip("6")
+        self.field_level_entities_slots_unk7 = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_slots_unk7.isInt = True
+        self.field_level_entities_slots_unk7.numbase = self.displayBase
+        self.field_level_entities_slots_unk7.setRange(0, 0xFF)
+        self.field_level_entities_slots_unk7.setToolTip("7")
+        self.field_level_entities_slots_unk8 = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_slots_unk8.isInt = True
+        self.field_level_entities_slots_unk8.numbase = self.displayBase
+        self.field_level_entities_slots_unk8.setRange(0, 0xFF)
+        self.field_level_entities_slots_unk8.setToolTip("8")
+        self.field_level_entities_slots_unk9 = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_slots_unk9.isInt = True
+        self.field_level_entities_slots_unk9.numbase = self.displayBase
+        self.field_level_entities_slots_unk9.setRange(0, 0xFF)
+        self.field_level_entities_slots_unk9.setToolTip("9")
+        self.field_level_entities_slots_unkA = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_slots_unkA.isInt = True
+        self.field_level_entities_slots_unkA.numbase = self.displayBase
+        self.field_level_entities_slots_unkA.setRange(0, 0xFF)
+        self.field_level_entities_slots_unkA.setToolTip("A")
+        self.field_level_entities_slots_unkB = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_slots_unkB.isInt = True
+        self.field_level_entities_slots_unkB.numbase = self.displayBase
+        self.field_level_entities_slots_unkB.setRange(0, 0xFF)
+        self.field_level_entities_slots_unkB.setToolTip("B")
+        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_attr, 0, 0)
+        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_kind, 1, 0)
+        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_subkind, 2, 0)
+        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_role, 3, 0)
+        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_modifier, 4, 0)
+        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_unk5, 0, 1)
+        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_unk6, 1, 1)
+        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_unk7, 2, 1)
+        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_unk8, 3, 1)
+        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_unk9, 4, 1)
+        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_unkA, 5, 1)
+        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_unkB, 6, 1)
+        self.tabs_level_entities.addTab(self.page_level_entities_coords, "Coordinates")
+        self.tabs_level_entities.addTab(self.page_level_entities_slots, "Slot data")
+
         self.gfx_scene_level = lib.widget.LevelView(self.page_leveleditor)
+        self.gfx_scene_level.scene().selectionChanged.connect(self.loadEntityProperties)
 
         self.page_leveleditor.layout().addItem(self.layout_level_editpannel)
         self.layout_level_editpannel.addItem(self.layout_level_area)
@@ -1645,8 +1744,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.page_level_tileset.layout().addWidget(self.field_screen_tilesetOffset)
         self.page_level_tileset.layout().addItem(self.layout_metaTile_properties)
         self.page_level_tileset.layout().addWidget(self.gfx_scene_tileset)
-        self.page_level_screens.layout().addWidget(self.tabs_level_Screens)
+        self.page_level_screens.layout().addWidget(self.tabs_level_screens)
         self.page_level_entities.layout().addWidget(self.checkbox_entities_enable)
+        self.page_level_entities.layout().addWidget(self.tabs_level_entities)
         self.page_leveleditor.layout().addWidget(self.gfx_scene_level)
 
         # Tweaks(Coming Soon™)
@@ -2426,9 +2526,12 @@ class MainWindow(QtWidgets.QMainWindow):
         if istreecall:
             self.treeCall()
 
-    def OAM_updateItemGFX(self, obj_index: int, item: lib.widget.OAMObjectItem | None=None): # creates and returns an item if none specified
-        index_img = self.fileEdited_object.frame[2]
-        gfxsec: lib.graphic.GraphicSection = self.fileEdited_object.gfxsec
+    def OAM_updateItemGFX(self, obj_index: int, item: lib.widget.OAMObjectItem|None=None, fileEditedObj=None): # creates and returns an item if none specified
+        # expects a OAMObjectItem with frame, gfxsec, objs, auxfile, oamsec
+        if fileEditedObj is None:
+            fileEditedObj = self.fileEdited_object
+        index_img = fileEditedObj.frame[2]
+        gfxsec: lib.graphic.GraphicSection = fileEditedObj.gfxsec
         if len(gfxsec.graphics) <= 0:
             print("no graphics in section!")
             return
@@ -2440,7 +2543,7 @@ class MainWindow(QtWidgets.QMainWindow):
             depth = gfxsec.graphics[0].depth//2
         else:
             print("depth unknown")
-        obj: lib.oam.Object = self.fileEdited_object.objs[obj_index]
+        obj: lib.oam.Object = fileEditedObj.objs[obj_index]
         if item != None:
             obj.tileId = self.field_objTileId.value()
             obj.tileId_add = self.field_objTileId.value() & 0x300
@@ -2462,12 +2565,12 @@ class MainWindow(QtWidgets.QMainWindow):
         if gfxsec.entry_size == 0x14:
             pal_off = gfxsec.graphics[index_img].offset_start + gfxsec.graphics[index_img].palette_offset+0xc
             pal = [0xffffffff]*(gfxsec.graphics[index_img].unk13 & 0xf0)
-            pal.extend(lib.datconv.BGR15_to_ARGB32(self.fileEdited_object.auxfile.data[pal_off:pal_off+gfxsec.graphics[index_img].palette_size]))
+            pal.extend(lib.datconv.BGR15_to_ARGB32(fileEditedObj.auxfile.data[pal_off:pal_off+gfxsec.graphics[index_img].palette_size]))
         else:
             #print("palette changed")
-            #print(int.from_bytes(self.fileEdited_object.oamsec.data[self.fileEdited_object.oamsec.paletteTable_offset:self.fileEdited_object.oamsec.paletteTable_offset+2]))
-            if len(self.fileEdited_object.oamsec.header_items) == 4:
-                pal = self.fileEdited_object.oamsec.paletteTable[0]
+            #print(int.from_bytes(fileEditedObj.oamsec.data[fileEditedObj.oamsec.paletteTable_offset:fileEditedObj.oamsec.paletteTable_offset+2]))
+            if len(fileEditedObj.oamsec.header_items) == 4:
+                pal = fileEditedObj.oamsec.paletteTable[0]
             else:
                 #print("to default")
                 pal = self.GFX_PALETTES[2]
@@ -2482,7 +2585,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if member.depth == depth:
                 depth_obj = member
         try: #gfxOffset+gfxsec.graphics[index_img].gfx_size
-            obj_img = lib.datconv.binToQt(self.fileEdited_object.auxfile.data[gfxOffset:], pal,
+            obj_img = lib.datconv.binToQt(fileEditedObj.auxfile.data[gfxOffset:], pal,
                                                 depth_obj,
                                                 obj.getWidth(),
                                                 obj.getHeight())
@@ -2490,7 +2593,7 @@ class MainWindow(QtWidgets.QMainWindow):
             print(f"invalid object properties detected in object {obj_index}!")
             print(f"shape: {obj.shape}  size: {obj.sizeIndex} ZXA width(?): {obj.sizeIndex*0x10:02X}")
             #gfxOffset -= int(obj.tileId_add*indexingFactor*32)
-            #obj_img = lib.datconv.binToQt(self.fileEdited_object.auxfile.data[gfxOffset:], pal,
+            #obj_img = lib.datconv.binToQt(fileEditedObj.auxfile.data[gfxOffset:], pal,
             #                                    depth_obj,
             #                                    1,
             #                                    8, 0x20)
@@ -2507,7 +2610,8 @@ class MainWindow(QtWidgets.QMainWindow):
             obj_item = item
             obj_item.setPixmap(QtGui.QPixmap.fromImage(obj_img))
         obj_item.setPixmap(
-            obj_item.pixmap().transformed(QtGui.QTransform().scale(-1 if obj.flip_h else 1,-1 if obj.flip_v else 1)))
+            obj_item.pixmap().transformed(QtGui.QTransform().scale(-1 if obj.flip_h else 1,-1 if obj.flip_v else 1))
+        )
         obj_item.setPos(obj.x, obj.y)
         obj_item.setZValue(-obj_item.obj_id)
         if item == None:
@@ -3552,6 +3656,27 @@ class MainWindow(QtWidgets.QMainWindow):
             level.metaTiles[metaTile_index][index] = \
                 (level.metaTiles[metaTile_index][index] & bitmask) | (val << shiftL)
 
+    def loadEntityProperties(self):
+        if not self.gfx_scene_level.scene().isActive() or len(self.gfx_scene_level.scene().selectedItems()) == 0: return
+        item: lib.widget.LevelEntityItem = self.gfx_scene_level.scene().selectedItems()[0]
+        print(item)
+        self.field_level_entities_coords_x.setValue(item.coord["x"])
+        self.field_level_entities_coords_y.setValue(item.coord["y"])
+        self.field_level_entities_coords_slot.setValue(item.coord["slot"])
+
+        self.field_level_entities_slots_attr.setValue(item.slot["attr"])
+        self.field_level_entities_slots_kind.setValue(item.slot["kind"])
+        self.field_level_entities_slots_subkind.setValue(item.slot["subkind"])
+        self.field_level_entities_slots_role.setValue(item.slot["role"])
+        self.field_level_entities_slots_modifier.setValue(item.slot["modifier"])
+        self.field_level_entities_slots_unk5.setValue(item.slot["unk5"])
+        self.field_level_entities_slots_unk6.setValue(item.slot["unk6"])
+        self.field_level_entities_slots_unk7.setValue(item.slot["unk7"])
+        self.field_level_entities_slots_unk8.setValue(item.slot["unk8"])
+        self.field_level_entities_slots_unk9.setValue(item.slot["unk9"])
+        self.field_level_entities_slots_unkA.setValue(item.slot["unkA"])
+        self.field_level_entities_slots_unkB.setValue(item.slot["unkB"])
+
     def loadOvelrayStructAddressTable(self): # called on ROM load
         addr_levelt = self.gamedat.arm9Addrs["level"]
         arm9_bin = self.rom.arm9_decompressed.save()
@@ -3573,6 +3698,7 @@ class MainWindow(QtWidgets.QMainWindow):
             addr_level = int.from_bytes(arm9_bin[addr_levelt+(i-skip_level)*0x04:addr_levelt+0x04+(i-skip_level)*0x04], byteorder='little')
             addr_entityCoord = int.from_bytes(arm9_bin[addr_entityCoordt+(i-skip_entity)*0x04:addr_entityCoordt+0x04+(i-skip_entity)*0x04], byteorder='little')
             addr_entitySlot = int.from_bytes(arm9_bin[addr_entitySlott+(i-skip_entity)*0x04:addr_entitySlott+0x04+(i-skip_entity)*0x04], byteorder='little')
+            if self.tree_arm9Ovltable.topLevelItem(int(self.dropdown_level_area.itemText(i))) is None: break
             if lib.datconv.strToNum(self.tree_arm9Ovltable.topLevelItem(int(self.dropdown_level_area.itemText(i))).text(4), self.displayBase) <= 0x60 and addr_level != 0x00000000:
                 print("re-ordering overlays struct table to fix level data alignment issue at", i)
                 skip_level += 1
@@ -3747,27 +3873,17 @@ class MainWindow(QtWidgets.QMainWindow):
             entityCoord = entities.coords.entityList[1:-1][i]
             try:
                 entitySlot = entities.slots.entityList[entityCoord["slot"]]
+                entitySlot_names = entities.slots.nameList[entityCoord["slot"]]
             except IndexError:
-                entitySlot = {"kind": "Undefined"}
+                entitySlot_names = {
+                "attr": "Undefined",
+                "kind": "Undefined",
+                "subkind": "Undefined",
+                "role": "Undefined",
+                "modifier": "Undefined"
+                }
                 print("Entity slots did not load correclty")
-            x = entityCoord["x"]+screenSpacing*(entityCoord["x"]//256)
-            y = entityCoord["y"]+screenSpacing*(entityCoord["y"]//192)
-            item_rect = self.gfx_scene_level.scene().addRect(x-8, y-8, 16, 16, 0x0010A0)
-            item_rect.screenSpacing = screenSpacing
-            item_text = QtWidgets.QGraphicsSimpleTextItem(str(entityCoord["slot"]), item_rect)
-            item_text.setPen(QtGui.QPen(0x220000, 0.5))
-            item_text.setBrush(0x80FF80)
-            item_text.setPos(QtCore.QPointF(x, y)-item_text.boundingRect().center())
-            # Entities are ordered from top to bottom, left to right
-            item_rect.setToolTip(f"""Entity {i}\
-                                 \nX: {entityCoord["x"]}\
-                                 \nY: {entityCoord["y"]}\
-                                 \nSlot: {entityCoord["slot"]}\
-                                 \nAttributes(?): {entitySlot["attr"]}\
-                                 \nKind: {entitySlot["kind"]}\
-                                 \nSub-Kind: {entitySlot["subkind"]}\
-                                 \nRole: {entitySlot["role"]}\
-                                 \nModifier: {entitySlot["modifier"]}""")
+            self.gfx_scene_level.scene().addItem(lib.widget.LevelEntityItem(coordIndex=i, coord=entityCoord, slot=entitySlot, slotnames=entitySlot_names, screenSpacing=screenSpacing))
 
     def loadLevel(self):
         if self.dropdown_level_area.currentIndex() == -1:
@@ -4135,8 +4251,22 @@ class MainWindow(QtWidgets.QMainWindow):
             self.levelEdited_object.address_list[6][0] = self.levelEdited_object.address_list[5][0] + len(bin_05)
         self.levelEdited_object.fileSize = len(self.rom.files[fileID_tileset])
         self.rom.files[fileID_tileset][:self.levelEdited_object.level_offset_rom] = self.levelEdited_object.headerToBytes()
+        # Overlay
+        fileID_overlay = int(self.dropdown_level_area.currentText())
+        overlay_bin = self.levelEdited_ovl_object.toBytes()
+        overlay = ndspy.code.Overlay(overlay_bin,
+                                     int(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(1), self.displayBase),
+                                     len(overlay_bin),
+                                     int(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(5), self.displayBase),
+                                     int(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(6), self.displayBase),
+                                     int(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(7), self.displayBase),
+                                     fileID_overlay,
+                                     int(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(3), self.displayBase),
+                                     int(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(8), self.displayBase))
+        self.rom.files[fileID_overlay] = overlay.save(compress=True)
         print(f"Level data {self.dropdown_level_area.currentText()} has been saved!")
         self.levelEdited_object = lib.level.File(self.rom.files[fileID_tileset]) # update data
+        #self.levelEdited_ovl_object = lib.level.Overlay(self.rom.files[fileID_overlay])
         #print(f"{len(self.rom.files[fileID_tileset][self.levelEdited_object.level_offset_rom:self.levelEdited_object.gfx_offset_rom])} {self.levelEdited_object.level_offset_rom}")
         #print(f"{len(self.rom.files[fileID_tileset][self.levelEdited_object.gfx_offset_rom:self.levelEdited_object.pal_offset_rom])} {self.levelEdited_object.gfx_offset_rom}")
         #print(f"{len(self.rom.files[fileID_tileset][self.levelEdited_object.pal_offset_rom:])} {self.levelEdited_object.pal_offset_rom}")
