@@ -238,10 +238,12 @@ class LevelView(View):
     def mousePressEvent(self, event):
         super().mousePressEvent(event)
         self.levelInteract(event)
+        self.scene().update()
 
     def mouseMoveEvent(self, event):
         super().mouseMoveEvent(event)
         self.levelInteract(event)
+        self.scene().update() # prevent leftover graphics from previous render frame
 
     def levelInteract(self, event: QtGui.QMouseEvent):
         if not self.mousePressed: return
@@ -313,29 +315,39 @@ class LevelTileItem(PixmapItem):
         self.id = self.getWindow().gfx_scene_tileset.metaTiles.index(item)
 
 class LevelEntityItem(QtWidgets.QGraphicsItemGroup):
-    def __init__(self, *args, coordIndex:int=0, coord:dict[str]={}, slot:dict[str]={}, slotnames:dict[str]={}, screenSpacing:int=0, **kwargs):
+    def __init__(self, *args, coordIndex:int=0, coord:dict[str]={}, slot:dict[str]={}, slotnames:dict[str]={}, screenSpacing:int=0, displayBase:int=10, alphanumeric=False, **kwargs):
         super().__init__(*args, **kwargs)
+        self.setFiltersChildEvents(True)
         self.coordIndex = coordIndex # Entities are ordered from top to bottom, left to right
-        self.coord = coord
-        self.slot = slot
-        self.slotnames = slotnames
+        self.displayBase = displayBase
+        self.alphanumeric = alphanumeric
+        #self._coord = coord
+        #self._slot = slot
+        #self._slotnames = slotnames
         self.screenSpacing = screenSpacing
         x = self.getSceneX(coord["x"])
         y = self.getSceneY(coord["y"])
         self.setPos(x, y)
         self._item_rect = QtWidgets.QGraphicsRectItem(-8, -8, 16, 16, self)
         self._item_rect.setPen(0x0010A0)
-        self._item_text = QtWidgets.QGraphicsSimpleTextItem(str(coord["slot"]), self._item_rect)
+        self._item_text = QtWidgets.QGraphicsSimpleTextItem(lib.datconv.numToStr(coord["slot"], self.displayBase, self.alphanumeric), self._item_rect)
         self._item_text.setPen(QtGui.QPen(0x220000, 0.5))
         self._item_text.setBrush(0x80FF80 if not slotnames["subkind"].startswith("0x") else 0xFFF080)
         self._item_text.setPos(-self._item_text.boundingRect().center())
         self.addToGroup(self._item_rect)
         self.addToGroup(self._item_text)
-        self.setFlags(QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsSelectable | QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
-        self.setToolTip(f"""Entity {self.coordIndex}\
-                                \nX: {coord["x"]}\
-                                \nY: {coord["y"]}\
-                                \nSlot: {coord["slot"]}\
+        self.setFlags(QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsSelectable |
+                      QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsMovable |
+                      QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges)
+        self.updateInfo(coord=coord, slotnames=slotnames)
+        
+    def updateInfo(self, coord:dict[str], slotnames:dict[str]):
+        self._item_text.setText(lib.datconv.numToStr(coord["slot"], self.displayBase, self.alphanumeric))
+        self._item_text.setPos(-self._item_text.boundingRect().center())
+        self.setToolTip(f"""Entity {lib.datconv.numToStr(self.coordIndex, self.displayBase, self.alphanumeric)}\
+                                \nX: {lib.datconv.numToStr(coord["x"], self.displayBase, self.alphanumeric)}\
+                                \nY: {lib.datconv.numToStr(coord["y"], self.displayBase, self.alphanumeric)}\
+                                \nSlot: {lib.datconv.numToStr(coord["slot"], self.displayBase, self.alphanumeric)}\
                                 \nAttributes(?): {slotnames["attr"]}\
                                 \nKind: {slotnames["kind"]}\
                                 \nSub-Kind: {slotnames["subkind"]}\
@@ -348,6 +360,7 @@ class LevelEntityItem(QtWidgets.QGraphicsItemGroup):
                                 \nunk9: {slotnames["unk9"]}\
                                 \nunkA: {slotnames["unkA"]}\
                                 \nunkB: {slotnames["unkB"]}""")
+
     def getSceneX(self, x:int):
         return x+self.screenSpacing*(x//lib.level.SCREEN_WIDTH)
 
@@ -365,15 +378,17 @@ class LevelEntityItem(QtWidgets.QGraphicsItemGroup):
             if QtWidgets.QApplication.mouseButtons() == QtCore.Qt.MouseButton.LeftButton:
                 x = min(max(0, value.x()), self.getSceneX(0xFFFFFFFF))
                 y = min(max(0, value.y()), self.getSceneY(0xFFFF))
+                self.getWindow().field_level_entities_coords_x.setValue(self.getTrueX(x))
+                self.getWindow().field_level_entities_coords_y.setValue(self.getTrueY(y))
                 return QtCore.QPointF(int(x), int(y))
             else:
                 return value
         else:
             return super().itemChange(change, value)
     
-    def setSelected(self, selected):
-        print("a")
-        return super().setSelected(selected)
+    def getWindow(self):
+        if self.scene():
+            return self.scene().parent().window()
 
 class OAMObjectItem(PixmapItem):
     def __init__(self, *args, id=0, editable=False, **kwargs):

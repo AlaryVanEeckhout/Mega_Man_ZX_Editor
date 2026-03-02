@@ -1640,98 +1640,206 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tabs_level_entities = QtWidgets.QTabWidget(self.page_level_entities)
         self.page_level_entities_coords = QtWidgets.QWidget(self.tabs_level_entities)
         self.page_level_entities_coords.setLayout(QtWidgets.QGridLayout())
+        self.label_level_entities_coords_id = QtWidgets.QLabel("Entity Index: ", self.page_level_entities_coords)
+        self.label_level_entities_coords_id.setMaximumHeight(50)
         self.field_level_entities_coords_x = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_coords_x.setDisabled(True)
         self.field_level_entities_coords_x.isInt = True
         self.field_level_entities_coords_x.numbase = self.displayBase
         self.field_level_entities_coords_x.setRange(0, 0xFFFFFF)
         self.field_level_entities_coords_x.setToolTip("X")
+        self.field_level_entities_coords_x.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_coords_x.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.coords.entityList,
+                                                                self.gfx_scene_level.scene().selectedItems()[0].coordIndex if
+                                                                len(self.gfx_scene_level.scene().selectedItems()) and isinstance(self.gfx_scene_level.scene().selectedItems()[0], lib.widget.LevelEntityItem) else None,
+                                                                "x",
+                                                                self.field_level_entities_coords_x.value()))
+        self.field_level_entities_coords_x.valueChanged.connect(lambda: self.gfx_scene_level.scene().selectedItems()[0].setX(self.gfx_scene_level.scene().selectedItems()[0].getSceneX(self.field_level_entities_coords_x.value())) if
+                                                                len(self.gfx_scene_level.scene().selectedItems()) and isinstance(self.gfx_scene_level.scene().selectedItems()[0], lib.widget.LevelEntityItem) else None)
         self.field_level_entities_coords_y = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_coords_y.setDisabled(True)
         self.field_level_entities_coords_y.isInt = True
         self.field_level_entities_coords_y.numbase = self.displayBase
         self.field_level_entities_coords_y.setRange(0, 0xFFFF)
         self.field_level_entities_coords_y.setToolTip("Y")
+        self.field_level_entities_coords_y.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_coords_y.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.coords.entityList,
+                                                                self.gfx_scene_level.scene().selectedItems()[0].coordIndex if
+                                                                len(self.gfx_scene_level.scene().selectedItems()) and isinstance(self.gfx_scene_level.scene().selectedItems()[0], lib.widget.LevelEntityItem) else None,
+                                                                "y",
+                                                                self.field_level_entities_coords_y.value()))
+        self.field_level_entities_coords_y.valueChanged.connect(lambda: self.gfx_scene_level.scene().selectedItems()[0].setY(self.gfx_scene_level.scene().selectedItems()[0].getSceneY(self.field_level_entities_coords_y.value())) if
+                                                                len(self.gfx_scene_level.scene().selectedItems()) and isinstance(self.gfx_scene_level.scene().selectedItems()[0], lib.widget.LevelEntityItem) else None)
         self.field_level_entities_coords_slot = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_coords_slot.setDisabled(True)
         self.field_level_entities_coords_slot.isInt = True
         self.field_level_entities_coords_slot.numbase = self.displayBase
         self.field_level_entities_coords_slot.setRange(0, 0xFFFF)
         self.field_level_entities_coords_slot.setToolTip("Slot ID")
-        self.page_level_entities_coords.layout().addWidget(self.field_level_entities_coords_x, 0, 0)
-        self.page_level_entities_coords.layout().addWidget(self.field_level_entities_coords_y, 0, 1)
-        self.page_level_entities_coords.layout().addWidget(self.field_level_entities_coords_slot, 1, 0, 1, 2)
+        self.field_level_entities_coords_slot.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_coords_slot.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.coords.entityList,
+                                                                self.gfx_scene_level.scene().selectedItems()[0].coordIndex if
+                                                                len(self.gfx_scene_level.scene().selectedItems()) and isinstance(self.gfx_scene_level.scene().selectedItems()[0], lib.widget.LevelEntityItem) else None,
+                                                                "slot",
+                                                                self.field_level_entities_coords_slot.value()))
+        self.field_level_entities_coords_slot.valueChanged.connect(lambda: self.gfx_scene_level.scene().selectedItems()[0].updateInfo(
+                                                                self.levelEdited_ovl_object.entities.coords.entityList[self.gfx_scene_level.scene().selectedItems()[0].coordIndex],
+                                                                self.levelEdited_ovl_object.entities.slots.nameList[self.field_level_entities_coords_slot.value()]) if
+                                                                len(self.gfx_scene_level.scene().selectedItems()) and isinstance(self.gfx_scene_level.scene().selectedItems()[0], lib.widget.LevelEntityItem) else None)
+        self.field_level_entities_coords_slot.valueChanged.connect(lambda: self.loadEntityProperties())
+        self.page_level_entities_coords.layout().addWidget(self.label_level_entities_coords_id, 0, 0, 1, 2)
+        self.page_level_entities_coords.layout().addWidget(self.field_level_entities_coords_x, 1, 0)
+        self.page_level_entities_coords.layout().addWidget(self.field_level_entities_coords_y, 1, 1)
+        self.page_level_entities_coords.layout().addWidget(self.field_level_entities_coords_slot, 2, 0, 1, 2)
         self.page_level_entities_slots = QtWidgets.QWidget(self.tabs_level_entities)
         self.page_level_entities_slots.setLayout(QtWidgets.QGridLayout())
-        self.field_level_entities_slots_attr = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.label_level_entities_slots_id = QtWidgets.QLabel("Slot Index: ", self.page_level_entities_slots)
+        self.label_level_entities_slots_id.setMaximumHeight(50)
+        self.field_level_entities_slots_attr = lib.widget.BetterSpinBox(self.page_level_entities_slots)
+        self.field_level_entities_slots_attr.setDisabled(True)
         self.field_level_entities_slots_attr.isInt = True
         self.field_level_entities_slots_attr.numbase = self.displayBase
         self.field_level_entities_slots_attr.setRange(0, 0xFF)
         self.field_level_entities_slots_attr.setToolTip("Attributes(?)")
-        self.field_level_entities_slots_kind = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_slots_attr.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_slots_attr.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
+                                                                self.field_level_entities_coords_slot.value(),
+                                                                "attr",
+                                                                self.field_level_entities_slots_attr.value()))
+        self.field_level_entities_slots_kind = lib.widget.BetterSpinBox(self.page_level_entities_slots)
+        self.field_level_entities_slots_kind.setDisabled(True)
         self.field_level_entities_slots_kind.isInt = True
         self.field_level_entities_slots_kind.numbase = self.displayBase
         self.field_level_entities_slots_kind.setRange(0, 0xFF)
         self.field_level_entities_slots_kind.setToolTip("Kind")
-        self.field_level_entities_slots_subkind = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_slots_kind.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_slots_kind.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
+                                                                self.field_level_entities_coords_slot.value(),
+                                                                "kind",
+                                                                self.field_level_entities_slots_kind.value()))
+        self.field_level_entities_slots_subkind = lib.widget.BetterSpinBox(self.page_level_entities_slots)
+        self.field_level_entities_slots_subkind.setDisabled(True)
         self.field_level_entities_slots_subkind.isInt = True
         self.field_level_entities_slots_subkind.numbase = self.displayBase
         self.field_level_entities_slots_subkind.setRange(0, 0xFF)
         self.field_level_entities_slots_subkind.setToolTip("Sub kind")
-        self.field_level_entities_slots_role = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_slots_subkind.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_slots_subkind.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
+                                                                self.field_level_entities_coords_slot.value(),
+                                                                "subkind",
+                                                                self.field_level_entities_slots_subkind.value()))
+        self.field_level_entities_slots_role = lib.widget.BetterSpinBox(self.page_level_entities_slots)
+        self.field_level_entities_slots_role.setDisabled(True)
         self.field_level_entities_slots_role.isInt = True
         self.field_level_entities_slots_role.numbase = self.displayBase
         self.field_level_entities_slots_role.setRange(0, 0xFF)
         self.field_level_entities_slots_role.setToolTip("Role")
-        self.field_level_entities_slots_modifier = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_slots_role.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_slots_role.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
+                                                                self.field_level_entities_coords_slot.value(),
+                                                                "role",
+                                                                self.field_level_entities_slots_role.value()))
+        self.field_level_entities_slots_modifier = lib.widget.BetterSpinBox(self.page_level_entities_slots)
+        self.field_level_entities_slots_modifier.setDisabled(True)
         self.field_level_entities_slots_modifier.isInt = True
         self.field_level_entities_slots_modifier.numbase = self.displayBase
         self.field_level_entities_slots_modifier.setRange(0, 0xFF)
         self.field_level_entities_slots_modifier.setToolTip("Modifier")
-        self.field_level_entities_slots_unk5 = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_slots_modifier.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_slots_modifier.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
+                                                                self.field_level_entities_coords_slot.value(),
+                                                                "modifier",
+                                                                self.field_level_entities_slots_modifier.value()))
+        self.field_level_entities_slots_unk5 = lib.widget.BetterSpinBox(self.page_level_entities_slots)
+        self.field_level_entities_slots_unk5.setDisabled(True)
         self.field_level_entities_slots_unk5.isInt = True
         self.field_level_entities_slots_unk5.numbase = self.displayBase
         self.field_level_entities_slots_unk5.setRange(0, 0xFF)
         self.field_level_entities_slots_unk5.setToolTip("5")
-        self.field_level_entities_slots_unk6 = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_slots_unk5.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_slots_unk5.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
+                                                                self.field_level_entities_coords_slot.value(),
+                                                                "unk5",
+                                                                self.field_level_entities_slots_unk5.value()))
+        self.field_level_entities_slots_unk6 = lib.widget.BetterSpinBox(self.page_level_entities_slots)
+        self.field_level_entities_slots_unk6.setDisabled(True)
         self.field_level_entities_slots_unk6.isInt = True
         self.field_level_entities_slots_unk6.numbase = self.displayBase
         self.field_level_entities_slots_unk6.setRange(0, 0xFF)
         self.field_level_entities_slots_unk6.setToolTip("6")
-        self.field_level_entities_slots_unk7 = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_slots_unk6.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_slots_unk6.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
+                                                                self.field_level_entities_coords_slot.value(),
+                                                                "unk6",
+                                                                self.field_level_entities_slots_unk6.value()))
+        self.field_level_entities_slots_unk7 = lib.widget.BetterSpinBox(self.page_level_entities_slots)
+        self.field_level_entities_slots_unk7.setDisabled(True)
         self.field_level_entities_slots_unk7.isInt = True
         self.field_level_entities_slots_unk7.numbase = self.displayBase
         self.field_level_entities_slots_unk7.setRange(0, 0xFF)
         self.field_level_entities_slots_unk7.setToolTip("7")
-        self.field_level_entities_slots_unk8 = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_slots_unk7.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_slots_unk7.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
+                                                                self.field_level_entities_coords_slot.value(),
+                                                                "unk7",
+                                                                self.field_level_entities_slots_unk7.value()))
+        self.field_level_entities_slots_unk8 = lib.widget.BetterSpinBox(self.page_level_entities_slots)
+        self.field_level_entities_slots_unk8.setDisabled(True)
         self.field_level_entities_slots_unk8.isInt = True
         self.field_level_entities_slots_unk8.numbase = self.displayBase
         self.field_level_entities_slots_unk8.setRange(0, 0xFF)
         self.field_level_entities_slots_unk8.setToolTip("8")
-        self.field_level_entities_slots_unk9 = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_slots_unk8.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_slots_unk8.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
+                                                                self.field_level_entities_coords_slot.value(),
+                                                                "unk8",
+                                                                self.field_level_entities_slots_unk8.value()))
+        self.field_level_entities_slots_unk9 = lib.widget.BetterSpinBox(self.page_level_entities_slots)
+        self.field_level_entities_slots_unk9.setDisabled(True)
         self.field_level_entities_slots_unk9.isInt = True
         self.field_level_entities_slots_unk9.numbase = self.displayBase
         self.field_level_entities_slots_unk9.setRange(0, 0xFF)
         self.field_level_entities_slots_unk9.setToolTip("9")
-        self.field_level_entities_slots_unkA = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_slots_unk9.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_slots_unk9.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
+                                                                self.field_level_entities_coords_slot.value(),
+                                                                "unk9",
+                                                                self.field_level_entities_slots_unk9.value()))
+        self.field_level_entities_slots_unkA = lib.widget.BetterSpinBox(self.page_level_entities_slots)
+        self.field_level_entities_slots_unkA.setDisabled(True)
         self.field_level_entities_slots_unkA.isInt = True
         self.field_level_entities_slots_unkA.numbase = self.displayBase
         self.field_level_entities_slots_unkA.setRange(0, 0xFF)
         self.field_level_entities_slots_unkA.setToolTip("A")
-        self.field_level_entities_slots_unkB = lib.widget.BetterSpinBox(self.page_level_entities_coords)
+        self.field_level_entities_slots_unkA.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_slots_unkA.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
+                                                                self.field_level_entities_coords_slot.value(),
+                                                                "unkA",
+                                                                self.field_level_entities_slots_unkA.value()))
+        self.field_level_entities_slots_unkB = lib.widget.BetterSpinBox(self.page_level_entities_slots)
+        self.field_level_entities_slots_unkB.setDisabled(True)
         self.field_level_entities_slots_unkB.isInt = True
         self.field_level_entities_slots_unkB.numbase = self.displayBase
         self.field_level_entities_slots_unkB.setRange(0, 0xFF)
         self.field_level_entities_slots_unkB.setToolTip("B")
-        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_attr, 0, 0)
-        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_kind, 1, 0)
-        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_subkind, 2, 0)
-        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_role, 3, 0)
-        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_modifier, 4, 0)
-        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_unk5, 0, 1)
-        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_unk6, 1, 1)
-        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_unk7, 2, 1)
-        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_unk8, 3, 1)
-        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_unk9, 4, 1)
-        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_unkA, 5, 1)
-        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_unkB, 6, 1)
+        self.field_level_entities_slots_unkB.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_slots_unkB.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
+                                                                self.field_level_entities_coords_slot.value(),
+                                                                "unkB",
+                                                                self.field_level_entities_slots_unkB.value()))
+        self.page_level_entities_slots.layout().addWidget(self.label_level_entities_slots_id, 0, 0, 1, 2)
+        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_attr, 1, 0)
+        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_kind, 2, 0)
+        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_subkind, 3, 0)
+        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_role, 4, 0)
+        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_modifier, 5, 0)
+        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_unk5, 1, 1)
+        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_unk6, 2, 1)
+        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_unk7, 3, 1)
+        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_unk8, 4, 1)
+        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_unk9, 5, 1)
+        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_unkA, 6, 1)
+        self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_unkB, 7, 1)
         self.tabs_level_entities.addTab(self.page_level_entities_coords, "Coordinates")
         self.tabs_level_entities.addTab(self.page_level_entities_slots, "Slot data")
 
@@ -3657,25 +3765,53 @@ class MainWindow(QtWidgets.QMainWindow):
                 (level.metaTiles[metaTile_index][index] & bitmask) | (val << shiftL)
 
     def loadEntityProperties(self):
-        if not self.gfx_scene_level.scene().isActive() or len(self.gfx_scene_level.scene().selectedItems()) == 0: return
+        if not self.gfx_scene_level.scene().isActive() or len(self.gfx_scene_level.scene().selectedItems()) == 0:
+            for w in self.page_level_entities_coords.findChildren(lib.widget.BetterSpinBox):
+                w.setEnabled(False)
+            for w in self.page_level_entities_slots.findChildren(lib.widget.BetterSpinBox):
+                w.setEnabled(False)
+            return
+        for w in self.page_level_entities_coords.findChildren(lib.widget.BetterSpinBox):
+            w.setEnabled(True)
+        for w in self.page_level_entities_slots.findChildren(lib.widget.BetterSpinBox):
+            w.setEnabled(True)
         item: lib.widget.LevelEntityItem = self.gfx_scene_level.scene().selectedItems()[0]
-        print(item)
-        self.field_level_entities_coords_x.setValue(item.coord["x"])
-        self.field_level_entities_coords_y.setValue(item.coord["y"])
-        self.field_level_entities_coords_slot.setValue(item.coord["slot"])
+        #print(item)
+        for w in self.page_level_entities_coords.findChildren(lib.widget.BetterSpinBox):
+            w.blockSignals(True)
+        for w in self.page_level_entities_slots.findChildren(lib.widget.BetterSpinBox):
+            w.blockSignals(True)
 
-        self.field_level_entities_slots_attr.setValue(item.slot["attr"])
-        self.field_level_entities_slots_kind.setValue(item.slot["kind"])
-        self.field_level_entities_slots_subkind.setValue(item.slot["subkind"])
-        self.field_level_entities_slots_role.setValue(item.slot["role"])
-        self.field_level_entities_slots_modifier.setValue(item.slot["modifier"])
-        self.field_level_entities_slots_unk5.setValue(item.slot["unk5"])
-        self.field_level_entities_slots_unk6.setValue(item.slot["unk6"])
-        self.field_level_entities_slots_unk7.setValue(item.slot["unk7"])
-        self.field_level_entities_slots_unk8.setValue(item.slot["unk8"])
-        self.field_level_entities_slots_unk9.setValue(item.slot["unk9"])
-        self.field_level_entities_slots_unkA.setValue(item.slot["unkA"])
-        self.field_level_entities_slots_unkB.setValue(item.slot["unkB"])
+        entities = self.levelEdited_ovl_object.entities
+
+        self.label_level_entities_coords_id.setText(f"Entity Index: {lib.datconv.numToStr(item.coordIndex, self.displayBase, self.displayAlphanumeric)}")
+        self.field_level_entities_coords_x.setValue(entities.coords.entityList[item.coordIndex]["x"])
+        self.field_level_entities_coords_y.setValue(entities.coords.entityList[item.coordIndex]["y"])
+        self.field_level_entities_coords_slot.setValue(entities.coords.entityList[item.coordIndex]["slot"])
+
+        slot = entities.coords.entityList[item.coordIndex]["slot"]
+        self.label_level_entities_slots_id.setText(f"Slot Index: {lib.datconv.numToStr(slot, self.displayBase, self.displayAlphanumeric)}")
+        self.field_level_entities_slots_attr.setValue(entities.slots.entityList[slot]["attr"])
+        self.field_level_entities_slots_kind.setValue(entities.slots.entityList[slot]["kind"])
+        self.field_level_entities_slots_subkind.setValue(entities.slots.entityList[slot]["subkind"])
+        self.field_level_entities_slots_role.setValue(entities.slots.entityList[slot]["role"])
+        self.field_level_entities_slots_modifier.setValue(entities.slots.entityList[slot]["modifier"])
+        self.field_level_entities_slots_unk5.setValue(entities.slots.entityList[slot]["unk5"])
+        self.field_level_entities_slots_unk6.setValue(entities.slots.entityList[slot]["unk6"])
+        self.field_level_entities_slots_unk7.setValue(entities.slots.entityList[slot]["unk7"])
+        self.field_level_entities_slots_unk8.setValue(entities.slots.entityList[slot]["unk8"])
+        self.field_level_entities_slots_unk9.setValue(entities.slots.entityList[slot]["unk9"])
+        self.field_level_entities_slots_unkA.setValue(entities.slots.entityList[slot]["unkA"])
+        self.field_level_entities_slots_unkB.setValue(entities.slots.entityList[slot]["unkB"])
+
+        for w in self.page_level_entities_coords.findChildren(lib.widget.BetterSpinBox):
+            w.blockSignals(False)
+        for w in self.page_level_entities_slots.findChildren(lib.widget.BetterSpinBox):
+            w.blockSignals(False)
+
+    def changeEntityAttribute(self, dict_list, dict_index:int, dict_key:str, value):
+        if dict_index is None: return
+        dict_list[dict_index][dict_key] = value
 
     def loadOvelrayStructAddressTable(self): # called on ROM load
         addr_levelt = self.gamedat.arm9Addrs["level"]
@@ -3869,21 +4005,36 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self.checkbox_entities_enable.isChecked(): return
         entities = self.levelEdited_ovl_object.entities
         if not hasattr(entities, "coords"): return
+        self.field_level_entities_coords_slot.setRange(0, len(entities.slots.entityList)-1) # prevent using inexistant slots
         for i in range(len(entities.coords.entityList[1:-1])):
             entityCoord = entities.coords.entityList[1:-1][i]
             try:
                 entitySlot = entities.slots.entityList[entityCoord["slot"]]
                 entitySlot_names = entities.slots.nameList[entityCoord["slot"]]
-            except IndexError:
+            except IndexError as e:
                 entitySlot_names = {
                 "attr": "Undefined",
                 "kind": "Undefined",
                 "subkind": "Undefined",
                 "role": "Undefined",
-                "modifier": "Undefined"
+                "modifier": "Undefined",
+                "unk5": "Undefined",
+                "unk6": "Undefined",
+                "unk7": "Undefined",
+                "unk8": "Undefined",
+                "unk9": "Undefined",
+                "unkA": "Undefined",
+                "unkB": "Undefined"
                 }
-                print("Entity slots did not load correclty")
-            self.gfx_scene_level.scene().addItem(lib.widget.LevelEntityItem(coordIndex=i, coord=entityCoord, slot=entitySlot, slotnames=entitySlot_names, screenSpacing=screenSpacing))
+                print(f"Entity slot {entityCoord["slot"]} did not load correclty. Slot may not exist in slot definitions.")
+                print(e)
+            self.gfx_scene_level.scene().addItem(lib.widget.LevelEntityItem(coordIndex=i+1,
+                                                                            coord=entityCoord,
+                                                                            slot=entitySlot,
+                                                                            slotnames=entitySlot_names,
+                                                                            screenSpacing=screenSpacing,
+                                                                            displayBase=self.displayBase,
+                                                                            alphanumeric=self.displayAlphanumeric))
 
     def loadLevel(self):
         if self.dropdown_level_area.currentIndex() == -1:

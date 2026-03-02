@@ -275,7 +275,8 @@ class EntitySlots:
     def toBytes(self):
         data = bytes()
         for entity in self.entityList:
-            for val in entity.values():
+            for key in entity:
+                val = entity[key]
                 data += int.to_bytes(val, 1, byteorder='little')
         return data
 
@@ -297,10 +298,9 @@ class EntityCoordinates:
         data = bytes()
         for entity in self.entityList:
             #data += bytes.fromhex(hex(entity["x"]).removeprefix("0x")+hex(entity["y"]).removeprefix("0x")+hex(entity["slot"]).removeprefix("0x"))
-            for val in entity.values():
-                data_hex = hex(val).removeprefix("0x")
-                data_hex = data_hex.zfill(len(data_hex)%2)
-                data += int.to_bytes(val, len(data_hex)//2, byteorder='little')
+            for key in entity:
+                val = entity[key]
+                data += int.to_bytes(val, 4 if key=="x" else 2, byteorder='little')
         return data
 
 class Level: # LZ10 compressed
