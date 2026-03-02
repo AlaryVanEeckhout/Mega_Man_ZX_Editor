@@ -4110,7 +4110,7 @@ class MainWindow(QtWidgets.QMainWindow):
         elif level == file.level_radar:
             for i in range(self.levelEdited_ovl_object.screenLayout_radar.height):
                 for j in range(self.levelEdited_ovl_object.screenLayout_radar.realWidth):
-                    if j >= self.levelEdited_ovl_object.screenLayout0.width:
+                    if j >= self.levelEdited_ovl_object.screenLayout_radar.width:
                         break # skip unused screens
                     self.loadScreen(self.levelEdited_ovl_object.screenLayout_radar.layout[i][j], j*(16*(8*2)+screenSpacing), i*(12*(8*2)+screenSpacing))
         self.loadEntities(screenSpacing)
@@ -4403,18 +4403,20 @@ class MainWindow(QtWidgets.QMainWindow):
         self.levelEdited_object.fileSize = len(self.rom.files[fileID_tileset])
         self.rom.files[fileID_tileset][:self.levelEdited_object.level_offset_rom] = self.levelEdited_object.headerToBytes()
         # Overlay
-        fileID_overlay = int(self.dropdown_level_area.currentText())
-        overlay_bin = self.levelEdited_ovl_object.toBytes()
-        overlay = ndspy.code.Overlay(overlay_bin,
-                                     int(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(1), self.displayBase),
-                                     len(overlay_bin),
-                                     int(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(5), self.displayBase),
-                                     int(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(6), self.displayBase),
-                                     int(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(7), self.displayBase),
-                                     fileID_overlay,
-                                     int(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(3), self.displayBase),
-                                     int(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(8), self.displayBase))
-        self.rom.files[fileID_overlay] = overlay.save(compress=True)
+        if hasattr(self.levelEdited_ovl_object.entities, "coords"): # if there are entities
+            print("Saving entities")
+            fileID_overlay = int(self.dropdown_level_area.currentText())
+            overlay_bin = self.levelEdited_ovl_object.toBytes()
+            overlay = ndspy.code.Overlay(overlay_bin,
+                                        int(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(1), self.displayBase),
+                                        len(overlay_bin),
+                                        int(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(5), self.displayBase),
+                                        int(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(6), self.displayBase),
+                                        int(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(7), self.displayBase),
+                                        fileID_overlay,
+                                        int(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(3), self.displayBase),
+                                        int(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(8), self.displayBase))
+            self.rom.files[fileID_overlay] = overlay.save(compress=True)
         print(f"Level data {self.dropdown_level_area.currentText()} has been saved!")
         self.levelEdited_object = lib.level.File(self.rom.files[fileID_tileset]) # update data
         #self.levelEdited_ovl_object = lib.level.Overlay(self.rom.files[fileID_overlay])

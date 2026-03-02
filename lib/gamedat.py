@@ -97,7 +97,7 @@ ENTITYKINDS_ZX = {
         }),
         0x2B: ("Bora Bora", {}),
         0x2C: ("Angle Cannon", {}),
-        0x2C: ("Galleon Shroud", {}),
+        0x2D: ("Galleon Shroud", {}),
         0x2E: ("Releaf", {}),
         0x30: ("Moth Queen", {}),
         0x32: ("Galleon Diver", {}),
@@ -134,7 +134,7 @@ ENTITYKINDS_ZX = {
             0x03: ("Up", {})
         }),
         0x08: ("Electric Rod button", {}),
-        0x08: ("Giant Gear", {
+        0x09: ("Giant Gear", {
             0x00: ("Normal", {}),
             0x01: ("Offset", {})
         }),
@@ -198,6 +198,7 @@ ENTITYKINDS_ZX = {
             })
         }),
         0x49: ("Townspeople", {}),
+        0x4A: ("Slither Inc. Elevator", {}),
         0x4B: ("Boss Rush Teleporter", {}),
         0x50: ("Boss plush dolls", {
             0x00: ("Hivolt", {}),

@@ -105,7 +105,7 @@ class Overlay:
         print(f"0x{self.map_behavior_RAMAddress:08X}: map behavior (?)")
         self.map_behavior = ScreenMap(self.data, self.map_behavior_address)
         print(f"0x{self.screenLayout_camera_RAMAddress:08X}: layout camera")
-        self.screenLayout_camera = ScreenLayout(self.data, self.screenLayout_camera_address, loadReal=False)
+        self.screenLayout_camera = ScreenLayout(self.data, self.screenLayout_camera_address, loadReal=False) # width > realWidth for some reason
 
         print("Entities")
         print(f"0x{self.entityCoord_RAMAddress:08X}")
@@ -147,51 +147,45 @@ class ScreenLayout:
         self.skip = int.from_bytes(data[address+0x01:address+0x02], byteorder='little') # idk
         self.width = int.from_bytes(data[address+0x02:address+0x03], byteorder='little') # width of used portion of layout
         self.height = int.from_bytes(data[address+0x03:address+0x04], byteorder='little')
+        self.loadWidth = self.realWidth if loadReal else self.width
         self.size_header = 0x04
-        self.size_data = self.width*self.height
+        self.size_data = self.loadWidth*self.height
         self.size = self.size_header+self.size_data
         self.data = data[address:address+self.size]
-        loadWidth = self.realWidth if loadReal else self.width
         self.layout: list[list[int]] = []
         layoutRow = []
-        i_skip = 0
         print(self.realWidth, self.skip, self.width, self.height)
 
         for i in range(self.size_header, self.size):
-            index = i + i_skip
-            layoutRow.append(int.from_bytes(self.data[index:index+0x01], byteorder='little'))
-            if len(layoutRow) == loadWidth:
+            layoutRow.append(int.from_bytes(self.data[i:i+0x01], byteorder='little'))
+            if len(layoutRow) == self.loadWidth:
                 self.layout.append(layoutRow.copy())
                 layoutRow.clear()
-                i_skip += self.width - loadWidth
         print([[f"{screenID:02X}" for screenID in row] for row in self.layout])
     
     def toBytes(self):
         return self.data
 
 class ScreenMap:
-    def __init__(self, data: bytes, address: int, loadReal: bool=True):
+    def __init__(self, data: bytes, address: int, loadReal: bool=False):
         self.realWidth = int.from_bytes(data[address:address+0x02], byteorder='little') # width used to define effective screen space
         self.skip = int.from_bytes(data[address+0x02:address+0x04], byteorder='little') # idk
-        self.width = int.from_bytes(data[address+0x04:address+0x06], byteorder='little') # width used to load all screens
+        self.width = int.from_bytes(data[address+0x04:address+0x06], byteorder='little') # width used to load all screens (?)
         self.height = int.from_bytes(data[address+0x06:address+0x08], byteorder='little')
+        self.loadWidth = self.realWidth if loadReal else self.width
         self.size_header = 0x08
-        self.size_data = self.width*self.height*0x02
+        self.size_data = self.loadWidth*self.height*0x02
         self.size = self.size_header+self.size_data
         self.data = data[address:address+self.size]
-        loadWidth = self.realWidth if loadReal else self.width
         self.layout: list[list[int]] = []
         layoutRow = []
-        i_skip = 0
         print(self.realWidth, self.skip, self.width, self.height)
 
         for i in range(self.size_header, self.size, 0x02):
-            index = i + i_skip
-            layoutRow.append(int.from_bytes(self.data[index:index+0x02], byteorder='little'))
-            if len(layoutRow) == loadWidth:
+            layoutRow.append(int.from_bytes(self.data[i:i+0x02], byteorder='little'))
+            if len(layoutRow) == self.loadWidth:
                 self.layout.append(layoutRow.copy())
                 layoutRow.clear()
-                i_skip += self.width - loadWidth
         print([[f"{screenID:04X}" for screenID in row] for row in self.layout])
     
     def toBytes(self):
