@@ -3782,6 +3782,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for w in self.page_level_entities_slots.findChildren(lib.widget.BetterSpinBox):
             w.blockSignals(True)
 
+        self.tabs_level.setCurrentWidget(self.page_level_entities)
         entities = self.levelEdited_ovl_object.entities
 
         self.label_level_entities_coords_id.setText(f"Entity Index: {lib.datconv.numToStr(item.coordIndex, self.displayBase, self.displayAlphanumeric)}")
@@ -3865,6 +3866,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                                         self.levelEdited_ovlTable["entity slot"][self.dropdown_level_area.currentIndex()],
                                                         self.levelEdited_ovlTable["entity coord"][self.dropdown_level_area.currentIndex()],
                                                         self.gamedat.entityNames)
+        self.checkbox_entities_enable.setEnabled(hasattr(self.levelEdited_ovl_object.entities, "coords"))
         try:
             fileID = self.rom.filenames.idOf(self.levelEdited_ovl_object.tileset_name)
         except IndexError:
@@ -3885,7 +3887,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.button_level_save.isEnabled() and QtWidgets.QMessageBox.warning(
                 self,
                 "Unsaved changes",
-                "You are attempting to change levels with unsaved changes!\nDiscard changes and load new level?",
+                "You are attempting to leave the level with unsaved changes!\nDiscard changes and switch to new level?",
                 QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No
             ) == QtWidgets.QMessageBox.StandardButton.No:
             self.dropdown_level_area.blockSignals(True)
@@ -4403,20 +4405,21 @@ class MainWindow(QtWidgets.QMainWindow):
         self.levelEdited_object.fileSize = len(self.rom.files[fileID_tileset])
         self.rom.files[fileID_tileset][:self.levelEdited_object.level_offset_rom] = self.levelEdited_object.headerToBytes()
         # Overlay
-        if hasattr(self.levelEdited_ovl_object.entities, "coords"): # if there are entities
-            print("Saving entities")
-            fileID_overlay = int(self.dropdown_level_area.currentText())
-            overlay_bin = self.levelEdited_ovl_object.toBytes()
-            overlay = ndspy.code.Overlay(overlay_bin,
-                                        int(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(1), self.displayBase),
-                                        len(overlay_bin),
-                                        int(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(5), self.displayBase),
-                                        int(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(6), self.displayBase),
-                                        int(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(7), self.displayBase),
-                                        fileID_overlay,
-                                        int(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(3), self.displayBase),
-                                        int(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(8), self.displayBase))
-            self.rom.files[fileID_overlay] = overlay.save(compress=True)
+        print("Saving overlay")
+        fileID_overlay = int(self.dropdown_level_area.currentText())
+        overlay_bin = self.levelEdited_ovl_object.toBytes()
+        overlay_og = self.rom.loadArm9Overlays([fileID_overlay])[fileID_overlay]
+        # Overlay object expects data to be in its original state (compressed if flags & 1), so flags is set to 0
+        overlay = ndspy.code.Overlay(overlay_bin,
+                                    ramAddress=overlay_og.ramAddress,#lib.datconv.strToNum(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(1), self.displayBase),#
+                                    ramSize=len(overlay_bin),#lib.datconv.strToNum(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(4), self.displayBase),#
+                                    bssSize=overlay_og.bssSize,#lib.datconv.strToNum(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(5), self.displayBase),#
+                                    staticInitStart=overlay_og.staticInitStart,#lib.datconv.strToNum(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(6), self.displayBase),#
+                                    staticInitEnd=overlay_og.staticInitEnd,#lib.datconv.strToNum(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(7), self.displayBase),#
+                                    fileID=fileID_overlay,
+                                    compressedSize=overlay_og.compressedSize,#lib.datconv.strToNum(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(3), self.displayBase),#
+                                    flags=0)
+        self.rom.files[fileID_overlay] = overlay.save(compress=True)
         print(f"Level data {self.dropdown_level_area.currentText()} has been saved!")
         self.levelEdited_object = lib.level.File(self.rom.files[fileID_tileset]) # update data
         #self.levelEdited_ovl_object = lib.level.Overlay(self.rom.files[fileID_overlay])

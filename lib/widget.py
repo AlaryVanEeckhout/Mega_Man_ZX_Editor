@@ -317,7 +317,6 @@ class LevelTileItem(PixmapItem):
 class LevelEntityItem(QtWidgets.QGraphicsItemGroup):
     def __init__(self, *args, coordIndex:int=0, coord:dict[str]={}, slot:dict[str]={}, slotnames:dict[str]={}, screenSpacing:int=0, displayBase:int=10, alphanumeric=False, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setFiltersChildEvents(True)
         self.coordIndex = coordIndex # Entities are ordered from top to bottom, left to right
         self.displayBase = displayBase
         self.alphanumeric = alphanumeric
@@ -330,12 +329,13 @@ class LevelEntityItem(QtWidgets.QGraphicsItemGroup):
         self.setPos(x, y)
         self._item_rect = QtWidgets.QGraphicsRectItem(-8, -8, 16, 16, self)
         self._item_rect.setPen(0x0010A0)
-        self._item_text = QtWidgets.QGraphicsSimpleTextItem(lib.datconv.numToStr(coord["slot"], self.displayBase, self.alphanumeric), self._item_rect)
+        self._item_text = QtWidgets.QGraphicsSimpleTextItem(lib.datconv.numToStr(coord["slot"], self.displayBase, self.alphanumeric), self)
         self._item_text.setPen(QtGui.QPen(0x220000, 0.5))
-        self._item_text.setBrush(0x80FF80 if not slotnames["subkind"].startswith("0x") else 0xFFF080)
+        self._item_text.setBrush(0x80FF80 if not slotnames["subkind"].startswith("0x") else 0xFF90E0)
         self._item_text.setPos(-self._item_text.boundingRect().center())
-        self.addToGroup(self._item_rect)
-        self.addToGroup(self._item_text)
+        self._item_text.setTransformOriginPoint(self._item_text.boundingRect().center())
+        self._item_text.setScale(1.25)
+        self.addToGroup(self._item_rect) # only the rect (and children) is selectable
         self.setFlags(QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsSelectable |
                       QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsMovable |
                       QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges)
@@ -343,7 +343,6 @@ class LevelEntityItem(QtWidgets.QGraphicsItemGroup):
         
     def updateInfo(self, coord:dict[str], slotnames:dict[str]):
         self._item_text.setText(lib.datconv.numToStr(coord["slot"], self.displayBase, self.alphanumeric))
-        self._item_text.setPos(-self._item_text.boundingRect().center())
         self.setToolTip(f"""Entity {lib.datconv.numToStr(self.coordIndex, self.displayBase, self.alphanumeric)}\
                                 \nX: {lib.datconv.numToStr(coord["x"], self.displayBase, self.alphanumeric)}\
                                 \nY: {lib.datconv.numToStr(coord["y"], self.displayBase, self.alphanumeric)}\
@@ -374,7 +373,7 @@ class LevelEntityItem(QtWidgets.QGraphicsItemGroup):
         return y-self.screenSpacing*(y//lib.level.SCREEN_HEIGHT)
         
     def itemChange(self, change: QtWidgets.QGraphicsPixmapItem.GraphicsItemChange, value: QtCore.QVariant):
-        if change == QtWidgets.QGraphicsPixmapItem.GraphicsItemChange.ItemPositionChange and self.scene():
+        if change == QtWidgets.QGraphicsPixmapItem.GraphicsItemChange.ItemPositionChange and self.scene() and self.isUnderMouse():
             if QtWidgets.QApplication.mouseButtons() == QtCore.Qt.MouseButton.LeftButton:
                 x = min(max(0, value.x()), self.getSceneX(0xFFFFFFFF))
                 y = min(max(0, value.y()), self.getSceneY(0xFFFF))

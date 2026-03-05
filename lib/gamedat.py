@@ -57,11 +57,13 @@ CHARMAPS_ZXA = {
     "names jp": dialogue.CHARMAP_DIALOGUENAME_ZX_JP
 }
 ENTITYKINDS_ZX = {
+    0x01: ("Boss", {}),
     0x02: ("Enemy", {
         0x00: ("Eyeballoon", {}),
         0x01: ("Crickaleap", {}),
         0x02: ("Galleon Hunter", {}),
         0x03: ("Whirling 44", {}),
+        0x04: ("Fly Chopper?", {}),
         0x05: ("Presto Cannon", {}),
         0x07: ("Tornado Fencer", {}),
         0x09: ("Sphenalauncher", {}),
@@ -71,10 +73,13 @@ ENTITYKINDS_ZX = {
             0x01: ("POP", {})
         }),
         0x0D: ("Mechadragon", {}),
+        0x10: ("Chain Anchor", {}),
         0x12: ("Bee Rockets", {}),
+        0x17: ("Hover Cannon", {}),
         0x19: ("Remettaur", {
             0x00: ("Normal", {}),
-            0x01: ("Skin1?", {})
+            0x01: ("Glasses", {}),
+            0x01: ("Cross eyes", {})
         }),
         0x1A: ("Pattrolaur", {}),
         0x1B: ("Warp Prism", {}),
@@ -106,15 +111,20 @@ ENTITYKINDS_ZX = {
         0x36: ("Buoybuoy", {}),
         0x37: ("Carom", {}),
         0x38: ("Rattrap", {}),
+        0x39: ("Galleon Wing", {}),
         0x3A: ("Elemental Dart", {
             0x00: ("Fire", {}),
             0x01: ("Electric", {})
         }),
         0x3B: ("Batty", {}),
         0x3C: ("Web Bolt", {}),
+        0x44: ("Sci-sensor", {}),
         0x45: ("Spi-King", {}),
+        0x46: ("Beanball", {}),
         0x47: ("Bambooloss", {})
     }),
+    0x03: ("Enemy Projectile", {}),
+    0x04: ("Particle", {}),
     0x05: ("Background", {
         0x01: ("Door/Switch Mechanism", {
             0x00: ("Door", {}),
@@ -142,8 +152,22 @@ ENTITYKINDS_ZX = {
         0X0C: ("Cat", {}),
         0x0D: ("Fountain top", {}),
         0x0F: ("Box", {}),
-        0x10: ("King Flyer Bridge", {}),
-        0x12: ("Sidescroll door", {}),
+        0x10: ("King Flyer corpse", {}),
+        0x11: ("Grand Nuage Elevator", {}),
+        0x12: ("Sidescroll door", {
+            None: ("*", {
+                0x00: ("White", {}),
+                0x01: ("Red", {}),
+                0x02: ("Blue", {}),
+                0x03: ("Purple", {}),
+                0x04: ("Yellow", {}),
+                0x05: ("Green", {}),
+                0x08: ("Area D", {}),
+                0x0A: ("Power Plant", {}),
+                0x0B: ("Area F", {}),
+                0x0C: ("Boss", {})
+            }),
+        }),
         0x13: ("Fade out/in door", {
             None: ("*", {
                 0x00: ("White", {}),
@@ -154,7 +178,8 @@ ENTITYKINDS_ZX = {
                 0x05: ("Green", {}),
                 0x08: ("Area D", {}),
                 0x0A: ("Power Plant", {}),
-                0x0B: ("Area F", {})
+                0x0B: ("Area F", {}),
+                0x0C: ("Boss", {})
             }),
         }),
         0x14: ("Punchable Tree", {}),
@@ -169,8 +194,10 @@ ENTITYKINDS_ZX = {
         0x1B: ("Bridge switch", {}),
         0x1C: ("Transerver", {
             0x00: ("Teleporter", {}),
-            0x01: ("Computer", {})
+            0x02: ("Computer", {})
         }),
+        0x1E: ("Area K-1 door unlock button", {}),
+        0x21: ("Breaking Window", {}),
         0x22: ("Witch", {}),
         0x25: ("Ice Cube", {}),
         0x26: ("Fire", {}),
@@ -178,28 +205,64 @@ ENTITYKINDS_ZX = {
         0x2C: ("Genie Met", {}),
         0x2E: ("Area J Sled", {}),
         0x2B: ("Ferris wheel", {}),
+        0x30: ("Lava column", {}),
         0x31: ("Destructible Container", {
             0x00: ("Barrel", {}),
             0x01: ("Crate", {})
         }),
         0x33: ("Platform Cannon", {}), # does the platform spawn the cannon?
         0x35: ("Galleon Sledder", {}),
+        0x38: ("Rayfly corpse", {}),
+        0x39: ("Mini blimp", {}),
         0x3D: ("Red Striker", {}),
         0x40: ("Mini-train", {}),
+        0x41: ("Destructible Met helmet", {}),
+        0x42: ("Crane", {}),
         0x43: ("Disappearing platforms", {}),
+        0x45: ("plush doll splash", {}),
+        0x46: ("Fleuve (Grand Nuage)", {}),
         0x48: ("Guardian", {
-            0x01: ("0x01", {
+            0x00: ("Mechanic", {
+                0x00: ("Silure", {}),
+                0x01: ("Anguille", {})
+            }),
+            0x01: ("Mission (woman)", {
+                0x00: ("Oeillet", {}),
+                0x01: ("Chêne", {}),
+                0x02: ("Platane", {}),
                 0x03: ("Cédre", {})
+            }),
+            0x02: ("Mission (man)", {
+                0x00: ("Bar", {}),
+                0x01: ("Maquereau", {}),
+                0x02: ("Morue", {}),
+                0x03: ("Dorado", {}),
+                0x04: ("Bonite", {}),
+                0x05: ("Sole", {})
+            }),
+            0x03: ("Nurse", {
+                0x00: ("Muguet", {}),
+                0x01: ("Rose", {})
             }),
             0x04: ("Operator", {
                 0x00: ("Tulip", {}),
                 0x01: ("Gardénia", {}),
                 0x02: ("Marguerite", {})
+            }),
+            0x05: ("Normal", {
+                0x00: ("Carrelet", {}),
+                0x01: ("Thon", {}),
+                0x02: ("Congre", {}),
+                0x03: ("Hareng", {}),
+                0x04: ("Scombrésoce", {}),
+                0x05: ("Truite", {}),
+                0x06: ("Sardine", {})
             })
         }),
         0x49: ("Townspeople", {}),
         0x4A: ("Slither Inc. Elevator", {}),
         0x4B: ("Boss Rush Teleporter", {}),
+        0x4E: ("Pure Water Tank", {}),
         0x50: ("Boss plush dolls", {
             0x00: ("Hivolt", {}),
             0x01: ("Lurerre", {}),
@@ -217,15 +280,26 @@ ENTITYKINDS_ZX = {
             0x02: ("Maquereau", {})
         }),
         0x59: ("Prairie (Grand Nuage)", {}),
-        0x5B: ("Test Guardian?", {}) # might be something more generic that is used for Guardian test
+        0x59: ("Townspeople (Area G)", {}),
+        0x5B: ("Mission Guardian?", {})
     }),
     0x06: ("Item", {
         0x00: ("Refill", {
+            None: ("*", {
+                0x00: ("Drops, disappears", {}),
+                0x01: ("Drops", {}),
+                0x02: ("Static", {}),
+                0x03: ("Drops, disappears", {}) # probably never actually used
+            }),
+            0x00: ("Small Health", {}),
             0x01: ("Large Health", {}),
             0x02: ("Extra Large Health", {}),
+            0x03: ("Small Biometal Energy", {}),
             0x04: ("Large Biometal Energy", {}),
+            0x05: ("Small E-Crystal", {}),
             0x06: ("Large E-Crystal", {}),
             0x07: ("1UP Panel", {}),
+            0x08: ("Apple", {}),
             0x0A: ("Computer Chip", {}),
         }),
         0x01: ("Secret Disk", {
@@ -234,18 +308,29 @@ ENTITYKINDS_ZX = {
             0x02: ("Enemy B (E)", {}),
             0x03: ("Others (O)", {})
         }),
-        0x02: ("Expansion", {
+        0x02: ("Expansion", { # Replaced with Extra Large Health on Hard mode
             0x00: ("Life Up (Area D-1)", {}),
             0x01: ("Life Up (Area F-2)", {}),
             0x02: ("Life Up (Area J-1)", {}),
             0x03: ("Life Up (Area I-5)", {}),
+            0x04: ("Life Up", {}),
+            0x05: ("Life Up", {}),
+            0x06: ("Life Up", {}),
+            0x07: ("Life Up", {}),
             0x08: ("Sub Tank (Area A-2)", {}),
             0x09: ("Sub Tank (Area E-4)", {}),
-            0x0A: ("Sub Tank (Area K-1)", {})
+            0x0A: ("Sub Tank (Area K-4)", {}),
+            0x0B: ("Sub Tank (Area X-1)", {})
         }),
         0x04: ("Quest Item?", {}), # Cold Pearl
         0x07: ("Mysterious Rock", {})
-    })
+    }),
+    0x07: ("Pause menu", {}),
+    0x08: ("Subscreen", {}),
+    0xFC: ("Player", {}), # player kinds are normal kinds - 0x06
+    0xFD: ("Projectile (Player)", {}),
+    0xFE: ("Particle (Player)", {}),
+    0xFF: ("Background (Player)", {}),
 }
 ENTITYKINDS_ZXA = {
     0x02: ("Enemy", {

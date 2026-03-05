@@ -108,7 +108,8 @@ class Overlay:
         self.screenLayout_camera = ScreenLayout(self.data, self.screenLayout_camera_address, loadReal=False) # width > realWidth for some reason
 
         print("Entities")
-        print(f"0x{self.entityCoord_RAMAddress:08X}")
+        print(f"slot: 0x{self.entitySlot_RAMAddress:08X}")
+        print(f"coord: 0x{self.entityCoord_RAMAddress:08X}")
 
         self.entities = Entities(self.data, self.entitySlot_address, self.entityCoord_address, entitynamedict)
 
@@ -134,10 +135,14 @@ class Overlay:
         map_behavior_bin = self.map_behavior.toBytes()
         self.data[self.map_behavior_address:self.map_behavior_address+len(map_behavior_bin)] = map_behavior_bin
         # Entities
-        coords_bin = self.entities.coords.toBytes()
-        self.data[self.entityCoord_address:self.entityCoord_address+len(coords_bin)] = coords_bin
-        slots_bin = self.entities.slots.toBytes()
-        self.data[self.entitySlot_address:self.entitySlot_address+len(slots_bin)] = slots_bin
+        if hasattr(self.entities, "slots"):
+            slots_bin = self.entities.slots.toBytes()
+            self.data[self.entitySlot_address:self.entitySlot_address+len(slots_bin)] = slots_bin
+        if hasattr(self.entities, "coords"):
+            coords_bin = self.entities.coords.toBytes()
+            self.data[self.entityCoord_address:self.entityCoord_address+len(coords_bin)] = coords_bin
+        #print(self.data[self.entityCoord_address:self.entityCoord_address+len(coords_bin)].hex())
+        #print(self.data[self.entitySlot_address:self.entitySlot_address+len(slots_bin)].hex())
         return self.data
         
 
@@ -195,12 +200,12 @@ class ScreenMap:
 class Entities:
     def __init__(self, data: bytes, entitySlotaddress: int, entityCoordAddress: int, namedict: dict[str, dict]):
         self.data = data
-        if entitySlotaddress > 0:
-            self.slots = EntitySlots(self.data, entitySlotaddress, namedict)
-            print(self.slots.entityList)
         if entityCoordAddress > 0:
             self.coords = EntityCoordinates(self.data, entityCoordAddress)
             print(self.coords.entityList)
+        if entitySlotaddress > 0:
+            self.slots = EntitySlots(self.data, entitySlotaddress, namedict)
+            print(self.slots.entityList)
 
 # EntityTemplate of rmz3 decomp
 class EntitySlots:
@@ -211,8 +216,8 @@ class EntitySlots:
         index = address
         while True:
             entity_data = self.data[index:index+0x0C]
-            if len(entity_data) != 0x0C or entity_data[11] != 0x00: # idk if this is the right way to see if structure ends
-                #print(entity_data.hex())
+            if  len(entity_data) != 0x0C or entity_data[0] not in [0x01, 0x02, 0x04, 0x10, 0x11, 0x12, 0x41, 0x50]: # todo: find the correct way to detect structure end
+                print(entity_data.hex())
                 break
             dict_current = namedict
             dict_previous = None
@@ -280,6 +285,7 @@ class EntityCoordinates:
         self.data = data
         self.startOffset = address
         self.endOffset = self.startOffset + self.data[self.startOffset:].find(bytes.fromhex("FFFFFF7FFF7F0000"))+0x08
+        #self.slotMax = 0
         self.entityList: list[dict] = []
         if self.startOffset == 0: return
         for i in range(self.startOffset, self.endOffset, 0x08):
@@ -287,6 +293,7 @@ class EntityCoordinates:
                 "x": int.from_bytes(self.data[i:i+4], byteorder='little'),
                 "y": int.from_bytes(self.data[i+4:i+6], byteorder='little'),
                 "slot": int.from_bytes(self.data[i+6:i+8], byteorder='little')})
+            #self.slotMax = max(self.slotMax, self.entityList[-1]["slot"])
     
     def toBytes(self):
         data = bytes()
