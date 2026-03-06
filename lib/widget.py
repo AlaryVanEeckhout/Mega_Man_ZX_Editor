@@ -331,8 +331,6 @@ class LevelEntityItem(QtWidgets.QGraphicsItemGroup):
         self._item_rect.setPen(0x0010A0)
         self._item_text = QtWidgets.QGraphicsSimpleTextItem(lib.datconv.numToStr(coord["slot"], self.displayBase, self.alphanumeric), self)
         self._item_text.setPen(QtGui.QPen(0x220000, 0.5))
-        self._item_text.setBrush(0x80FF80 if not slotnames["subkind"].startswith("0x") else 0xFF90E0)
-        self._item_text.setPos(-self._item_text.boundingRect().center())
         self._item_text.setTransformOriginPoint(self._item_text.boundingRect().center())
         self._item_text.setScale(1.25)
         self.addToGroup(self._item_rect) # only the rect (and children) is selectable
@@ -342,7 +340,9 @@ class LevelEntityItem(QtWidgets.QGraphicsItemGroup):
         self.updateInfo(coord=coord, slotnames=slotnames)
         
     def updateInfo(self, coord:dict[str], slotnames:dict[str]):
+        self._item_text.setBrush(0x80FF80 if not slotnames["subkind"].startswith("0x") else 0xFF90E0)
         self._item_text.setText(lib.datconv.numToStr(coord["slot"], self.displayBase, self.alphanumeric))
+        self._item_text.setPos(-self._item_text.boundingRect().center())
         self.setToolTip(f"""Entity {lib.datconv.numToStr(self.coordIndex, self.displayBase, self.alphanumeric)}\
                                 \nX: {lib.datconv.numToStr(coord["x"], self.displayBase, self.alphanumeric)}\
                                 \nY: {lib.datconv.numToStr(coord["y"], self.displayBase, self.alphanumeric)}\

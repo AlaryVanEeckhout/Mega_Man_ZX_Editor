@@ -280,7 +280,7 @@ ENTITYKINDS_ZX = {
             0x02: ("Maquereau", {})
         }),
         0x59: ("Prairie (Grand Nuage)", {}),
-        0x59: ("Townspeople (Area G)", {}),
+        0x5A: ("Townspeople (Area G)", {}),
         0x5B: ("Mission Guardian?", {})
     }),
     0x06: ("Item", {

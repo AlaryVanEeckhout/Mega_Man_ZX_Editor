@@ -52,26 +52,27 @@ class File(common.File):
         return bytes(self.data)
 
 class Overlay:
-    def __init__(self, data: bytes, baseRAMAddress: int, structRAMAddress: int, entitySlotRAMAddress: int, entityCoordRAMAddress: int, entitynamedict: dict[str, dict]):
+    def __init__(self, data: bytes, baseRAMAddress: int, RAMAddressDict: dict[str, list[int]], RAMAddressDictIndex: int, entitynamedict: dict[str, dict]):
         self.data = data
         self.RAMAddress = baseRAMAddress
 
-        self.struct_RAMAddress = structRAMAddress
+        self.struct_RAMAddress = RAMAddressDict["level"][RAMAddressDictIndex]
         self.struct_address = self.getFileAddress(self.struct_RAMAddress)
-        self.entityCoord_RAMAddress = entityCoordRAMAddress
+        self.entityCoord_RAMAddress = RAMAddressDict["entity coord"][RAMAddressDictIndex]
         self.entityCoord_address = self.getFileAddress(self.entityCoord_RAMAddress)
-        self.entitySlot_RAMAddress = entitySlotRAMAddress
+        self.entitySlot_RAMAddress = RAMAddressDict["entity slot"][RAMAddressDictIndex]
         self.entitySlot_address = self.getFileAddress(self.entitySlot_RAMAddress)
 
 
         print(f"0x{self.struct_RAMAddress:08X}")
 
         self.firstTable_RAMAddress = int.from_bytes(self.data[self.struct_address+0x04:self.struct_address+0x08], byteorder='little')
-        self.tileset_RAMAddress = int.from_bytes(self.data[self.struct_address+0x08:self.struct_address+0x10], byteorder='little')
-        if self.tileset_RAMAddress != 0:
-            self.tileset_name = data[self.getFileAddress(self.tileset_RAMAddress):self.getFileAddress(self.tileset_RAMAddress)+0x08].decode().replace("\x00", "")
+        self.tilesetName_RAMAddress = int.from_bytes(self.data[self.struct_address+0x08:self.struct_address+0x10], byteorder='little')
+        self.tilesetName_address = self.getFileAddress(self.tilesetName_RAMAddress)
+        if self.tilesetName_RAMAddress != 0:
+            self.tilesetName = data[self.tilesetName_address:self.tilesetName_address+0x08].decode().replace("\x00", "")
         else:
-            self.tileset_name = ""
+            self.tilesetName = ""
         self.screenLayout0_RAMAddress = int.from_bytes(self.data[self.struct_address+0x10:self.struct_address+0x14], byteorder='little')
         self.screenLayout0_address = self.getFileAddress(self.screenLayout0_RAMAddress)
         self.screenLayout1_RAMAddress = int.from_bytes(self.data[self.struct_address+0x14:self.struct_address+0x18], byteorder='little')
@@ -117,6 +118,10 @@ class Overlay:
         return RAMAddress - self.RAMAddress
     
     def toBytes(self):
+        tilesetName_bin = self.tilesetName.encode()
+        tilesetName_bin += bytes(0x08-len(tilesetName_bin))
+        print(tilesetName_bin)
+        self.data[self.tilesetName_address:self.tilesetName_address+0x08] = tilesetName_bin
         # Layouts
         screenLayout0_bin = self.screenLayout0.toBytes()
         self.data[self.screenLayout0_address:self.screenLayout0_address+len(screenLayout0_bin)] = screenLayout0_bin
@@ -211,36 +216,16 @@ class Entities:
 class EntitySlots:
     def __init__(self, data: bytes, address: int, namedict: dict[str, dict]):
         self.data = data
+        self._address = address
+        self._namedict = namedict
         self.entityList: list[dict] = []
         self.nameList: list[dict] = []
-        index = address
+        index = 0
         while True:
-            entity_data = self.data[index:index+0x0C]
+            entity_data = self.data[address+index*0x0C:address+index*0x0C+0x0C]
             if  len(entity_data) != 0x0C or entity_data[0] not in [0x01, 0x02, 0x04, 0x10, 0x11, 0x12, 0x41, 0x50]: # todo: find the correct way to detect structure end
                 print(entity_data.hex())
                 break
-            dict_current = namedict
-            dict_previous = None
-            param_list = []
-            param_size = 4 # how many levels of dicts there are
-            for i in range(1, param_size+1):
-                if (not len(param_list) or (len(param_list) and not param_list[i-2].startswith("0x"))) and entity_data[i] in dict_current:
-                    param_list.append(dict_current[entity_data[i]][0])
-                elif dict_previous is not None and None in dict_previous.keys() and entity_data[i] in dict_previous[None][1]: # search for wildcard info
-                    param_list.append(dict_previous[None][1][entity_data[i]][0])
-                else: # no matches found
-                    param_list.append(f"0x{entity_data[i]:02X}")
-                if len(param_list) == param_size: break
-                dict_previous = dict_current
-                try:
-                    dict_current = dict_current[entity_data[i]][1] # go to dict nested inside
-                except KeyError:
-                    dict_current = {}
-            #kind = dict_current[entity_data[1]][0] if entity_data[1] in dict_current else f"0x{entity_data[1]:02X}"
-            #dict_current = dict_current[entity_data[1]][1]
-            #subkind = dict_current[entity_data[2]][0] if not kind.startswith("0x") and entity_data[2] in dict_current else f"0x{entity_data[2]:02X}"
-            #dict_current = dict_current[entity_data[2]][1]
-            #role = dict_current[entity_data[3]][0] if not id.startswith("0x") and entity_data[3] in dict_current else f"0x{entity_data[3]:02X}"
             self.entityList.append({
                 "attr": entity_data[0], # might be some kind of bitmask: 0x02 for collectibles(?), 0x40 is used sometimes...
                 "kind": entity_data[1],
@@ -255,28 +240,59 @@ class EntitySlots:
                 "unkA": entity_data[10],
                 "unkB": entity_data[11],
             })
-            self.nameList.append({
-                "attr": f"0x{entity_data[0]:02X}", # might be some kind of bitmask: 0x02 for collectibles(?), 0x40 is used sometimes...
-                "kind": param_list[0],
-                "subkind": param_list[1],
-                "role": param_list[2],
-                "modifier": param_list[3],
-                "unk5": f"0x{entity_data[5]:02X}",
-                "unk6": f"0x{entity_data[6]:02X}", # a count for something
-                "unk7": f"0x{entity_data[7]:02X}",
-                "unk8": f"0x{entity_data[8]:02X}", # 0x00 or 0xFF
-                "unk9": f"0x{entity_data[9]:02X}",
-                "unkA": f"0x{entity_data[10]:02X}",
-                "unkB": f"0x{entity_data[11]:02X}",
-            })
-            index += 0x0C
+            self.nameList.append({})
+            self.updateName(index)
+            index += 1
     
+    def updateName(self, list_index:int, fromDict:bool=False):
+        if fromDict:
+            entity_data = self.entityToBytes(self.entityList[list_index])
+        else:
+            entity_data = self.data[self._address+list_index*0x0C:self._address+list_index*0x0C+0x0C]
+        dict_current = self._namedict
+        dict_previous = None
+        param_list = []
+        param_size = 4 # how many levels of dicts there are
+        for i in range(1, param_size+1):
+            if (not len(param_list) or (len(param_list) and not param_list[i-2].startswith("0x"))) and entity_data[i] in dict_current:
+                param_list.append(dict_current[entity_data[i]][0])
+            elif dict_previous is not None and None in dict_previous.keys() and entity_data[i] in dict_previous[None][1]: # search for wildcard info
+                param_list.append(dict_previous[None][1][entity_data[i]][0])
+            else: # no matches found
+                param_list.append(f"0x{entity_data[i]:02X}")
+            if len(param_list) == param_size: break
+            dict_previous = dict_current
+            try:
+                dict_current = dict_current[entity_data[i]][1] # go to dict nested inside
+            except KeyError:
+                dict_current = {}
+
+        self.nameList[list_index] = {
+            "attr": f"0x{entity_data[0]:02X}", # might be some kind of bitmask: 0x02 for collectibles(?), 0x40 is used sometimes...
+            "kind": param_list[0],
+            "subkind": param_list[1],
+            "role": param_list[2],
+            "modifier": param_list[3],
+            "unk5": f"0x{entity_data[5]:02X}",
+            "unk6": f"0x{entity_data[6]:02X}", # a count for something
+            "unk7": f"0x{entity_data[7]:02X}",
+            "unk8": f"0x{entity_data[8]:02X}", # 0x00 or 0xFF
+            "unk9": f"0x{entity_data[9]:02X}",
+            "unkA": f"0x{entity_data[10]:02X}",
+            "unkB": f"0x{entity_data[11]:02X}",
+        }
+    
+    def entityToBytes(self, entity:dict[str]):
+        data = bytes()
+        for key in entity:
+            val = entity[key]
+            data += int.to_bytes(val, 1, byteorder='little')
+        return data
+
     def toBytes(self):
         data = bytes()
         for entity in self.entityList:
-            for key in entity:
-                val = entity[key]
-                data += int.to_bytes(val, 1, byteorder='little')
+            data += self.entityToBytes(entity)
         return data
 
 # EntityTemplateCoord of rmz3 decomp
@@ -322,8 +338,11 @@ class Level: # LZ10 compressed
         self.collision: list[list[int]] = []
         for i in range(self.collision_offset, self.screens_offset, 2): # collision shape and attributes
             assert (i-self.collision_offset)//2 < len(self.metaTiles)
-            self.collision.append([int.from_bytes(self.data[i:i+0x01], byteorder='little'),
-                                   int.from_bytes(self.data[i+0x01:i+0x02], byteorder='little')])
+            shape = int.from_bytes(self.data[i:i+0x01], byteorder='little')
+            attributes = int.from_bytes(self.data[i+0x01:i+0x02], byteorder='little')
+            self.collision.append([shape, attributes])
+            #if (shape & 0xF0) >> 4 not in [0,1,4,8]: # find tiles with odd attributes
+            #    print(f"{shape:02X}", len(self.collision))
         self.screens: list[list[int]] = []
         screenTiles: list[int] = []
         screenTile_index = 0
