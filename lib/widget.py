@@ -219,6 +219,7 @@ class TilesetView(View):
                 item.setSelected(True)
         else:
             super().mousePressEvent(event)
+        self.scene().update()
     
     def selectionChange(self):
         #print(self.scene().selectedItems())
@@ -625,7 +626,7 @@ class BetterSpinBox(QtWidgets.QDoubleSpinBox):
             #print("invalid input detected: " + input)
             return (QtGui.QValidator.State.Invalid, input, pos)
 
-    def textFromValue(self, value): # ovewrite of existing function with 2 args that determines how value is displayed inside spinbox
+    def textFromValue(self, value): # overwrite of existing function with 2 args that determines how value is displayed inside spinbox
         if self.isInt:
             self.acceptedSymbols = ["-", "{", "}", *lib.datconv.symbols]
             return lib.datconv.numToStr(int(value), self.numbase, self.alphanum).zfill(self.numfill)
@@ -640,10 +641,13 @@ class BetterSpinBox(QtWidgets.QDoubleSpinBox):
             return float(lib.datconv.strToNum(text, self.numbase))
     
     def value(self):
-        if self.isInt:
-            return int(super().value())
-        else:
-            return super().value()
+        return int(super().value()) if self.isInt else super().value()
+    
+    def minimum(self):
+        return int(super().minimum()) if self.isInt else super().minimum()
+
+    def maximum(self):
+        return int(super().maximum()) if self.isInt else super().maximum()
 
 class LongTextEdit(QtWidgets.QPlainTextEdit):
     def __init__(self, *args, charmap=lib.dialogue.CHARMAP_DIALOGUE_ZX_EN, **kwargs):

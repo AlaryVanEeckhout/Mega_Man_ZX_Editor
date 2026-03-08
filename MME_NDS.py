@@ -84,7 +84,8 @@ class MainWindow(QtWidgets.QMainWindow):
              0xff6b10ce, 0xff8c21de, 0xffb531ef, 0xffde4aff, 0xfff763ff, 0xffff9cff, 0xffffd6ff, 0xffffffff,
              0xff000000, 0xffc6f7ff, 0xffbdd6ff, 0xffa5adf7, 0xff8c7be7, 0xff7352de, 0xff5a29ce, 0xff4200c6, # PX shield
              0xff6b10ce, 0xff8c21de, 0xffb531ef, 0xffde4aff, 0xfff763ff, 0xffff9cff, 0xffffd6ff, 0xffffffff]*4, # sprites
-            [0xff000000+((0x010101*i)%0x1000000) for i in range(256)], # face
+            [0xff000000+((0x010101*i)%0x1000000) for i in range(256)], # 8bpp
+            [0xff000000+((0x010101*i)%0x1000000) if i not in [0,255] else 0xffff00dd if i != 255 else 0xff000000 for i in range(256)], # cutscene
         ]
         self.gfx_palette = self.GFX_PALETTES[0]
         self.fileEdited_object = None
@@ -559,7 +560,7 @@ class MainWindow(QtWidgets.QMainWindow):
         #Tile Wifth
         self.tile_width = 8
         self.field_tile_width = lib.widget.BetterSpinBox(self.page_explorer)
-        self.field_tile_width.setStatusTip(f"Set tile width to {lib.datconv.numToStr(16, self.displayBase, self.displayAlphanumeric)} or {lib.datconv.numToStr(32, self.displayBase, self.displayAlphanumeric)} for some ZXA sprites")
+        self.field_tile_width.setStatusTip(f"Set tile width to {lib.datconv.numToStr(16, self.displayBase, self.displayAlphanumeric)}, {lib.datconv.numToStr(32, self.displayBase, self.displayAlphanumeric)} or {lib.datconv.numToStr(64, self.displayBase, self.displayAlphanumeric)} for some ZXA sprites")
         self.field_tile_width.setFont(self.font_caps)
         self.field_tile_width.setValue(self.tile_width)
         self.field_tile_width.setMinimum(1)
@@ -676,7 +677,7 @@ class MainWindow(QtWidgets.QMainWindow):
             button_palettepick.pressed_quick.connect(lambda press, hold=None, color_index=i: self.colorpickCall(color_index, press, hold))
 
         self.dropdown_gfx_palette = QtWidgets.QComboBox(self.page_explorer)
-        self.dropdown_gfx_palette.addItems(["Default Palette", "Font Palette", "Sprites Palette", "BG Palette"]) # order of names is determined by the enum in dataconverter
+        self.dropdown_gfx_palette.addItems(["Default Palette", "Font Palette", "Sprites Palette", "Grayscale", "Grayscale Alt"]) # order of names is determined by self.GFX_PALETTES
         self.dropdown_gfx_palette.setToolTip("Choose palette")
         self.dropdown_gfx_palette.setStatusTip("Select the color palette preset that you want to use to render images")
         self.dropdown_gfx_palette.currentIndexChanged.connect(lambda: self.setPalette(self.GFX_PALETTES[self.dropdown_gfx_palette.currentIndex()])) # Update gfx with current depth
@@ -2130,12 +2131,27 @@ class MainWindow(QtWidgets.QMainWindow):
             self.rom_fat.append(int.from_bytes(rom[fat_offset+i*8:fat_offset+i*8+4], "little"))
 
     def loadROM(self, fname: str):
+        if fname == "" or not os.path.exists(fname):
+            print("file does not exist.")
+            QtWidgets.QMessageBox.critical(
+            self,
+            "Failed to load ROM",
+            str("Could not find the file to load. Make sure the path entered is valid.")
+            )
+            return
+        if len(open(fname, 'rb').read()) <= 0:
+            print("file is empty")
+            QtWidgets.QMessageBox.critical(
+            self,
+            "Failed to load ROM",
+            str("An empty file is not a valid ROM! Please select a valid Nintendo DS file.")
+            )
+            return
+
         # reset stuff to prevent conflicts
         self.rom = None
         self.sdats = []
         self.disable_editing_ui()
-
-        if fname == "" or not os.path.exists(fname): return
 
         self.progressShow() # progress bar
         self.progressUpdate(0, "Loading ROM", False) # icon and title won't show until loaded
@@ -2172,6 +2188,8 @@ class MainWindow(QtWidgets.QMainWindow):
             )
             self.setWindowTitle("Mega Man ZX Editor")
             self.setWindowIcon(QtGui.QIcon("icons\\appicon.ico"))
+            for widget in self.findChildren(QtWidgets.QWidget):
+                widget.blockSignals(False)
             return
         try:
             #fileID = str(self.rom.filenames).rpartition(".sdat")[0].split()[-2]
@@ -2255,8 +2273,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_address.show()
         self.label_file_size.show()
         self.dropdown_level_area.blockSignals(True)
-        self.dropdown_level_area.addItems([item.text(0) for item in self.tree_arm9Ovltable.findItems(self.tree_arm9Ovltable.topLevelItem(self.tree_arm9Ovltable.topLevelItemCount()-1).text(1), QtCore.Qt.MatchFlag.MatchExactly, 1)])
-        self.loadOvelrayStructAddressTable()
+        if self.tree_arm9Ovltable.topLevelItemCount():
+            self.dropdown_level_area.addItems([item.text(0) for item in self.tree_arm9Ovltable.findItems(self.tree_arm9Ovltable.topLevelItem(self.tree_arm9Ovltable.topLevelItemCount()-1).text(1), QtCore.Qt.MatchFlag.MatchExactly, 1)])
+            self.loadOvelrayStructAddressTable()
         self.dropdown_level_area.setCurrentIndex(-1)
         self.dropdown_level_area.setEnabled(True)
         for i in range(self.layout_level_area.count()):
@@ -2706,10 +2725,18 @@ class MainWindow(QtWidgets.QMainWindow):
             if member.depth == depth:
                 depth_obj = member
         try: #gfxOffset+gfxsec.graphics[index_img].gfx_size
-            obj_img = lib.datconv.binToQt(fileEditedObj.auxfile.data[gfxOffset:], pal,
-                                                depth_obj,
-                                                obj.getWidth(),
-                                                obj.getHeight())
+            if self.gamedat.name in ["ROCKMANZXA", "MEGAMANZXA"] and obj.shape not in [0,1,2]:
+                obj_img = lib.datconv.binToQt(fileEditedObj.auxfile.data[gfxOffset:], pal,
+                    depth_obj,
+                    1,
+                    8, 0x20
+                )
+            else:
+                obj_img = lib.datconv.binToQt(fileEditedObj.auxfile.data[gfxOffset:], pal,
+                    depth_obj,
+                    obj.getWidth(),
+                    obj.getHeight()
+                )
         except AssertionError:
             print(f"invalid object properties detected in object {obj_index}!")
             print(f"shape: {obj.shape}  size: {obj.sizeIndex} ZXA width(?): {obj.sizeIndex*0x10:02X}")
@@ -2788,8 +2815,12 @@ class MainWindow(QtWidgets.QMainWindow):
         if hold:
             dialog = QtWidgets.QColorDialog(self)
             dialog.setOptions(QtWidgets.QColorDialog.ColorDialogOption.DontUseNativeDialog)
-            dialog.setCurrentColor(int(button.styleSheet()[button.styleSheet().find(":")+3:button.styleSheet().find(";")], 16))
-            dialog.exec()
+            color = button.styleSheet()[button.styleSheet().find(":")+3:button.styleSheet().find(";")]
+            if any(x in lib.datconv.symbols for x in color):
+                dialog.setCurrentColor(int(color, 16))
+                dialog.exec()
+            else:
+                return
             if dialog.selectedColor().isValid():
                 button.setStyleSheet(f"background-color: {dialog.selectedColor().name()}; color: white;")
                 self.gfx_palette[color_index] = dialog.selectedColor().rgba()
@@ -3227,6 +3258,11 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.tiles_per_row = 6
                                 self.field_tiles_per_column.setValue(self.tiles_per_column)
                                 self.field_tiles_per_row.setValue(self.tiles_per_row)
+                            elif "dm" in current_name:
+                                self.tiles_per_row = 0x20
+                                self.field_tiles_per_row.setValue(self.tiles_per_row)
+                                self.dropdown_gfx_depth.setCurrentIndex(2)
+                                self.setPalette(self.GFX_PALETTES[3])
                             self.dropdown_gfx_index.clear()
                             self.dropdown_gfx_subindex.clear()
                             try: # obj_fnt.bin
@@ -3242,6 +3278,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                     self.fileEdited_object = None
                         if self.fileEdited_object != None:
                             self.file_content_gfx.resetScene()
+                            self.button_file_save.setDisabled(True)
                             self.dropdown_gfx_depth.setDisabled(True)
                             self.field_address.setDisabled(True)
                             self.dropdown_gfx_palette.setDisabled(True)
@@ -3266,16 +3303,19 @@ class MainWindow(QtWidgets.QMainWindow):
                             if self.dropdown_gfx_subindex.count() > 0:
                                 if sender == self.dropdown_gfx_index or sender == self.dropdown_gfx_subindex or sender in self.FILEOPEN_WIDGETS or sender == self.checkbox_depthUpdate:
                                     header_index = self.dropdown_gfx_subindex.currentIndex()
+                                    gfx_current = gfxsec.graphics[header_index]
                                     if self.checkbox_depthUpdate.isChecked() and gfxsec.entry_size == 0x14:
-                                        if gfxsec.graphics[header_index].depth//2 == 4:
+                                        if gfx_current.depth//2 == 4:
                                             self.dropdown_gfx_depth.setCurrentIndex(1)
-                                        elif gfxsec.graphics[header_index].depth//2 == 8:
+                                            if gfxsec.entry_size == 0x14 and gfx_current.unk13 & 0x0f:
+                                                print("wrong depth guess(?)")
+                                        elif gfx_current.depth//2 == 8:
                                             self.dropdown_gfx_depth.setCurrentIndex(2)
                                         else: # this should now be impossible
-                                            print(f"unrecognized depth {gfxsec.graphics[header_index].depth}")
+                                            print(f"unrecognized depth {gfx_current.depth}")
                                             self.dropdown_gfx_depth.setCurrentIndex(1)
-                                    gfxOffset = gfxsec.graphics[header_index].offset_start + gfxsec.graphics[header_index].gfx_offset
-                                    gfxSize = gfxsec.graphics[header_index].gfx_size
+                                    gfxOffset = gfx_current.offset_start + gfx_current.gfx_offset
+                                    gfxSize = gfx_current.gfx_size
                                     self.relative_address = gfxOffset
                                     self.field_address.setRange(self.base_address+gfxOffset, self.base_address + gfxOffset+gfxSize)
                                     self.field_address.setValue(self.base_address+self.relative_address)
@@ -3284,19 +3324,19 @@ class MainWindow(QtWidgets.QMainWindow):
                                         return
                                     print(f"{gfxsec.entryCount} sub-entrie(s)")
                                     print(f"size: {gfxSize:02X}")
-                                    if hasattr(gfxsec.graphics[header_index], "oam_tile_indexing"):
-                                        print(f"oam_tile_indexing: {gfxsec.graphics[header_index].oam_tile_indexing:02X}")
-                                    if hasattr(gfxsec.graphics[header_index], "oam_tile_offset"):
-                                        print(f"oam tile offset: {gfxsec.graphics[header_index].oam_tile_offset:02X}")
-                                    if hasattr(gfxsec.graphics[header_index], "unk08"):
-                                        print(f"unk08: {gfxsec.graphics[header_index].unk08:02X}")
-                                    if hasattr(gfxsec.graphics[header_index], "unk09"):
-                                        print(f"unk09: {gfxsec.graphics[header_index].unk09:02X}")
+                                    if hasattr(gfx_current, "oam_tile_indexing"):
+                                        print(f"oam_tile_indexing: {gfx_current.oam_tile_indexing:02X}")
+                                    if hasattr(gfx_current, "oam_tile_offset"):
+                                        print(f"oam tile offset: {gfx_current.oam_tile_offset:02X}")
+                                    if hasattr(gfx_current, "unk08"):
+                                        print(f"unk08: {gfx_current.unk08:02X}")
+                                    if hasattr(gfx_current, "unk09"):
+                                        print(f"unk09: {gfx_current.unk09:02X}")
                                     if gfxsec.entry_size == 0x14:
-                                        pal_off = gfxsec.graphics[header_index].offset_start + gfxsec.graphics[header_index].palette_offset+0xc
-                                        pal = [0xffffffff]*(gfxsec.graphics[header_index].unk13 & 0xf0) # shift palette
-                                        pal.extend(lib.datconv.BGR15_to_ARGB32(self.rom.files[current_id][pal_off:pal_off+gfxsec.graphics[header_index].palette_size]))
-                                        print(f"unk13 & 0F: {gfxsec.graphics[header_index].unk13 & 0x0f:02X}")
+                                        pal_off = gfx_current.offset_start + gfx_current.palette_offset+0xc
+                                        pal = [0xffffffff]*(gfx_current.unk13 & 0xf0) # shift palette
+                                        pal.extend(lib.datconv.BGR15_to_ARGB32(self.rom.files[current_id][pal_off:pal_off+gfx_current.palette_size]))
+                                        print(f"unk13 & 0F: {gfx_current.unk13 & 0x0f:02X}")
                                     else:
                                         pal = [] # empty palette because idk where it is
                                     self.setPalette(pal)
@@ -3304,23 +3344,26 @@ class MainWindow(QtWidgets.QMainWindow):
                                 print(f"{gfxsec.entryCount} graphic sub-entries!")
                                 #print(f"data: {gfxsec.data.hex()}")
 
+                        depth_obj = list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()]
                         #print(self.dropdown_gfx_depth.currentText()[:1] + " bpp graphics")
                         # since the pen is in grayscale, we can use r, g or b as color index
-                        if self.file_content_gfx.pen.color().blue() >= 2**list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()].depth: # if color out of range
+                        if self.file_content_gfx.pen.color().blue() >= 2**depth_obj.depth: # if color out of range
                             self.file_content_gfx.pen.setColor(0x00010101) # set to first color
-                        gfx_viewed = self.rom.files[current_id][self.relative_address:]
+                        tile_size = int((self.tile_width*self.tile_height)*depth_obj.depth/8)
+                        view_size = tile_size*self.tiles_per_row*self.tiles_per_column
+                        gfx_viewed = self.rom.files[current_id][self.relative_address:max(self.field_address.maximum()-self.base_address,self.relative_address+view_size)]
                         if len(gfx_viewed) > 0:
                             try:
                                 gfx_viewed = ndspy.lz10.decompress(gfx_viewed)
                                 print("this image is compressed")
-                            except TypeError:
+                            except Exception:
                                 pass
                         else:
                             print("no graphic data to process! This address is most likely invalid.")
                             return
                         draw_tilesQImage_fromBytes(self.file_content_gfx,
                                                    gfx_viewed,
-                                                   algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
+                                                   algorithm=depth_obj,
                                                    grid=True)
                         self.dropdown_gfx_depth.setDisabled(False)
                         self.field_address.setDisabled(False)

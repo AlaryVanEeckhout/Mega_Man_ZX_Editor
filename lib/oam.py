@@ -4,6 +4,7 @@ import bisect
 SPRITE_WIDTHS = ((1,2,4,8),(2,4,4,8),(1,1,2,4), (1,1,1,1)) # in tiles
 SPRITE_HEIGHTS = ((1,2,4,8),(1,1,2,4),(2,4,4,8), (1,1,1,1))
 SPRITE_DIMENSIONS = (("1x1", "2x2", "4x4", "8x8"), ("2x1", "4x1", "4x2", "8x4"), ("1x2", "1x4", "2x4", "4x8"), ("N/A", "N/A", "N/A", "N/A"))
+# ZXA may have something like: tile width -> (0x8, 0x10, 0x20, 0x40, 0x100)
 
 class File(common.File):
     def __init__(self, *args, **kwargs):
