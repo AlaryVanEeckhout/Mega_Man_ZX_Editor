@@ -1,4 +1,4 @@
-from PyQt6 import QtGui, QtWidgets, QtCore, QtQuickWidgets, QtQuick
+from PyQt6 import QtGui, QtWidgets, QtCore#, QtQuickWidgets, QtQuick
 import lib
 
 class Toolbar(QtWidgets.QToolBar):
@@ -41,12 +41,17 @@ class View(QtWidgets.QGraphicsView):
         self.setSceneRect(self.scene().itemsBoundingRect())
         self.fitInView(self.sceneRect(), QtCore.Qt.AspectRatioMode.KeepAspectRatio if scale else QtCore.Qt.AspectRatioMode.KeepAspectRatioByExpanding)
     
+    def mouseMoveEvent(self, event):
+        self.scene().update()
+        return super().mouseMoveEvent(event)
+    
     def mousePressEvent(self, event):
         #print("QGraphicsView mousePress")
         self.mousePressed = True
         self.mouseLeftPressed = (event.button() == QtCore.Qt.MouseButton.LeftButton)
         self.mouseRightPressed = (event.button() == QtCore.Qt.MouseButton.RightButton)
-        super().mousePressEvent(event)
+        self.scene().update()
+        return super().mousePressEvent(event)
     
     def mouseReleaseEvent(self, event):
         #print("QGraphicsView mouseRelease")
@@ -239,12 +244,12 @@ class LevelView(View):
     def mousePressEvent(self, event):
         super().mousePressEvent(event)
         self.levelInteract(event)
-        self.scene().update()
+       # self.scene().update()
 
     def mouseMoveEvent(self, event):
         super().mouseMoveEvent(event)
         self.levelInteract(event)
-        self.scene().update() # prevent leftover graphics from previous render frame
+        #self.scene().update() # prevent leftover graphics from previous render frame
 
     def levelInteract(self, event: QtGui.QMouseEvent):
         if not self.mousePressed: return

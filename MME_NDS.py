@@ -1,4 +1,5 @@
 from PyQt6 import QtGui, QtWidgets, QtCore#, QtMultimedia Qt6, Qt6.qsci
+from pathlib import Path
 import sys, os, platform, re, math
 import argparse
 import traceback
@@ -18,6 +19,8 @@ try:
 except ImportError:
     pass
 
+PATH_ROOT = Path(__file__).resolve().parent
+lib.ini_rw.ini_dir = PATH_ROOT
 parser = argparse.ArgumentParser()
 parser.add_argument("-R", "--ROM", help="NDS ROM to open using the editor.", dest="openPath")
 args = parser.parse_args()
@@ -56,9 +59,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.VERSION_NDSPY = "4.2.0"
         self.window_width = 1024
         self.window_height = 720
-        self.setWindowIcon(QtGui.QIcon('icons\\appicon.ico'))
+        self.setWindowIcon(QtGui.QIcon(str(PATH_ROOT / 'icons/appicon')))
         self.setWindowTitle("Mega Man ZX Editor")
-        self.temp_path = f"{os.path.curdir}\\temp\\"
+        self.temp_path = str(PATH_ROOT / "temp/")
         self.rom = None #ndspy.rom.NintendoDSRom # placeholder definitions
         self.isGameSupported = False
         self.gamedat = None
@@ -114,7 +117,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.firstLaunch:
             firstLaunch_dialog = QtWidgets.QMessageBox()
             firstLaunch_dialog.setWindowTitle("Mega Man ZX Editor - First Launch")
-            firstLaunch_dialog.setWindowIcon(QtGui.QIcon('icons\\information.png'))
+            firstLaunch_dialog.setWindowIcon(QtGui.QIcon(str(PATH_ROOT / 'icons/information')))
             firstLaunch_dialog.setTextFormat(QtCore.Qt.TextFormat.MarkdownText)
             firstLaunch_dialog.setText(f"""Thank you for trying out Mega Man ZX Editor!
                                        \rThe current version is {self.VERSION_EDITOR}."""
@@ -163,24 +166,24 @@ class MainWindow(QtWidgets.QMainWindow):
         self.window_progress.layout().addWidget(self.progress)
         self.window_progress.layout().addWidget(self.label_progress)
         # Menus
-        self.openAction = QtGui.QAction(QtGui.QIcon('icons\\folder-horizontal-open.png'), '&Open', self)        
+        self.openAction = QtGui.QAction(QtGui.QIcon(str(PATH_ROOT / 'icons/folder-horizontal-open')), '&Open', self)    
         self.openAction.setShortcut('Ctrl+O')
         self.openAction.setStatusTip('Open ROM')
         self.openAction.triggered.connect(self.openCall)
 
-        self.exportAction = QtGui.QAction(QtGui.QIcon('icons\\blueprint--arrow.png'), '&Export...', self)        
+        self.exportAction = QtGui.QAction(QtGui.QIcon(str(PATH_ROOT / 'icons/blueprint--arrow')), '&Export...', self)        
         self.exportAction.setShortcut('Ctrl+E')
         self.exportAction.setStatusTip('Export file in binary or converted format')
         self.exportAction.triggered.connect(lambda: self.exportCall(self.tree.currentItem()))
         self.exportAction.setDisabled(True)
 
-        self.replaceAction = QtGui.QAction(QtGui.QIcon('icons\\blue-document-import.png'), '&Replace...', self)
+        self.replaceAction = QtGui.QAction(QtGui.QIcon(str(PATH_ROOT / 'icons/blue-document-import')), '&Replace...', self)
         self.replaceAction.setShortcut('Ctrl+R')
         self.replaceAction.setStatusTip('Replace with file in binary or converted format')
         self.replaceAction.triggered.connect(lambda: self.replaceCall(self.tree.currentItem()))
         self.replaceAction.setDisabled(True)
 
-        self.replacebynameAction = QtGui.QAction(QtGui.QIcon('icons\\blue-document-import.png'), '&Replace by name...', self)        
+        self.replacebynameAction = QtGui.QAction(QtGui.QIcon(str(PATH_ROOT / 'icons/blue-document-import')), '&Replace by name...', self)        
         self.replacebynameAction.setStatusTip('Replace with file of same name in binary or converted format')
         self.replacebynameAction.triggered.connect(self.replacebynameCall)
 
@@ -189,13 +192,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.fileMenu.addActions([self.openAction, self.exportAction])
         self.importSubmenu = self.fileMenu.addMenu('&Import...')
         #self.importSubmenu.setStatusTip('Use external file to replace a file in ROM')
-        self.importSubmenu.setIcon(QtGui.QIcon('icons\\blue-document-import.png'))
+        self.importSubmenu.setIcon(QtGui.QIcon(str(PATH_ROOT / 'icons/blue-document-import')))
         self.importSubmenu.addActions([self.replaceAction, self.replacebynameAction])
         self.importSubmenu.setDisabled(True)
 
 
         self.dialog_about = QtWidgets.QDialog(self)
-        self.dialog_about.setWindowIcon(QtGui.QIcon('icons\\information.png'))
+        self.dialog_about.setWindowIcon(QtGui.QIcon(str(PATH_ROOT / 'icons/information')))
         self.dialog_about.setWindowTitle("About Mega Man ZX Editor")
         self.dialog_about.resize(500, 500)
         self.text_about = QtWidgets.QTextBrowser(self.dialog_about)
@@ -211,7 +214,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                 \rPython version: {self.VERSION_PYTHON} (your version is {platform.python_version()})\
                                 \rPyQt version: {self.VERSION_PYQT} (your version is {QtCore.PYQT_VERSION_STR})\
                                 \rNDSPy version: {self.VERSION_NDSPY} (your version is {list(ndspy.VERSION)[0]}.{list(ndspy.VERSION)[1]}.{list(ndspy.VERSION)[2]})""")
-        self.aboutAction = QtGui.QAction(QtGui.QIcon('icons\\information.png'), '&About', self)
+        self.aboutAction = QtGui.QAction(QtGui.QIcon(str(PATH_ROOT / 'icons/information')), '&About', self)
         self.aboutAction.setStatusTip('Show information about the application')
         self.aboutAction.triggered.connect(lambda: self.dialog_about.exec())
 
@@ -260,37 +263,37 @@ class MainWindow(QtWidgets.QMainWindow):
         self.page_settings_general.layout().addWidget(self.checkbox_alphanumeric)
         self.page_settings_performance.layout().addWidget(self.checkbox_fastLevel)
 
-        self.settingsAction = QtGui.QAction(QtGui.QIcon('icons\\gear.png'), '&Settings', self)
+        self.settingsAction = QtGui.QAction(QtGui.QIcon(str(PATH_ROOT / 'icons/gear')), '&Settings', self)
         self.settingsAction.setStatusTip('Settings')
         self.settingsAction.triggered.connect(lambda: self.dialog_settings.exec())
 
-        self.exitAction = QtGui.QAction(QtGui.QIcon('icons\\door.png'), '&Exit', self)
+        self.exitAction = QtGui.QAction(QtGui.QIcon(str(PATH_ROOT / 'icons/door')), '&Exit', self)
         self.exitAction.setStatusTip('Exit application')
         self.exitAction.triggered.connect(self.close)
 
         self.appMenu = self.menu_bar.addMenu('&Application')
         self.appMenu.addActions([self.aboutAction, self.settingsAction, self.exitAction])
 
-        self.displayRawAction = QtGui.QAction(QtGui.QIcon('icons\\brain.png'), '&Converted formats', self)
+        self.displayRawAction = QtGui.QAction(QtGui.QIcon(str(PATH_ROOT / 'icons/brain')), '&Converted formats', self)
         self.displayRawAction.setStatusTip('Displays files in a readable format instead of hex format.')
         self.displayRawAction.setCheckable(True)
         self.displayRawAction.setChecked(True)
         self.displayRawAction.triggered.connect(self.display_format_toggleCall)
 
-        self.viewAdaptAction = QtGui.QAction(QtGui.QIcon('icons\\document-node.png'), '&Adapt', self)
+        self.viewAdaptAction = QtGui.QAction(QtGui.QIcon(str(PATH_ROOT / 'icons/document-node')), '&Adapt', self)
         self.viewAdaptAction.setStatusTip('Files will be decrypted on a case per case basis.')
         self.viewAdaptAction.setCheckable(True)
         self.viewAdaptAction.setChecked(True)
         self.viewAdaptAction.triggered.connect(lambda: setattr(self, "fileDisplayMode", "Adapt"))
         self.viewAdaptAction.triggered.connect(lambda: self.treeCall())
 
-        self.viewDialogueAction = QtGui.QAction(QtGui.QIcon('icons\\document-text.png'), '&Dialogue', self)
+        self.viewDialogueAction = QtGui.QAction(QtGui.QIcon(str(PATH_ROOT / 'icons/document-text')), '&Dialogue', self)
         self.viewDialogueAction.setStatusTip('Files will be decrypted as in-game dialogues.')
         self.viewDialogueAction.setCheckable(True)
         self.viewDialogueAction.triggered.connect(lambda: setattr(self, "fileDisplayMode", "Dialogue"))
         self.viewDialogueAction.triggered.connect(lambda: self.treeCall())
 
-        self.viewGraphicAction = QtGui.QAction(QtGui.QIcon('icons\\appicon.ico'), '&Graphics', self)
+        self.viewGraphicAction = QtGui.QAction(QtGui.QIcon(str(PATH_ROOT / 'icons/appicon')), '&Graphics', self)
         self.viewGraphicAction.setStatusTip('Files will be decrypted as graphics.')
         self.viewGraphicAction.setCheckable(True)
         self.viewGraphicAction.triggered.connect(lambda: setattr(self, "fileDisplayMode", "Graphics"))
@@ -303,7 +306,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.viewMenu = self.menu_bar.addMenu('&View')
         self.viewMenu.addAction(self.displayRawAction)
-        self.displayFormatSubmenu = self.viewMenu.addMenu(QtGui.QIcon('icons\\document-convert.png'), '&Set edit mode...')
+        self.displayFormatSubmenu = self.viewMenu.addMenu(QtGui.QIcon(str(PATH_ROOT / 'icons/document-convert')), '&Set edit mode...')
         self.displayFormatSubmenu.addAction(self.viewAdaptAction)
         self.displayFormatSubmenu.addSeparator()
         self.displayFormatSubmenu.addActions(self.viewFormatsGroup.actions()[1:])
@@ -313,11 +316,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.toolbar.setSizePolicy(QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Ignored)
         self.addToolBar(self.toolbar)
 
-        self.action_save = QtGui.QAction(QtGui.QIcon('icons\\disk.png'), "Save ROM to Disk", self)
+        self.action_save = QtGui.QAction(QtGui.QIcon(str(PATH_ROOT / 'icons/disk')), "Save ROM to Disk", self)
         self.action_save.setStatusTip("Generate ROM with saved changes; unsaved changes will remain unsaved.")
         self.action_save.triggered.connect(self.saveCall)
         self.action_save.setDisabled(True)
-        self.button_playtest = lib.widget.HoldButton(QtGui.QIcon('icons\\control.png'), "", self)
+        self.button_playtest = lib.widget.HoldButton(QtGui.QIcon(str(PATH_ROOT / 'icons/control')), "", self)
         self.button_playtest.setToolTip("Playtest ROM (Hold for options)")
         self.button_playtest.setStatusTip("Create a temporary ROM to test saved changes")
         self.button_playtest.allow_repeat = False
@@ -325,26 +328,26 @@ class MainWindow(QtWidgets.QMainWindow):
         self.button_playtest.pressed_quick.connect(lambda: self.testCall(True))
         self.button_playtest.held.connect(lambda: self.testCall(False))
         self.button_playtest.setDisabled(True)
-        self.button_reload = lib.widget.HoldButton(QtGui.QIcon('icons\\arrow-circle-315.png'), "", self)
+        self.button_reload = lib.widget.HoldButton(QtGui.QIcon(str(PATH_ROOT / 'icons/arrow-circle-315')), "", self)
         self.button_reload.setToolTip("Reload Interface (Hold for deep reload)")
         self.button_reload.setStatusTip("Reload the displayed data(all changes that aren't saved will be lost)")
         self.button_reload.allow_repeat = False
         self.button_reload.allow_press = True
         self.button_reload.pressed_quick.connect(lambda: self.reloadCall(1))
         self.button_reload.held.connect(lambda: self.reloadCall(2))
-        self.action_sdat = QtGui.QAction(QtGui.QIcon('icons\\speaker-volume.png'), "Open Sound Data Archive", self)
+        self.action_sdat = QtGui.QAction(QtGui.QIcon(str(PATH_ROOT / 'icons/speaker-volume')), "Open Sound Data Archive", self)
         self.action_sdat.setStatusTip("Show the contents of this ROM's sdat file")
         self.action_sdat.triggered.connect(lambda: self.dialogOpenCall("dialog_sdat"))
         self.action_sdat.setDisabled(True)
-        self.action_arm9 = QtGui.QAction(QtGui.QIcon('icons\\processor-num-9.png'), "Open ARM9", self)
+        self.action_arm9 = QtGui.QAction(QtGui.QIcon(str(PATH_ROOT / 'icons/processor-num-9')), "Open ARM9", self)
         self.action_arm9.setStatusTip("Show the contents of this ROM's ARM9")
         self.action_arm9.triggered.connect(lambda: self.dialogOpenCall("dialog_arm9"))
         self.action_arm9.setDisabled(True)
-        self.action_arm7 = QtGui.QAction(QtGui.QIcon('icons\\processor-num-7.png'), "Open ARM7", self)
+        self.action_arm7 = QtGui.QAction(QtGui.QIcon(str(PATH_ROOT / 'icons/processor-num-7')), "Open ARM7", self)
         self.action_arm7.setStatusTip("Show the contents of this ROM's ARM7")
         self.action_arm7.triggered.connect(lambda: self.dialogOpenCall("dialog_arm7"))
         self.action_arm7.setDisabled(True)
-        #self.button_codeedit = QtGui.QAction(QtGui.QIcon('icons\\document-text.png'), "Open code", self)
+        #self.button_codeedit = QtGui.QAction(QtGui.QIcon(str(PATH_ROOT / 'icons/document-text')), "Open code", self)
         #self.button_codeedit.setStatusTip("Edit the ROM's code")
         #self.button_codeedit.triggered.connect(self.codeeditCall)
         #self.button_codeedit.setDisabled(True)
@@ -382,7 +385,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.dialog_arm9 = QtWidgets.QMainWindow(self) # "independent" window: can move anywhere on screen, but still affected by main window
         self.dialog_arm9.setWindowTitle("ARM9")
-        self.dialog_arm9.setWindowIcon(QtGui.QIcon('icons\\processor-num-9.png'))
+        self.dialog_arm9.setWindowIcon(QtGui.QIcon(str(PATH_ROOT / 'icons/processor-num-9')))
         self.dialog_arm9.resize(600, 400)
 
         self.tabs_arm9 = QtWidgets.QTabWidget(self.dialog_arm9)
@@ -395,7 +398,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.dialog_arm9_dialogueNames = QtWidgets.QMainWindow(self)
         self.dialog_arm9_dialogueNames.setWindowTitle("ARM9 - Dialogue Names")
-        self.dialog_arm9_dialogueNames.setWindowIcon(QtGui.QIcon('icons\\document-text.png'))
+        self.dialog_arm9_dialogueNames.setWindowIcon(QtGui.QIcon(str(PATH_ROOT / 'icons/document-text')))
 
         self.page_dialoguenames = QtWidgets.QWidget(self.dialog_arm9_dialogueNames)
         self.page_dialoguenames.setLayout(QtWidgets.QGridLayout())
@@ -421,7 +424,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tabs_arm9.addTab(self.page_arm9, "Main Code")
         self.tabs_arm9.addTab(self.page_arm9Ovltable, "Overlays")
 
-        self.action_arm9_dialogueNames = QtGui.QAction(QtGui.QIcon('icons\\document-text.png'), "Dialogue Names", self.dialog_arm9)
+        self.action_arm9_dialogueNames = QtGui.QAction(QtGui.QIcon(str(PATH_ROOT / 'icons/document-text')), "Dialogue Names", self.dialog_arm9)
         self.action_arm9_dialogueNames.triggered.connect(lambda: self.dialogOpenCall("dialog_arm9_dialogueNames"))
         self.toolbar_arm9 = lib.widget.Toolbar("ARM9 Toolbar")
         self.toolbar_arm9.addActions([self.action_arm9_dialogueNames])
@@ -447,7 +450,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.dialog_arm7 = QtWidgets.QMainWindow(self)
         self.dialog_arm7.setWindowTitle("ARM7")
-        self.dialog_arm7.setWindowIcon(QtGui.QIcon('icons\\processor-num-7.png'))
+        self.dialog_arm7.setWindowIcon(QtGui.QIcon(str(PATH_ROOT / 'icons/processor-num-7')))
         self.dialog_arm7.resize(600, 400)
 
         self.tabs_arm7 = QtWidgets.QTabWidget(self.dialog_arm7)
@@ -756,7 +759,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_oam_animLoopStart.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
         self.button_oam_animToStart = QtWidgets.QPushButton(self.page_oam_anims)
-        self.button_oam_animToStart.setIcon(QtGui.QIcon("icons\\control-skip-180.png"))
+        self.button_oam_animToStart.setIcon(QtGui.QIcon(str(PATH_ROOT / 'icons/control-skip-180')))
         self.button_oam_animToStart.setToolTip("To Start")
         self.button_oam_animToStart.pressed.connect(lambda: self.button_oam_animPlay.autoPause())
         self.button_oam_animToStart.pressed.connect(lambda: self.dropdown_oam_animFrame.setCurrentIndex(0))
@@ -766,7 +769,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.button_oam_animPlay.frameRequested.connect(self.OAM_playAnimFrame)
 
         self.button_oam_animToEnd = QtWidgets.QPushButton(self.page_oam_anims)
-        self.button_oam_animToEnd.setIcon(QtGui.QIcon("icons\\control-skip.png"))
+        self.button_oam_animToEnd.setIcon(QtGui.QIcon(str(PATH_ROOT / 'icons/control-skip')))
         self.button_oam_animToEnd.setToolTip("To End")
         self.button_oam_animToEnd.pressed.connect(lambda: self.button_oam_animPlay.autoPause())
         self.button_oam_animToEnd.pressed.connect(lambda: self.dropdown_oam_animFrame.setCurrentIndex(self.dropdown_oam_animFrame.count()-1))
@@ -1041,7 +1044,7 @@ class MainWindow(QtWidgets.QMainWindow):
         #Sound Data Archive
         self.dialog_sdat = QtWidgets.QMainWindow(self)
         self.dialog_sdat.setWindowTitle("Sound Data Archive")
-        self.dialog_sdat.setWindowIcon(QtGui.QIcon('icons\\speaker-volume.png'))
+        self.dialog_sdat.setWindowIcon(QtGui.QIcon(str(PATH_ROOT / 'icons/speaker-volume')))
         self.dialog_sdat.resize(600, 400)
         self.dialog_sdat.setCentralWidget(QtWidgets.QWidget())
         self.dialog_sdat.centralWidget().setLayout(QtWidgets.QVBoxLayout())
@@ -1049,15 +1052,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.toolbar_sdat = lib.widget.Toolbar("SDAT Toolbar")
         self.dialog_sdat.addToolBar(self.toolbar_sdat)
 
-        self.action_playSdat = QtGui.QAction(QtGui.QIcon('icons\\control.png'), "Play Sound", self)
+        self.action_playSdat = QtGui.QAction(QtGui.QIcon(str(PATH_ROOT / 'icons/control')), "Play Sound", self)
         self.action_playSdat.setStatusTip("Play a SWAV or SSEQ")
         self.action_playSdat.triggered.connect(self.sdatPlayCall)
 
-        self.action_stopSdat = QtGui.QAction(QtGui.QIcon('icons\\control-stop-square.png'), "Stop Sound", self)
+        self.action_stopSdat = QtGui.QAction(QtGui.QIcon(str(PATH_ROOT / 'icons/control-stop-square')), "Stop Sound", self)
         self.action_stopSdat.setStatusTip("Stop Sound")
         self.action_stopSdat.triggered.connect(lambda: lib.sdat.stopSound())
 
-        self.action_plotSdat = QtGui.QAction(QtGui.QIcon('icons\\blueprint--arrow.png'), "Plot Sound", self)
+        self.action_plotSdat = QtGui.QAction(QtGui.QIcon(str(PATH_ROOT / 'icons/blueprint--arrow')), "Plot Sound", self)
         self.action_plotSdat.setStatusTip("Plot current soud")
         self.action_plotSdat.triggered.connect(self.sdatPlotCall)
 
@@ -1913,7 +1916,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tree_patches = lib.widget.EditorTree(self.page_patches)
         self.page_patches.layout().addWidget(self.tree_patches)
         self.tree_patches.setColumnCount(4)
-        self.tree_patches.setHeaderLabels(["Enabed", "Address", "Name", "Type", "Size"])
+        self.tree_patches.setHeaderLabels(["Enabled", "Address", "Name", "Type", "Size"])
         self.tree_patches.header().resizeSection(2, 250)
         self.tree_patches.itemChanged.connect(self.patch_game)
         self.tree_patches_checkboxes = [] # stores the state of checkboxes for complex checkbox logic
@@ -2187,7 +2190,7 @@ class MainWindow(QtWidgets.QMainWindow):
             str(e)
             )
             self.setWindowTitle("Mega Man ZX Editor")
-            self.setWindowIcon(QtGui.QIcon("icons\\appicon.ico"))
+            self.setWindowIcon(QtGui.QIcon(str(PATH_ROOT / 'icons/appicon')))
             for widget in self.findChildren(QtWidgets.QWidget):
                 widget.blockSignals(False)
             return
@@ -2211,12 +2214,12 @@ class MainWindow(QtWidgets.QMainWindow):
             self.sdats = []
             dialog = QtWidgets.QMessageBox(self)
             dialog.setWindowTitle("No SDAT")
-            dialog.setWindowIcon(QtGui.QIcon("icons\\exclamation"))
+            dialog.setWindowIcon(QtGui.QIcon(str(PATH_ROOT / 'icons/exclamation')))
             dialog.setText("Sound data archive was not found. \n This means that sound data may not be there or may not be in a recognizable format.")
             dialog.exec()
             self.progressShow()
         self.progressUpdate(10, "Obtaining metadata")
-        self.temp_path = f"{os.path.curdir}\\temp\\{self.romToEdit_name+self.romToEdit_ext}"
+        self.temp_path = str(PATH_ROOT / "temp" / (self.romToEdit_name+self.romToEdit_ext))
         self.setWindowTitle("Mega Man ZX Editor" + " <" + self.rom.name.decode() + ", Serial ID " + ''.join(char for char in self.rom.idCode.decode("utf-8") if char.isalnum())  + ", Rev." + str(self.rom.version) + ", Region " + str(self.rom.region) + ">" + " \"" + self.romToEdit_name + self.romToEdit_ext + "\"")
         if not self.rom.name.decode() in lib.gamedat.GameEnum.__members__:
             print("ROM is NOT supported! Continue at your own risk!")
@@ -2224,7 +2227,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.window_progress.hide()
             dialog = QtWidgets.QMessageBox(self)
             dialog.setWindowTitle("Warning!")
-            dialog.setWindowIcon(QtGui.QIcon("icons\\exclamation"))
+            dialog.setWindowIcon(QtGui.QIcon(str(PATH_ROOT / 'icons/exclamation')))
             dialog.setText("Game \"" + self.rom.name.decode() + "\" is NOT supported! Continue at your own risk!")
             dialog.exec()
             self.window_progress.show()
@@ -2334,7 +2337,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if dialog.exec(): # if you saved a file
             dialog2 = QtWidgets.QMessageBox()
             dialog2.setWindowTitle("Export Status")
-            dialog2.setWindowIcon(QtGui.QIcon('icons\\information.png'))
+            dialog2.setWindowIcon(QtGui.QIcon(str(PATH_ROOT / 'icons/information')))
             dialog2.setText("File export failed!")
             selectedFiles = dialog.selectedFiles()
             path = selectedFiles[0][:selectedFiles[0].rfind("/")]
@@ -2414,7 +2417,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 selectedFiles = dialog.selectedFiles()
                 dialog2 = QtWidgets.QMessageBox()
                 dialog2.setWindowTitle("Import Status")
-                dialog2.setWindowIcon(QtGui.QIcon('icons\\information.png'))
+                dialog2.setWindowIcon(QtGui.QIcon(str(PATH_ROOT / 'icons/information')))
                 dialog2.setText("File \"" + str(selectedFiles[0]).split("/")[-1] + "\" imported!")
                 if str(selectedFiles[0]).split("/")[-1].removesuffix("']") in str(self.rom.filenames): # if file you're trying to replace is in ROM
                     with open(*selectedFiles, 'rb') as f:
@@ -2470,7 +2473,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     selectedFiles = dialog.selectedFiles()
                     dialog2 = QtWidgets.QMessageBox()
                     dialog2.setWindowTitle("Import Status")
-                    dialog2.setWindowIcon(QtGui.QIcon('icons\\information.png'))
+                    dialog2.setWindowIcon(QtGui.QIcon(str(PATH_ROOT / 'icons/information')))
                     dialog2.setText("File import failed!")
                     fileInfo = self.file_fromItem(item)
                     if not isFolder and str(selectedFiles[0]).split("/")[-1].split(".")[1] == "txt" and re.search(r".*(_\d+)$", str(selectedFiles[0]).split("/")[-1].split(".")[0]): # fileExt and fileName
@@ -2635,13 +2638,10 @@ class MainWindow(QtWidgets.QMainWindow):
             lib.ini_rw.write(self)
         else:
             self.dropdown_theme.setCurrentIndex(self.theme_index) # Update dropdown with current option
-
-        app: QtWidgets.QMainWindow = QtCore.QCoreApplication.instance()
-        #print(app.style().metaObject().className())
-        app.setStyle(QtWidgets.QCommonStyle())
-        app.setStyleSheet("")
+        app: QtWidgets.QMainWindow = QtWidgets.QApplication.instance()
+        app.setStyleSheet("QComboBox QAbstractItemView {background-color: palette(base);}")
         if self.theme_index < len(QtWidgets.QStyleFactory.keys()):
-            app.setStyle(self.dropdown_theme.itemText(self.theme_index))
+            app.setStyle(self.dropdown_theme.currentText())
         else:
             if os.path.exists('theme\\custom_theme.qss'):
                 app.setStyleSheet(open('theme\\custom_theme.qss').read())
@@ -2650,14 +2650,14 @@ class MainWindow(QtWidgets.QMainWindow):
                 open('theme\\custom_theme.qss', "w")
                 dialog = QtWidgets.QMessageBox()
                 dialog.setWindowTitle("No custom stylesheet found")
-                dialog.setWindowIcon(QtGui.QIcon("icons\\exclamation"))
+                dialog.setWindowIcon(QtGui.QIcon(str(PATH_ROOT / 'icons/exclamation')))
                 dialog.setText("No custom stylesheet was found in location \"theme\\custom_theme.qss\".\nAn empty file has been created there.\nPlease put the contents of your custom stylesheet in it.\nIf you wish to create one yourself but do not know how, refer to this page:\nhttps://doc.qt.io/qtforpython-6.5/overviews/stylesheet-examples.html")
                 dialog.exec()
     
     def display_format_toggleCall(self):
         self.fileDisplayRaw = not self.fileDisplayRaw
         self.displayFormatSubmenu.setDisabled(self.displayFormatSubmenu.isEnabled())
-        self.widgetIcon_update(self.displayRawAction, QtGui.QIcon('icons\\brain.png'), QtGui.QIcon('icons\\document-binary.png'))
+        self.widgetIcon_update(self.displayRawAction, QtGui.QIcon(str(PATH_ROOT / 'icons/brain')), QtGui.QIcon(str(PATH_ROOT / 'icons/document-binary')))
         self.treeCall()
 
     def value_update_Call(self, var, val, istreecall=True):
@@ -2684,6 +2684,7 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             print("depth unknown")
         obj: lib.oam.Object = fileEditedObj.objs[obj_index]
+
         if item != None:
             obj.tileId = self.field_objTileId.value()
             obj.tileId_add = self.field_objTileId.value() & 0x300
@@ -2725,11 +2726,11 @@ class MainWindow(QtWidgets.QMainWindow):
             if member.depth == depth:
                 depth_obj = member
         try: #gfxOffset+gfxsec.graphics[index_img].gfx_size
-            if self.gamedat.name in ["ROCKMANZXA", "MEGAMANZXA"] and obj.shape not in [0,1,2]:
+            if isinstance(obj, lib.oam.Object3D):
                 obj_img = lib.datconv.binToQt(fileEditedObj.auxfile.data[gfxOffset:], pal,
                     depth_obj,
                     1,
-                    8, 0x20
+                    obj.getHeight(), obj.getTileWidth()
                 )
             else:
                 obj_img = lib.datconv.binToQt(fileEditedObj.auxfile.data[gfxOffset:], pal,
@@ -2739,12 +2740,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 )
         except AssertionError:
             print(f"invalid object properties detected in object {obj_index}!")
-            print(f"shape: {obj.shape}  size: {obj.sizeIndex} ZXA width(?): {obj.sizeIndex*0x10:02X}")
-            #gfxOffset -= int(obj.tileId_add*indexingFactor*32)
-            #obj_img = lib.datconv.binToQt(fileEditedObj.auxfile.data[gfxOffset:], pal,
-            #                                    depth_obj,
-            #                                    1,
-            #                                    8, 0x20)
             return
         colorTable = obj_img.colorTable()
         if len(colorTable) <= 0:
@@ -2867,7 +2862,7 @@ class MainWindow(QtWidgets.QMainWindow):
             # allow user to choose whether or not they want to reload fat
             reload_dialog = QtWidgets.QMessageBox()
             reload_dialog.setWindowTitle("Mega Man ZX Editor - Reload from saved ROM")
-            reload_dialog.setWindowIcon(QtGui.QIcon('icons\\question.png'))
+            reload_dialog.setWindowIcon(QtGui.QIcon(str(PATH_ROOT / 'icons/question')))
             reload_dialog.setText("Now that the ROM is saved, the FAT may have changed.\n Reload ROM from this file to fetch accurate file addresses?")
             reload_dialog.setStandardButtons(reload_dialog.StandardButton.Yes | reload_dialog.StandardButton.No)
             if reload_dialog.exec() == reload_dialog.StandardButton.Yes:
@@ -3454,11 +3449,11 @@ class MainWindow(QtWidgets.QMainWindow):
                         if len(self.fileEdited_object.oamsec.frameTable) > 0:
                             try:
                                 if self.tabs_oam.currentWidget() == self.page_oam_frames:
-                                    self.fileEdited_object.frame = self.fileEdited_object.oamsec.frameTable[
-                                            self.dropdown_oam_objFrame.currentIndex() if self.dropdown_oam_objFrame.currentIndex() != -1 else 0]
+                                    self.fileEdited_object.frameIndex = self.dropdown_oam_objFrame.currentIndex() if self.dropdown_oam_objFrame.currentIndex() != -1 else 0
+                                    
                                 elif self.tabs_oam.currentWidget() == self.page_oam_anims:
-                                    self.fileEdited_object.frame = self.fileEdited_object.oamsec.frameTable[
-                                            self.field_oam_animFrameId.value() if self.field_oam_animFrameId.isEnabled() else 0]
+                                    self.fileEdited_object.frameIndex = self.field_oam_animFrameId.value() if self.field_oam_animFrameId.isEnabled() else 0
+                                self.fileEdited_object.frame = self.fileEdited_object.oamsec.frameTable[self.fileEdited_object.frameIndex]
                                 #print(f"section id: {self.fileEdited_object.frame[2]}")
                             except IndexError:
                                 print(f"invalid frame!\nanim: {self.dropdown_oam_anim.currentIndex()}\nframe:{self.dropdown_oam_objFrame.currentIndex()}")
@@ -3482,13 +3477,33 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.fileEdited_object.objs.clear()
                                 self.dropdown_oam_obj.clear()
                                 #print("start")
+                                obj_offset_base = self.fileEdited_object.oamsec.frameTable_offset + self.fileEdited_object.frame[0]
+                                is3D = False
+                                try:
+                                    if self.fileEdited_object.frameIndex < len(self.fileEdited_object.oamsec.frameTable)-1:
+                                        #print(self.fileEdited_object.frame[0]+self.fileEdited_object.frame[1]*0x06, "vs", self.fileEdited_object.oamsec.frameTable[self.fileEdited_object.frameIndex+1][0])
+                                        assert self.fileEdited_object.frame[0]+self.fileEdited_object.frame[1]*0x06 == self.fileEdited_object.oamsec.frameTable[self.fileEdited_object.frameIndex+1][0]
+                                    else:
+                                        obj_offset_end = obj_offset_base + self.fileEdited_object.frame[1]*0x06
+                                        #print(self.fileEdited_object.oamsec.data[obj_offset_end:self.fileEdited_object.oamsec.header_items[1]].hex())
+                                        #print(obj_offset_end, "vs", self.fileEdited_object.oamsec.header_items[1])
+                                        assert obj_offset_end <= self.fileEdited_object.oamsec.header_items[1]
+                                    is3D = True
+                                    self.field_objTileId.setMaximum(0xFFFF)
+                                    print("3D objects detected")
+                                except AssertionError:
+                                    self.field_objTileId.setMaximum(0x3FF)
                                 for i in range(self.fileEdited_object.frame[1]):
                                     if i >= 128:
                                         print("Object limit reached! Proceed at your own risk!")
                                         break
                                     self.dropdown_oam_obj.addItem(f"object {i}")
-                                    obj_offset = self.fileEdited_object.oamsec.frameTable_offset + self.fileEdited_object.frame[0] + i*0x04
-                                    self.fileEdited_object.objs.append(lib.oam.Object(self.fileEdited_object.oamsec.data[obj_offset:obj_offset+0x04]))
+                                    if is3D:
+                                        obj_offset = obj_offset_base + i*0x06
+                                        self.fileEdited_object.objs.append(lib.oam.Object3D(self.fileEdited_object.oamsec.data[obj_offset:obj_offset+0x06]))
+                                    else:
+                                        obj_offset = obj_offset_base + i*0x04
+                                        self.fileEdited_object.objs.append(lib.oam.Object(self.fileEdited_object.oamsec.data[obj_offset:obj_offset+0x04]))
                                     obj_item = self.OAM_updateItemGFX(i)
                                     if obj_item == None:
                                         print("Load aborted. Proceed at your own risk!")
@@ -3537,8 +3552,9 @@ class MainWindow(QtWidgets.QMainWindow):
                                     obj_prev.tileId = self.field_objTileId.value()
                                     obj_prev.flip_h = self.checkbox_objFlipH.isChecked()
                                     obj_prev.flip_v = self.checkbox_objFlipV.isChecked()
-                                    obj_prev.sizeIndex = self.slider_objSizeIndex.sl.value()
-                                    obj_prev.shape = self.buttonGroup_oam_objShape.checkedId()
+                                    if isinstance(obj, lib.oam.Object):
+                                        obj_prev.sizeIndex = self.slider_objSizeIndex.sl.value()
+                                        obj_prev.shape = self.buttonGroup_oam_objShape.checkedId()
                                     obj_prev.x = self.field_objX.value()
                                     obj_prev.y = self.field_objY.value()
                                 offset = self.fileEdited_object.oamsec.frameTable_offset + self.fileEdited_object.frame[0] + self.dropdown_oam_obj.currentIndex()*0x04
@@ -3549,9 +3565,10 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.field_objTileId.setValue(obj.tileId)
                                 self.checkbox_objFlipH.setChecked(obj.flip_h)
                                 self.checkbox_objFlipV.setChecked(obj.flip_v)
-                                self.slider_objSizeIndex.sl.setValue(obj.sizeIndex)
-                                self.group_oam_objShape.findChildren(QtWidgets.QRadioButton)[obj.shape].setChecked(True)
-                                self.slider_objSizeIndex.setLabels(lib.oam.SPRITE_DIMENSIONS[self.buttonGroup_oam_objShape.checkedId()])
+                                if isinstance(obj, lib.oam.Object):
+                                    self.slider_objSizeIndex.sl.setValue(obj.sizeIndex)
+                                    self.group_oam_objShape.findChildren(QtWidgets.QRadioButton)[obj.shape].setChecked(True)
+                                    self.slider_objSizeIndex.setLabels(lib.oam.SPRITE_DIMENSIONS[self.buttonGroup_oam_objShape.checkedId()])
                                 self.field_objX.setValue(obj.x)
                                 self.field_objY.setValue(obj.y)
                             if sender in [self.button_oam_objAdd, self.button_oam_objRemove, self.dropdown_oam_obj, self.button_oam_objSelect]:
@@ -4275,37 +4292,66 @@ class MainWindow(QtWidgets.QMainWindow):
                     section = self.fileEdited_object.oamsec
                     frame = self.fileEdited_object.frame
                     save_data = bytearray()
+                    obj_offset_base = self.fileEdited_object.oamsec.frameTable_offset + self.fileEdited_object.frame[0]
+                    is3D = False
+                    try:
+                        if self.fileEdited_object.frameIndex < len(self.fileEdited_object.oamsec.frameTable)-1:
+                            #print(self.fileEdited_object.frame[0]+self.fileEdited_object.frame[1]*0x06, "vs", self.fileEdited_object.oamsec.frameTable[self.fileEdited_object.frameIndex+1][0])
+                            assert self.fileEdited_object.frame[0]+self.fileEdited_object.frame[1]*0x06 == self.fileEdited_object.oamsec.frameTable[self.fileEdited_object.frameIndex+1][0]
+                        else:
+                            obj_offset_end = obj_offset_base + self.fileEdited_object.frame[1]*0x06
+                            #print(self.fileEdited_object.oamsec.data[obj_offset_end:self.fileEdited_object.oamsec.header_items[1]].hex())
+                            #print(obj_offset_end, "vs", self.fileEdited_object.oamsec.header_items[1])
+                            assert obj_offset_end <= self.fileEdited_object.oamsec.header_items[1]
+                        is3D = True
+                    except AssertionError:
+                        pass
                     for obj_index in range(len(self.fileEdited_object.objs)):
-                        offset = section.frameTable_offset + frame[0] + obj_index*0x04
-                        obj = lib.oam.Object(section.data[offset:offset+0x04])
-                        if obj_index == self.dropdown_oam_obj.currentIndex(): # current changes
-                            obj.tileId = self.field_objTileId.value()
-                            obj.tileId_add = self.field_objTileId.value() & 0x300
-                            obj.flip_h = self.checkbox_objFlipH.isChecked()
-                            obj.flip_v = self.checkbox_objFlipV.isChecked()
-                            obj.sizeIndex = self.slider_objSizeIndex.sl.value()
-                            obj.shape = self.buttonGroup_oam_objShape.checkedId()
-                            obj.x = self.field_objX.value()
-                            obj.y = self.field_objY.value()
-                        else: # cached changes
-                            obj = self.fileEdited_object.objs[obj_index]
+                        if is3D:
+                            offset = section.frameTable_offset + frame[0] + obj_index*0x06
+                            obj = lib.oam.Object3D(section.data[offset:offset+0x06])
+                            if obj_index == self.dropdown_oam_obj.currentIndex(): # current changes
+                                obj.tileId = self.field_objTileId.value()
+                                obj.tileId_add = self.field_objTileId.value() & 0xFF00
+                                obj.flip_h = self.checkbox_objFlipH.isChecked()
+                                obj.flip_v = self.checkbox_objFlipV.isChecked()
+                                obj.heightIndex = obj.heightIndex # placeholder
+                                obj.tile_width_index = obj.tile_width_index # placeholder
+                                obj.x = self.field_objX.value()
+                                obj.y = self.field_objY.value()
+                            else: # cached changes
+                                obj = self.fileEdited_object.objs[obj_index]
+                        else:
+                            offset = section.frameTable_offset + frame[0] + obj_index*0x04
+                            obj = lib.oam.Object(section.data[offset:offset+0x04])
+                            if obj_index == self.dropdown_oam_obj.currentIndex(): # current changes
+                                obj.tileId = self.field_objTileId.value()
+                                obj.tileId_add = self.field_objTileId.value() & 0x300
+                                obj.flip_h = self.checkbox_objFlipH.isChecked()
+                                obj.flip_v = self.checkbox_objFlipV.isChecked()
+                                obj.sizeIndex = self.slider_objSizeIndex.sl.value()
+                                obj.shape = self.buttonGroup_oam_objShape.checkedId()
+                                obj.x = self.field_objX.value()
+                                obj.y = self.field_objY.value()
+                            else: # cached changes
+                                obj = self.fileEdited_object.objs[obj_index]
                         save_data += obj.toBytes()
                     offset2 = section.offset_start + section.frameTable_offset + frame[0]
-                    offset2_end = offset2+frame[1]*0x04
+                    offset2_end = offset2+frame[1]*obj.SIZE
                     w.rom.files[file_id][offset2:offset2_end] = save_data
                     objCountDelta = len(self.fileEdited_object.objs) - frame[1]
                     if objCountDelta != 0:
-                        offset3 = section.offset_start + section.frameTable_offset + self.dropdown_oam_objFrame.currentIndex()*0x04
+                        offset3 = section.offset_start + section.frameTable_offset + self.dropdown_oam_objFrame.currentIndex()*0x04 # go to current index in frameTable
                         w.rom.files[file_id][offset3+0x02:offset3+0x03] = int.to_bytes(len(self.fileEdited_object.objs), 1, 'little') # update header obj count
-                        for i in range(offset3+0x04, section.offset_start + section.frameTable_offset + section.frameTable_size, 0x04):
-                            #print(objCountDelta*0x04, w.rom.files[file_id][i:i+0x02].hex())
-                            w.rom.files[file_id][i:i+0x02] = int.to_bytes(int.from_bytes(w.rom.files[file_id][i:i+0x02], 'little')+objCountDelta*0x04, 2, 'little') # update header obj offset
+                        for i in range(offset3+0x04, section.offset_start + section.frameTable_offset + section.frameTable_size, 0x04): # for all later entries in frameTable
+                            #print(objCountDelta*obj.SIZE, w.rom.files[file_id][i:i+0x02].hex())
+                            w.rom.files[file_id][i:i+0x02] = int.to_bytes(int.from_bytes(w.rom.files[file_id][i:i+0x02], 'little')+objCountDelta*obj.SIZE, 2, 'little') # update header obj offset
                         for i in range(1, len(section.header_items)): # section pointers from anim
-                                section.header_items[i] += objCountDelta*0x04
+                                section.header_items[i] += objCountDelta*obj.SIZE
                         w.rom.files[file_id][section.offset_start:section.offset_start+section.header_size] = section.headerToBytes() # update section header pointers
                         for i in range(self.dropdown_oam_entry.currentIndex()+1, len(self.fileEdited_object.address_list)): # file
-                            self.fileEdited_object.address_list[i][0] += objCountDelta*0x04
-                        self.fileEdited_object.fileSize += objCountDelta*0x04
+                            self.fileEdited_object.address_list[i][0] += objCountDelta*obj.SIZE
+                        self.fileEdited_object.fileSize += objCountDelta*obj.SIZE
                         w.rom.files[file_id][:self.fileEdited_object.header_size] = self.fileEdited_object.headerToBytes() # update file header pointers
                 elif self.tabs_oam.currentWidget()==self.page_oam_anims:
                     if -1 in [self.dropdown_oam_entry.currentIndex(), self.dropdown_oam_anim.currentIndex(),
@@ -4556,9 +4602,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.rom = ndspy.rom.NintendoDSRom(rom_patched)# update the editor with patched ROM
         self.tree_patches.blockSignals(False)
 
-app = QtWidgets.QApplication(sys.argv)
-w = MainWindow()
-
 # Draw contents of tile viewer
 def draw_tilesQImage_fromBytes(view: lib.widget.GFXView, data: bytearray, algorithm=lib.datconv.CompressionAlgorithmEnum.ONEBPP,  grid: bool=True):
     #print("draw")
@@ -4641,6 +4684,9 @@ def extract(data: bytes, name="", path="", format="", compress=["", ""]):
 
 
 
+
+app = QtWidgets.QApplication(sys.argv)
+w = MainWindow()
 
 #run the app
 try:

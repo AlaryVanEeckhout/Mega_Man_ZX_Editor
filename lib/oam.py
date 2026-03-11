@@ -4,7 +4,9 @@ import bisect
 SPRITE_WIDTHS = ((1,2,4,8),(2,4,4,8),(1,1,2,4), (1,1,1,1)) # in tiles
 SPRITE_HEIGHTS = ((1,2,4,8),(1,1,2,4),(2,4,4,8), (1,1,1,1))
 SPRITE_DIMENSIONS = (("1x1", "2x2", "4x4", "8x8"), ("2x1", "4x1", "4x2", "8x4"), ("1x2", "1x4", "2x4", "4x8"), ("N/A", "N/A", "N/A", "N/A"))
-# ZXA may have something like: tile width -> (0x8, 0x10, 0x20, 0x40, 0x100)
+#ZXA
+TILE_WIDTHS = (0x8, 0x10, 0x20, 0x40, 0x100)
+SPRITE_HEIGHTS_3D = (0x1, 0x2, 0x4, 0x8)
 
 class File(common.File):
     def __init__(self, *args, **kwargs):
@@ -20,7 +22,7 @@ class OAMSection:
             self.offset_end = file.fileSize
 
         self.data = file.data[self.offset_start:self.offset_end]
-        self.header_size = int.from_bytes(self.data[0x00:0x04], byteorder='little')
+        self.header_size = int.from_bytes(self.data[0x00:0x04], byteorder='little') # also self.header_items[0]
         self.header_items: list[int] = []
         for i in range(0, self.header_size, 0x04):
             self.header_items.append(int.from_bytes(self.data[i:i+0x04], byteorder='little'))
@@ -28,7 +30,7 @@ class OAMSection:
         if self.frameTable_constant != 0x04:
             print(f"unexpected frameTable constant value: {self.frameTable_constant}")
         self.frameTable_offset = self.header_items[0]+self.frameTable_constant # relative to section
-        self.frameTable_size = int.from_bytes(self.data[self.frameTable_offset:self.frameTable_offset+0x02], byteorder='little')
+        self.frameTable_size = int.from_bytes(self.data[self.frameTable_offset:self.frameTable_offset+0x02], byteorder='little') # first oam pointer
         self.frameTable = []
         for i in range(self.frameTable_offset, self.frameTable_offset+self.frameTable_size, 0x04): # frames
             obj_ptr = int.from_bytes(self.data[i:i+0x02], byteorder='little')  # oam pointer
@@ -98,6 +100,7 @@ class Animation:
 
 class Object:
     def __init__(self, data: bytes=bytes(0x04)):
+        self.SIZE = 0x04
         self.data = data
         self.tileId = int.from_bytes(self.data[0x00:0x01], byteorder='little')
         attributes = int.from_bytes(self.data[0x01:0x02], byteorder='little')
@@ -123,6 +126,38 @@ class Object:
         self.tileId -= self.tileId_add
         attributes = (self.tileId_add//0x100) | (self.flip_h << 2) | (self.flip_v << 3) | (self.sizeIndex << 4) | (self.shape << 6)
         data += int.to_bytes(self.tileId, 1, byteorder="little") + int.to_bytes(attributes, 1, byteorder="little")
+        data += int.to_bytes(self.x, 1, byteorder="little", signed=True) + int.to_bytes(self.y, 1, byteorder="little", signed=True)
+        print(data.hex())
+        return data
+    
+class Object3D: # WIP for ZXA sprites
+    def __init__(self, data: bytes=bytes(0x06)):
+        self.SIZE = 0x06
+        self.data = data
+        self.tileId = int.from_bytes(self.data[0x00:0x01], byteorder='little')
+        print("obj", self.data[0x00:0x06].hex())
+        assert self.data[3] == 0 # is this byte ever used?
+        self.tileId_add = (int.from_bytes(self.data[0x01:0x02], byteorder='little')) * 0x100
+        self.tileId += self.tileId_add
+        self.heightIndex = (int.from_bytes(self.data[0x02:0x03], byteorder='little') & 0x60) >> 5 # maybe?
+        self.tile_width_index = (int.from_bytes(self.data[0x02:0x03], byteorder='little') & 0x0C) >> 2
+        self.flip_h = bool(int.from_bytes(self.data[0x02:0x03], byteorder='little') & 0x01)
+        self.flip_v = bool(int.from_bytes(self.data[0x02:0x03], byteorder='little') & 0x02)
+        self.x = int.from_bytes(self.data[0x04:0x05], byteorder='little', signed=True) # relative to spawn pos
+        self.y = int.from_bytes(self.data[0x05:0x06], byteorder='little', signed=True)
+
+    def getTileWidth(self):
+        return TILE_WIDTHS[self.tile_width_index]
+    
+    def getHeight(self):
+        return SPRITE_HEIGHTS_3D[self.heightIndex]
+
+    def toBytes(self):
+        data = bytearray()
+        self.tileId -= self.tileId_add
+        data += int.to_bytes(self.tileId, 1, byteorder="little") + int.to_bytes(self.tileId_add//0x100, 1, byteorder="little")
+        data += int.to_bytes((self.flip_h) | (self.flip_v << 1) | (self.tile_width_index << 2) | (self.heightIndex << 5), 1, byteorder="little")
+        data += bytes(1)
         data += int.to_bytes(self.x, 1, byteorder="little", signed=True) + int.to_bytes(self.y, 1, byteorder="little", signed=True)
         print(data.hex())
         return data
