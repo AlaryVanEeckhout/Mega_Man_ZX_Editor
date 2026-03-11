@@ -11,6 +11,156 @@ class Toolbar(QtWidgets.QToolBar):
                 self.SPAN[1] if self.orientation() == QtCore.Qt.Orientation.Horizontal else self.SPAN[0],
                 self.SPAN[0] if self.orientation() == QtCore.Qt.Orientation.Horizontal else self.SPAN[1]))
 
+class PixmapItem(QtWidgets.QGraphicsPixmapItem):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # fix unwanted gaps between items when scaling, at the cost of performance
+        self.setCacheMode(QtWidgets.QGraphicsPixmapItem.CacheMode.ItemCoordinateCache)
+
+    def getWindow(self):
+        if self.scene():
+            return self.scene().parent().window()
+
+class TilesetItem(PixmapItem):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setFlags(QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIsSelectable)
+        self.pixmaps = [] # depending on tileset offset
+
+class LevelTileItem(PixmapItem):
+    def __init__(self, *args, index=0, id=0, screen=0, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.index = index
+        self.id = id
+        self.screen = screen
+        self.tileGroup: list[LevelTileItem] = None
+
+    def tileReplace(self, item: QtWidgets.QGraphicsPixmapItem):
+        if item == None: return
+        #print(f"tile {self.index} of screen {self.screen} = {self.getWindow().gfx_scene_tileset.metaTiles.index(item)}")
+        self.setPixmap(item.pixmap())
+        self.id = self.getWindow().gfx_scene_tileset.metaTiles.index(item)
+
+class LevelEntityItem(QtWidgets.QGraphicsItemGroup):
+    def __init__(self, *args, coordIndex:int=0, coord:dict[str]={}, slot:dict[str]={}, slotnames:dict[str]={}, screenSpacing:int=0, displayBase:int=10, alphanumeric=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.coordIndex = coordIndex # Entities are ordered from top to bottom, left to right
+        self.displayBase = displayBase
+        self.alphanumeric = alphanumeric
+        #self._coord = coord
+        #self._slot = slot
+        #self._slotnames = slotnames
+        self.screenSpacing = screenSpacing
+        x = self.getSceneX(coord["x"])
+        y = self.getSceneY(coord["y"])
+        self.setPos(x, y)
+        self._item_rect = QtWidgets.QGraphicsRectItem(-8, -8, 16, 16, self)
+        self._item_rect.setPen(0x0010A0)
+        self._item_text = QtWidgets.QGraphicsSimpleTextItem(lib.datconv.numToStr(coord["slot"], self.displayBase, self.alphanumeric), self)
+        self._item_text.setPen(QtGui.QPen(0x220000, 0.5))
+        self._item_text.setTransformOriginPoint(self._item_text.boundingRect().center())
+        self._item_text.setScale(1.25)
+        self.addToGroup(self._item_rect) # only the rect (and children) is selectable
+        self.setFlags(QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsSelectable |
+                      QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsMovable |
+                      QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges)
+        self.updateInfo(coord=coord, slotnames=slotnames)
+        
+    def updateInfo(self, coord:dict[str], slotnames:dict[str]):
+        self._item_text.setBrush(0x80FF80 if not slotnames["subkind"].startswith("0x") else 0xFF90E0)
+        self._item_text.setText(lib.datconv.numToStr(coord["slot"], self.displayBase, self.alphanumeric))
+        self._item_text.setPos(-self._item_text.boundingRect().center())
+        self.setToolTip(f"""Entity {lib.datconv.numToStr(self.coordIndex, self.displayBase, self.alphanumeric)}\
+                                \nX: {lib.datconv.numToStr(coord["x"], self.displayBase, self.alphanumeric)}\
+                                \nY: {lib.datconv.numToStr(coord["y"], self.displayBase, self.alphanumeric)}\
+                                \nSlot: {lib.datconv.numToStr(coord["slot"], self.displayBase, self.alphanumeric)}\
+                                \nAttributes(?): {slotnames["attr"]}\
+                                \nKind: {slotnames["kind"]}\
+                                \nSub-Kind: {slotnames["subkind"]}\
+                                \nRole: {slotnames["role"]}\
+                                \nModifier: {slotnames["modifier"]}\
+                                \nunk5: {slotnames["unk5"]}\
+                                \nunk6: {slotnames["unk6"]}\
+                                \nunk7: {slotnames["unk7"]}\
+                                \nunk8: {slotnames["unk8"]}\
+                                \nunk9: {slotnames["unk9"]}\
+                                \nunkA: {slotnames["unkA"]}\
+                                \nunkB: {slotnames["unkB"]}""")
+
+    def getSceneX(self, x:int):
+        return x+self.screenSpacing*(x//lib.level.SCREEN_WIDTH)
+
+    def getTrueX(self, x:int):
+        return x-self.screenSpacing*(x//lib.level.SCREEN_WIDTH)
+    
+    def getSceneY(self, y:int):
+        return y+self.screenSpacing*(y//lib.level.SCREEN_HEIGHT)
+
+    def getTrueY(self, y:int):
+        return y-self.screenSpacing*(y//lib.level.SCREEN_HEIGHT)
+        
+    def itemChange(self, change: QtWidgets.QGraphicsPixmapItem.GraphicsItemChange, value: QtCore.QVariant):
+        if change == QtWidgets.QGraphicsPixmapItem.GraphicsItemChange.ItemPositionChange and self.scene() and self.isUnderMouse():
+            if QtWidgets.QApplication.mouseButtons() == QtCore.Qt.MouseButton.LeftButton:
+                x = min(max(0, value.x()), self.getSceneX(0xFFFFFFFF))
+                y = min(max(0, value.y()), self.getSceneY(0xFFFF))
+                self.getWindow().field_level_entities_coords_x.setValue(self.getTrueX(x))
+                self.getWindow().field_level_entities_coords_y.setValue(self.getTrueY(y))
+                return QtCore.QPointF(int(x), int(y))
+            else:
+                return value
+        else:
+            return super().itemChange(change, value)
+    
+    def getWindow(self):
+        if self.scene():
+            return self.scene().parent().window()
+
+class OAMObjectItem(PixmapItem):
+    def __init__(self, *args, id=0, editable=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.obj_id = id
+        self.editable = editable
+        if editable:
+            self.setFlags(QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIsSelectable |
+                        QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIsMovable |
+                        QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemSendsGeometryChanges)
+
+    def itemChange(self, change: QtWidgets.QGraphicsPixmapItem.GraphicsItemChange, value: QtCore.QVariant):
+        if change == QtWidgets.QGraphicsPixmapItem.GraphicsItemChange.ItemPositionChange and self.scene():
+            if QtWidgets.QApplication.mouseButtons() == QtCore.Qt.MouseButton.LeftButton:
+                rect = self.getWindow().file_content_oam.sceneRect()
+                x = min(max(rect.left(), value.x()), rect.right())
+                y = min(max(rect.top(), value.y()), rect.bottom())
+                return QtCore.QPointF(int(x), int(y))
+            else:
+                return value
+        else:
+            return super().itemChange(change, value)
+    
+    def setSelected(self, selected):
+        if selected:
+            self.scene().views()[0].item_current = self
+        super().setSelected(selected)
+    
+    def mousePressEvent(self, event):
+        super().mousePressEvent(event)
+        if self.editable:
+            self.getWindow().dropdown_oam_obj.setCurrentIndex(self.obj_id)
+            self.getWindow().treeCall()
+
+    def mouseMoveEvent(self, event):
+        super().mouseMoveEvent(event)
+        if self.editable:
+            # prevent drag from emitting valueChanged signal, because it affects item position in turn
+            self.getWindow().field_objX.blockSignals(True)
+            self.getWindow().field_objY.blockSignals(True)
+            self.getWindow().field_objX.setValue(self.scenePos().x())
+            self.getWindow().field_objY.setValue(self.scenePos().y())
+            self.getWindow().field_objX.blockSignals(False)
+            self.getWindow().field_objY.blockSignals(False)
+            self.getWindow().button_file_save.setEnabled(True)
+
 class View(QtWidgets.QGraphicsView):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -289,156 +439,6 @@ class LevelView(View):
                 item.setSelected(False)
         if isinstance(item_target, LevelTileItem):
             self.getMainWindow().gfx_scene_tileset.metaTiles[item_target.id].setSelected(True)
-
-class PixmapItem(QtWidgets.QGraphicsPixmapItem):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # fix unwanted gaps between items when scaling, at the cost of performance
-        self.setCacheMode(QtWidgets.QGraphicsPixmapItem.CacheMode.ItemCoordinateCache)
-
-    def getWindow(self):
-        if self.scene():
-            return self.scene().parent().window()
-
-class TilesetItem(PixmapItem):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.setFlags(QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIsSelectable)
-        self.pixmaps = [] # depending on tileset offset
-
-class LevelTileItem(PixmapItem):
-    def __init__(self, *args, index=0, id=0, screen=0, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.index = index
-        self.id = id
-        self.screen = screen
-        self.tileGroup: list[LevelTileItem] = None
-
-    def tileReplace(self, item: QtWidgets.QGraphicsPixmapItem):
-        if item == None: return
-        #print(f"tile {self.index} of screen {self.screen} = {self.getWindow().gfx_scene_tileset.metaTiles.index(item)}")
-        self.setPixmap(item.pixmap())
-        self.id = self.getWindow().gfx_scene_tileset.metaTiles.index(item)
-
-class LevelEntityItem(QtWidgets.QGraphicsItemGroup):
-    def __init__(self, *args, coordIndex:int=0, coord:dict[str]={}, slot:dict[str]={}, slotnames:dict[str]={}, screenSpacing:int=0, displayBase:int=10, alphanumeric=False, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.coordIndex = coordIndex # Entities are ordered from top to bottom, left to right
-        self.displayBase = displayBase
-        self.alphanumeric = alphanumeric
-        #self._coord = coord
-        #self._slot = slot
-        #self._slotnames = slotnames
-        self.screenSpacing = screenSpacing
-        x = self.getSceneX(coord["x"])
-        y = self.getSceneY(coord["y"])
-        self.setPos(x, y)
-        self._item_rect = QtWidgets.QGraphicsRectItem(-8, -8, 16, 16, self)
-        self._item_rect.setPen(0x0010A0)
-        self._item_text = QtWidgets.QGraphicsSimpleTextItem(lib.datconv.numToStr(coord["slot"], self.displayBase, self.alphanumeric), self)
-        self._item_text.setPen(QtGui.QPen(0x220000, 0.5))
-        self._item_text.setTransformOriginPoint(self._item_text.boundingRect().center())
-        self._item_text.setScale(1.25)
-        self.addToGroup(self._item_rect) # only the rect (and children) is selectable
-        self.setFlags(QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsSelectable |
-                      QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsMovable |
-                      QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges)
-        self.updateInfo(coord=coord, slotnames=slotnames)
-        
-    def updateInfo(self, coord:dict[str], slotnames:dict[str]):
-        self._item_text.setBrush(0x80FF80 if not slotnames["subkind"].startswith("0x") else 0xFF90E0)
-        self._item_text.setText(lib.datconv.numToStr(coord["slot"], self.displayBase, self.alphanumeric))
-        self._item_text.setPos(-self._item_text.boundingRect().center())
-        self.setToolTip(f"""Entity {lib.datconv.numToStr(self.coordIndex, self.displayBase, self.alphanumeric)}\
-                                \nX: {lib.datconv.numToStr(coord["x"], self.displayBase, self.alphanumeric)}\
-                                \nY: {lib.datconv.numToStr(coord["y"], self.displayBase, self.alphanumeric)}\
-                                \nSlot: {lib.datconv.numToStr(coord["slot"], self.displayBase, self.alphanumeric)}\
-                                \nAttributes(?): {slotnames["attr"]}\
-                                \nKind: {slotnames["kind"]}\
-                                \nSub-Kind: {slotnames["subkind"]}\
-                                \nRole: {slotnames["role"]}\
-                                \nModifier: {slotnames["modifier"]}\
-                                \nunk5: {slotnames["unk5"]}\
-                                \nunk6: {slotnames["unk6"]}\
-                                \nunk7: {slotnames["unk7"]}\
-                                \nunk8: {slotnames["unk8"]}\
-                                \nunk9: {slotnames["unk9"]}\
-                                \nunkA: {slotnames["unkA"]}\
-                                \nunkB: {slotnames["unkB"]}""")
-
-    def getSceneX(self, x:int):
-        return x+self.screenSpacing*(x//lib.level.SCREEN_WIDTH)
-
-    def getTrueX(self, x:int):
-        return x-self.screenSpacing*(x//lib.level.SCREEN_WIDTH)
-    
-    def getSceneY(self, y:int):
-        return y+self.screenSpacing*(y//lib.level.SCREEN_HEIGHT)
-
-    def getTrueY(self, y:int):
-        return y-self.screenSpacing*(y//lib.level.SCREEN_HEIGHT)
-        
-    def itemChange(self, change: QtWidgets.QGraphicsPixmapItem.GraphicsItemChange, value: QtCore.QVariant):
-        if change == QtWidgets.QGraphicsPixmapItem.GraphicsItemChange.ItemPositionChange and self.scene() and self.isUnderMouse():
-            if QtWidgets.QApplication.mouseButtons() == QtCore.Qt.MouseButton.LeftButton:
-                x = min(max(0, value.x()), self.getSceneX(0xFFFFFFFF))
-                y = min(max(0, value.y()), self.getSceneY(0xFFFF))
-                self.getWindow().field_level_entities_coords_x.setValue(self.getTrueX(x))
-                self.getWindow().field_level_entities_coords_y.setValue(self.getTrueY(y))
-                return QtCore.QPointF(int(x), int(y))
-            else:
-                return value
-        else:
-            return super().itemChange(change, value)
-    
-    def getWindow(self):
-        if self.scene():
-            return self.scene().parent().window()
-
-class OAMObjectItem(PixmapItem):
-    def __init__(self, *args, id=0, editable=False, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.obj_id = id
-        self.editable = editable
-        if editable:
-            self.setFlags(QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIsSelectable |
-                        QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIsMovable |
-                        QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemSendsGeometryChanges)
-
-    def itemChange(self, change: QtWidgets.QGraphicsPixmapItem.GraphicsItemChange, value: QtCore.QVariant):
-        if change == QtWidgets.QGraphicsPixmapItem.GraphicsItemChange.ItemPositionChange and self.scene():
-            if QtWidgets.QApplication.mouseButtons() == QtCore.Qt.MouseButton.LeftButton:
-                rect = self.getWindow().file_content_oam.sceneRect()
-                x = min(max(rect.left(), value.x()), rect.right())
-                y = min(max(rect.top(), value.y()), rect.bottom())
-                return QtCore.QPointF(int(x), int(y))
-            else:
-                return value
-        else:
-            return super().itemChange(change, value)
-    
-    def setSelected(self, selected):
-        if selected:
-            self.scene().views()[0].item_current = self
-        super().setSelected(selected)
-    
-    def mousePressEvent(self, event):
-        super().mousePressEvent(event)
-        if self.editable:
-            self.getWindow().dropdown_oam_obj.setCurrentIndex(self.obj_id)
-            self.getWindow().treeCall()
-
-    def mouseMoveEvent(self, event):
-        super().mouseMoveEvent(event)
-        if self.editable:
-            # prevent drag from emitting valueChanged signal, because it affects item position in turn
-            self.getWindow().field_objX.blockSignals(True)
-            self.getWindow().field_objY.blockSignals(True)
-            self.getWindow().field_objX.setValue(self.scenePos().x())
-            self.getWindow().field_objY.setValue(self.scenePos().y())
-            self.getWindow().field_objX.blockSignals(False)
-            self.getWindow().field_objY.blockSignals(False)
-            self.getWindow().button_file_save.setEnabled(True)
 
 class GridLayout(QtWidgets.QGridLayout):
     def __init__(self, *args, **kwargs):
