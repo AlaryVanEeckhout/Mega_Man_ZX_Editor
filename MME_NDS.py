@@ -1913,14 +1913,18 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
         # Patches
+        self.button_patches_apply = QtWidgets.QPushButton("Apply Patches", self.page_patches)
+        self.button_patches_apply.pressed.connect(self.patch_game)
+        self.button_patches_apply.setDisabled(True)
         self.tree_patches = lib.widget.EditorTree(self.page_patches)
-        self.page_patches.layout().addWidget(self.tree_patches)
         self.tree_patches.setColumnCount(4)
         self.tree_patches.setHeaderLabels(["Enabled", "Address", "Name", "Type", "Size"])
         self.tree_patches.header().resizeSection(2, 250)
-        self.tree_patches.itemChanged.connect(self.patch_game)
+        self.tree_patches.itemChanged.connect(self.patch_checkboxUpdate)
         self.tree_patches_checkboxes = [] # stores the state of checkboxes for complex checkbox logic
 
+        self.page_patches.layout().addWidget(self.button_patches_apply)
+        self.page_patches.layout().addWidget(self.tree_patches)
         # Shortcuts
         #QtWidgets.QKeySequenceEdit()
 
@@ -2079,18 +2083,23 @@ class MainWindow(QtWidgets.QMainWindow):
                     subPatchMatches = 0
                     for subPatch in patch:
                         if isinstance(subPatch, list):
-                            subPatch_item = QtWidgets.QTreeWidgetItem(None, ["", str(lib.datconv.numToStr(subPatch[0], self.displayBase, self.displayAlphanumeric).zfill(8)), subPatch[1], "Patch Segment", str(lib.datconv.numToStr(len(subPatch[3].replace("-", "")), self.displayBase, self.displayAlphanumeric).zfill(1))])
+                            subPatch_item = QtWidgets.QTreeWidgetItem(patch_item, ["", str(lib.datconv.numToStr(subPatch[0], self.displayBase, self.displayAlphanumeric).zfill(8)), subPatch[1], "Patch Segment", str(lib.datconv.numToStr(len(subPatch[3].replace("-", ""))//2, self.displayBase, self.displayAlphanumeric).zfill(1))])
                             subPatch_item.setToolTip(0, subPatch[3])
                             subPatch_item.setFlags(patch_item.flags() | QtCore.Qt.ItemFlag.ItemIsUserCheckable)
                             patch_item.addChild(subPatch_item)
                             patch_size += len(subPatch[3].replace("-", ""))
-                            if self.rom.save()[subPatch[0]:subPatch[0]+len(subPatch[3])] == subPatch[3]:
+                            patchType = patch_item.text(3)
+                            if patchType == "arm9":
+                                data_ref = self.arm9_decompressed.save()[subPatch[0]:subPatch[0]+len(subPatch[3])//2]
+                            else:
+                                data_ref = self.rom.save()[subPatch[0]:subPatch[0]+len(subPatch[3])//2]
+                            if data_ref.hex().upper() == subPatch[3]:
                                 subPatchMatches += 1
                                 subPatch_item.setCheckState(0, QtCore.Qt.CheckState.Checked)
                             else:
                                 subPatch_item.setCheckState(0, QtCore.Qt.CheckState.Unchecked)
                             self.tree_patches_checkboxes.append(subPatch_item.checkState(0))
-                    patch_item.setText(4, f"{lib.datconv.numToStr(patch_size, self.displayBase, self.displayAlphanumeric).zfill(1)}")
+                    patch_item.setText(4, f"{lib.datconv.numToStr(patch_size//2, self.displayBase, self.displayAlphanumeric).zfill(1)}")
                     patch_item.setFlags(patch_item.flags() | QtCore.Qt.ItemFlag.ItemIsUserCheckable)
                     if subPatchMatches == patch_item.childCount(): # Check for already applied patches
                         patch_item.setCheckState(0, QtCore.Qt.CheckState.Checked)
@@ -2099,12 +2108,17 @@ class MainWindow(QtWidgets.QMainWindow):
                     else:
                         patch_item.setCheckState(0, QtCore.Qt.CheckState.Unchecked)
                     self.tree_patches_checkboxes.append(patch_item.checkState(0))
-                else:
-                    patch_item = QtWidgets.QTreeWidgetItem(None, ["", str(lib.datconv.numToStr(patch[0], self.displayBase, self.displayAlphanumeric).zfill(8)), patch[1], patch[2], str(lib.datconv.numToStr(len(patch[4].replace("-", "")), self.displayBase, self.displayAlphanumeric).zfill(1))])
+                else: # if patch contains no patches
+                    patch_item = QtWidgets.QTreeWidgetItem(None, ["", str(lib.datconv.numToStr(patch[0], self.displayBase, self.displayAlphanumeric).zfill(8)), patch[1], patch[2], str(lib.datconv.numToStr(len(patch[4].replace("-", ""))//2, self.displayBase, self.displayAlphanumeric).zfill(1))])
                     patch_item.setToolTip(0, str(patch[4]))
                     patches.append(patch_item)
                     patch_item.setFlags(patch_item.flags() | QtCore.Qt.ItemFlag.ItemIsUserCheckable)
-                    if self.rom.save()[patch[0]:patch[0]+len(patch[4])] == patch[4]: # Check for already applied patches
+                    patchType = patch_item.text(3)
+                    if patchType == "arm9":
+                        data_ref = self.arm9_decompressed.save()[patch[0]:patch[0]+len(patch[4])//2]
+                    else:
+                        data_ref = self.rom.save()[patch[0]:patch[0]+len(patch[4])//2]
+                    if data_ref.hex().upper() == patch[4]: # Check for already applied patches
                         patch_item.setCheckState(0, QtCore.Qt.CheckState.Checked)
                     else:
                         patch_item.setCheckState(0, QtCore.Qt.CheckState.Unchecked)
@@ -2237,7 +2251,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.gamedat = lib.gamedat.GameEnum[self.rom.name.decode() if self.isGameSupported else "UNSUPPORTED"]
 
         self.progressUpdate(20, "Loading ARM9", True, icon_title, icon_pixmap)
-        self.rom.arm9_decompressed = self.rom.loadArm9()
+        self.arm9_decompressed = self.rom.loadArm9()
         self.treeArm9Update()
         self.progressUpdate(30, "Loading ARM7")
         self.treeArm7Update()
@@ -2247,7 +2261,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.progressUpdate(50, "Loading Patches")
         self.patches_reload()
         self.progressUpdate(90, "Loading game-specific content")
-        arm9_data = self.rom.arm9_decompressed.save()
+        arm9_data = self.arm9_decompressed.save()
         arm9_dialogueAddr = self.gamedat.arm9Addrs["dialogue names jp"]
         self.dropdown_dialogueNames.clear()
         for i in range(0x100):
@@ -2281,6 +2295,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.loadOvelrayStructAddressTable()
         self.dropdown_level_area.setCurrentIndex(-1)
         self.dropdown_level_area.setEnabled(True)
+        self.button_patches_apply.setEnabled(True)
         for i in range(self.layout_level_area.count()):
             widget = self.layout_level_area.itemAt(i).widget()
             if not widget in [None, self.button_level_save, self.dropdown_level_type]:
@@ -2319,6 +2334,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_level_type.clear()
         self.textEdit_dialogueNames.clear()
         self.dropdown_sdat.clear()
+        self.button_patches_apply.setDisabled(True)
         for widget in self.trees_sdat:
             self.page_sdat.layout().removeWidget(widget)
 
@@ -2990,7 +3006,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 "N/A"
             ])
         self.tree_arm9.addTopLevelItem(item_main)
-        for e in self.rom.arm9_decompressed.sections:
+        for e in self.arm9_decompressed.sections:
             item_main.addChild(QtWidgets.QTreeWidgetItem([
                 lib.datconv.numToStr(e.ramAddress, self.displayBase, self.displayAlphanumeric).zfill(8), 
                 str(e).split()[0].removeprefix("<"), 
@@ -3708,7 +3724,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if index == -1:
             self.textEdit_dialogueNames.clear()
             return
-        arm9_data = self.rom.arm9_decompressed.save()
+        arm9_data = self.arm9_decompressed.save()
         addr = self.gamedat.arm9Addrs["dialogue names " + self.dropdown_dialogueNames_lang.currentText()]
         name = arm9_data[addr+index*0x0C:addr+index*0x0C+0x0C]
         self.textEdit_dialogueNames.charmap = self.gamedat.charmaps["names "+self.dropdown_dialogueNames_lang.currentText()]
@@ -3885,7 +3901,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def loadOvelrayStructAddressTable(self): # called on ROM load
         addr_levelt = self.gamedat.arm9Addrs["level"]
-        arm9_bin = self.rom.arm9_decompressed.save()
+        arm9_bin = self.arm9_decompressed.save()
         entityt_size = arm9_bin[self.gamedat.arm9Addrs["entity"]+0x04:].find(bytes(4))+0x04
         #print(f"calculated overlay table size: 0x{entityt_size:02X}", "vs expected (ZX/ZXA) 0x120/0x10C")
         #addr_entityunkt = self.gamedat.arm9Addrs["entity"]+0*entityt_size # 4 bytes of data, usually at 0x01 after start of overlay?
@@ -4450,13 +4466,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.button_dialogueNames_save.setDisabled(True)
         addr = self.gamedat.arm9Addrs["dialogue names " + self.dropdown_dialogueNames_lang.currentText()]
         index = self.dropdown_dialogueNames.currentIndex()
-        arm9_bin = self.rom.arm9_decompressed.save()
+        arm9_bin = self.arm9_decompressed.save()
         new_data = lib.dialogue.DialogueFile.textToBin(self.textEdit_dialogueNames.toPlainText(), self.textEdit_dialogueNames.charmap)
         new_data += bytearray(0x0C)
         arm9_bin[addr+index*0x0C:addr+index*0x0C+0x0C] = bytearray(new_data[:0x0C])
-        self.rom.arm9_decompressed = ndspy.code.MainCodeFile(arm9_bin, self.rom.arm9RamAddress, self.rom.arm9_decompressed.codeSettingsOffs)
+        self.arm9_decompressed = ndspy.code.MainCodeFile(arm9_bin, self.rom.arm9RamAddress, self.arm9_decompressed.codeSettingsOffs)
         print(len(self.rom.arm9))
-        self.rom.arm9 = self.rom.arm9_decompressed.save(compress=True)
+        self.rom.arm9 = self.arm9_decompressed.save(compress=True)
         print(len(self.rom.arm9))
         print("name saved!")
 
@@ -4545,22 +4561,9 @@ class MainWindow(QtWidgets.QMainWindow):
         #print(f"{len(self.rom.files[fileID_tileset][self.levelEdited_object.gfx_offset_rom:self.levelEdited_object.pal_offset_rom])} {self.levelEdited_object.gfx_offset_rom}")
         #print(f"{len(self.rom.files[fileID_tileset][self.levelEdited_object.pal_offset_rom:])} {self.levelEdited_object.pal_offset_rom}")
 
-    def patch_game(self):# Currently a workaround to having no easy way of writing directly to any address in the ndspy rom object
-        #print("call")
+    def patch_checkboxUpdate(self):
         self.tree_patches.blockSignals(True)
-        rom_patched = bytearray(self.rom.save()) # Create temporary ROM to write patch to
-        patch_list = []
-        for patch in self.gamedat.patches: # create a patch list with a consistent format
-            if isinstance(patch[2], list):
-                patch_list.append(['N/A', patch[0], patch[1], 'N/A', 'N/A'])
-                for subPatch in patch:
-                    if isinstance(subPatch, list):
-                        patch_list.append([subPatch[0], subPatch[1], "Patch Segment", subPatch[2], subPatch[3]])
-            else:
-                patch_list.append(patch)
-
         tree_list = self.tree_patches.findItems("", QtCore.Qt.MatchFlag.MatchContains | QtCore.Qt.MatchFlag.MatchRecursive)
-
         for item_i, item in enumerate(tree_list):# Iterate through patch groups
             if item.childCount() != 0:
                 if item.checkState(0) != self.tree_patches_checkboxes[item_i]: # if checkstate changed
@@ -4577,30 +4580,68 @@ class MainWindow(QtWidgets.QMainWindow):
                         item.setCheckState(0, QtCore.Qt.CheckState.PartiallyChecked)
                     else:
                         item.setCheckState(0, QtCore.Qt.CheckState.Unchecked)
+        for item_i, item in enumerate(tree_list):# Iterate through all patches
+            self.tree_patches_checkboxes[item_i] = item.checkState(0) #and update checkbox state list
+        self.tree_patches.blockSignals(False)
+        return tree_list
 
+    def patch_game(self):# Currently a workaround to having no easy way of writing directly to any address in the ndspy rom object
+        #print("call")
+        # format 1 = [Address, Name, Type, OGData, NewData]
+        # format 2 (with subpatch) = [Name, Type, [Address, Name, OGData, NewData]]
+        self.progressShow()
+        rom_patched = bytearray(self.rom.save()) # Create temporary ROM to write patch to
+        arm9_bin = self.arm9_decompressed.save()
+        patch_list = [] # create a list of patch data that corresponds to tree items
+        self.progressUpdate(0, "Loading patch data", False)
+        for patch in self.gamedat.patches: # create a patch list with a consistent format
+            if isinstance(patch[2], list):
+                patch_list.append(['N/A', patch[0], patch[1], 'N/A', 'N/A'])
+                for subPatch in patch:
+                    if isinstance(subPatch, list):
+                        patch_list.append([subPatch[0], subPatch[1], "Patch Segment", subPatch[2], subPatch[3]])
+            else:
+                patch_list.append(patch)
+
+        tree_list = self.patch_checkboxUpdate()
+        self.progressUpdate(33, "Unapplying disabled patches", False)
         for item_i, item in enumerate(tree_list):# Go through unchecked ones first
             if (item.checkState(0) == QtCore.Qt.CheckState.Unchecked):
                 # Revert patch
                 if item.childCount() == 0: # if not a patch group
                     newData = bytes.fromhex(patch_list[item_i][3])
-                    rom_patched[patch_list[item_i][0]:patch_list[item_i][0]+len(newData)] = newData # write og data
-                        
+                    patchType = item.text(3)
+                    if item.parent() != None:
+                        patchType = item.parent().text(3)
+                    if patchType.lower() == "arm9":
+                        arm9_bin[patch_list[item_i][0]:patch_list[item_i][0]+len(newData)] = newData
+                    else:
+                        rom_patched[patch_list[item_i][0]:patch_list[item_i][0]+len(newData)] = newData # write og data
+
+        self.progressUpdate(66, "Applying enabled patches", False)
         for item_i, item in enumerate(tree_list):# Then through active patches
             if (item.checkState(0) == QtCore.Qt.CheckState.Checked):
                 # Apply patch
-                if item.childCount() == 0: # if not a patch group\
+                if item.childCount() == 0: # if not a patch group
                     newData = patch_list[item_i][4]
                     for s in range(len(patch_list[item_i][4])):
                         if newData[s] == "-":
                             newData = newData[:s] + patch_list[item_i][3][s] + newData[s+1:] # replace '-' with og data
                     newData = bytes.fromhex(newData)
-                    rom_patched[patch_list[item_i][0]:patch_list[item_i][0]+len(newData)] = newData # write patch data
+                    patchType = item.text(3)
+                    if item.parent() != None:
+                        patchType = item.parent().text(3)
+                    if patchType.lower() == "arm9":
+                        arm9_bin[patch_list[item_i][0]:patch_list[item_i][0]+len(newData)] = newData
+                    else:
+                        rom_patched[patch_list[item_i][0]:patch_list[item_i][0]+len(newData)] = newData # write patch data
 
-        for item_i, item in enumerate(tree_list):# Iterate through all patches
-            self.tree_patches_checkboxes[item_i] = item.checkState(0) #and update checkbox state list
-
+        self.progressUpdate(75, "Writing to ROM", False)
         self.rom = ndspy.rom.NintendoDSRom(rom_patched)# update the editor with patched ROM
-        self.tree_patches.blockSignals(False)
+        self.progressUpdate(90, "Writing to ARM9", False)
+        self.arm9_decompressed = ndspy.code.MainCodeFile(arm9_bin, self.rom.arm9RamAddress, self.arm9_decompressed.codeSettingsOffs)
+        self.rom.arm9 = self.arm9_decompressed.save(compress=True)
+        self.progressHide()
 
 # Draw contents of tile viewer
 def draw_tilesQImage_fromBytes(view: lib.widget.GFXView, data: bytearray, algorithm=lib.datconv.CompressionAlgorithmEnum.ONEBPP,  grid: bool=True):

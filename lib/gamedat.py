@@ -376,7 +376,7 @@ class GameEnum(enum.Enum):
                             "Palette Animation" : I_PANM,
                             "Mugshot" : I_MUGSHOT
                             }, ENTITYKINDS_ZX, [
-                                ["real patch test", "text", [0x021AE600, "talk_m01_en(Vent)", 'f11b58', '0-ffff'], [0x21B0400, "talk_m01_en(Aile)", 'ed1d58', 'f11b--']],
+                                ["Infinite lives", "arm9", [0x00044EC8, "nop", '00DA', 'C046'], [0x00044ECA, "mov", '0023', '0123']],
                                 [0x021AE600, "empty patch test", "empty", '', ''],
                                 [0x021AE600, "overwiting patch test", "text", 'f11b58', '202123'],
                                 [0x021AE600, "overwiting patch test", "text", 'f1', '20']

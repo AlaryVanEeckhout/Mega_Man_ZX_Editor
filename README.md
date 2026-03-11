@@ -30,7 +30,7 @@ The editor can edit, export and import english dialogue files and save them to t
 - Modifyable entities in Level Editor
 ### To do
 - Graphics Editor additional features (exporting and importing)
-- Find actual patches for the game to add to the editor's "patches" tab*
+- Find more patches for the game to add to the editor's "patches" tab*
 - Find patches and tweaks that are helpful for playtesting purposes*
 - Sound/Music Editor*
 - Tweaks/Physics Editor*
