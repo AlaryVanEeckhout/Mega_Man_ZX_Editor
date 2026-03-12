@@ -1936,7 +1936,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_physics_jumpImpulse.setRange(-0x80000000, 0x7FFFFFFF)
         self.field_physics_jumpImpulse.setToolTip("Jump Impulse (int32)")
         self.field_physics_jumpImpulse.hide()
+        self.field_physics_wallslideSpeed = lib.widget.BetterSpinBox(self.page_tweaks_physics)
+        self.field_physics_wallslideSpeed.isInt = True
+        self.field_physics_wallslideSpeed.numbase = self.displayBase
+        self.field_physics_wallslideSpeed.numfill = 8
+        self.field_physics_wallslideSpeed.setRange(-0x80000000, 0x7FFFFFFF)
+        self.field_physics_wallslideSpeed.setToolTip("Wallslide Speed (int32)")
+        self.field_physics_wallslideSpeed.hide()
         self.page_tweaks_physics.layout().addWidget(self.field_physics_jumpImpulse)
+        self.page_tweaks_physics.layout().addWidget(self.field_physics_wallslideSpeed)
 
 
         self.tabs_tweaks.addTab(self.page_tweaks_behaviour, "Behaviour")
@@ -4270,16 +4278,21 @@ class MainWindow(QtWidgets.QMainWindow):
         for category in self.gamedat.tweaks:
             for tweak in self.gamedat.tweaks[category]:
                 tweak_data = self.gamedat.tweaks[category][tweak]
+                tweak_val = int.from_bytes(arm9_bin[tweak_data[0]:tweak_data[0]+tweak_data[1]], 'little', signed=tweak_data[2])
                 if category == "Physics":
                     if tweak == "JumpImpulse":
-                        self.field_physics_jumpImpulse.setValue(int.from_bytes(arm9_bin[tweak_data[0]:tweak_data[0]+tweak_data[1]], 'little', signed=True))
+                        self.field_physics_jumpImpulse.setValue(tweak_val)
+                    elif tweak == "WallslideSpeed":
+                        self.field_physics_wallslideSpeed.setValue(tweak_val)
 
 
     def tweakTargetCall(self):
         if self.dropdown_tweak_target.currentIndex() == 0:
             self.field_physics_jumpImpulse.show()
+            self.field_physics_wallslideSpeed.show()
         else:
             self.field_physics_jumpImpulse.hide()
+            self.field_physics_wallslideSpeed.hide()
 
     def treeBaseUpdate(self, tree: lib.widget.EditorTree):
         for e in tree.findItems("", QtCore.Qt.MatchFlag.MatchContains | QtCore.Qt.MatchFlag.MatchRecursive):
@@ -4644,9 +4657,14 @@ class MainWindow(QtWidgets.QMainWindow):
             for tweak in self.gamedat.tweaks[category]:
                 print("\t"+tweak)
                 tweak_data = self.gamedat.tweaks[category][tweak]
+                tweak_val = None
                 if category == "Physics":
                     if tweak == "JumpImpulse":
-                        arm9_bin[tweak_data[0]:tweak_data[0]+tweak_data[1]] = int.to_bytes(self.field_physics_jumpImpulse.value(), tweak_data[1], 'little', signed=True)
+                        tweak_val = self.field_physics_jumpImpulse.value()
+                    elif tweak == "WallslideSpeed":
+                        tweak_val = self.field_physics_wallslideSpeed.value()
+                if tweak_val is not None:
+                    arm9_bin[tweak_data[0]:tweak_data[0]+tweak_data[1]] = int.to_bytes(tweak_val, tweak_data[1], 'little', signed=tweak_data[2])
         self.arm9_decompressed = ndspy.code.MainCodeFile(arm9_bin, self.rom.arm9RamAddress, self.arm9_decompressed.codeSettingsOffs)
         self.rom.arm9 = self.arm9_decompressed.save(compress=True)
         print("This game's supported tweaks have been saved!")

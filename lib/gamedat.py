@@ -378,7 +378,8 @@ class GameEnum(enum.Enum):
                             "Mugshot" : I_MUGSHOT
                             }, ENTITYKINDS_ZX, {
                                 "Physics": {
-                                    "JumpImpulse": (0x00038794, 4) # address, size
+                                    "JumpImpulse": (0x00038794, 4, True), # address, size, signed
+                                    "WallslideSpeed": (0x0003C01C, 4, True)
                                 }
                             }, [
                                 ["Infinite lives", "arm9", [0x00044EC8, "nop", '00DA', 'C046'], [0x00044ECA, "mov", '0023', '0123']],
