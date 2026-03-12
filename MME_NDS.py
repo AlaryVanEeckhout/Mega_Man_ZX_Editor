@@ -171,6 +171,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.openAction.setStatusTip('Open ROM')
         self.openAction.triggered.connect(self.openCall)
 
+        self.saveAction = QtGui.QAction(QtGui.QIcon(str(PATH_ROOT / 'icons/disk')), '&Save', self)    
+        self.saveAction.setShortcut('Ctrl+S')
+        self.saveAction.setStatusTip('Save ROM')
+        self.saveAction.triggered.connect(self.saveCall)
+        self.saveAction.setDisabled(True)
+
         self.exportAction = QtGui.QAction(QtGui.QIcon(str(PATH_ROOT / 'icons/blueprint--arrow')), '&Export...', self)        
         self.exportAction.setShortcut('Ctrl+E')
         self.exportAction.setStatusTip('Export file in binary or converted format')
@@ -189,7 +195,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.menu_bar = self.menuBar()
         self.fileMenu = self.menu_bar.addMenu('&File')
-        self.fileMenu.addActions([self.openAction, self.exportAction])
+        self.fileMenu.addActions([self.openAction, self.saveAction, self.exportAction])
         self.importSubmenu = self.fileMenu.addMenu('&Import...')
         #self.importSubmenu.setStatusTip('Use external file to replace a file in ROM')
         self.importSubmenu.setIcon(QtGui.QIcon(str(PATH_ROOT / 'icons/blue-document-import')))
@@ -316,6 +322,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.toolbar.setSizePolicy(QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Ignored)
         self.addToolBar(self.toolbar)
 
+        self.action_open = QtGui.QAction(QtGui.QIcon(str(PATH_ROOT / 'icons/folder-horizontal-open')), "Load ROM from Disk", self)
+        self.action_open.setStatusTip("Open NDS or SRL file to be able to edit its contents.")
+        self.action_open.triggered.connect(self.openCall)
         self.action_save = QtGui.QAction(QtGui.QIcon(str(PATH_ROOT / 'icons/disk')), "Save ROM to Disk", self)
         self.action_save.setStatusTip("Generate ROM with saved changes; unsaved changes will remain unsaved.")
         self.action_save.triggered.connect(self.saveCall)
@@ -351,7 +360,7 @@ class MainWindow(QtWidgets.QMainWindow):
         #self.button_codeedit.setStatusTip("Edit the ROM's code")
         #self.button_codeedit.triggered.connect(self.codeeditCall)
         #self.button_codeedit.setDisabled(True)
-        self.toolbar.addActions([self.action_save, self.action_arm9, self.action_arm7, self.action_sdat])
+        self.toolbar.addActions([self.action_open, self.action_save, self.action_arm9, self.action_arm7, self.action_sdat])
         self.toolbar.insertWidget(self.action_arm9, self.button_playtest)
         self.toolbar.addWidget(self.button_reload)
         self.toolbar.addSeparator()
@@ -822,7 +831,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.slider_objSizeIndex = lib.widget.LabeledSlider(self.page_oam_frames, 0, 3, interval=1, orientation=QtCore.Qt.Orientation.Horizontal, labels=["1x1", "2x2", "4x4", "8x8"])
         self.slider_objSizeIndex.setMaximumSize(260, 60)
-        self.slider_objSizeIndex.setToolTip("size increment")
+        self.slider_objSizeIndex.setToolTip("Size increment")
         self.slider_objSizeIndex.sl.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.slider_objSizeIndex.sl.valueChanged.connect(lambda: self.OAM_updateItemGFX(self.dropdown_oam_obj.currentIndex(), self.file_content_oam.item_current))
 
@@ -854,6 +863,20 @@ class MainWindow(QtWidgets.QMainWindow):
         self.group_oam_objShape.layout().addWidget(self.radio_objShapeWide)
         self.group_oam_objShape.layout().addWidget(self.radio_objShapeTall)
         self.group_oam_objShape.layout().addWidget(self.radio_objShapeProhibit)
+
+        self.slider_obj3DHeightIndex = lib.widget.LabeledSlider(self.page_oam_frames, 0, 3, interval=1, orientation=QtCore.Qt.Orientation.Horizontal, labels=["0x1", "0x2", "0x4", "0x8"])
+        self.slider_obj3DHeightIndex.setMaximumSize(260, 60)
+        self.slider_obj3DHeightIndex.setToolTip("Height increment")
+        self.slider_obj3DHeightIndex.sl.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.slider_obj3DHeightIndex.sl.valueChanged.connect(lambda: self.OAM_updateItemGFX(self.dropdown_oam_obj.currentIndex(), self.file_content_oam.item_current))
+        self.slider_obj3DHeightIndex.hide()
+
+        self.slider_obj3DTileWidth = lib.widget.LabeledSlider(self.page_oam_frames, 0, 3, interval=1, orientation=QtCore.Qt.Orientation.Horizontal, labels=["0x8", "0x10", "0x20", "0x40"])
+        self.slider_obj3DTileWidth.setMaximumSize(260, 60)
+        self.slider_obj3DTileWidth.setToolTip("Tile width increment")
+        self.slider_obj3DTileWidth.sl.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.slider_obj3DTileWidth.sl.valueChanged.connect(lambda: self.OAM_updateItemGFX(self.dropdown_oam_obj.currentIndex(), self.file_content_oam.item_current))
+        self.slider_obj3DTileWidth.hide()
 
         self.field_objX = lib.widget.BetterSpinBox(self.page_oam_frames)
         self.field_objX.setToolTip("X")
@@ -895,6 +918,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.page_oam_frames.layout().addWidget(self.checkbox_objFlipV, 3, 0, 1, 2)
         self.page_oam_frames.layout().addWidget(self.slider_objSizeIndex, 4, 0, 1, 2)
         self.page_oam_frames.layout().addWidget(self.group_oam_objShape, 4, 2, 1, 2)
+        self.page_oam_frames.layout().addWidget(self.slider_obj3DHeightIndex, 4, 0, 1, 2)
+        self.page_oam_frames.layout().addWidget(self.slider_obj3DTileWidth, 4, 2, 1, 2)
         self.page_oam_frames.layout().addWidget(self.field_objX, 5, 0, 1, 2)
         self.page_oam_frames.layout().addWidget(self.field_objY, 5, 2, 1, 2)
 
@@ -2281,6 +2306,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.importSubmenu.setDisabled(False)
         self.button_file_save.show()
         self.action_save.setDisabled(False)
+        self.saveAction.setDisabled(False)
         self.action_arm9.setDisabled(False)
         self.action_arm7.setDisabled(False)
         self.button_playtest.setDisabled(False)
@@ -2706,8 +2732,12 @@ class MainWindow(QtWidgets.QMainWindow):
             obj.tileId_add = self.field_objTileId.value() & 0x300
             obj.flip_h = self.checkbox_objFlipH.isChecked()
             obj.flip_v = self.checkbox_objFlipV.isChecked()
-            obj.sizeIndex = self.slider_objSizeIndex.sl.value()
-            obj.shape = self.buttonGroup_oam_objShape.checkedId()
+            if isinstance(obj, lib.oam.Object3D):
+                obj.heightIndex = self.slider_obj3DHeightIndex.sl.value()
+                obj.tile_width_index = self.slider_obj3DTileWidth.sl.value()
+            else:
+                obj.sizeIndex = self.slider_objSizeIndex.sl.value()
+                obj.shape = self.buttonGroup_oam_objShape.checkedId()
             obj.x = self.field_objX.value()
             obj.y = self.field_objY.value()
         if index_img >= len(gfxsec.graphics):
@@ -3506,9 +3536,17 @@ class MainWindow(QtWidgets.QMainWindow):
                                         assert obj_offset_end <= self.fileEdited_object.oamsec.header_items[1]
                                     is3D = True
                                     self.field_objTileId.setMaximum(0xFFFF)
+                                    self.slider_objSizeIndex.hide()
+                                    self.group_oam_objShape.hide()
+                                    self.slider_obj3DHeightIndex.show()
+                                    self.slider_obj3DTileWidth.show()
                                     print("3D objects detected")
                                 except AssertionError:
                                     self.field_objTileId.setMaximum(0x3FF)
+                                    self.slider_obj3DHeightIndex.hide()
+                                    self.slider_obj3DTileWidth.hide()
+                                    self.slider_objSizeIndex.show()
+                                    self.group_oam_objShape.show()
                                 for i in range(self.fileEdited_object.frame[1]):
                                     if i >= 128:
                                         print("Object limit reached! Proceed at your own risk!")
@@ -3568,7 +3606,10 @@ class MainWindow(QtWidgets.QMainWindow):
                                     obj_prev.tileId = self.field_objTileId.value()
                                     obj_prev.flip_h = self.checkbox_objFlipH.isChecked()
                                     obj_prev.flip_v = self.checkbox_objFlipV.isChecked()
-                                    if isinstance(obj, lib.oam.Object):
+                                    if isinstance(obj_prev, lib.oam.Object3D):
+                                        obj_prev.heightIndex = self.slider_obj3DHeightIndex.sl.value()
+                                        obj_prev.tile_width_index = self.slider_obj3DTileWidth.sl.value()
+                                    else:
                                         obj_prev.sizeIndex = self.slider_objSizeIndex.sl.value()
                                         obj_prev.shape = self.buttonGroup_oam_objShape.checkedId()
                                     obj_prev.x = self.field_objX.value()
@@ -3581,7 +3622,10 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.field_objTileId.setValue(obj.tileId)
                                 self.checkbox_objFlipH.setChecked(obj.flip_h)
                                 self.checkbox_objFlipV.setChecked(obj.flip_v)
-                                if isinstance(obj, lib.oam.Object):
+                                if isinstance(obj, lib.oam.Object3D):
+                                    self.slider_obj3DHeightIndex.sl.setValue(obj.heightIndex)
+                                    self.slider_obj3DTileWidth.sl.setValue(obj.tile_width_index)
+                                else:
                                     self.slider_objSizeIndex.sl.setValue(obj.sizeIndex)
                                     self.group_oam_objShape.findChildren(QtWidgets.QRadioButton)[obj.shape].setChecked(True)
                                     self.slider_objSizeIndex.setLabels(lib.oam.SPRITE_DIMENSIONS[self.buttonGroup_oam_objShape.checkedId()])
@@ -4331,8 +4375,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                 obj.tileId_add = self.field_objTileId.value() & 0xFF00
                                 obj.flip_h = self.checkbox_objFlipH.isChecked()
                                 obj.flip_v = self.checkbox_objFlipV.isChecked()
-                                obj.heightIndex = obj.heightIndex # placeholder
-                                obj.tile_width_index = obj.tile_width_index # placeholder
+                                obj.heightIndex = self.slider_obj3DHeightIndex.sl.value()
+                                obj.tile_width_index = self.slider_obj3DTileWidth.sl.value()
                                 obj.x = self.field_objX.value()
                                 obj.y = self.field_objY.value()
                             else: # cached changes
