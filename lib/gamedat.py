@@ -354,12 +354,13 @@ ENTITYKINDS_ZXA = {
 
 class GameEnum(enum.Enum):
 
-    def __init__(self, id: enum.auto, arm9Addrs: int, charmaps: dict[str, dialogue.CharMap], fileIndicators: dict[str, tuple], entityNames: dict[str, dict], patches: list[list]):
+    def __init__(self, id: enum.auto, arm9Addrs: int, charmaps: dict[str, dialogue.CharMap], fileIndicators: dict[str, tuple], entityNames: dict[str, dict], tweaks: dict[str, dict], patches: list[list]):
         self.id = id
         self.arm9Addrs = arm9Addrs
         self.charmaps = charmaps
         self.fileIndicators = fileIndicators
         self.entityNames = entityNames
+        self.tweaks = tweaks
         self.patches = patches
 
     ROCKMANZX = enum.auto(), ARM9_ZX_J, CHARMAPS_ZX, {
@@ -368,14 +369,18 @@ class GameEnum(enum.Enum):
                             "Dialogue" : I_DIALOGUE,
                             "Palette Animation" : I_PANM,
                             "Mugshot" : I_MUGSHOT
-                            }, ENTITYKINDS_ZX, []
+                            }, ENTITYKINDS_ZX, {}, []
     MEGAMANZX = enum.auto(), ARM9_ZX_E, CHARMAPS_ZX, {
                             "Graphics" : I_GFX_ZX,
                             "Font" : I_FONT,
                             "Dialogue" : I_DIALOGUE,
                             "Palette Animation" : I_PANM,
                             "Mugshot" : I_MUGSHOT
-                            }, ENTITYKINDS_ZX, [
+                            }, ENTITYKINDS_ZX, {
+                                "Physics": {
+                                    "JumpImpulse": (0x00038794, 4) # address, size
+                                }
+                            }, [
                                 ["Infinite lives", "arm9", [0x00044EC8, "nop", '00DA', 'C046'], [0x00044ECA, "mov", '0023', '0123']],
                                 [0x021AE600, "empty patch test", "empty", '', ''],
                                 [0x021AE600, "overwiting patch test", "text", 'f11b58', '202123'],
@@ -388,14 +393,14 @@ class GameEnum(enum.Enum):
                              "Dialogue" : I_DIALOGUE,
                              "Palette Animation" : I_PANM,
                              "Mugshot" : I_MUGSHOT
-                             }, ENTITYKINDS_ZXA, []
+                             }, ENTITYKINDS_ZXA, {}, []
     MEGAMANZXA = enum.auto(), ARM9_ZXA_E, CHARMAPS_ZXA, {
                              "Graphics" : I_GFX_ZXA,
                              "Font" : I_FONT,
                              "Dialogue" : I_DIALOGUE,
                              "Palette Animation" : I_PANM,
                              "Mugshot" : I_MUGSHOT
-                             }, ENTITYKINDS_ZXA, []
+                             }, ENTITYKINDS_ZXA, {}, []
     # wildcard so that the keys in the fileIndicators dict can still be accessed for unsupported games
     UNSUPPORTED = enum.auto(), {"entity": 0,
                               "level": 0,
@@ -407,7 +412,7 @@ class GameEnum(enum.Enum):
                              "Font" : I_FONT,
                              "Dialogue" : I_DIALOGUE,
                              "Palette Animation" : I_PANM,
-                             "Mugshot" : I_MUGSHOT}, ENTITYKINDS_ZX, []
+                             "Mugshot" : I_MUGSHOT}, ENTITYKINDS_ZX, {}, []
 
 # Notes:
 # format 1 = [Address, Name, Type, OGData, NewData]

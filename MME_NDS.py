@@ -1901,12 +1901,15 @@ class MainWindow(QtWidgets.QMainWindow):
         # Tweaks(Coming Soon™)
         self.tabs_tweaks = QtWidgets.QTabWidget(self.page_tweaks)
 
+        self.button_tweak_save = QtWidgets.QPushButton("Apply Tweaks", self.page_tweaks)
+        self.button_tweak_save.pressed.connect(self.save_tweaks)
+        self.button_tweak_save.setDisabled(True)
         self.dropdown_tweak_target = QtWidgets.QComboBox(self.page_tweaks)
-        #self.dropdown_tweak_target.setGeometry(125, 75, 125, 25)
         self.dropdown_tweak_target.setToolTip("Choose a target to appy tweaks to")
-        self.dropdown_tweak_target.addItems(["Other", "Player", "Player(Hu)", "Player(X)", "Player(Zx)", "Player(Fx)", "Player(Hx)", "Player(Lx)", "Player(Px)", "Player(Ox)"])
-        #self.dropdown_tweak_target.currentTextChanged.connect(self.tweakTargetCall)
+        self.dropdown_tweak_target.addItems(["Player", "Player(Hu)", "Player(X)", "Player(Zx)", "Player(Fx)", "Player(Hx)", "Player(Lx)", "Player(Px)", "Player(Ox)", "Other"])
+        self.dropdown_tweak_target.currentTextChanged.connect(self.tweakTargetCall)
         self.dropdown_tweak_target.hide()
+        self.page_tweaks.layout().addWidget(self.button_tweak_save)
         self.page_tweaks.layout().addWidget(self.dropdown_tweak_target)
         self.page_tweaks.layout().addWidget(self.tabs_tweaks)
 
@@ -1926,12 +1929,17 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
         self.tabs_tweaks.addTab(self.page_tweaks_physics, "Physics")
+        self.field_physics_jumpImpulse = lib.widget.BetterSpinBox(self.page_tweaks_physics)
+        self.field_physics_jumpImpulse.isInt = True
+        self.field_physics_jumpImpulse.numbase = self.displayBase
+        self.field_physics_jumpImpulse.numfill = 8
+        self.field_physics_jumpImpulse.setRange(-0x80000000, 0x7FFFFFFF)
+        self.field_physics_jumpImpulse.setToolTip("Jump Impulse (int32)")
+        self.field_physics_jumpImpulse.hide()
+        self.page_tweaks_physics.layout().addWidget(self.field_physics_jumpImpulse)
 
 
         self.tabs_tweaks.addTab(self.page_tweaks_behaviour, "Behaviour")
-
-        self.checkbox_paralyzed = QtWidgets.QCheckBox(self.page_tweaks_behaviour)
-        self.page_tweaks_behaviour.layout().addWidget(self.checkbox_paralyzed)
 
 
         self.tabs_tweaks.addTab(self.page_tweaks_misc, "Misc.")
@@ -2283,6 +2291,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.progressUpdate(40, "Loading SDAT")
         self.treeSdatUpdate()
         #print(self.rom.filenames)
+        self.progressUpdate(45, "Loading Tweaks")
+        self.loadTweaks()
         self.progressUpdate(50, "Loading Patches")
         self.patches_reload()
         self.progressUpdate(90, "Loading game-specific content")
@@ -2313,6 +2323,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for i in range(self.tree.columnCount()):
             self.tree.showColumn(i)
         self.dropdown_tweak_target.show()
+        self.button_tweak_save.setDisabled(False)
         self.field_address.show()
         self.label_file_size.show()
         self.dropdown_level_area.blockSignals(True)
@@ -2343,6 +2354,8 @@ class MainWindow(QtWidgets.QMainWindow):
         for i in range(self.tree.columnCount()):
             self.tree.hideColumn(i)
         self.dropdown_tweak_target.hide()
+        self.dropdown_tweak_target.setCurrentIndex(-1)
+        self.button_tweak_save.setDisabled(True)
         self.field_address.hide()
         self.label_file_size.hide()
         self.lineedit_level_tilesetName.setDisabled(True)
@@ -4252,6 +4265,22 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.checkbox_level_fitInView.isChecked():
             self.gfx_scene_level.fitInView2()
 
+    def loadTweaks(self):
+        arm9_bin = self.arm9_decompressed.save()
+        for category in self.gamedat.tweaks:
+            for tweak in self.gamedat.tweaks[category]:
+                tweak_data = self.gamedat.tweaks[category][tweak]
+                if category == "Physics":
+                    if tweak == "JumpImpulse":
+                        self.field_physics_jumpImpulse.setValue(int.from_bytes(arm9_bin[tweak_data[0]:tweak_data[0]+tweak_data[1]], 'little', signed=True))
+
+
+    def tweakTargetCall(self):
+        if self.dropdown_tweak_target.currentIndex() == 0:
+            self.field_physics_jumpImpulse.show()
+        else:
+            self.field_physics_jumpImpulse.hide()
+
     def treeBaseUpdate(self, tree: lib.widget.EditorTree):
         for e in tree.findItems("", QtCore.Qt.MatchFlag.MatchContains | QtCore.Qt.MatchFlag.MatchRecursive):
             for t in range(e.columnCount()):
@@ -4604,6 +4633,24 @@ class MainWindow(QtWidgets.QMainWindow):
         #print(f"{len(self.rom.files[fileID_tileset][self.levelEdited_object.level_offset_rom:self.levelEdited_object.gfx_offset_rom])} {self.levelEdited_object.level_offset_rom}")
         #print(f"{len(self.rom.files[fileID_tileset][self.levelEdited_object.gfx_offset_rom:self.levelEdited_object.pal_offset_rom])} {self.levelEdited_object.gfx_offset_rom}")
         #print(f"{len(self.rom.files[fileID_tileset][self.levelEdited_object.pal_offset_rom:])} {self.levelEdited_object.pal_offset_rom}")
+
+    def save_tweaks(self):
+        if self.gamedat.tweaks == {}: 
+            print("No supported tweaks for current game!")
+            return
+        arm9_bin = self.arm9_decompressed.save()
+        for category in self.gamedat.tweaks:
+            print(category)
+            for tweak in self.gamedat.tweaks[category]:
+                print("\t"+tweak)
+                tweak_data = self.gamedat.tweaks[category][tweak]
+                if category == "Physics":
+                    if tweak == "JumpImpulse":
+                        arm9_bin[tweak_data[0]:tweak_data[0]+tweak_data[1]] = int.to_bytes(self.field_physics_jumpImpulse.value(), tweak_data[1], 'little', signed=True)
+        self.arm9_decompressed = ndspy.code.MainCodeFile(arm9_bin, self.rom.arm9RamAddress, self.arm9_decompressed.codeSettingsOffs)
+        self.rom.arm9 = self.arm9_decompressed.save(compress=True)
+        print("This game's supported tweaks have been saved!")
+        
 
     def patch_checkboxUpdate(self):
         self.tree_patches.blockSignals(True)
