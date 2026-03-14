@@ -654,6 +654,38 @@ class BetterSpinBox(QtWidgets.QDoubleSpinBox):
     def maximum(self):
         return int(super().maximum()) if self.isInt else super().maximum()
 
+class LabeledSpinBox(QtWidgets.QWidget):
+    def __init__(self, *args, labelText=None, labelFirst=True, Vertical=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.sb = BetterSpinBox()
+        if Vertical:
+                self.setLayout(QtWidgets.QVBoxLayout())
+        else:
+            self.setLayout(QtWidgets.QHBoxLayout())
+        self.layout().setAlignment(QtCore.Qt.AlignmentFlag.AlignBaseline)
+        self.layout().setContentsMargins(0,0,0,0)
+        self.label = None
+        if labelText is not None:
+            self.label = QtWidgets.QLabel(labelText)
+            self.label.setMaximumSize(self.label.fontMetrics().maxWidth(), self.label.fontMetrics().height())
+            if labelFirst:
+                if Vertical:
+                    self.label.setAlignment(QtCore.Qt.AlignmentFlag.AlignBottom)
+                else:
+                    self.label.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
+                print(self.label.alignment().name)
+                self.layout().addWidget(self.label)
+                self.layout().addWidget(self.sb)
+            else:
+                if Vertical:
+                    self.label.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+                else:
+                    self.label.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
+                self.layout().addWidget(self.sb)
+                self.layout().addWidget(self.label)
+        else:
+            self.layout().addWidget(self.sb)
+
 class LongTextEdit(QtWidgets.QPlainTextEdit):
     def __init__(self, *args, charmap=lib.dialogue.CHARMAP_DIALOGUE_ZX_EN, **kwargs):
         super().__init__(*args, **kwargs)

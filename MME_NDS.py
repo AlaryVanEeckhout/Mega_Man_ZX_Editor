@@ -1929,6 +1929,20 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
         self.tabs_tweaks.addTab(self.page_tweaks_physics, "Physics")
+        self.field_physics_dashJumpSpeedX = lib.widget.BetterSpinBox(self.page_tweaks_physics)
+        self.field_physics_dashJumpSpeedX.isInt = True
+        self.field_physics_dashJumpSpeedX.numbase = self.displayBase
+        self.field_physics_dashJumpSpeedX.numfill = 8
+        self.field_physics_dashJumpSpeedX.setRange(-0x80000000, 0x7FFFFFFF)
+        self.field_physics_dashJumpSpeedX.setToolTip("Dash Jump X Speed (int32)")
+        self.field_physics_dashJumpSpeedX.hide()
+        self.field_physics_jumpSpeedX = lib.widget.BetterSpinBox(self.page_tweaks_physics)
+        self.field_physics_jumpSpeedX.isInt = True
+        self.field_physics_jumpSpeedX.numbase = self.displayBase
+        self.field_physics_jumpSpeedX.numfill = 8
+        self.field_physics_jumpSpeedX.setRange(-0x80000000, 0x7FFFFFFF)
+        self.field_physics_jumpSpeedX.setToolTip("Jump X Speed (int32)")
+        self.field_physics_jumpSpeedX.hide()
         self.field_physics_jumpImpulse = lib.widget.BetterSpinBox(self.page_tweaks_physics)
         self.field_physics_jumpImpulse.isInt = True
         self.field_physics_jumpImpulse.numbase = self.displayBase
@@ -1936,15 +1950,33 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_physics_jumpImpulse.setRange(-0x80000000, 0x7FFFFFFF)
         self.field_physics_jumpImpulse.setToolTip("Jump Impulse (int32)")
         self.field_physics_jumpImpulse.hide()
-        self.field_physics_wallslideSpeed = lib.widget.BetterSpinBox(self.page_tweaks_physics)
-        self.field_physics_wallslideSpeed.isInt = True
-        self.field_physics_wallslideSpeed.numbase = self.displayBase
-        self.field_physics_wallslideSpeed.numfill = 8
-        self.field_physics_wallslideSpeed.setRange(-0x80000000, 0x7FFFFFFF)
+        self.field_physics_wallslideSpeed = lib.widget.LabeledSpinBox(self.page_tweaks_physics, labelText="wall")
+        self.field_physics_wallslideSpeed.sb.isInt = True
+        self.field_physics_wallslideSpeed.sb.numbase = self.displayBase
+        self.field_physics_wallslideSpeed.sb.numfill = 8
+        self.field_physics_wallslideSpeed.sb.setRange(-0x80000000, 0x7FFFFFFF)
         self.field_physics_wallslideSpeed.setToolTip("Wallslide Speed (int32)")
         self.field_physics_wallslideSpeed.hide()
+        self.field_physics_dashSpeed = lib.widget.BetterSpinBox(self.page_tweaks_physics)
+        self.field_physics_dashSpeed.isInt = True
+        self.field_physics_dashSpeed.numbase = self.displayBase
+        self.field_physics_dashSpeed.numfill = 8
+        self.field_physics_dashSpeed.setRange(-0x80000000, 0x7FFFFFFF)
+        self.field_physics_dashSpeed.setToolTip("Dash Speed (int32)")
+        self.field_physics_dashSpeed.hide()
+        self.field_physics_runSpeed = lib.widget.BetterSpinBox(self.page_tweaks_physics)
+        self.field_physics_runSpeed.isInt = True
+        self.field_physics_runSpeed.numbase = self.displayBase
+        self.field_physics_runSpeed.numfill = 8
+        self.field_physics_runSpeed.setRange(-0x80000000, 0x7FFFFFFF)
+        self.field_physics_runSpeed.setToolTip("Run Speed (int32)")
+        self.field_physics_runSpeed.hide()
+        self.page_tweaks_physics.layout().addWidget(self.field_physics_jumpSpeedX)
+        self.page_tweaks_physics.layout().addWidget(self.field_physics_dashJumpSpeedX)
         self.page_tweaks_physics.layout().addWidget(self.field_physics_jumpImpulse)
         self.page_tweaks_physics.layout().addWidget(self.field_physics_wallslideSpeed)
+        self.page_tweaks_physics.layout().addWidget(self.field_physics_dashSpeed)
+        self.page_tweaks_physics.layout().addWidget(self.field_physics_runSpeed)
 
 
         self.tabs_tweaks.addTab(self.page_tweaks_behaviour, "Behaviour")
@@ -4280,19 +4312,35 @@ class MainWindow(QtWidgets.QMainWindow):
                 tweak_data = self.gamedat.tweaks[category][tweak]
                 tweak_val = int.from_bytes(arm9_bin[tweak_data[0]:tweak_data[0]+tweak_data[1]], 'little', signed=tweak_data[2])
                 if category == "Physics":
-                    if tweak == "JumpImpulse":
+                    if tweak == "JumpSpeedX":
+                        self.field_physics_jumpSpeedX.setValue(tweak_val)
+                    elif tweak == "DashJumpSpeedX":
+                        self.field_physics_dashJumpSpeedX.setValue(tweak_val)
+                    elif tweak == "JumpImpulse":
                         self.field_physics_jumpImpulse.setValue(tweak_val)
                     elif tweak == "WallslideSpeed":
-                        self.field_physics_wallslideSpeed.setValue(tweak_val)
+                        self.field_physics_wallslideSpeed.sb.setValue(tweak_val)
+                    elif tweak == "DashSpeed":
+                        self.field_physics_dashSpeed.setValue(tweak_val)
+                    elif tweak == "RunSpeed":
+                        self.field_physics_runSpeed.setValue(tweak_val)
 
 
     def tweakTargetCall(self):
         if self.dropdown_tweak_target.currentIndex() == 0:
+            self.field_physics_jumpSpeedX.show()
+            self.field_physics_dashJumpSpeedX.show()
             self.field_physics_jumpImpulse.show()
             self.field_physics_wallslideSpeed.show()
+            self.field_physics_dashSpeed.show()
+            self.field_physics_runSpeed.show()
         else:
+            self.field_physics_jumpSpeedX.hide()
+            self.field_physics_dashJumpSpeedX.hide()
             self.field_physics_jumpImpulse.hide()
             self.field_physics_wallslideSpeed.hide()
+            self.field_physics_dashSpeed.hide()
+            self.field_physics_runSpeed.hide()
 
     def treeBaseUpdate(self, tree: lib.widget.EditorTree):
         for e in tree.findItems("", QtCore.Qt.MatchFlag.MatchContains | QtCore.Qt.MatchFlag.MatchRecursive):
@@ -4659,10 +4707,18 @@ class MainWindow(QtWidgets.QMainWindow):
                 tweak_data = self.gamedat.tweaks[category][tweak]
                 tweak_val = None
                 if category == "Physics":
-                    if tweak == "JumpImpulse":
+                    if tweak == "JumpSpeedX":
+                        tweak_val = self.field_physics_jumpSpeedX.value()
+                    elif tweak == "DashJumpSpeedX":
+                        tweak_val = self.field_physics_dashJumpSpeedX.value()
+                    elif tweak == "JumpImpulse":
                         tweak_val = self.field_physics_jumpImpulse.value()
                     elif tweak == "WallslideSpeed":
-                        tweak_val = self.field_physics_wallslideSpeed.value()
+                        tweak_val = self.field_physics_wallslideSpeed.sb.value()
+                    elif tweak == "DashSpeed":
+                        tweak_val = self.field_physics_dashSpeed.value()
+                    elif tweak == "RunSpeed":
+                        tweak_val = self.field_physics_runSpeed.value()
                 if tweak_val is not None:
                     arm9_bin[tweak_data[0]:tweak_data[0]+tweak_data[1]] = int.to_bytes(tweak_val, tweak_data[1], 'little', signed=tweak_data[2])
         self.arm9_decompressed = ndspy.code.MainCodeFile(arm9_bin, self.rom.arm9RamAddress, self.arm9_decompressed.codeSettingsOffs)

@@ -377,9 +377,13 @@ class GameEnum(enum.Enum):
                             "Palette Animation" : I_PANM,
                             "Mugshot" : I_MUGSHOT
                             }, ENTITYKINDS_ZX, {
-                                "Physics": {
-                                    "JumpImpulse": (0x00038794, 4, True), # address, size, signed
-                                    "WallslideSpeed": (0x0003C01C, 4, True)
+                                "Physics": { # address, size, signed
+                                    "JumpSpeedX": (0x00038570, 4, True),
+                                    "DashJumpSpeedX": (0x00038574, 4, True),
+                                    "JumpImpulse": (0x00038794, 4, True),
+                                    "WallslideSpeed": (0x0003C01C, 4, True),
+                                    "DashSpeed": (0x0003CBE4, 4, True),
+                                    "RunSpeed": (0x0003CD50, 4, True)
                                 }
                             }, [
                                 ["Infinite lives", "arm9", [0x00044EC8, "nop", '00DA', 'C046'], [0x00044ECA, "mov", '0023', '0123']],
