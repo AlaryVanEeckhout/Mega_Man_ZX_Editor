@@ -1906,7 +1906,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.button_tweak_save.setDisabled(True)
         self.dropdown_tweak_target = QtWidgets.QComboBox(self.page_tweaks)
         self.dropdown_tweak_target.setToolTip("Choose a target to appy tweaks to")
-        self.dropdown_tweak_target.addItems(["Player", "Player(Hu)", "Player(X)", "Player(Zx)", "Player(Fx)", "Player(Hx)", "Player(Lx)", "Player(Px)", "Player(Ox)", "Other"])
         self.dropdown_tweak_target.currentTextChanged.connect(self.tweakTargetCall)
         self.dropdown_tweak_target.hide()
         self.page_tweaks.layout().addWidget(self.button_tweak_save)
@@ -1929,54 +1928,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
         self.tabs_tweaks.addTab(self.page_tweaks_physics, "Physics")
-        self.field_physics_dashJumpSpeedX = lib.widget.BetterSpinBox(self.page_tweaks_physics)
-        self.field_physics_dashJumpSpeedX.isInt = True
-        self.field_physics_dashJumpSpeedX.numbase = self.displayBase
-        self.field_physics_dashJumpSpeedX.numfill = 8
-        self.field_physics_dashJumpSpeedX.setRange(-0x80000000, 0x7FFFFFFF)
-        self.field_physics_dashJumpSpeedX.setToolTip("Dash Jump X Speed (int32)")
-        self.field_physics_dashJumpSpeedX.hide()
-        self.field_physics_jumpSpeedX = lib.widget.BetterSpinBox(self.page_tweaks_physics)
-        self.field_physics_jumpSpeedX.isInt = True
-        self.field_physics_jumpSpeedX.numbase = self.displayBase
-        self.field_physics_jumpSpeedX.numfill = 8
-        self.field_physics_jumpSpeedX.setRange(-0x80000000, 0x7FFFFFFF)
-        self.field_physics_jumpSpeedX.setToolTip("Jump X Speed (int32)")
-        self.field_physics_jumpSpeedX.hide()
-        self.field_physics_jumpImpulse = lib.widget.BetterSpinBox(self.page_tweaks_physics)
-        self.field_physics_jumpImpulse.isInt = True
-        self.field_physics_jumpImpulse.numbase = self.displayBase
-        self.field_physics_jumpImpulse.numfill = 8
-        self.field_physics_jumpImpulse.setRange(-0x80000000, 0x7FFFFFFF)
-        self.field_physics_jumpImpulse.setToolTip("Jump Impulse (int32)")
-        self.field_physics_jumpImpulse.hide()
-        self.field_physics_wallslideSpeed = lib.widget.LabeledSpinBox(self.page_tweaks_physics, labelText="wall")
-        self.field_physics_wallslideSpeed.sb.isInt = True
-        self.field_physics_wallslideSpeed.sb.numbase = self.displayBase
-        self.field_physics_wallslideSpeed.sb.numfill = 8
-        self.field_physics_wallslideSpeed.sb.setRange(-0x80000000, 0x7FFFFFFF)
-        self.field_physics_wallslideSpeed.setToolTip("Wallslide Speed (int32)")
-        self.field_physics_wallslideSpeed.hide()
-        self.field_physics_dashSpeed = lib.widget.BetterSpinBox(self.page_tweaks_physics)
-        self.field_physics_dashSpeed.isInt = True
-        self.field_physics_dashSpeed.numbase = self.displayBase
-        self.field_physics_dashSpeed.numfill = 8
-        self.field_physics_dashSpeed.setRange(-0x80000000, 0x7FFFFFFF)
-        self.field_physics_dashSpeed.setToolTip("Dash Speed (int32)")
-        self.field_physics_dashSpeed.hide()
-        self.field_physics_runSpeed = lib.widget.BetterSpinBox(self.page_tweaks_physics)
-        self.field_physics_runSpeed.isInt = True
-        self.field_physics_runSpeed.numbase = self.displayBase
-        self.field_physics_runSpeed.numfill = 8
-        self.field_physics_runSpeed.setRange(-0x80000000, 0x7FFFFFFF)
-        self.field_physics_runSpeed.setToolTip("Run Speed (int32)")
-        self.field_physics_runSpeed.hide()
-        self.page_tweaks_physics.layout().addWidget(self.field_physics_jumpSpeedX)
-        self.page_tweaks_physics.layout().addWidget(self.field_physics_dashJumpSpeedX)
-        self.page_tweaks_physics.layout().addWidget(self.field_physics_jumpImpulse)
-        self.page_tweaks_physics.layout().addWidget(self.field_physics_wallslideSpeed)
-        self.page_tweaks_physics.layout().addWidget(self.field_physics_dashSpeed)
-        self.page_tweaks_physics.layout().addWidget(self.field_physics_runSpeed)
 
 
         self.tabs_tweaks.addTab(self.page_tweaks_behaviour, "Behaviour")
@@ -2362,6 +2313,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.button_playtest.setDisabled(False)
         for i in range(self.tree.columnCount()):
             self.tree.showColumn(i)
+        if self.gamedat.name.endswith("ZX"):
+            self.dropdown_tweak_target.addItems(["Player", "Player(X)", "Player(ZX)", "Player(FX)", "Player(HX)", "Player(LX)", "Player(PX)", "Player(OX)", "Player(Hu)", "Other"])
+        self.dropdown_tweak_target.setCurrentIndex(-1)
         self.dropdown_tweak_target.show()
         self.button_tweak_save.setDisabled(False)
         self.field_address.show()
@@ -2394,7 +2348,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for i in range(self.tree.columnCount()):
             self.tree.hideColumn(i)
         self.dropdown_tweak_target.hide()
-        self.dropdown_tweak_target.setCurrentIndex(-1)
+        self.dropdown_tweak_target.clear()
         self.button_tweak_save.setDisabled(True)
         self.field_address.hide()
         self.label_file_size.hide()
@@ -3163,6 +3117,7 @@ class MainWindow(QtWidgets.QMainWindow):
         #progress.setValue(0)
         #progress.show()
         self.trees_sdat.clear()
+        self.dropdown_sdat.clear()
         for i in range(len(self.sdats)):
             self.dropdown_sdat.addItem(f"SDAT {self.sdats[i].fileID:04}")
             tree_sdat = lib.widget.EditorTree(self.page_sdat)
@@ -4043,7 +3998,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.gfx_scene_level.scene().clear()
         self.gfx_scene_tileset.scene().clear()
         ovlID = int(self.dropdown_level_area.currentText())
-        self.levelEdited_ovl_object = lib.level.Overlay(self.rom.loadArm9Overlays([ovlID])[ovlID].save(),
+        self.levelEdited_ovl_object = lib.level.Overlay(self.rom.loadArm9Overlays([ovlID])[ovlID].data,
                                                         lib.datconv.strToNum(self.tree_arm9Ovltable.topLevelItem(ovlID).text(1), self.displayBase),
                                                         self.levelEdited_ovlTable,
                                                         self.dropdown_level_area.currentIndex(),
@@ -4307,40 +4262,54 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def loadTweaks(self):
         arm9_bin = self.arm9_decompressed.save()
+        for i in range(self.tabs_tweaks.count()):
+            page = self.tabs_tweaks.widget(i)
+            for widget in page.findChildren(QtWidgets.QWidget):
+                widget.deleteLater() # delete previously generated widgets
         for category in self.gamedat.tweaks:
+            field_parent: QtWidgets.QWidget = getattr(self, f"page_tweaks_{category.lower()}")
             for tweak in self.gamedat.tweaks[category]:
                 tweak_data = self.gamedat.tweaks[category][tweak]
-                tweak_val = int.from_bytes(arm9_bin[tweak_data[0]:tweak_data[0]+tweak_data[1]], 'little', signed=tweak_data[2])
-                if category == "Physics":
-                    if tweak == "JumpSpeedX":
-                        self.field_physics_jumpSpeedX.setValue(tweak_val)
-                    elif tweak == "DashJumpSpeedX":
-                        self.field_physics_dashJumpSpeedX.setValue(tweak_val)
-                    elif tweak == "JumpImpulse":
-                        self.field_physics_jumpImpulse.setValue(tweak_val)
-                    elif tweak == "WallslideSpeed":
-                        self.field_physics_wallslideSpeed.sb.setValue(tweak_val)
-                    elif tweak == "DashSpeed":
-                        self.field_physics_dashSpeed.setValue(tweak_val)
-                    elif tweak == "RunSpeed":
-                        self.field_physics_runSpeed.setValue(tweak_val)
+                field_name = f"field_{category}_{tweak}"
+                setattr(self, field_name, lib.widget.LabeledSpinBox(field_parent, labelText=f"{tweak} ({"" if tweak_data[2] else "u"}int{tweak_data[1]*8})"))
+                field: lib.widget.LabeledSpinBox = getattr(self, field_name)
+                field.sb.isInt = True
+                field.sb.numbase = self.displayBase
+                field.sb.numfill = 8
+                if tweak_data[2]:
+                    field.sb.setRange(-0x80000000, 0x7FFFFFFF)
+                else:
+                    field.sb.setRange(0x00000000, 0xFFFFFFFF)
+                field.isMainCode = tweak_data[0] < self.rom.arm9RamAddress+len(arm9_bin)
+                field.model = None if field.isMainCode else tweak.split("_")[0]
+                if field.isMainCode:
+                    tweak_addr = tweak_data[0] - self.rom.arm9RamAddress
+                    tweak_val = int.from_bytes(arm9_bin[tweak_addr:tweak_addr+tweak_data[1]], 'little', signed=tweak_data[2])
+                else:
+                    overlay = self.rom.loadArm9Overlays([tweak_data[3]])[tweak_data[3]]
+                    tweak_addr = tweak_data[0] - overlay.ramAddress
+                    tweak_val = int.from_bytes(overlay.data[tweak_addr:tweak_addr+tweak_data[1]], 'little', signed=tweak_data[2])
+                field.sb.setValue(tweak_val)
+                field.hide()
+                field_parent.layout().addWidget(field)
 
 
     def tweakTargetCall(self):
         if self.dropdown_tweak_target.currentIndex() == 0:
-            self.field_physics_jumpSpeedX.show()
-            self.field_physics_dashJumpSpeedX.show()
-            self.field_physics_jumpImpulse.show()
-            self.field_physics_wallslideSpeed.show()
-            self.field_physics_dashSpeed.show()
-            self.field_physics_runSpeed.show()
+            for widget in self.page_tweaks_physics.findChildren(lib.widget.LabeledSpinBox):
+                if widget.isMainCode:
+                    widget.show()
+                else:
+                    widget.hide()
         else:
-            self.field_physics_jumpSpeedX.hide()
-            self.field_physics_dashJumpSpeedX.hide()
-            self.field_physics_jumpImpulse.hide()
-            self.field_physics_wallslideSpeed.hide()
-            self.field_physics_dashSpeed.hide()
-            self.field_physics_runSpeed.hide()
+            for widget in self.page_tweaks_physics.findChildren(lib.widget.LabeledSpinBox):
+                if widget.isMainCode:
+                    widget.hide()
+                else:
+                    if self.dropdown_tweak_target.currentText().find(widget.model) != -1:
+                        widget.show()
+                    else:
+                        widget.hide()
 
     def treeBaseUpdate(self, tree: lib.widget.EditorTree):
         for e in tree.findItems("", QtCore.Qt.MatchFlag.MatchContains | QtCore.Qt.MatchFlag.MatchRecursive):
@@ -4601,13 +4570,12 @@ class MainWindow(QtWidgets.QMainWindow):
         addr = self.gamedat.arm9Addrs["dialogue names " + self.dropdown_dialogueNames_lang.currentText()]
         index = self.dropdown_dialogueNames.currentIndex()
         arm9_bin = self.arm9_decompressed.save()
+        arm9_bin_old = arm9_bin
         new_data = lib.dialogue.DialogueFile.textToBin(self.textEdit_dialogueNames.toPlainText(), self.textEdit_dialogueNames.charmap)
         new_data += bytearray(0x0C)
         arm9_bin[addr+index*0x0C:addr+index*0x0C+0x0C] = bytearray(new_data[:0x0C])
-        self.arm9_decompressed = ndspy.code.MainCodeFile(arm9_bin, self.rom.arm9RamAddress, self.arm9_decompressed.codeSettingsOffs)
-        print(len(self.rom.arm9))
-        self.rom.arm9 = self.arm9_decompressed.save(compress=True)
-        print(len(self.rom.arm9))
+        if arm9_bin != arm9_bin_old:
+            self.save_toARM9(arm9_bin)
         print("name saved!")
 
     def save_level(self):
@@ -4700,29 +4668,27 @@ class MainWindow(QtWidgets.QMainWindow):
             print("No supported tweaks for current game!")
             return
         arm9_bin = self.arm9_decompressed.save()
+        arm9_bin_old = arm9_bin
         for category in self.gamedat.tweaks:
             print(category)
             for tweak in self.gamedat.tweaks[category]:
                 print("\t"+tweak)
                 tweak_data = self.gamedat.tweaks[category][tweak]
                 tweak_val = None
-                if category == "Physics":
-                    if tweak == "JumpSpeedX":
-                        tweak_val = self.field_physics_jumpSpeedX.value()
-                    elif tweak == "DashJumpSpeedX":
-                        tweak_val = self.field_physics_dashJumpSpeedX.value()
-                    elif tweak == "JumpImpulse":
-                        tweak_val = self.field_physics_jumpImpulse.value()
-                    elif tweak == "WallslideSpeed":
-                        tweak_val = self.field_physics_wallslideSpeed.sb.value()
-                    elif tweak == "DashSpeed":
-                        tweak_val = self.field_physics_dashSpeed.value()
-                    elif tweak == "RunSpeed":
-                        tweak_val = self.field_physics_runSpeed.value()
+                field_name = f"field_{category}_{tweak}"
+                field: lib.widget.LabeledSpinBox = getattr(self, field_name)
+                tweak_val = field.sb.value()
                 if tweak_val is not None:
-                    arm9_bin[tweak_data[0]:tweak_data[0]+tweak_data[1]] = int.to_bytes(tweak_val, tweak_data[1], 'little', signed=tweak_data[2])
-        self.arm9_decompressed = ndspy.code.MainCodeFile(arm9_bin, self.rom.arm9RamAddress, self.arm9_decompressed.codeSettingsOffs)
-        self.rom.arm9 = self.arm9_decompressed.save(compress=True)
+                    if field.isMainCode:
+                        tweak_addr = tweak_data[0] - self.rom.arm9RamAddress
+                        arm9_bin[tweak_addr:tweak_addr+tweak_data[1]] = int.to_bytes(tweak_val, tweak_data[1], 'little', signed=tweak_data[2])
+                    else:
+                        #overlay = self.rom.loadArm9Overlays([tweak_data[3]])[tweak_data[3]]
+                        #tweak_addr = tweak_data[0] - overlay.ramAddress
+                        #overlay.data[tweak_addr:tweak_addr+tweak_data[1]] = int.to_bytes(tweak_val, tweak_data[1], 'little', signed=tweak_data[2])
+                        print("tweaking overlays is not implemented yet!")
+        if arm9_bin != arm9_bin_old:
+            self.save_toARM9(arm9_bin)
         print("This game's supported tweaks have been saved!")
         
 
@@ -4757,6 +4723,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.progressShow()
         rom_patched = bytearray(self.rom.save()) # Create temporary ROM to write patch to
         arm9_bin = self.arm9_decompressed.save()
+        arm9_bin_old = arm9_bin
         patch_list = [] # create a list of patch data that corresponds to tree items
         self.progressUpdate(0, "Loading patch data", False)
         for patch in self.gamedat.patches: # create a patch list with a consistent format
@@ -4804,9 +4771,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.progressUpdate(75, "Writing to ROM", False)
         self.rom = ndspy.rom.NintendoDSRom(rom_patched)# update the editor with patched ROM
         self.progressUpdate(90, "Writing to ARM9", False)
-        self.arm9_decompressed = ndspy.code.MainCodeFile(arm9_bin, self.rom.arm9RamAddress, self.arm9_decompressed.codeSettingsOffs)
-        self.rom.arm9 = self.arm9_decompressed.save(compress=True)
+        if arm9_bin != arm9_bin_old:
+            self.save_toARM9(arm9_bin)
         self.progressHide()
+
+    def save_toARM9(self, data: bytes):
+        print(len(self.rom.arm9))
+        self.arm9_decompressed = ndspy.code.MainCodeFile(data, self.rom.arm9RamAddress, self.arm9_decompressed.codeSettingsOffs)
+        self.rom.arm9 = self.arm9_decompressed.save(compress=True)
+        print(len(self.rom.arm9))
 
 # Draw contents of tile viewer
 def draw_tilesQImage_fromBytes(view: lib.widget.GFXView, data: bytearray, algorithm=lib.datconv.CompressionAlgorithmEnum.ONEBPP,  grid: bool=True):

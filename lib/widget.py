@@ -667,18 +667,16 @@ class LabeledSpinBox(QtWidgets.QWidget):
         self.label = None
         if labelText is not None:
             self.label = QtWidgets.QLabel(labelText)
-            self.label.setMaximumSize(self.label.fontMetrics().maxWidth(), self.label.fontMetrics().height())
             if labelFirst:
                 if Vertical:
-                    self.label.setAlignment(QtCore.Qt.AlignmentFlag.AlignBottom)
+                    self.label.setAlignment(QtCore.Qt.AlignmentFlag.AlignHCenter)
                 else:
                     self.label.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
-                print(self.label.alignment().name)
                 self.layout().addWidget(self.label)
                 self.layout().addWidget(self.sb)
             else:
                 if Vertical:
-                    self.label.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+                    self.label.setAlignment(QtCore.Qt.AlignmentFlag.AlignHCenter)
                 else:
                     self.label.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
                 self.layout().addWidget(self.sb)
