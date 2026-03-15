@@ -4271,15 +4271,16 @@ class MainWindow(QtWidgets.QMainWindow):
             for tweak in self.gamedat.tweaks[category]:
                 tweak_data = self.gamedat.tweaks[category][tweak]
                 field_name = f"field_{category}_{tweak}"
-                setattr(self, field_name, lib.widget.LabeledSpinBox(field_parent, labelText=f"{tweak} ({"" if tweak_data[2] else "u"}int{tweak_data[1]*8})"))
+                bitCount = tweak_data[1]*8
+                setattr(self, field_name, lib.widget.LabeledSpinBox(field_parent, labelText=f"{tweak} ({"" if tweak_data[2] else "u"}int{bitCount})"))
                 field: lib.widget.LabeledSpinBox = getattr(self, field_name)
                 field.sb.isInt = True
                 field.sb.numbase = self.displayBase
-                field.sb.numfill = 8
+                field.sb.numfill = tweak_data[1]*2
                 if tweak_data[2]:
-                    field.sb.setRange(-0x80000000, 0x7FFFFFFF)
+                    field.sb.setRange(-(2**(bitCount-1)), 2**(bitCount-1)-1)
                 else:
-                    field.sb.setRange(0x00000000, 0xFFFFFFFF)
+                    field.sb.setRange(0, 2**(bitCount))
                 field.isMainCode = tweak_data[0] < self.rom.arm9RamAddress+len(arm9_bin)
                 field.model = None if field.isMainCode else tweak.split("_")[0]
                 if field.isMainCode:
@@ -4570,7 +4571,7 @@ class MainWindow(QtWidgets.QMainWindow):
         addr = self.gamedat.arm9Addrs["dialogue names " + self.dropdown_dialogueNames_lang.currentText()]
         index = self.dropdown_dialogueNames.currentIndex()
         arm9_bin = self.arm9_decompressed.save()
-        arm9_bin_old = arm9_bin
+        arm9_bin_old = arm9_bin[:]
         new_data = lib.dialogue.DialogueFile.textToBin(self.textEdit_dialogueNames.toPlainText(), self.textEdit_dialogueNames.charmap)
         new_data += bytearray(0x0C)
         arm9_bin[addr+index*0x0C:addr+index*0x0C+0x0C] = bytearray(new_data[:0x0C])
@@ -4668,7 +4669,7 @@ class MainWindow(QtWidgets.QMainWindow):
             print("No supported tweaks for current game!")
             return
         arm9_bin = self.arm9_decompressed.save()
-        arm9_bin_old = arm9_bin
+        arm9_bin_old = arm9_bin[:]
         for category in self.gamedat.tweaks:
             print(category)
             for tweak in self.gamedat.tweaks[category]:
@@ -4723,7 +4724,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.progressShow()
         rom_patched = bytearray(self.rom.save()) # Create temporary ROM to write patch to
         arm9_bin = self.arm9_decompressed.save()
-        arm9_bin_old = arm9_bin
+        arm9_bin_old = arm9_bin[:]
         patch_list = [] # create a list of patch data that corresponds to tree items
         self.progressUpdate(0, "Loading patch data", False)
         for patch in self.gamedat.patches: # create a patch list with a consistent format

@@ -613,7 +613,7 @@ class BetterSpinBox(QtWidgets.QDoubleSpinBox):
         #self.setDecimals(16) # cannot do setDecimals here because it will crash the program for... some reason. Have to do it for each instance instead.
         self.numfill = 0
         self.isInt = False
-        self.acceptedSymbols = [".", "{", "}", *lib.datconv.symbols]
+        self.acceptedSymbols = ["-", "{", "}", *lib.datconv.symbols]
         #self.setCorrectionMode(self.CorrectionMode.CorrectToNearestValue)
 
     def fixup(self, str):
@@ -632,12 +632,17 @@ class BetterSpinBox(QtWidgets.QDoubleSpinBox):
             return (QtGui.QValidator.State.Invalid, input, pos)
 
     def textFromValue(self, value): # overwrite of existing function with 2 args that determines how value is displayed inside spinbox
+        numfill = self.numfill
+        if value < 0:
+            numfill += 1
         if self.isInt:
-            self.acceptedSymbols = ["-", "{", "}", *lib.datconv.symbols]
-            return lib.datconv.numToStr(int(value), self.numbase, self.alphanum).zfill(self.numfill)
+            if "." in self.acceptedSymbols:
+                self.acceptedSymbols.remove(".")
+            return lib.datconv.numToStr(int(value), self.numbase, self.alphanum).zfill(numfill)
         else:
-            self.acceptedSymbols = ["-", ".", "{", "}", *lib.datconv.symbols]
-            return lib.datconv.numToStr(value, self.numbase, self.alphanum).zfill(self.numfill)
+            if not "." in self.acceptedSymbols:
+                self.acceptedSymbols.append(".")
+            return lib.datconv.numToStr(value, self.numbase, self.alphanum).zfill(numfill)
     
     def valueFromText(self, text):
         if self.isInt:

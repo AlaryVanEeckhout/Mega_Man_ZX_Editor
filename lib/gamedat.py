@@ -388,6 +388,10 @@ class GameEnum(enum.Enum):
                                     "DashJumpSpeedXFrame2": (0x0203C804, 4, True),
                                     "DashSpeed": (0x0203CBE4, 4, True),
                                     "RunSpeed": (0x0203CD50, 4, True),
+                                    "ShotLv1Speed": (0x020E03D4, 2, True),
+                                    "ShotLv2Speed": (0x020E03D6, 2, True),
+                                    "ShotLv3.1Speed": (0x020E03D8, 2, True),
+                                    "ShotLv3.2Speed": (0x020E03DA, 2, True),
                                     "HX_DashSpeed": (0x02187F48, 4, True, 36)
                                 }
                             }, [
