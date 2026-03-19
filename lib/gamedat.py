@@ -392,7 +392,13 @@ class GameEnum(enum.Enum):
                                     "ShotLv2Speed": (0x020E03D6, 2, True),
                                     "ShotLv3.1Speed": (0x020E03D8, 2, True),
                                     "ShotLv3.2Speed": (0x020E03DA, 2, True),
-                                    "HX_DashSpeed": (0x02187F48, 4, True, 36)
+                                    "ZX_DashAttackSpeedMult": (0x02186064, 4, True, 35),
+                                    "ZX_DashAttackSpeedBase": (0x02186068, 4, True, 35),
+                                    "HX_UpDashSpeed": (0x02186CE0, 4, True, 36),
+                                    "HX_DashAttackSpeedMult": (0x021858F8, 4, True, 36),
+                                    "HX_DashAttackSpeedBase": (0x021858FC, 4, True, 36),
+                                    "HX_AirDashSpeed": (0x021870B4, 4, True, 36),
+                                    "HX_DashSpeed": (0x02187F48, 4, True, 36),
                                 }
                             }, [
                                 ["Infinite lives", "arm9", [0x00044EC8, "nop", '00DA', 'C046'], [0x00044ECA, "mov", '0023', '0123']],

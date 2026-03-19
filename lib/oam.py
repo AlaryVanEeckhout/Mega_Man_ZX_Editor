@@ -135,7 +135,7 @@ class Object3D: # WIP for ZXA sprites
         self.SIZE = 0x06
         self.data = data
         self.tileId = int.from_bytes(self.data[0x00:0x01], byteorder='little')
-        print("obj", self.data[0x00:0x06].hex())
+        #print("obj3D", self.data[0x00:0x06].hex())
         assert self.data[3] == 0 # is this byte ever used?
         self.tileId_add = (int.from_bytes(self.data[0x01:0x02], byteorder='little')) * 0x100
         self.tileId += self.tileId_add

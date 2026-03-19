@@ -42,7 +42,7 @@ class LevelTileItem(PixmapItem):
         self.id = self.getWindow().gfx_scene_tileset.metaTiles.index(item)
 
 class LevelEntityItem(QtWidgets.QGraphicsItemGroup):
-    def __init__(self, *args, coordIndex:int=0, coord:dict[str]={}, slot:dict[str]={}, slotnames:dict[str]={}, screenSpacing:int=0, displayBase:int=10, alphanumeric=False, **kwargs):
+    def __init__(self, *args, coordIndex:int=0, coord:dict[str]={}, slot:dict[str]={}, slotnames:dict[str]={}, screenSpacing:int=0, displayBase:int=10, alphanumeric=False, graphicItems:list[PixmapItem]=[], **kwargs):
         super().__init__(*args, **kwargs)
         self.coordIndex = coordIndex # Entities are ordered from top to bottom, left to right
         self.displayBase = displayBase
@@ -60,6 +60,8 @@ class LevelEntityItem(QtWidgets.QGraphicsItemGroup):
         self._item_text.setPen(QtGui.QPen(0x220000, 0.5))
         self._item_text.setTransformOriginPoint(self._item_text.boundingRect().center())
         self._item_text.setScale(1.25)
+        for item in graphicItems:
+            item.setParentItem(self)
         self.addToGroup(self._item_rect) # only the rect (and children) is selectable
         self.setFlags(QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsSelectable |
                       QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsMovable |
