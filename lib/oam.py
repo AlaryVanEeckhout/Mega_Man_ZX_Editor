@@ -31,14 +31,14 @@ class OAMSection:
             print(f"unexpected frameTable constant value: {self.frameTable_constant}")
         self.frameTable_offset = self.header_items[0]+self.frameTable_constant # relative to section
         self.frameTable_size = int.from_bytes(self.data[self.frameTable_offset:self.frameTable_offset+0x02], byteorder='little') # first oam pointer
-        self.frameTable = []
+        self.frameTable: list[list[int]] = []
         for i in range(self.frameTable_offset, self.frameTable_offset+self.frameTable_size, 0x04): # frames
             obj_ptr = int.from_bytes(self.data[i:i+0x02], byteorder='little')  # oam pointer
             obj_cnt = int.from_bytes(self.data[i+0x02:i+0x03], byteorder='little') # object count (must be greater than 0)
             obj_sec = int.from_bytes(self.data[i+0x03:i+0x04], byteorder='little') # id of gfx section, apparently
             #print(f"pointer: {obj_ptr:02X}; count: {obj_cnt:02X};")
             self.frameTable.append([obj_ptr, obj_cnt, obj_sec]) # add frame data to frame list
-        self.animTable = []
+        self.animTable: list[int] = []
         if len(self.header_items) > 1:
             self.animTable_constant = int.from_bytes(self.data[self.header_items[1]:self.header_items[1]+0x04], byteorder='little')
             self.animTable_offset = self.header_items[1]+self.animTable_constant

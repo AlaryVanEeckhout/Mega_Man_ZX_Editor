@@ -55,8 +55,10 @@ class LevelEntityItem(QtWidgets.QGraphicsItemGroup):
         y = self.getSceneY(coord["y"])
         self.setPos(x, y)
         self._item_rect = QtWidgets.QGraphicsRectItem(-8, -8, 16, 16, self)
+        self._item_rect.setZValue(1)
         self._item_rect.setPen(0x0010A0)
         self._item_text = QtWidgets.QGraphicsSimpleTextItem(lib.datconv.numToStr(coord["slot"], self.displayBase, self.alphanumeric), self)
+        self._item_text.setZValue(1)
         self._item_text.setPen(QtGui.QPen(0x220000, 0.5))
         self._item_text.setTransformOriginPoint(self._item_text.boundingRect().center())
         self._item_text.setScale(1.25)
@@ -106,8 +108,8 @@ class LevelEntityItem(QtWidgets.QGraphicsItemGroup):
             if QtWidgets.QApplication.mouseButtons() == QtCore.Qt.MouseButton.LeftButton:
                 x = min(max(0, value.x()), self.getSceneX(0xFFFFFFFF))
                 y = min(max(0, value.y()), self.getSceneY(0xFFFF))
-                self.getWindow().field_level_entities_coords_x.setValue(self.getTrueX(x))
-                self.getWindow().field_level_entities_coords_y.setValue(self.getTrueY(y))
+                self.getWindow().field_level_entities_coords_x.sb.setValue(self.getTrueX(x))
+                self.getWindow().field_level_entities_coords_y.sb.setValue(self.getTrueY(y))
                 return QtCore.QPointF(int(x), int(y))
             else:
                 return value

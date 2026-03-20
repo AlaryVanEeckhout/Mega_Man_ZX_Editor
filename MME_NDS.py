@@ -1681,6 +1681,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.checkbox_entities_enable = QtWidgets.QCheckBox(self.page_level_entities)
         self.checkbox_entities_enable.setChecked(True)
         self.checkbox_entities_enable.setText("Load Entities")
+        self.checkbox_entities_gfxEnable = QtWidgets.QCheckBox(self.page_level_entities)
+        self.checkbox_entities_gfxEnable.setChecked(True)
+        self.checkbox_entities_gfxEnable.setText("Load Entity Graphics")
+        self.layout_entitySettings = QtWidgets.QHBoxLayout()
+        self.layout_entitySettings.addWidget(self.checkbox_entities_enable)
+        self.layout_entitySettings.addWidget(self.checkbox_entities_gfxEnable)
 
         self.tabs_level_entities = QtWidgets.QTabWidget(self.page_level_entities)
         self.page_level_entities_coords = QtWidgets.QWidget(self.tabs_level_entities)
@@ -1894,7 +1900,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.page_level_tileset.layout().addItem(self.layout_metaTile_properties)
         self.page_level_tileset.layout().addWidget(self.gfx_scene_tileset)
         self.page_level_screens.layout().addWidget(self.tabs_level_screens)
-        self.page_level_entities.layout().addWidget(self.checkbox_entities_enable)
+        self.page_level_entities.layout().addItem(self.layout_entitySettings)
         self.page_level_entities.layout().addWidget(self.tabs_level_entities)
         self.page_leveleditor.layout().addWidget(self.gfx_scene_level)
 
@@ -2715,10 +2721,11 @@ class MainWindow(QtWidgets.QMainWindow):
         if istreecall:
             self.treeCall()
 
-    def OAM_updateItemGFX(self, obj_index: int, oamsec:lib.oam.OAMSection=None, frameIndex:list[int]=None, gfxsec:lib.graphic.GraphicSection=None, objs:list[lib.oam.Object]=None, auxfile:lib.graphic.File=None, item: lib.widget.OAMObjectItem|None=None):
+    def OAM_updateItemGFX(self, obj_index: int, oamsec:lib.oam.OAMSection=None, frameIndex:int=None, gfxsec:lib.graphic.GraphicSection=None, objs:list[lib.oam.Object]=None, auxfile:lib.graphic.File=None, item: lib.widget.OAMObjectItem|None=None):
         # creates and returns an item if none specified
         args_auto = [oamsec, frameIndex, gfxsec, objs, auxfile]
         if args_auto.count(None) == len(args_auto):
+            # by default, will use self.fileEdited if no info specified
             oamsec = self.fileEdited_object.oamsec
             frameIndex = self.fileEdited_object.frameIndex
             gfxsec = self.fileEdited_object.gfxsec
@@ -2820,10 +2827,24 @@ class MainWindow(QtWidgets.QMainWindow):
         if item == None:
             return obj_item
         
-    def OAM_processFrame(self, oamsec:lib.oam.OAMSection, frameIndex:list[int], gfxsec:lib.graphic.GraphicSection, objs:list[lib.oam.Object], auxfile:lib.graphic.File):
+    def OAM_processFrame(self, oamsec:lib.oam.OAMSection|list[str,int], frameIndex:int, gfxsec:lib.graphic.GraphicSection=None, auxfile:lib.graphic.File=None):
+        """
+        oamsec: The object containing data about a specific entry of an OAM file or a list containing that file's name as well as the entry index.\n
+        frameIndex: An integer used as the index of the oamsec's frameTable to fetch data from.\n
+        gfxsec: The object containing information on the entry's graphics; Can be initialized automatically based on oamsec or fileEdited_object.\n
+        auxfile: The object representing the file where gfxsec is (this might be superfluous); Can be initialized automatically based on oamsec or fileEdited_object.
+        """
+        if isinstance(oamsec, list): # file name, entry index
+            oamfile = lib.oam.File(self.rom.getFileByName(oamsec[0]))
+            if auxfile is None:
+                auxfile = lib.graphic.File(self.rom.getFileByName(oamsec[0].replace("dat", "fnt")))
+            if gfxsec is None:
+                gfxsec = lib.graphic.GraphicSection.fromParent(auxfile, oamsec[1])
+            oamsec = lib.oam.OAMSection(oamfile, oamsec[1])
         frame = oamsec.frameTable[frameIndex] # ptr, count, gfxsec id
         obj_offset_base = oamsec.frameTable_offset + frame[0]
         is3D = False
+        objs = []
         try:
             if frameIndex < len(oamsec.frameTable)-1:
                 #print(frame[0]+frame[1]*0x06, "vs", oamsec.frameTable[frameIndex+1][0])
@@ -2861,7 +2882,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 print("Load aborted. Proceed at your own risk!")
                 break
             obj_list.append(obj_item)
-        result = {"obj":obj_list, "is3D":is3D}
+        result = {"objs":objs, "items":obj_list, "is3D":is3D}
         return result
         
     def OAM_playAnimFrame(self):
@@ -3486,9 +3507,14 @@ class MainWindow(QtWidgets.QMainWindow):
                         #print(f"{:02X}")
                         #print(oamsec.data[oamsec.frameTable_offset:oamsec.frameTable_offset+0x04].hex())
                         if sender in [self.dropdown_oam_entry, *self.FILEOPEN_WIDGETS]:
-                            self.fileEdited_object.oamsec = lib.oam.OAMSection(self.fileEdited_object,
-                                                                               self.dropdown_oam_entry.currentIndex() if self.dropdown_oam_entry.currentIndex() != -1 else 0)
-                            self.fileEdited_object.gfxsec = lib.graphic.GraphicSection.fromParent(self.fileEdited_object.auxfile, self.dropdown_oam_entry.currentIndex())
+                            self.fileEdited_object.oamsec = lib.oam.OAMSection(
+                                self.fileEdited_object,
+                                self.dropdown_oam_entry.currentIndex() if self.dropdown_oam_entry.currentIndex() != -1 else 0
+                            )
+                            self.fileEdited_object.gfxsec = lib.graphic.GraphicSection.fromParent(
+                                self.fileEdited_object.auxfile,
+                                self.dropdown_oam_entry.currentIndex() if self.dropdown_oam_entry.currentIndex() != -1 else 0
+                            )
                             print(f"offset: {self.fileEdited_object.oamsec.offset_start:02X}")
                             print(f"header items: {[f"{header_item:02X}" for header_item in self.fileEdited_object.oamsec.header_items]}")
 
@@ -3583,10 +3609,10 @@ class MainWindow(QtWidgets.QMainWindow):
                                     self.fileEdited_object.oamsec,
                                     self.fileEdited_object.frameIndex,
                                     self.fileEdited_object.gfxsec,
-                                    self.fileEdited_object.objs,
                                     self.fileEdited_object.auxfile
                                 )
-                                self.file_content_oam.item_current = frame_result["obj"][0]
+                                self.fileEdited_object.objs = frame_result["objs"]
+                                self.file_content_oam.item_current = frame_result["items"][0]
                                 if frame_result["is3D"]:
                                     self.field_objTileId.setMaximum(0xFFFF)
                                     self.slider_objSizeIndex.hide()
@@ -3599,7 +3625,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                     self.slider_obj3DTileWidth.hide()
                                     self.slider_objSizeIndex.show()
                                     self.group_oam_objShape.show()
-                                for obj_item in frame_result["obj"]:
+                                for obj_item in frame_result["items"]:
                                     self.file_content_oam.scene().addItem(obj_item)
 
                                 if sender == self.dropdown_oam_entry:
@@ -3925,20 +3951,20 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def loadEntityProperties(self):
         if not self.gfx_scene_level.scene().isActive() or len(self.gfx_scene_level.scene().selectedItems()) == 0:
-            for w in self.page_level_entities_coords.findChildren(lib.widget.BetterSpinBox):
+            for w in self.page_level_entities_coords.findChildren(lib.widget.LabeledSpinBox):
                 w.setEnabled(False)
-            for w in self.page_level_entities_slots.findChildren(lib.widget.BetterSpinBox):
+            for w in self.page_level_entities_slots.findChildren(lib.widget.LabeledSpinBox):
                 w.setEnabled(False)
             return
-        for w in self.page_level_entities_coords.findChildren(lib.widget.BetterSpinBox):
+        for w in self.page_level_entities_coords.findChildren(lib.widget.LabeledSpinBox):
             w.setEnabled(True)
-        for w in self.page_level_entities_slots.findChildren(lib.widget.BetterSpinBox):
+        for w in self.page_level_entities_slots.findChildren(lib.widget.LabeledSpinBox):
             w.setEnabled(True)
         item: lib.widget.LevelEntityItem = self.gfx_scene_level.scene().selectedItems()[0]
         #print(item)
-        for w in self.page_level_entities_coords.findChildren(lib.widget.BetterSpinBox):
+        for w in self.page_level_entities_coords.findChildren(lib.widget.LabeledSpinBox):
             w.blockSignals(True)
-        for w in self.page_level_entities_slots.findChildren(lib.widget.BetterSpinBox):
+        for w in self.page_level_entities_slots.findChildren(lib.widget.LabeledSpinBox):
             w.blockSignals(True)
 
         self.tabs_level.setCurrentWidget(self.page_level_entities)
@@ -4032,6 +4058,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                                         self.dropdown_level_area.currentIndex(),
                                                         self.gamedat.entityNames)
         self.checkbox_entities_enable.setEnabled(hasattr(self.levelEdited_ovl_object.entities, "coords"))
+        self.checkbox_entities_gfxEnable.setEnabled(hasattr(self.levelEdited_ovl_object.entities, "coords"))
         try:
             fileID = self.rom.filenames.idOf(self.levelEdited_ovl_object.tilesetName)
         except IndexError:
@@ -4176,6 +4203,7 @@ class MainWindow(QtWidgets.QMainWindow):
         entities = self.levelEdited_ovl_object.entities
         if not hasattr(entities, "coords"): return
         self.field_level_entities_coords_slot.sb.setRange(0, len(entities.slots.entityList)-1) # prevent using inexistant slots
+        
         for i in range(len(entities.coords.entityList[1:-1])):
             entityCoord = entities.coords.entityList[1:-1][i]
             try:
@@ -4198,14 +4226,18 @@ class MainWindow(QtWidgets.QMainWindow):
                 }
                 print(f"Entity slot {entityCoord["slot"]} did not load correclty. Slot may not exist in slot definitions.")
                 print(e)
-            #todo add OAM_processFrame
-            self.gfx_scene_level.scene().addItem(lib.widget.LevelEntityItem(coordIndex=i+1,
-                                                                            coord=entityCoord,
-                                                                            slot=entitySlot,
-                                                                            slotnames=entitySlot_names,
-                                                                            screenSpacing=screenSpacing,
-                                                                            displayBase=self.displayBase,
-                                                                            alphanumeric=self.displayAlphanumeric))
+            self.gfx_scene_level.scene().addItem(
+                lib.widget.LevelEntityItem(
+                coordIndex=i+1,
+                coord=entityCoord,
+                slot=entitySlot,
+                slotnames=entitySlot_names,
+                screenSpacing=screenSpacing,
+                displayBase=self.displayBase,
+                alphanumeric=self.displayAlphanumeric,
+                graphicItems=self.OAM_processFrame(["obj_dat.bin", 0], 0)["items"] if self.checkbox_entities_gfxEnable.isChecked() else []
+                )
+            )
 
     def loadLevel(self):
         if self.dropdown_level_area.currentIndex() == -1:
