@@ -929,6 +929,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_panm_entry.setToolTip("Choose palette animation")
         self.dropdown_panm_entry.setStatusTip("Palette animations for mavericks. 0=evil; 1=patrol; 2=alert")
         self.dropdown_panm_entry.currentIndexChanged.connect(lambda: self.treeCall(addr_disabled=True))
+        self.dropdown_panm_oamEntry = QtWidgets.QComboBox(self.page_explorer)
+        self.dropdown_panm_oamEntry.setPlaceholderText("no entries to preview")
+        self.dropdown_panm_oamEntry.setToolTip("Choose oam entry")
+        self.dropdown_panm_oamEntry.setStatusTip("OAM entry to use when previewing palette.")
+        self.dropdown_panm_oamEntry.currentIndexChanged.connect(lambda: self.treeCall(addr_disabled=True))
 
         self.dropdown_panm_frame = QtWidgets.QComboBox(self.page_explorer)
         self.dropdown_panm_frame.setPlaceholderText("no frames")
@@ -975,15 +980,20 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_panm_colorSlot1.setRange(0x00, 0xFF)
         self.field_panm_colorSlot1.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
-        self.layout_panm.addWidget(self.dropdown_panm_entry, 0, 0)
-        self.layout_panm.addWidget(self.dropdown_panm_frame, 0, 1)
-        self.layout_panm.addWidget(self.field_panm_frameId, 1, 1)
-        self.layout_panm.addWidget(self.field_panm_frameDuration, 2, 1)
-        self.layout_panm.addWidget(self.checkbox_panm_loop, 1, 0)
-        self.layout_panm.addWidget(self.field_panm_loopStart, 2, 0)
+        self.gfx_scene_panm = lib.widget.View(self.page_explorer)
+        self.gfx_scene_panm.hide()
+
+        self.layout_panm.addWidget(self.dropdown_panm_oamEntry, 0, 0)
+        self.layout_panm.addWidget(self.dropdown_panm_entry, 0, 1)
+        self.layout_panm.addWidget(self.dropdown_panm_frame, 3, 1)
+        self.layout_panm.addWidget(self.field_panm_frameId, 4, 1)
+        self.layout_panm.addWidget(self.field_panm_frameDuration, 5, 1)
+        self.layout_panm.addWidget(self.checkbox_panm_loop, 1, 1)
+        self.layout_panm.addWidget(self.field_panm_loopStart, 2, 1)
         self.layout_panm.addWidget(self.label_panm_colorSlots, 3, 0)
         self.layout_panm.addWidget(self.field_panm_colorSlot0, 4, 0)
         self.layout_panm.addWidget(self.field_panm_colorSlot1, 5, 0)
+        self.layout_panm.addWidget(self.gfx_scene_panm, 6, 0, 1, 2)
         self.layout_panm.setSpacing(3)
 
         #Font
@@ -1048,8 +1058,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_editzone_row1.addWidget(self.widget_colorpick)
         self.layout_editzone_row1.addItem(self.layout_gfx_settings)
         self.layout_editzone_row1.addItem(self.layout_oam_navigation)
-        self.layout_editzone_row1.addItem(self.layout_panm)
 
+        self.layout_editzone_row2.addItem(self.layout_panm)
         self.layout_editzone_row2.addItem(self.layout_font_size)
         self.layout_editzone_row2.addItem(self.layout_font_width)
         self.layout_editzone_row2.addItem(self.layout_font_height)
@@ -1301,6 +1311,7 @@ class MainWindow(QtWidgets.QMainWindow):
             ]
         self.WIDGETS_PANM: list[QtWidgets.QWidget] = [
             self.dropdown_panm_entry,
+            self.dropdown_panm_oamEntry,
             self.dropdown_panm_frame,
             self.field_panm_frameId,
             self.field_panm_frameDuration,
@@ -1309,7 +1320,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.label_panm_colorSlots,
             self.field_panm_colorSlot0,
             self.field_panm_colorSlot1,
-            self.widget_colorpick
+            self.widget_colorpick,
+            self.gfx_scene_panm
         ]
         self.WIDGETS_FONT: list[QtWidgets.QWidget] = [
             self.file_content_gfx,
@@ -2721,23 +2733,26 @@ class MainWindow(QtWidgets.QMainWindow):
         if istreecall:
             self.treeCall()
 
-    def OAM_updateItemGFX(self, obj_index: int, oamsec:lib.oam.OAMSection=None, frameIndex:int=None, gfxsec:lib.graphic.GraphicSection=None, objs:list[lib.oam.Object]=None, auxfile:lib.graphic.File=None, item: lib.widget.OAMObjectItem|None=None):
+    def OAM_updateItemGFX(self, obj_index: int, oamsec:lib.oam.OAMSection=None, frameIndex:int=None, gfxsec:lib.graphic.GraphicSection=None, objs:list[lib.oam.Object]=None, item: lib.widget.OAMObjectItem|None=None, palette:list[int]=None):
         # creates and returns an item if none specified
-        args_auto = [oamsec, frameIndex, gfxsec, objs, auxfile]
+        args_auto = [oamsec, frameIndex, gfxsec, objs]
         if args_auto.count(None) == len(args_auto):
             # by default, will use self.fileEdited if no info specified
             oamsec = self.fileEdited_object.oamsec
             frameIndex = self.fileEdited_object.frameIndex
             gfxsec = self.fileEdited_object.gfxsec
             objs = self.fileEdited_object.objs
-            auxfile = self.fileEdited_object.auxfile
         elif None in args_auto:
             raise TypeError("Only some arguments are defined")
         frame = oamsec.frameTable[frameIndex]
-        index_img = frame[2]
+        gfxheader_index = frame[2]
         if len(gfxsec.graphics) <= 0:
             print("no graphics in section!")
             return
+        if gfxheader_index >= len(gfxsec.graphics):
+            print(f"Graphic Header at index {gfxheader_index} of Graphic Section does not exist!")
+            return
+        gfxheader = gfxsec.graphics[gfxheader_index]
         depth = 4 # actual depth that will be used to render
         indexingFactor = 1 # I guess this is changed based on the size of assembled gfx
         # in 4bpp, oam tile id * indexingFactor = vram tile id
@@ -2761,29 +2776,31 @@ class MainWindow(QtWidgets.QMainWindow):
                 obj.shape = self.buttonGroup_oam_objShape.checkedId()
             obj.x = self.field_objX.value()
             obj.y = self.field_objY.value()
-        if index_img >= len(gfxsec.graphics):
-            print(f"Graphic Section index {index_img} does not exist!")
-            return
-        if gfxsec.graphics[index_img].oam_tile_indexing == 0:
+        if gfxheader.oam_tile_indexing == 0:
             indexingFactor = 1
-        elif gfxsec.graphics[index_img].oam_tile_indexing == 0x18:
+        elif gfxheader.oam_tile_indexing == 0x18:
             indexingFactor = 4
         else:
-            print(f"unhandled tile indexing mode: {gfxsec.graphics[index_img].oam_tile_indexing:02X}")
+            print(f"unhandled tile indexing mode: {gfxheader.oam_tile_indexing:02X}")
+        img_offset = gfxheader.offset_start - gfxsec.offset_start
         if gfxsec.entry_size == 0x14:
-            pal_off = gfxsec.graphics[index_img].offset_start + gfxsec.graphics[index_img].palette_offset+0xc
-            pal = [0xffffffff]*(gfxsec.graphics[index_img].unk13 & 0xf0)
-            pal.extend(lib.datconv.BGR15_to_ARGB32(auxfile.data[pal_off:pal_off+gfxsec.graphics[index_img].palette_size]))
+            pal_off = img_offset + gfxheader.palette_offset+0xc
+            pal = [0xffffffff]*(gfxheader.unk13 & 0xf0)
+            pal.extend(lib.datconv.BGR15_to_ARGB32(gfxsec.data[pal_off:pal_off+gfxheader.palette_size]))
         else:
             #print("palette changed")
             #print(int.from_bytes(oamsec.data[oamsec.paletteTable_offset:oamsec.paletteTable_offset+2]))
             if len(oamsec.header_items) == 4:
                 pal = oamsec.paletteTable[0]
-            else:
-                #print("to default")
+            else: # palette may be handled dynamically in RAM
+                print(f"palette ram: 0x{gfxheader.ram_palette_offset:04X}")
                 pal = self.GFX_PALETTES[2]
-        tileId = gfxsec.graphics[index_img].oam_tile_offset + obj.tileId
-        gfxOffset = gfxsec.graphics[index_img].offset_start + gfxsec.graphics[index_img].gfx_offset
+        if palette is not None:
+            for i, color in enumerate(palette):
+                if color is None: continue
+                pal[i] = color
+        tileId = gfxheader.oam_tile_offset + obj.tileId
+        gfxOffset = img_offset + gfxheader.gfx_offset
         # multiply oam tile id by indexingFactor(relative to 4bpp) and 4bpp tile size to get vram tile id
         gfxOffset += int(tileId*indexingFactor*32) # 8*8pixels*4bpp/8bits = 32bytes
         #print(f"offset: {gfxOffset:04X}")
@@ -2792,15 +2809,15 @@ class MainWindow(QtWidgets.QMainWindow):
         for member in lib.datconv.CompressionAlgorithmEnum:
             if member.depth == depth:
                 depth_obj = member
-        try: #gfxOffset+gfxsec.graphics[index_img].gfx_size
+        try: #gfxOffset+img_current.gfx_size
             if isinstance(obj, lib.oam.Object3D):
-                obj_img = lib.datconv.binToQt(auxfile.data[gfxOffset:], pal,
+                obj_img = lib.datconv.binToQt(gfxsec.data[gfxOffset:], pal,
                     depth_obj,
                     1,
                     obj.getHeight(), obj.getTileWidth()
                 )
             else:
-                obj_img = lib.datconv.binToQt(auxfile.data[gfxOffset:], pal,
+                obj_img = lib.datconv.binToQt(gfxsec.data[gfxOffset:], pal,
                     depth_obj,
                     obj.getWidth(),
                     obj.getHeight()
@@ -2827,18 +2844,17 @@ class MainWindow(QtWidgets.QMainWindow):
         if item == None:
             return obj_item
         
-    def OAM_processFrame(self, oamsec:lib.oam.OAMSection|list[str,int], frameIndex:int, gfxsec:lib.graphic.GraphicSection=None, auxfile:lib.graphic.File=None):
+    def OAM_processFrame(self, oamsec:lib.oam.OAMSection|list[str,int], frameIndex:int, gfxsec:lib.graphic.GraphicSection=None, palette:list[int]=None):
         """
-        oamsec: The object containing data about a specific entry of an OAM file or a list containing that file's name as well as the entry index.\n
+        oamsec: The object containing data about a specific entry of an OAM file OR a list containing that file's name as well as the entry index.\n
         frameIndex: An integer used as the index of the oamsec's frameTable to fetch data from.\n
-        gfxsec: The object containing information on the entry's graphics; Can be initialized automatically based on oamsec or fileEdited_object.\n
-        auxfile: The object representing the file where gfxsec is (this might be superfluous); Can be initialized automatically based on oamsec or fileEdited_object.
+        gfxsec: The object containing the entry's graphics; Can be initialized automatically based on oamsec or fileEdited_object.\n
+        palette: A list of ints representing each argb32 color of a palette to load, overwriting the intended palette; None can be used to keep the original color.
         """
         if isinstance(oamsec, list): # file name, entry index
             oamfile = lib.oam.File(self.rom.getFileByName(oamsec[0]))
-            if auxfile is None:
-                auxfile = lib.graphic.File(self.rom.getFileByName(oamsec[0].replace("dat", "fnt")))
             if gfxsec is None:
+                auxfile = lib.graphic.File(self.rom.getFileByName(oamsec[0].replace("dat", "fnt")))
                 gfxsec = lib.graphic.GraphicSection.fromParent(auxfile, oamsec[1])
             oamsec = lib.oam.OAMSection(oamfile, oamsec[1])
         frame = oamsec.frameTable[frameIndex] # ptr, count, gfxsec id
@@ -2876,7 +2892,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 frameIndex,
                 gfxsec,
                 objs,
-                auxfile
+                palette=palette
             )
             if obj_item == None:
                 print("Load aborted. Proceed at your own risk!")
@@ -3608,11 +3624,11 @@ class MainWindow(QtWidgets.QMainWindow):
                                 frame_result = self.OAM_processFrame(
                                     self.fileEdited_object.oamsec,
                                     self.fileEdited_object.frameIndex,
-                                    self.fileEdited_object.gfxsec,
-                                    self.fileEdited_object.auxfile
+                                    self.fileEdited_object.gfxsec
                                 )
                                 self.fileEdited_object.objs = frame_result["objs"]
-                                self.file_content_oam.item_current = frame_result["items"][0]
+                                if len(frame_result["items"]) > 0:
+                                    self.file_content_oam.item_current = frame_result["items"][0]
                                 if frame_result["is3D"]:
                                     self.field_objTileId.setMaximum(0xFFFF)
                                     self.slider_objSizeIndex.hide()
@@ -3704,6 +3720,10 @@ class MainWindow(QtWidgets.QMainWindow):
                         if sender in self.FILEOPEN_WIDGETS:
                             self.fileEdited_object = lib.panim.File(self.rom.files[current_id])
                             self.dropdown_gfx_depth.setCurrentIndex(1)
+                            self.dropdown_panm_oamEntry.clear()
+                            for i in range(lib.oam.File(self.rom.getFileByName("obj_dat.bin")).entryCount):
+                                self.dropdown_panm_oamEntry.addItem("oam entry "+str(i))
+                            self.dropdown_panm_oamEntry.setCurrentIndex(0)
                             self.dropdown_panm_entry.clear()
                             for i in range(self.fileEdited_object.animCount):
                                 self.dropdown_panm_entry.addItem("palette animation "+str(i))
@@ -3727,14 +3747,25 @@ class MainWindow(QtWidgets.QMainWindow):
                             self.field_panm_loopStart.setValue(anim_current.loopStart)
                             self.field_panm_colorSlot0.setValue(palette_current.colorSlot0)
                             self.field_panm_colorSlot1.setValue(palette_current.colorSlot1)
-                        if sender in [self.dropdown_panm_frame, self.dropdown_panm_entry, *self.FILEOPEN_WIDGETS]:
+                        if sender in [self.dropdown_panm_frame, self.dropdown_panm_entry, self.dropdown_panm_oamEntry, *self.FILEOPEN_WIDGETS]:
                             frame_current = anim_current.frames[self.dropdown_panm_frame.currentIndex()]
                             if self.button_file_save.isEnabled():
                                 self.fileEdited_object.anims[self.dropdown_panm_entry.previousIndex].frames[self.dropdown_panm_frame.previousIndex]\
                                 = [self.field_panm_frameId.value(), self.field_panm_frameDuration.value()]
                             self.field_panm_frameId.setValue(frame_current[0])
                             self.field_panm_frameDuration.setValue(frame_current[1])
-                            # load some object using OAM_processFrame
+                            # load some object to preview palette effects
+                            palette_preview = [None]*16
+                            palette_preview[palette_current.colorSlot0] = self.gfx_palette[frame_current[0]*2]
+                            palette_preview[palette_current.colorSlot1] = self.gfx_palette[frame_current[0]*2+1]
+                            frame_result = self.OAM_processFrame(["obj_dat.bin", self.dropdown_panm_oamEntry.currentIndex()], 0, palette=palette_preview)["items"]
+                            self.gfx_scene_panm.scene().clear()
+                            OAMRect = QtCore.QRectF(-128, -128, 256, 256)
+                            self.gfx_scene_panm.scene().addRect(OAMRect)
+                            for item in frame_result:
+                                self.gfx_scene_panm.scene().addItem(item)
+                            if sender is not self.dropdown_panm_frame:
+                                self.gfx_scene_panm.fitInView2(False)
                             self.dropdown_panm_frame.previousIndex = self.dropdown_panm_frame.currentIndex()
                             if sender == self.dropdown_panm_entry:
                                 self.dropdown_panm_entry.previousIndex = self.dropdown_panm_entry.currentIndex()
