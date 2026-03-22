@@ -2922,7 +2922,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 else: # pause anim
                     self.button_oam_animPlay.autoPause()
 
-    def setPalette(self, palette: list[int]):
+    def setPalette(self, palette: list[int], skip:int=0):
         #for i in range(self.dropdown_gfx_depth.count()): # re-enable depth options
         #    self.dropdown_gfx_depth.model().item(i).setEnabled(True)
         new_pal = palette.copy()
@@ -2939,30 +2939,29 @@ class MainWindow(QtWidgets.QMainWindow):
         self.file_content_gfx.pen.setColor(0x00010101) # set to first color
         for i in range(256):
             button_palettepick: lib.widget.HoldButton = getattr(self, f"button_palettepick_{i}")
-            if i < len(self.gfx_palette):
+            if i < len(self.gfx_palette) and i >= skip:
                 button_palettepick.setStyleSheet(f"background-color: #{self.gfx_palette[i]:08x}; color: white;")
             else:
-                button_palettepick.setStyleSheet(f"background-color: white; color: white;") # fill missing colors with white
+                button_palettepick.setStyleSheet(f"background-color: white; color: white;") # fill missing colors with NaN white
 
     def colorpickCall(self, color_index: int, press=None, hold=None):
         #print(color_index)
         button: lib.widget.HoldButton = getattr(self, f"button_palettepick_{color_index}")
+        stylesheet = button.styleSheet()
         depth = list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()].depth
         if hold:
             dialog = QtWidgets.QColorDialog(self)
             dialog.setOptions(QtWidgets.QColorDialog.ColorDialogOption.DontUseNativeDialog)
-            color = button.styleSheet()[button.styleSheet().find(":")+3:button.styleSheet().find(";")]
-            if any(x in lib.datconv.symbols for x in color):
+            if stylesheet.find("#") != -1:
+                color = stylesheet[stylesheet.find("#")+1:stylesheet.find(";")]
                 dialog.setCurrentColor(int(color, 16))
                 dialog.exec()
-            else:
-                return
-            if dialog.selectedColor().isValid():
-                button.setStyleSheet(f"background-color: {dialog.selectedColor().name()}; color: white;")
-                self.gfx_palette[color_index] = dialog.selectedColor().rgba()
-                if self.dropdown_gfx_palette.currentIndex() == -1:
-                    self.button_file_save.setEnabled(True)
-                self.treeCall() # update gfx colors
+                if dialog.selectedColor().isValid():
+                    self.gfx_palette[color_index] = dialog.selectedColor().rgba()
+                    button.setStyleSheet(f"background-color: #{self.gfx_palette[color_index]:08X}; color: white;")
+                    if self.dropdown_gfx_palette.currentIndex() == -1:
+                        self.button_file_save.setEnabled(True)
+                    self.treeCall() # update gfx colors
         if press:
             #print(button.styleSheet())
             if color_index < 2**depth:
@@ -3471,12 +3470,14 @@ class MainWindow(QtWidgets.QMainWindow):
                                         print(f"unk09: {gfx_current.unk09:02X}")
                                     if gfxsec.entry_size == 0x14:
                                         pal_off = gfx_current.offset_start + gfx_current.palette_offset+0xc
-                                        pal = [0xffffffff]*(gfx_current.unk13 & 0xf0) # shift palette
+                                        pal_skip = (gfx_current.unk13 & 0xf0)
+                                        pal = [0xffffffff]*pal_skip # shift palette
                                         pal.extend(lib.datconv.BGR15_to_ARGB32(self.rom.files[current_id][pal_off:pal_off+gfx_current.palette_size]))
                                         print(f"unk13 & 0F: {gfx_current.unk13 & 0x0f:02X}")
                                     else:
+                                        pal_skip = 0
                                         pal = [] # empty palette because idk where it is
-                                    self.setPalette(pal)
+                                    self.setPalette(pal, pal_skip)
                             else:
                                 print(f"{gfxsec.entryCount} graphic sub-entries!")
                                 #print(f"data: {gfxsec.data.hex()}")
@@ -4570,8 +4571,8 @@ class MainWindow(QtWidgets.QMainWindow):
                             self.dropdown_oam_animFrame.currentIndex()]:
                         print("no valid animation data to save!")
                         return
-                    section = self.fileEdited_object.oamsec
-                    anim = self.fileEdited_object.oamsec_anim
+                    section: lib.oam.OAMSection = self.fileEdited_object.oamsec
+                    anim: lib.oam.Animation = self.fileEdited_object.oamsec_anim
                     isDurationfix = self.dropdown_oam_animFrame.currentIndex() > 0 and self.field_oam_animFrameDuration.value() >= 0xFE
                     if isDurationfix:
                         if self.field_oam_animFrameDuration.value() == 0xFE:
@@ -4588,21 +4589,21 @@ class MainWindow(QtWidgets.QMainWindow):
                         print(f"while saving, special duration was found in frame {self.dropdown_oam_animFrame.currentIndex()} of animation and frame was modified to match expected duration")
                     save_data = anim.toBytes()
                     save_offset =  self.fileEdited_object.oamsec.offset_start+self.fileEdited_object.oamsec.animTable_offset+anim.frames_offset
-                    save_offset_end = save_offset+anim.oldFrameCount*0x02
+                    save_offset_end = save_offset+anim.oldFrameCount*anim.FRAME_SIZE
                     print(save_data.hex(), w.rom.files[file_id][save_offset:save_offset_end].hex())
                     w.rom.files[file_id][save_offset:save_offset_end] = save_data
                     frameCountDelta = len(anim.frames) - anim.oldFrameCount
-                    if frameCountDelta != 0:
-                        offset = section.offset_start + section.animTable_offset + self.dropdown_oam_anim.currentIndex()*0x02
-                        for i in range(offset+0x02, section.offset_start + section.animTable_offset + section.animTable_size, 0x02):
-                            #print(frameCountDelta*0x02, w.rom.files[file_id][i:i+0x02].hex())
-                            w.rom.files[file_id][i:i+0x02] = int.to_bytes(int.from_bytes(w.rom.files[file_id][i:i+0x02], 'little')+frameCountDelta*0x02, 2, 'little') # update header obj offset
+                    if frameCountDelta != 0: # not all pointers were identified, so this does not fully work
+                        offset = section.offset_start + section.animTable_offset + self.dropdown_oam_anim.currentIndex()*section.ANIMTABLE_PTR_SIZE
+                        for i in range(offset+section.ANIMTABLE_PTR_SIZE, section.offset_start + section.animTable_offset + section.animTable_size, section.ANIMTABLE_PTR_SIZE):
+                            #print(frameCountDelta*anim.FRAME_SIZE, w.rom.files[file_id][i:i+section.ANIMTABLE_PTR_SIZE].hex())
+                            w.rom.files[file_id][i:i+section.ANIMTABLE_PTR_SIZE] = int.to_bytes(int.from_bytes(w.rom.files[file_id][i:i+section.ANIMTABLE_PTR_SIZE], 'little')+frameCountDelta*anim.FRAME_SIZE, section.ANIMTABLE_PTR_SIZE, 'little') # update header obj offset
                         for i in range(2, len(section.header_items)): # section pointers from palette
-                                section.header_items[i] += frameCountDelta*0x02
+                                section.header_items[i] += frameCountDelta*anim.FRAME_SIZE
                         w.rom.files[file_id][section.offset_start:section.offset_start+section.header_size] = section.headerToBytes() # update section header pointers
                         for i in range(self.dropdown_oam_entry.currentIndex()+1, len(self.fileEdited_object.address_list)): # file
-                            self.fileEdited_object.address_list[i][0] += frameCountDelta*0x02
-                        self.fileEdited_object.fileSize += frameCountDelta*0x02
+                            self.fileEdited_object.address_list[i][0] += frameCountDelta*anim.FRAME_SIZE
+                        self.fileEdited_object.fileSize += frameCountDelta*anim.FRAME_SIZE
                         w.rom.files[file_id][:self.fileEdited_object.header_size] = self.fileEdited_object.headerToBytes() # update file header pointers
                     anim.oldFrameCount = len(anim.frames)
                 # update data of oamsec

@@ -39,6 +39,7 @@ class OAMSection:
             #print(f"pointer: {obj_ptr:02X}; count: {obj_cnt:02X};")
             self.frameTable.append([obj_ptr, obj_cnt, obj_sec]) # add frame data to frame list
         self.animTable: list[int] = []
+        self.ANIMTABLE_PTR_SIZE = 0x02
         if len(self.header_items) > 1:
             self.animTable_constant = int.from_bytes(self.data[self.header_items[1]:self.header_items[1]+0x04], byteorder='little')
             self.animTable_offset = self.header_items[1]+self.animTable_constant
@@ -50,6 +51,7 @@ class OAMSection:
         if len(self.header_items) == 4: # if palette and unk exist
             self.paletteTable_offset = self.header_items[2]
             self.unkTable_offset = self.header_items[3]
+            print(self.data[self.unkTable_offset:self.offset_end].hex())
             for i in range(self.paletteTable_offset+4,
                            self.paletteTable_offset+4+0x200*self.data[self.paletteTable_offset],
                            0x200):
@@ -57,6 +59,8 @@ class OAMSection:
                 pal = [0xffffffff]*(self.data[self.paletteTable_offset+1]) # add white to shift the palette
                 pal.extend(datconv.BGR15_to_ARGB32(self.data[i:i+0x200]))
                 self.paletteTable.append(pal)
+            for i in range(self.unkTable_offset, self.offset_end, 0x04):
+                self.unkTable.append(int.from_bytes(self.data[i:i+0x04], byteorder='little'))
     
     def headerToBytes(self):
         data = bytearray()
@@ -66,6 +70,7 @@ class OAMSection:
 
 class Animation:
     def __init__(self, data: bytes, fStart: int):
+        self.FRAME_SIZE = 0x02
         self.data = data
         self.isLooping = False
         self.loopStart = 0
