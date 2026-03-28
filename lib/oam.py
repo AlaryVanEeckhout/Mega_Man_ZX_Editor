@@ -51,7 +51,6 @@ class OAMSection:
         if len(self.header_items) == 4: # if palette and unk exist
             self.paletteTable_offset = self.header_items[2]
             self.unkTable_offset = self.header_items[3]
-            print(self.data[self.unkTable_offset:self.offset_end].hex())
             for i in range(self.paletteTable_offset+4,
                            self.paletteTable_offset+4+0x200*self.data[self.paletteTable_offset],
                            0x200):
@@ -59,8 +58,9 @@ class OAMSection:
                 pal = [0xffffffff]*(self.data[self.paletteTable_offset+1]) # add white to shift the palette
                 pal.extend(datconv.BGR15_to_ARGB32(self.data[i:i+0x200]))
                 self.paletteTable.append(pal)
-            for i in range(self.unkTable_offset, self.offset_end, 0x04):
+            for i in range(self.unkTable_offset, self.offset_end-self.offset_start, 0x04):
                 self.unkTable.append(int.from_bytes(self.data[i:i+0x04], byteorder='little'))
+            print([f"{unk:08X}" for unk in self.unkTable])
     
     def headerToBytes(self):
         data = bytearray()

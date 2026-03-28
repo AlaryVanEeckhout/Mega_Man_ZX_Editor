@@ -15,8 +15,10 @@ The editor can edit, export and import english dialogue files and save them to t
 ### Done
 - Dialogue text converter (for dialogue "talk_" and message "m_" files)
 - Functional User Interface
-- File export with options for converted file formats (WIP)
-- File import with support for converted file formats (WIP)
+- Import/Export bin
+- Import/Export txt
+- Import/Export vx (WIP)
+- Import/Export bmp (WIP)
 - Togglable patches system
 - Playtest button
 - Graphics Editor (WIP)
@@ -29,7 +31,6 @@ The editor can edit, export and import english dialogue files and save them to t
 - Loading room layout in Level Editor
 - Modifyable entities in Level Editor
 ### To do
-- Graphics Editor additional features (exporting and importing)
 - Find more patches for the game to add to the editor's "patches" tab*
 - Find patches and tweaks that are helpful for playtesting purposes*
 - Sound/Music Editor*

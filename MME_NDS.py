@@ -511,7 +511,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_colorpick.setSpacing(0)
         self.widget_colorpick.setLayout(self.layout_colorpick)
 
-        self.button_file_save = QtWidgets.QPushButton("Save file", self.page_explorer)
+        self.button_file_save = QtWidgets.QPushButton("Save changes", self.page_explorer)
         self.button_file_save.setMaximumWidth(100)
         self.button_file_save.setToolTip("save this file's changes")
         self.button_file_save.pressed.connect(self.save_filecontent)
@@ -569,6 +569,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_file_size.setContentsMargins(5,0,0,0)
         self.label_file_size.setText("Size: N/A")
         self.label_file_size.hide()
+
+        self.button_view_save = QtWidgets.QPushButton(QtGui.QIcon(str(PATH_ROOT / 'icons/blueprint--arrow')), "", self.page_explorer)
+        self.button_view_save.setMaximumWidth(25)
+        self.button_view_save.setToolTip("Save to bmp")
+        self.button_view_save.setStatusTip("Generate BMP from view")
+        self.button_view_save.pressed.connect(self.save_viewImage)
+        self.button_view_load = QtWidgets.QPushButton(QtGui.QIcon(str(PATH_ROOT / 'icons/blue-document-import')), "", self.page_explorer)
+        self.button_view_load.setMaximumWidth(25)
+        self.button_view_load.setToolTip("Load from bmp")
+        self.button_view_load.setStatusTip("Load BMP into view")
+        self.button_view_load.pressed.connect(self.load_viewImage)
         #Tile Wifth
         self.tile_width = 8
         self.field_tile_width = lib.widget.BetterSpinBox(self.page_explorer)
@@ -1051,6 +1062,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_font_unusedStr.setText("unused string: ")
 
         self.layout_editzone_row0.addWidget(self.button_file_save)
+        self.layout_editzone_row0.addWidget(self.button_view_save)
+        self.layout_editzone_row0.addWidget(self.button_view_load)
         self.layout_editzone_row0.addWidget(self.label_file_size)
         self.layout_editzone_row0.addWidget(self.dropdown_gfx_depth)
         self.layout_editzone_row0.addWidget(self.field_address)
@@ -1302,7 +1315,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.label_tiles_per_row,
             self.field_tiles_per_column,
             self.label_tiles_per_column,
-            self.widget_colorpick
+            self.widget_colorpick,
+            self.button_view_save,
+            self.button_view_load
             ]
         self.WIDGETS_OAM: list[QtWidgets.QWidget] = [
             self.file_content_oam,
@@ -1916,7 +1931,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.page_level_entities.layout().addWidget(self.tabs_level_entities)
         self.page_leveleditor.layout().addWidget(self.gfx_scene_level)
 
-        # Tweaks(Coming Soon™)
+        # Tweaks(WIP)
         self.tabs_tweaks = QtWidgets.QTabWidget(self.page_tweaks)
 
         self.button_tweak_save = QtWidgets.QPushButton("Apply Tweaks", self.page_tweaks)
@@ -2394,7 +2409,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self,
                 "Export File",
                 "",
-                "Supported Export Formats (*.bin *.txt *.vx);;All Files (*)",
+                "Supported Export Formats (*.bin *.txt *.bmp *.vx);;All Files (*)",
                 options=QtWidgets.QFileDialog.Option.DontUseNativeDialog,
                 )
         dialog.setAcceptMode(dialog.AcceptMode.AcceptSave)
@@ -2413,7 +2428,7 @@ class MainWindow(QtWidgets.QMainWindow):
             dialog_formatSelect = QtWidgets.QDialog(self)
             dialog_formatSelect.setWindowTitle("Choose format and compression")
             dropdown_formatSelect = QtWidgets.QComboBox(dialog_formatSelect)
-            dropdown_formatSelect.addItems(["Raw", "English dialogue", "VX"])
+            dropdown_formatSelect.addItems(["Raw", "English dialogue", "Bitmap", "VX"])
             dropdown_compressSelect = QtWidgets.QComboBox(dialog_formatSelect)
             dropdown_compressSelect.addItems(["No compression change", "compression", "decompression"])
             dropdown_compressSelect.currentIndexChanged.connect(lambda: dropdown_compresstypeSelect.setDisabled(dropdown_compressSelect.currentIndex() == 0))
@@ -2451,7 +2466,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     else:
                         fileData = fileInfo[0] # fileInfo[0] is already the expected data
                     if not "Folder" in item.text(2): # if file
-                        extract(fileData, name=name, path=path, format=dropdown_formatSelect.currentText(), compress=[dropdown_compressSelect.currentText(), dropdown_compresstypeSelect.currentText()])
+                        self.extract(fileData, name=name, path=path, format=dropdown_formatSelect.currentText(), compress=[dropdown_compressSelect.currentText(), dropdown_compresstypeSelect.currentText()])
                         dialog2.setText(f"file \"{item.text(1)}\" exported!")
                     else: # if folder
                         folder_path = os.path.join(selectedFiles[0]) # here, "file name" specifies folder name instead
@@ -2464,7 +2479,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         for i in range(item.childCount()):
                             print(item.child(i).text(0))
                             # file_fromItem gets the name automatically
-                            extract(*self.file_fromItem(item.child(i))[:2], path=folder_path, format=dropdown_formatSelect.currentText(), compress=[dropdown_compressSelect.currentText(), dropdown_compresstypeSelect.currentText()])#, w.fileToEdit_name.replace(".Folder", "/")
+                            self.extract(*self.file_fromItem(item.child(i))[:2], path=folder_path, format=dropdown_formatSelect.currentText(), compress=[dropdown_compressSelect.currentText(), dropdown_compresstypeSelect.currentText()])#, w.fileToEdit_name.replace(".Folder", "/")
                             #str(w.tree.currentItem().child(i).text(1) + "." + w.tree.currentItem().child(i).text(2)), 
                         dialog2.setText(f"folder \"{item.text(1)}\" exported!")
                     dialog2.exec()
@@ -2558,7 +2573,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                 #print(fileExt)
                                 # find a way to get attr and replace data at correct index.. maybe it's better to just save ROM and patch
                                 #self.rom.files[self.rom.files.index(self.file_fromItem(item)[0])]
-                                supported_list = ["txt",
+                                supported_list = ["txt", "bmp",
                                                   "swar", "sbnk", "ssar", "sseq",
                                                   "cmp", "blz", "lz", "lz10", "lz77", 
                                                   "dec", "declz", "declz10", "declz77", "decblz",
@@ -2580,6 +2595,13 @@ class MainWindow(QtWidgets.QMainWindow):
                                                 data = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8")))
                                         else:
                                             data = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8")))
+                                    elif fileExt == "bmp":
+                                        img = QtGui.QImage()
+                                        img.load(file)
+                                        for member in lib.datconv.CompressionAlgorithmEnum:
+                                            if member.depth == img.depth():
+                                                algorithm = member
+                                        data = lib.datconv.qtToBin(img, algorithm=algorithm)
                                     elif fileExt == "blz":
                                         try:
                                             data = bytearray(ndspy.codeCompression.decompress(fileEdited))
@@ -3499,7 +3521,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         else:
                             print("no graphic data to process! This address is most likely invalid.")
                             return
-                        draw_tilesQImage_fromBytes(self.file_content_gfx,
+                        self.draw_tilesQImage_fromBytes(self.file_content_gfx,
                                                    gfx_viewed,
                                                    algorithm=depth_obj,
                                                    grid=True)
@@ -3788,7 +3810,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         self.file_content_gfx.resetScene()
                         self.tile_width = math.ceil(self.field_font_width.value()/8)*8
                         self.tile_height = self.field_font_height.value()
-                        draw_tilesQImage_fromBytes(self.file_content_gfx,
+                        self.draw_tilesQImage_fromBytes(self.file_content_gfx,
                                                    self.rom.files[current_id][self.relative_address:self.relative_address+self.fileEdited_object.file_size],
                                                    algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
                                                    grid=True)
@@ -4473,6 +4495,45 @@ class MainWindow(QtWidgets.QMainWindow):
         elif mode == "Font":
             pass
 
+    def load_viewImage(self):
+        dialog = QtWidgets.QFileDialog(
+                self,
+                "Load image to overwrite view",
+                "",
+                "Image (*.bmp);;All Files (*)",
+                options=QtWidgets.QFileDialog.Option.DontUseNativeDialog,
+                )
+        if dialog.exec():
+            pixmap = self.file_content_gfx._graphic.pixmap()
+            pixmap.load(dialog.selectedFiles()[0])
+            self.file_content_gfx._graphic.setPixmap(pixmap)
+            QtWidgets.QMessageBox.information(
+                self,
+                "Import Status",
+                "Image loaded!"
+            )
+
+    def save_viewImage(self):
+        dialog = QtWidgets.QFileDialog(
+                self,
+                "Save view to image",
+                "",
+                "Image (*.bmp);;All Files (*)",
+                options=QtWidgets.QFileDialog.Option.DontUseNativeDialog,
+                )
+        dialog.setLabelText(QtWidgets.QFileDialog.DialogLabel.Accept, "Save")
+        if dialog.exec():
+            path = dialog.selectedFiles()[0]
+            if path.split("/")[-1].find(".") == -1:
+                path += ".bmp"
+            print(path)
+            self.file_content_gfx._graphic.pixmap().save(path)
+            QtWidgets.QMessageBox.information(
+                self,
+                "Export Status",
+                "Image saved to disk!"
+            )
+
     def save_filecontent(self): #Save to virtual ROM
         file_id = int(self.tree.currentItem().text(0))
         if self.fileDisplayRaw == False:
@@ -4593,6 +4654,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     print(save_data.hex(), w.rom.files[file_id][save_offset:save_offset_end].hex())
                     w.rom.files[file_id][save_offset:save_offset_end] = save_data
                     frameCountDelta = len(anim.frames) - anim.oldFrameCount
+                    #delta_size = frameCountDelta*anim.FRAME_SIZE
                     if frameCountDelta != 0: # not all pointers were identified, so this does not fully work
                         offset = section.offset_start + section.animTable_offset + self.dropdown_oam_anim.currentIndex()*section.ANIMTABLE_PTR_SIZE
                         for i in range(offset+section.ANIMTABLE_PTR_SIZE, section.offset_start + section.animTable_offset + section.animTable_size, section.ANIMTABLE_PTR_SIZE):
@@ -4900,85 +4962,101 @@ class MainWindow(QtWidgets.QMainWindow):
         self.rom.arm9 = self.arm9_decompressed.save(compress=True)
         print(len(self.rom.arm9))
 
-# Draw contents of tile viewer
-def draw_tilesQImage_fromBytes(view: lib.widget.GFXView, data: bytearray, algorithm=lib.datconv.CompressionAlgorithmEnum.ONEBPP,  grid: bool=True):
-    #print("draw")
-    tile_size = int((w.tile_width*w.tile_height)*algorithm.depth/8) # size in bytes
-    gfx = lib.datconv.binToQt(data[:tile_size*w.tiles_per_row*w.tiles_per_column],
-                              palette=w.gfx_palette, algorithm=algorithm,
-                              tilesPerRow=w.tiles_per_row, tilesPerColumn=w.tiles_per_column,
-                              tileWidth=w.tile_width, tileHeight=w.tile_height)
-    view._graphic.setPixmap(QtGui.QPixmap.fromImage(gfx, QtCore.Qt.ImageConversionFlag.NoFormatConversion)) # overwrite current canvas with new one
-    if grid:
-        view.createGrid(w.tile_width, w.tile_height)
+    # Draw contents of tile viewer
+    def draw_tilesQImage_fromBytes(self, view: lib.widget.GFXView, data: bytearray, algorithm=lib.datconv.CompressionAlgorithmEnum.ONEBPP,  grid: bool=True):
+        #print("draw")
+        tile_size = int((self.tile_width*self.tile_height)*algorithm.depth/8) # size in bytes
+        gfx = lib.datconv.binToQt(data[:tile_size*self.tiles_per_row*self.tiles_per_column],
+                                palette=self.gfx_palette, algorithm=algorithm,
+                                tilesPerRow=self.tiles_per_row, tilesPerColumn=self.tiles_per_column,
+                                tileWidth=self.tile_width, tileHeight=self.tile_height)
+        view._graphic.setPixmap(QtGui.QPixmap.fromImage(gfx, QtCore.Qt.ImageConversionFlag.NoFormatConversion)) # overwrite current canvas with new one
+        if grid:
+            view.createGrid(self.tile_width, self.tile_height)
 
-def extract(data: bytes, name="", path="", format="", compress=["", ""]):
-    ext = ""
-    if name == "":
-        print("Error, tried to extract nameless file!")
-        return
-    if compress[0] == "decompression":
-        try:
-            if compress[1] == "LZ10":
-                data = ndspy.lz10.decompress(data)
-            elif compress[1] == "BLZ":
-                data = ndspy.codeCompression.decompress(data)
-        except TypeError as e:
-            print(e)
-            QtWidgets.QMessageBox.critical(
-            w,
-            "Decompression Failed",
-            str(e)
-            )
-            print("Aborted file extraction.")
+    def extract(self, data: bytes, name="", path="", format="", compress=["", ""]):
+        ext = ""
+        if name == "":
+            print("Error, tried to extract nameless file!")
             return
+        if compress[0] == "decompression":
+            try:
+                if compress[1] == "LZ10":
+                    data = ndspy.lz10.decompress(data)
+                elif compress[1] == "BLZ":
+                    data = ndspy.codeCompression.decompress(data)
+            except TypeError as e:
+                print(e)
+                QtWidgets.QMessageBox.critical(
+                self,
+                "Decompression Failed",
+                str(e)
+                )
+                print("Aborted file extraction.")
+                return
 
-    print("file " + name + ": " + format)
-    print(data[0x65:0xc5])
+        print("file " + name + ": " + format)
+        print(data[0x65:0xc5])
 
-    # create a copy of the file outside ROM
-    if format == "" or format == "Raw":
-        ext = ".bin"
-    else:
-        if format == "English dialogue":
-            ext = ".txt"
-            try: # create multiple text files
-                text_list = lib.dialogue.DialogueFile(data).text_list
-                data = [""]*len(text_list)
-                for text_i, text in enumerate(text_list):
-                    data[text_i] = bytes(text, "utf-8")
-            except AssertionError: # not a real dialogue file
-                data = bytes(lib.dialogue.DialogueFile.binToText(data), "utf-8")
-        elif format == "VX":
-            ext = ".vx" # even if it is a folder, use extension to know what it contains when importing
-            act = lib.act.ActImagine()
-            load_vx_iter = act.load_vx(data)
-            w.progressShow()
-            for i, _ in enumerate(load_vx_iter):
-                w.progressUpdate(int(((i+1)/act.frames_qty)*100), f"Loading VX file (frame {i+1}/{act.frames_qty})", False)
-            export_vx_iter = act.export_vxfolder(os.path.join(path + "/" + name + ext))
-            for i, _ in enumerate(export_vx_iter):
-                w.progressUpdate(int(((i+1)/act.frames_qty)*100), f"Exporting VX folder (frame {i+1}/{act.frames_qty})")
-            w.progressHide()
-            return
+        # create a copy of the file outside ROM
+        if format == "" or format == "Raw":
+            ext = ".bin"
         else:
-            print("could not find method for converting to specified format.")
-            return
-    if compress[0] == " compression":
-        if compress[1] == "LZ10":
-            data = ndspy.lz10.compress(data)
-        elif compress[1] == "BLZ":
-            data = ndspy.codeCompression.compress(data)
+            if format == "English dialogue":
+                ext = ".txt"
+                try: # create multiple text files
+                    text_list = lib.dialogue.DialogueFile(data).text_list
+                    data = [""]*len(text_list)
+                    for text_i, text in enumerate(text_list):
+                        data[text_i] = bytes(text, "utf-8")
+                except AssertionError: # not a real dialogue file
+                    data = bytes(lib.dialogue.DialogueFile.binToText(data), "utf-8")
+            elif format == "Bitmap": # WIP
+                ext = ".bmp"
+                tiles = len(data)//(self.tile_width*self.tile_height)
+                rows = tiles//self.tiles_per_row
+                img = lib.datconv.binToQt(
+                    data,
+                    self.gfx_palette,
+                    list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
+                    self.tiles_per_row,
+                    rows,
+                    self.tile_width,
+                    self.tile_height
+                )
+                img.save(os.path.join(path + "/" + name.split(".")[0] + ext))
+                print("image extracted!")
+                return
+            elif format == "VX":
+                ext = ".vx" # even if it is a folder, use extension to know what it contains when importing
+                act = lib.act.ActImagine()
+                load_vx_iter = act.load_vx(data)
+                self.progressShow()
+                for i, _ in enumerate(load_vx_iter):
+                    self.progressUpdate(int(((i+1)/act.frames_qty)*100), f"Loading VX file (frame {i+1}/{act.frames_qty})", False)
+                export_vx_iter = act.export_vxfolder(os.path.join(path + "/" + name + ext))
+                for i, _ in enumerate(export_vx_iter):
+                    self.progressUpdate(int(((i+1)/act.frames_qty)*100), f"Exporting VX folder (frame {i+1}/{act.frames_qty})")
+                self.progressHide()
+                return
+            else:
+                print("could not find method for converting to specified format.")
+                return
+        if compress[0] == " compression":
+            if compress[1] == "LZ10":
+                data = ndspy.lz10.compress(data)
+            elif compress[1] == "BLZ":
+                data = ndspy.codeCompression.compress(data)
 
-    print(os.path.join(path + "/" + name.split(".")[0] + ext))
-    if isinstance(data, (bytes, bytearray)): # one file
-        with open(os.path.join(path + "/" + name.split(".")[0] + ext), 'wb') as f:
-            f.write(data)
-    else: # list of bytes
-        for subdata_i, subdata in enumerate(data):
-            with open(os.path.join(path + "/" + name.split(".")[0] + "_" + str(subdata_i) + ext), 'wb') as f:
-                f.write(subdata)
-    print("File extracted!")
+        print(os.path.join(path + "/" + name.split(".")[0] + ext))
+        if isinstance(data, (bytes, bytearray)): # one file
+            with open(os.path.join(path + "/" + name.split(".")[0] + ext), 'wb') as f:
+                f.write(data)
+        else: # list of bytes
+            for subdata_i, subdata in enumerate(data):
+                with open(os.path.join(path + "/" + name.split(".")[0] + "_" + str(subdata_i) + ext), 'wb') as f:
+                    f.write(subdata)
+        print("File extracted!")
 
 
 

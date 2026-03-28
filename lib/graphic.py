@@ -5,7 +5,7 @@ import ndspy.lz10
 class File(common.File):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
+        if self.entryCount < 1: return
         self.offset_table = self.address_list[0][0]
         # this may not apply to all files
         if self.entryCount < 2: return # prevent potential crash

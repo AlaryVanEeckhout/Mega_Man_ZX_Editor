@@ -239,6 +239,7 @@ def binToQt(binary_data: bytearray, palette: list[int]=[0xff000000+((0x0b7421*i)
 def qtToBin(qimage: QtGui.QImage, algorithm=CompressionAlgorithmEnum.ONEBPP, tileWidth: int=8, tileHeight: int=8): # GBA 4bpp = 4bpp linear reverse order
     tilesPerRow = qimage.size().width()//tileWidth
     tilesPerColumn = qimage.size().height()//tileHeight
+    print(tilesPerRow, tilesPerColumn)
 
     binary_data = bytearray()
     file_bits = ""
@@ -288,6 +289,35 @@ def qtToBin(qimage: QtGui.QImage, algorithm=CompressionAlgorithmEnum.ONEBPP, til
     #print("bits: " + file_bits)
     #print("bytearray: " + binary_data.hex())
     return binary_data
+
+#def binToBmp(binary_data: bytes, palette: list[int]=[0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], algorithm=CompressionAlgorithmEnum.ONEBPP, tilesPerRow: int=8, tilesPerColumn: int=8, tileWidth: int=8, tileHeight: int=8):
+#    bmp_data = bytearray("BM".encode())
+#    bmp_data += bytes(12) # BMP header to be filled
+#    
+#    dib_data = bytearray(4) # header size to be filled
+#    dib_data += int.to_bytes(tileWidth*tilesPerRow, 4, 'little') # image width
+#    dib_data += int.to_bytes(tileHeight*tilesPerColumn, 4, 'little') # image height
+#    dib_data += int.to_bytes(1, 2, 'little') # color planes
+#    dib_data += int.to_bytes(algorithm.depth, 2, 'little') # color depth
+#    dib_data += int.to_bytes(0, 4, 'little') # pixel array mode
+#    dib_data += bytes(4) # pixel array size to be filled
+#    dib_data += int.to_bytes(2835, 2, 'little') # print width
+#    dib_data += int.to_bytes(2835, 2, 'little') # print height
+#    dib_data += int.to_bytes(len(palette), 4, 'little') # palette lenght
+#    dib_data += int.to_bytes(0, 4, 'little') # color importance
+#    dib_data[0x00:0x04] = int.to_bytes(len(dib_data), 4, 'little') # dib header size
+#    bmp_data += dib_data
+#    bmp_data[0x0A:0x0E] = int.to_bytes(len(bmp_data), 4, 'little') # pixel array ptr
+#
+#    pixel_data = bytearray()
+#    for pixel in binary_data:
+#        color = palette[pixel]
+#        print(f"color {color}")
+#        pixel_data += bytes([pixel]) # bgr # color index
+#    dib_data[0x14:0x18] = int.to_bytes(len(pixel_data), 4, 'little') # pixel array size
+#    bmp_data += pixel_data
+#    bmp_data[0x02:0x06] = int.to_bytes(len(bmp_data), 4, 'little') # file size
+#    return bmp_data
 
 #create readable graphics
 #with open("sys_panm.bin", "r+b") as t:

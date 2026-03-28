@@ -293,6 +293,10 @@ class GFXView(View):
                 self.rectangle.setPen(self.pen)
 
     def createGrid(self, tileWidth: int=8, tileHeight: int=8):
+        # cleanup previous grid if applicable
+        for line in self.scene().items():
+            if isinstance(line, QtWidgets.QGraphicsLineItem):
+                self.scene().removeItem(line)
         if self._graphic.pixmap().isNull(): return
         img = self._graphic.pixmap().toImage().scaled(1, 1, transformMode=QtCore.Qt.TransformationMode.SmoothTransformation) # get average
         img.invertPixels() # for a contrasting grid color
