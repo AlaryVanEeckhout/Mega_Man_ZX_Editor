@@ -17,7 +17,7 @@ The editor can edit, export and import english dialogue files and save them to t
 - Functional User Interface
 - Import/Export bin
 - Import/Export txt
-- Import/Export vx (WIP)
+- VX Export/Import to/from png list + (unusable) wav (Using the actimagine submodule, WIP)
 - Import/Export bmp (WIP)
 - Togglable patches system
 - Playtest button
@@ -27,7 +27,6 @@ The editor can edit, export and import english dialogue files and save them to t
 - ARM Viewer (WIP)
 - OAM Editor (WIP)
 - Level Editor (WIP)
-- VX Export/Import to/from video format (Using the actimagine submodule)
 - Loading room layout in Level Editor
 - Modifyable entities in Level Editor
 ### To do

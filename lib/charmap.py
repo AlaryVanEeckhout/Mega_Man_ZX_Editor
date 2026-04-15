@@ -92,11 +92,19 @@ class CharMap:
                 found_map_unicode = map_unicode_list[0]
                 found_map_byte = self.dict_unicode_to_byte[found_map_unicode]
             search_unicode_params = search_unicode[:-1].split(" ")[1:]
-            search_unicode_params = [int(param, 0) for param in search_unicode_params]
+            search_unicode_params = [(int(param, 0), len(param.removeprefix("0x"))//2) for param in search_unicode_params]
             search_byte = bytearray()
-            for mb in found_map_byte:
+            #print(found_map_byte)
+            iter_skip = 0
+            for i, mb in enumerate(found_map_byte):
                 if mb is None:
-                    search_byte.append(search_unicode_params.pop(0))
+                    #print(found_map_byte[i:], search_unicode_params)
+                    if iter_skip > 0:
+                        iter_skip -= 1
+                        continue # in case two params are formatted as one value and the second param has been reached
+                    param = search_unicode_params.pop(0)
+                    search_byte += int.to_bytes(param[0], param[1], 'little')
+                    iter_skip = param[1]-1 # skip all bytes that were already processed if any
                 else:
                     search_byte.append(mb)
             return (search_byte, search_unicode_len)

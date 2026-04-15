@@ -433,7 +433,7 @@ for CHARMAP in [CHARMAP_DIALOGUE_ZX_EN, CHARMAP_DIALOGUE_ZX_JP, CHARMAP_DIALOGUE
     CHARMAP.add_mapping((0xf6, None), "├TWOCHOICES 0x{0:02X}┤")
     CHARMAP.add_mapping((0xf7, None), "├ISOLATE2 0x{0:02X}┤") #same as 0xf4
     CHARMAP.add_mapping((0xf8, None), "├NAME 0x{0:02X}┤")
-    CHARMAP.add_mapping((0xf9, None, None), "├COUNTER 0x{0:02X} 0x{1:02X}┤") #dialogue page counter???
+    CHARMAP.add_mapping((0xf9, None, None), "├VOICELINE 0x{1:02X}{0:02X}┤") #VX voice line id to load
     CHARMAP.add_mapping((0xfa,), "├PLAYERNAME┤") # writes player name
     CHARMAP.add_mapping((0xfb,), "├THREECHOICES┤")
     CHARMAP.add_mapping((0xfc,), "├NEWLINE┤")
