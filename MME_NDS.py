@@ -1979,6 +1979,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tree_patches.setHeaderLabels(["Enabled", "Address", "Name", "Type", "Size"])
         self.tree_patches.header().resizeSection(2, 250)
         self.tree_patches.itemChanged.connect(self.patch_checkboxUpdate)
+        self.tree_patches.itemChanged.connect(lambda: self.button_patches_apply.setEnabled(True))
         self.tree_patches_checkboxes = [] # stores the state of checkboxes for complex checkbox logic
 
         self.page_patches.layout().addWidget(self.button_patches_apply)
@@ -2129,6 +2130,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tree_patches.blockSignals(True)
         #self.progress.show()
         self.tree_patches.clear()
+        self.tree_patches_checkboxes.clear()
         if self.isGameSupported:
             patches = []
             for patch in self.gamedat.patches:
@@ -2361,7 +2363,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self.loadOvelrayStructAddressTable()
         self.dropdown_level_area.setCurrentIndex(-1)
         self.dropdown_level_area.setEnabled(True)
-        self.button_patches_apply.setEnabled(True)
         for i in range(self.layout_level_area.count()):
             widget = self.layout_level_area.itemAt(i).widget()
             if not widget in [None, self.button_level_save, self.dropdown_level_type]:
@@ -3007,6 +3008,16 @@ class MainWindow(QtWidgets.QMainWindow):
                     
     
     def saveCall(self): #Save to external ROM
+        save_buttons = [self.button_file_save, self.button_level_save, self.button_dialogueNames_save, self.button_patches_apply]
+        if any(b.isEnabled() for b in save_buttons):
+            save_choice = QtWidgets.QMessageBox.warning(
+                self,
+                "Unsaved Changes",
+                f"Looks like you are trying to save your ROM to disk despite not having saved all your modifications.\nIgnore unsaved changes and proceed?\n\nButtons reporting unsaved changes:\n{[b.text() for b in save_buttons if b.isEnabled()]}",
+                QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No
+            )
+            if save_choice == QtWidgets.QMessageBox.StandardButton.No:
+                return # abort save
         dialog = QtWidgets.QFileDialog(
                 self,
                 "Save ROM",
@@ -4881,8 +4892,9 @@ class MainWindow(QtWidgets.QMainWindow):
         for item_i, item in enumerate(tree_list):# Iterate through patch groups
             if item.childCount() != 0:
                 if item.checkState(0) != self.tree_patches_checkboxes[item_i]: # if checkstate changed
-                    for child_i in range(item.childCount()): # update children
-                        item.child(child_i).setCheckState(0, item.checkState(0))
+                    if item.checkState(0) != QtCore.Qt.CheckState.PartiallyChecked:
+                        for child_i in range(item.childCount()): # update children
+                            item.child(child_i).setCheckState(0, item.checkState(0))
                 else: # update according to children
                     subPatchMatches = 0
                     for child_i in range(item.childCount()):
@@ -4903,6 +4915,7 @@ class MainWindow(QtWidgets.QMainWindow):
         #print("call")
         # format 1 = [Address, Name, Type, OGData, NewData]
         # format 2 (with subpatch) = [Name, Type, [Address, Name, OGData, NewData]]
+        self.button_patches_apply.setDisabled(True)
         self.progressShow()
         rom_patched = bytearray(self.rom.save()) # Create temporary ROM to write patch to
         arm9_bin = self.arm9_decompressed.save()
@@ -4956,13 +4969,20 @@ class MainWindow(QtWidgets.QMainWindow):
         self.progressUpdate(90, "Writing to ARM9", False)
         if arm9_bin != arm9_bin_old:
             self.save_toARM9(arm9_bin)
-        self.progressHide()
+            self.progressHide()
+        else: # no changes!
+            self.progressHide()
+            QtWidgets.QMessageBox.information(
+                self,
+                "Patching Status",
+                "No changes to save!"
+            )
 
     def save_toARM9(self, data: bytes):
-        print(len(self.rom.arm9))
+        print(f"ARM9 len before: {len(self.rom.arm9)}")
         self.arm9_decompressed = ndspy.code.MainCodeFile(data, self.rom.arm9RamAddress, self.arm9_decompressed.codeSettingsOffs)
         self.rom.arm9 = self.arm9_decompressed.save(compress=True)
-        print(len(self.rom.arm9))
+        print(f"ARM9 len after: {len(self.rom.arm9)}")
 
     # Draw contents of tile viewer
     def draw_tilesQImage_fromBytes(self, view: lib.widget.GFXView, data: bytearray, algorithm=lib.datconv.CompressionAlgorithmEnum.ONEBPP,  grid: bool=True):
