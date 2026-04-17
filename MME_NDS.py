@@ -71,6 +71,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.relative_address = 0
         self.romToEdit_name = ''
         self.romToEdit_ext = ''
+        self.romToEdit_path = '' # for overwrite save
         self.fileToEdit_name = ''
         self.fileDisplayRaw = False # Display file in 'raw'(hex) format. Else, displayed in readable format
         self.fileDisplayMode = "Adapt" # Modes: Adapt, Binary, Dialogue, Graphics, Font, Sound, Movie, Code
@@ -2234,6 +2235,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if not "/" in fname:
             pathSep = "\\"
         nameParts = fname.split(pathSep)[len(fname.split(pathSep)) - 1].rsplit(".", 1)
+        self.romToEdit_path = fname
         self.romToEdit_name = nameParts[0]
         self.romToEdit_ext = "." + nameParts[-1]
         self.setWindowTitle("Mega Man ZX Editor" + " \"" + self.romToEdit_name + self.romToEdit_ext + "\"")
@@ -3008,7 +3010,7 @@ class MainWindow(QtWidgets.QMainWindow):
         dialog = QtWidgets.QFileDialog(
                 self,
                 "Save ROM",
-                "",
+                self.romToEdit_path,
                 "NDS Files (*.nds *.srl);; All Files (*)",
                 options=QtWidgets.QFileDialog.Option.DontUseNativeDialog,
                 )

@@ -401,7 +401,21 @@ class GameEnum(enum.Enum):
                                     "HX_DashSpeed": (0x02187F48, 4, True, 36),
                                 }
                             }, [
-                                ["Infinite lives", "arm9", [0x00044EC8, "nop", '00DA', 'C046'], [0x00044ECA, "mov", '0023', '0123']],
+                                ["Infinite lives", "arm9",
+                                    [0x00044EC8, "nop", '00DA', 'C046'],
+                                    [0x00044ECA, "mov", '0023', '0123']
+                                ],
+                                ["Skip logos", "arm9", 
+                                    [0x00015AF4, "logo1in_bge", '00DA', '00E0'], 
+                                    [0x00015B22, "logo1_subs", '491E', '0021'],
+                                    [0x00015B72, "logo1out_ble", '00DD', '00E0'],
+                                    [0x00015BF2, "logo2in_bge", '00DA', '00E0'],
+                                    [0x00015C20, "logo2_subs", '491E', '0021'],
+                                    [0x00015C70, "logo2out_ble", '00DD', '00E0'],
+                                    [0x00015CF0, "logo3in_bge", '00DA', '00E0'],
+                                    [0x00015D1E, "logo3_subs", '491E', '0021'],
+                                    [0x00015D9E, "logo3out_ble", '00DD', '00E0']
+                                ],
                                 [0x021AE600, "empty patch test", "empty", '', ''],
                                 [0x021AE600, "overwiting patch test", "text", 'f11b58', '202123'],
                                 [0x021AE600, "overwiting patch test", "text", 'f1', '20']
