@@ -1,5 +1,5 @@
 @echo off
-set pyexe=py -3.13
+set pyexe=py -3
 if NOT [%1]==[] (
 %pyexe% MME_NDS.py -R %1
 ) else (

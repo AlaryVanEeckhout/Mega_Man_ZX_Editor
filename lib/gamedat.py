@@ -354,7 +354,7 @@ ENTITYKINDS_ZXA = {
 
 class GameEnum(enum.Enum):
 
-    def __init__(self, id: enum.auto, arm9Addrs: int, charmaps: dict[str, dialogue.CharMap], fileIndicators: dict[str, tuple], entityNames: dict[str, dict], tweaks: dict[str, dict], patches: list[list]):
+    def __init__(self, id: enum.auto, arm9Addrs: int, charmaps: dict[str, dialogue.CharMap], fileIndicators: dict[str, tuple], entityNames: dict[str, dict], tweaks: dict[str, dict], patches: tuple[str|int|tuple]):
         self.id = id
         self.arm9Addrs = arm9Addrs
         self.charmaps = charmaps
@@ -369,7 +369,7 @@ class GameEnum(enum.Enum):
                             "Dialogue" : I_DIALOGUE,
                             "Palette Animation" : I_PANM,
                             "Mugshot" : I_MUGSHOT
-                            }, ENTITYKINDS_ZX, {}, []
+                            }, ENTITYKINDS_ZX, {}, ()
     MEGAMANZX = enum.auto(), ARM9_ZX_E, CHARMAPS_ZX, {
                             "Graphics" : I_GFX_ZX,
                             "Font" : I_FONT,
@@ -400,26 +400,26 @@ class GameEnum(enum.Enum):
                                     "HX_AirDashSpeed": (0x021870B4, 4, True, 36),
                                     "HX_DashSpeed": (0x02187F48, 4, True, 36),
                                 }
-                            }, [
-                                ["Infinite lives", "arm9",
-                                    [0x00044EC8, "nop", '00DA', 'C046'],
-                                    [0x00044ECA, "mov", '0023', '0123']
-                                ],
-                                ["Skip logos", "arm9", 
-                                    [0x00015AF4, "logo1in_bge", '00DA', '00E0'], 
-                                    [0x00015B22, "logo1_subs", '491E', '0021'],
-                                    [0x00015B72, "logo1out_ble", '00DD', '00E0'],
-                                    [0x00015BF2, "logo2in_bge", '00DA', '00E0'],
-                                    [0x00015C20, "logo2_subs", '491E', '0021'],
-                                    [0x00015C70, "logo2out_ble", '00DD', '00E0'],
-                                    [0x00015CF0, "logo3in_bge", '00DA', '00E0'],
-                                    [0x00015D1E, "logo3_subs", '491E', '0021'],
-                                    [0x00015D9E, "logo3out_ble", '00DD', '00E0']
-                                ],
-                                [0x021AE600, "empty patch test", "empty", '', ''],
-                                [0x021AE600, "overwiting patch test", "text", 'f11b58', '202123'],
-                                [0x021AE600, "overwiting patch test", "text", 'f1', '20']
-                            ]
+                            }, (
+                                ("Infinite lives", "arm9",
+                                    (0x00044EC8, "nop", '00DA', 'C046'),
+                                    (0x00044ECA, "mov", '0023', '0123')
+                                ),
+                                ("Skip logos", "arm9", 
+                                    (0x00015AF4, "logo1in_bge", '00DA', '00E0'),
+                                    (0x00015B22, "logo1_subs", '491E', '0021'),
+                                    (0x00015B72, "logo1out_ble", '00DD', '00E0'),
+                                    (0x00015BF2, "logo2in_bge", '00DA', '00E0'),
+                                    (0x00015C20, "logo2_subs", '491E', '0021'),
+                                    (0x00015C70, "logo2out_ble", '00DD', '00E0'),
+                                    (0x00015CF0, "logo3in_bge", '00DA', '00E0'),
+                                    (0x00015D1E, "logo3_subs", '491E', '0021'),
+                                    (0x00015D9E, "logo3out_ble", '00DD', '00E0')
+                                ),
+                                (0x021AE600, "empty patch test", "empty", '', ''),
+                                (0x021AE600, "overwiting patch test", "text", 'f11b58', '202123'),
+                                (0x021AE600, "overwiting patch test", "text", 'f1', '20')
+                            )
 
     ROCKMANZXA = enum.auto(), ARM9_ZXA_J, CHARMAPS_ZXA, {
                              "Graphics" : I_GFX_ZXA,
@@ -427,14 +427,14 @@ class GameEnum(enum.Enum):
                              "Dialogue" : I_DIALOGUE,
                              "Palette Animation" : I_PANM,
                              "Mugshot" : I_MUGSHOT
-                             }, ENTITYKINDS_ZXA, {}, []
+                             }, ENTITYKINDS_ZXA, {}, ()
     MEGAMANZXA = enum.auto(), ARM9_ZXA_E, CHARMAPS_ZXA, {
                              "Graphics" : I_GFX_ZXA,
                              "Font" : I_FONT,
                              "Dialogue" : I_DIALOGUE,
                              "Palette Animation" : I_PANM,
                              "Mugshot" : I_MUGSHOT
-                             }, ENTITYKINDS_ZXA, {}, []
+                             }, ENTITYKINDS_ZXA, {}, ()
     # wildcard so that the keys in the fileIndicators dict can still be accessed for unsupported games
     UNSUPPORTED = enum.auto(), {"entity": 0,
                               "level": 0,
@@ -446,7 +446,7 @@ class GameEnum(enum.Enum):
                              "Font" : I_FONT,
                              "Dialogue" : I_DIALOGUE,
                              "Palette Animation" : I_PANM,
-                             "Mugshot" : I_MUGSHOT}, ENTITYKINDS_ZX, {}, []
+                             "Mugshot" : I_MUGSHOT}, ENTITYKINDS_ZX, {}, ()
 
 # Notes:
 # format 1 = [Address, Name, Type, OGData, NewData]

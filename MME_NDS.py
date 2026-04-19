@@ -125,7 +125,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                        )
             firstLaunch_dialog.setInformativeText(f"""Editor's current features ({self.VERSION_EDITOR.split('.')[1]}):
                                                   \r- Dialogue text editor
-                                                  \r- Patcher(no patches available yet)
+                                                  \r- Patcher(not many patches available yet)
                                                   \r- Graphics editor
                                                   \r- Font editor
 
@@ -2136,13 +2136,13 @@ class MainWindow(QtWidgets.QMainWindow):
             for patch in self.gamedat.patches:
                 #self.progress.setValue(self.progress.value()+12)
                 #QtWidgets.QTreeWidgetItem(None, ["", "<address>", "<patch name>", "<patch type>", "<size>"])
-                if isinstance(patch[2], list): # if patch contains patches
+                if isinstance(patch[2], tuple): # if patch contains patches
                     patch_item = QtWidgets.QTreeWidgetItem(None, ["", "N/A", patch[0], patch[1], "0"])
                     patches.append(patch_item)
                     patch_size = 0
                     subPatchMatches = 0
                     for subPatch in patch:
-                        if isinstance(subPatch, list):
+                        if isinstance(subPatch, tuple):
                             subPatch_item = QtWidgets.QTreeWidgetItem(patch_item, ["", str(lib.datconv.numToStr(subPatch[0], self.displayBase, self.displayAlphanumeric).zfill(8)), subPatch[1], "Patch Segment", str(lib.datconv.numToStr(len(subPatch[3].replace("-", ""))//2, self.displayBase, self.displayAlphanumeric).zfill(1))])
                             subPatch_item.setToolTip(0, subPatch[3])
                             subPatch_item.setFlags(patch_item.flags() | QtCore.Qt.ItemFlag.ItemIsUserCheckable)
@@ -2168,7 +2168,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     else:
                         patch_item.setCheckState(0, QtCore.Qt.CheckState.Unchecked)
                     self.tree_patches_checkboxes.append(patch_item.checkState(0))
-                else: # if patch contains no patches
+                else: # if patch contains no subpatches
                     patch_item = QtWidgets.QTreeWidgetItem(None, ["", str(lib.datconv.numToStr(patch[0], self.displayBase, self.displayAlphanumeric).zfill(8)), patch[1], patch[2], str(lib.datconv.numToStr(len(patch[4].replace("-", ""))//2, self.displayBase, self.displayAlphanumeric).zfill(1))])
                     patch_item.setToolTip(0, str(patch[4]))
                     patches.append(patch_item)
@@ -4923,10 +4923,10 @@ class MainWindow(QtWidgets.QMainWindow):
         patch_list = [] # create a list of patch data that corresponds to tree items
         self.progressUpdate(0, "Loading patch data", False)
         for patch in self.gamedat.patches: # create a patch list with a consistent format
-            if isinstance(patch[2], list):
+            if isinstance(patch[2], tuple):
                 patch_list.append(['N/A', patch[0], patch[1], 'N/A', 'N/A'])
                 for subPatch in patch:
-                    if isinstance(subPatch, list):
+                    if isinstance(subPatch, tuple):
                         patch_list.append([subPatch[0], subPatch[1], "Patch Segment", subPatch[2], subPatch[3]])
             else:
                 patch_list.append(patch)
