@@ -4,12 +4,14 @@ from . import dialogue
 
 # indicators determine what the file most likely contains based on its name
 I_GFX = ("_fnt",)
-I_GFX_ZX = ("_fnt", "face", "title", "bbom", "dm", "elf", "g_", "game_parm", "lmlevel", "miss", "repair", "sec_disk", "sub")
-I_GFX_ZXA = ("_fnt", "face", "title", "mm_", "dm", "ls_", "sub_")
+I_GFX_ZX = I_GFX + ("face", "title", "bbom", "dm", "elf", "g_", "game_parm", "lmlevel", "miss", "repair", "sec_disk", "sub")
+I_GFX_ZXA = I_GFX + ("face", "title", "mm_", "dm", "ls_", "sub_")
 I_FONT = ("font",)
 I_DIALOGUE = ("talk", "m_")
 I_PANM = ("panm",)
 I_MUGSHOT = ("face",)
+I_MODEL_ZX = ("model", "nmdtest")
+I_MODEL_ZXA = ("mdl_dat",)
 # relative ROM pointers to uncompressed ARM9
 ARM9_ZX_E = {
     "entity": 0x000C9C7C, #each entry is 0x4*levelOverlayCount bytes
@@ -368,14 +370,16 @@ class GameEnum(enum.Enum):
                             "Font" : I_FONT,
                             "Dialogue" : I_DIALOGUE,
                             "Palette Animation" : I_PANM,
-                            "Mugshot" : I_MUGSHOT
+                            "Mugshot" : I_MUGSHOT,
+                            "Model": I_MODEL_ZX
                             }, ENTITYKINDS_ZX, {}, ()
     MEGAMANZX = enum.auto(), ARM9_ZX_E, CHARMAPS_ZX, {
                             "Graphics" : I_GFX_ZX,
                             "Font" : I_FONT,
                             "Dialogue" : I_DIALOGUE,
                             "Palette Animation" : I_PANM,
-                            "Mugshot" : I_MUGSHOT
+                            "Mugshot" : I_MUGSHOT,
+                            "Model": I_MODEL_ZX
                             }, ENTITYKINDS_ZX, {
                                 "Physics": { # address, size, signed, overlay id (33~42)
                                     "DashWallJumpSpeedX": (0x02038334, 4, True),
@@ -426,14 +430,16 @@ class GameEnum(enum.Enum):
                              "Font" : I_FONT,
                              "Dialogue" : I_DIALOGUE,
                              "Palette Animation" : I_PANM,
-                             "Mugshot" : I_MUGSHOT
+                             "Mugshot" : I_MUGSHOT,
+                             "Model": I_MODEL_ZXA
                              }, ENTITYKINDS_ZXA, {}, ()
     MEGAMANZXA = enum.auto(), ARM9_ZXA_E, CHARMAPS_ZXA, {
                              "Graphics" : I_GFX_ZXA,
                              "Font" : I_FONT,
                              "Dialogue" : I_DIALOGUE,
                              "Palette Animation" : I_PANM,
-                             "Mugshot" : I_MUGSHOT
+                             "Mugshot" : I_MUGSHOT,
+                             "Model": I_MODEL_ZXA
                              }, ENTITYKINDS_ZXA, {}, ()
     # wildcard so that the keys in the fileIndicators dict can still be accessed for unsupported games
     UNSUPPORTED = enum.auto(), {"entity": 0,
@@ -446,7 +452,8 @@ class GameEnum(enum.Enum):
                              "Font" : I_FONT,
                              "Dialogue" : I_DIALOGUE,
                              "Palette Animation" : I_PANM,
-                             "Mugshot" : I_MUGSHOT}, ENTITYKINDS_ZX, {}, ()
+                             "Mugshot" : I_MUGSHOT,
+                             "Model": ()}, ENTITYKINDS_ZX, {}, ()
 
 # Notes:
 # format 1 = [Address, Name, Type, OGData, NewData]

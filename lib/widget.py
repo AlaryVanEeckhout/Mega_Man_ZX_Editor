@@ -1,4 +1,4 @@
-from PyQt6 import QtGui, QtWidgets, QtCore#, QtQuickWidgets, QtQuick
+from PyQt6 import QtGui, QtWidgets, QtCore#, QtQuick3D, QtQuickWidgets, QtQuick
 import lib
 
 class Toolbar(QtWidgets.QToolBar):
@@ -835,3 +835,7 @@ class LabeledSlider(QtWidgets.QWidget): # https://stackoverflow.com/a/54819051
             painter.drawText(pos, v_str)
 
         return
+
+class View3D(QtWidgets.QWidget):
+    def __init__(self, parent = ..., flags = ...):
+        super().__init__(parent, flags)

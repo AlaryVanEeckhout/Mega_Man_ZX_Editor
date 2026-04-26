@@ -1294,9 +1294,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.file_content.addItem(self.layout_vxHeader_quantiser)
         self.file_content.addItem(self.layout_vx_seekTable)
 
+        self.dropdown_model_entry = QtWidgets.QComboBox(self.page_explorer)
+        self.dropdown_model_entry.currentIndexChanged.connect(lambda: self.treeCall())
+        self.dropdown_model_geometry = QtWidgets.QComboBox(self.page_explorer)
+        self.dropdown_model_geometry.currentIndexChanged.connect(lambda: self.treeCall())
+        self.file_content.addWidget(self.dropdown_model_entry)
+        self.file_content.addWidget(self.dropdown_model_geometry)
+
         # File callers
         self.FILEOPEN_WIDGETS: list[QtWidgets.QWidget] = [self.tree, self.viewAdaptAction, self.viewDialogueAction, self.viewGraphicAction, self.displayRawAction]
-        # Contents of widget sets
+        # Contents of widget sets, used in file_editor_show
         self.WIDGETS_EMPTY: list[QtWidgets.QWidget] = [self.file_content_text]
         self.WIDGETS_HEX: list[QtWidgets.QWidget] = [self.file_content_text, self.checkbox_textoverwite]
         self.WIDGETS_TEXT: list[QtWidgets.QWidget] = [self.file_content_text, self.checkbox_textoverwite, self.dropdown_textindex]
@@ -1382,6 +1389,10 @@ class MainWindow(QtWidgets.QMainWindow):
             self.field_vxHeader_seekTableEntryCount,
             self.label_vxHeader_seekTableEntryCount
             ]
+        self.WIDGETS_MODEL = [
+            self.dropdown_model_entry,
+            self.dropdown_model_geometry
+        ]
         self.file_editor_show("Empty")
 
         # Level Editor(WIP)
@@ -2244,12 +2255,13 @@ class MainWindow(QtWidgets.QMainWindow):
         try:
             self.rom = ndspy.rom.NintendoDSRom.fromFile(fname)
             self.treeUpdate()
-            # create a file attribute table that can be read rapidly because ndspy does not provide any
+            # create a file allocation table that can be read rapidly because ndspy does not provide any
             self.loadFat()
-            offset_icon_pal = 0x220
+            offset_icon_image = 0x20
+            offset_icon_pal = offset_icon_image + 0x200
             offset_icon_title = offset_icon_pal + 0x20
             icon_pixmap = QtGui.QPixmap.fromImage(lib.datconv.binToQt(
-                bytearray(self.rom.iconBanner[0x20:offset_icon_pal]),
+                bytearray(self.rom.iconBanner[offset_icon_image:offset_icon_pal]),
                 lib.datconv.BGR15_to_ARGB32(self.rom.iconBanner[offset_icon_pal:offset_icon_title]),
                 lib.datconv.CompressionAlgorithmEnum.FOURBPP,
                 4, 4
@@ -3362,6 +3374,8 @@ class MainWindow(QtWidgets.QMainWindow):
                             self.fileDisplayState = "VX"
                         elif current_ext == "sdat":
                             self.fileDisplayState = "Sound"
+                        elif current_ext == "nbfc":
+                            self.fileDisplayState = "Graphics"
                         elif current_ext == "bin":
                             if any(current_name.startswith(indicator) for indicator in indicator_list["Font"]):
                                 self.fileDisplayState = "Font"
@@ -3369,6 +3383,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.fileDisplayState = "Dialogue"
                             elif any(indicator in current_name for indicator in indicator_list["Graphics"]) and current_name.find("_dat") == -1:
                                 self.fileDisplayState = "Graphics"
+                            elif any(indicator in current_name for indicator in indicator_list["Model"]):
+                                self.fileDisplayState = "Model"
                             elif any(indicator.replace("fnt", "dat") in current_name for indicator in indicator_list["Graphics"]):
                                 self.fileDisplayState = "OAM"
                             elif any(indicator in current_name for indicator in indicator_list["Palette Animation"]):
@@ -3434,6 +3450,12 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.field_tiles_per_row.setValue(self.tiles_per_row)
                                 self.dropdown_gfx_depth.setCurrentIndex(2)
                                 self.setPalette(self.GFX_PALETTES[3])
+                            if current_ext == "nbfc":
+                                try:
+                                    pal = self.rom.getFileByName(current_name+".nbfp")
+                                    self.setPalette(lib.datconv.BGR15_to_ARGB32(pal))
+                                except:
+                                    pass
                             self.dropdown_gfx_index.clear()
                             self.dropdown_gfx_subindex.clear()
                             try: # obj_fnt.bin
@@ -3835,8 +3857,8 @@ class MainWindow(QtWidgets.QMainWindow):
                         self.field_address.setDisabled(True)
                     elif self.fileDisplayState == "VX":
                         self.widget_set = "VX"
+                        self.field_address.setDisabled(True)
                         if sender in self.FILEOPEN_WIDGETS:
-                            self.field_address.setDisabled(True)
                             self.fileEdited_object = lib.act.ActImagine()
                             self.fileEdited_object.load_vx(self.rom.files[current_id])
                             #print(self.rom.files[current_id][5:6].hex()+self.rom.files[current_id][4:5].hex())
@@ -3851,6 +3873,22 @@ class MainWindow(QtWidgets.QMainWindow):
                             self.field_vxHeader_audioExtraDataOffset.setValue(self.fileEdited_object.audio_extradata_offset)
                             self.field_vxHeader_seekTableOffset.setValue(self.fileEdited_object.seek_table_offset)
                             self.field_vxHeader_seekTableEntryCount.setValue(self.fileEdited_object.seek_table_entries_qty)
+                    elif self.fileDisplayState == "Model":
+                        self.widget_set = "Model"
+                        self.field_address.setDisabled(True)
+                        if sender in self.FILEOPEN_WIDGETS:
+                            self.fileEdited_object = lib.model.File(self.rom.files[current_id])
+                            self.dropdown_model_entry.clear()
+                            for i in range(self.fileEdited_object.entryCount):
+                                self.dropdown_model_entry.addItem(f"model {i}")
+                        model = lib.model.ModelHeader(self.fileEdited_object.data[self.fileEdited_object.address_list[self.dropdown_model_entry.currentIndex()][0]:])
+                        if sender in [self.dropdown_model_entry, *self.FILEOPEN_WIDGETS]:
+                            self.dropdown_model_geometry.clear()
+                            for g in model.geometries:
+                                self.dropdown_model_geometry.addItem(g.name)
+                        if sender in [self.dropdown_model_geometry, self.dropdown_model_entry, *self.FILEOPEN_WIDGETS]:
+                            gheader = model.geometries[self.dropdown_model_geometry.currentIndex()]
+                            geometry = lib.model.Geometry(model.data[gheader.geometry_offset:gheader.geometry_offset+gheader.geometry_size])
                     else:
                         self.widget_set = "Empty"
                         self.field_address.setDisabled(True)
@@ -4485,9 +4523,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.treeCall()
 
     def file_editor_show(self, mode: str): # UiComponents
-        modes = ["Empty", "Hex", "Text", "Graphics", "OAM", "PAnm", "Font", "Sound", "VX"]
+        modes = ["Empty", "Hex", "Text", "Graphics", "OAM", "PAnm", "Font", "Sound", "VX", "Model"]
         # Associates each mode with a set of widgets to show or hide
-        widget_sets = [self.WIDGETS_EMPTY, self.WIDGETS_HEX, self.WIDGETS_TEXT, self.WIDGETS_GRAPHIC, self.WIDGETS_OAM, self.WIDGETS_PANM, self.WIDGETS_FONT, self.WIDGETS_SOUND, self.WIDGETS_VX]
+        widget_sets = [self.WIDGETS_EMPTY, self.WIDGETS_HEX, self.WIDGETS_TEXT, self.WIDGETS_GRAPHIC, self.WIDGETS_OAM, self.WIDGETS_PANM, self.WIDGETS_FONT, self.WIDGETS_SOUND, self.WIDGETS_VX, self.WIDGETS_MODEL]
 
         mode_index = modes.index(mode)
         # Hide all widgets from other modes
