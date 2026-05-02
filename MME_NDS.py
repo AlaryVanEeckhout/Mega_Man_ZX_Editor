@@ -1298,8 +1298,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_model_entry.currentIndexChanged.connect(lambda: self.treeCall())
         self.dropdown_model_geometry = QtWidgets.QComboBox(self.page_explorer)
         self.dropdown_model_geometry.currentIndexChanged.connect(lambda: self.treeCall())
+        self.file_content_model = lib.widget.View3D(self.page_explorer)
         self.file_content.addWidget(self.dropdown_model_entry)
         self.file_content.addWidget(self.dropdown_model_geometry)
+        self.file_content.addWidget(self.file_content_model)
 
         # File callers
         self.FILEOPEN_WIDGETS: list[QtWidgets.QWidget] = [self.tree, self.viewAdaptAction, self.viewDialogueAction, self.viewGraphicAction, self.displayRawAction]
@@ -1391,7 +1393,8 @@ class MainWindow(QtWidgets.QMainWindow):
             ]
         self.WIDGETS_MODEL = [
             self.dropdown_model_entry,
-            self.dropdown_model_geometry
+            self.dropdown_model_geometry,
+            self.file_content_model
         ]
         self.file_editor_show("Empty")
 
@@ -3889,6 +3892,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         if sender in [self.dropdown_model_geometry, self.dropdown_model_entry, *self.FILEOPEN_WIDGETS]:
                             gheader = model.geometries[self.dropdown_model_geometry.currentIndex()]
                             geometry = lib.model.Geometry(model.data[gheader.geometry_offset:gheader.geometry_offset+gheader.geometry_size])
+                            self.file_content_model.setSource(QtCore.QUrl.fromLocalFile(str(PATH_ROOT / "temp/model.qml"))) #placeholder
                     else:
                         self.widget_set = "Empty"
                         self.field_address.setDisabled(True)

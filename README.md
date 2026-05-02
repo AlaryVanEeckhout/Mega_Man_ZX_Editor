@@ -17,7 +17,7 @@ The editor can edit, export and import english dialogue files and save them to t
 - Functional User Interface
 - Import/Export bin
 - Import/Export txt
-- VX Export/Import to/from png list + (unusable) wav (Using the actimagine submodule, WIP)
+- VX Export/Import to/from png list + (unusable) wav (Using the [actimagine submodule](https://github.com/CharlesVanEeckhout/actimagine), WIP)
 - Import/Export bmp (WIP)
 - Togglable patches system
 - Playtest button

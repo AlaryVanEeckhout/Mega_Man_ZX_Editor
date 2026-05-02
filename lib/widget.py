@@ -1,4 +1,4 @@
-from PyQt6 import QtGui, QtWidgets, QtCore#, QtQuick3D, QtQuickWidgets, QtQuick
+from PyQt6 import QtGui, QtWidgets, QtCore, QtQuickWidgets#, QtOpenGLWidgets
 import lib
 
 class Toolbar(QtWidgets.QToolBar):
@@ -836,6 +836,9 @@ class LabeledSlider(QtWidgets.QWidget): # https://stackoverflow.com/a/54819051
 
         return
 
-class View3D(QtWidgets.QWidget):
-    def __init__(self, parent = ..., flags = ...):
-        super().__init__(parent, flags)
+# use opengl or rhi instead?
+class View3D(QtQuickWidgets.QQuickWidget):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setResizeMode(QtQuickWidgets.QQuickWidget.ResizeMode.SizeRootObjectToView)
+        
