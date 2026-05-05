@@ -53,9 +53,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         # expected module versions
-        self.VERSION_EDITOR = "0.4.5" # objective, feature, WIP
+        self.VERSION_EDITOR = "0.4.6" # objective, feature, WIP
         self.VERSION_PYTHON = "3.14.3"
-        self.VERSION_PYQT = "6.10.2"
+        self.VERSION_PYQT = "6.11.0"
         self.VERSION_NDSPY = "4.2.0"
         self.window_width = 1024
         self.window_height = 720
@@ -134,7 +134,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                                   \r- VX file editor
                                                   \r- OAM editor
                                                   \r- Level editor
-                                                  \r- Dialogue name editor""")
+                                                  \r- Dialogue name editor
+                                                  \r- 3D Model editor""")
             #firstLaunch_dialog.setDetailedText("abc")
             firstLaunch_dialog.exec()
 
@@ -2206,7 +2207,7 @@ class MainWindow(QtWidgets.QMainWindow):
         filename = QtWidgets.QFileDialog.getOpenFileName(
             self,
             "Open File",
-            "",
+            str(PATH_ROOT),
             "NDS Files (*.nds *.srl);; All Files (*)",
             options=QtWidgets.QFileDialog.Option.DontUseNativeDialog,
         )
@@ -3878,6 +3879,7 @@ class MainWindow(QtWidgets.QMainWindow):
                             self.field_vxHeader_seekTableEntryCount.setValue(self.fileEdited_object.seek_table_entries_qty)
                     elif self.fileDisplayState == "Model":
                         self.widget_set = "Model"
+                        self.file_content_model.setFocus()
                         self.field_address.setDisabled(True)
                         if sender in self.FILEOPEN_WIDGETS:
                             self.fileEdited_object = lib.model.File(self.rom.files[current_id])
@@ -3892,7 +3894,8 @@ class MainWindow(QtWidgets.QMainWindow):
                         if sender in [self.dropdown_model_geometry, self.dropdown_model_entry, *self.FILEOPEN_WIDGETS]:
                             gheader = model.geometries[self.dropdown_model_geometry.currentIndex()]
                             geometry = lib.model.Geometry(model.data[gheader.geometry_offset:gheader.geometry_offset+gheader.geometry_size])
-                            self.file_content_model.setSource(QtCore.QUrl.fromLocalFile(str(PATH_ROOT / "temp/model.qml"))) #placeholder
+                            if self.file_content_model.isUsable:
+                                self.file_content_model.loadModel(geometry.commands, geometry.params)
                     else:
                         self.widget_set = "Empty"
                         self.field_address.setDisabled(True)

@@ -29,14 +29,15 @@ The editor can edit, export and import english dialogue files and save them to t
 - Level Editor (WIP)
 - Loading room layout in Level Editor
 - Modifyable entities in Level Editor
+- 3D Model Viewer (WIP)
 ### To do
 - Find more patches for the game to add to the editor's "patches" tab*
 - Find patches and tweaks that are helpful for playtesting purposes*
 - Sound/Music Editor*
 - Tweaks/Physics Editor*
 - Game Logic Editor*
+- 3D Model Exporter/Importer*
 <!---
-- 3D Model Viewer and Exporter/Importer*
 - In-game cutscene Editor*
 -->
 
@@ -44,9 +45,10 @@ The editor can edit, export and import english dialogue files and save them to t
 ## Setup for usage
 Currently, there are no releases, so:
 - [Download&Install Python](https://www.python.org/downloads/) (using 3.14.3) <!--- Python 3.10.11 or lower will cause crashes -->
-- Now that you have Python, you can use pip (Package Installer for Python) to install the two following modules:
+- Now that you have Python, you can use pip (Package Installer for Python) to install the following modules:
 - [Download&Install NDSPy](https://pypi.org/project/ndspy/) (using 4.2.0)
-- [Download&Install PyQt6](https://pypi.org/project/PyQt6/) (using 6.10.2)
+- [Download&Install PyQt6](https://pypi.org/project/PyQt6/) (using 6.11.0)
+- [Download&Install PyOpenGL](https://pypi.org/project/PyOpenGL/) (required for 3D rendering, using 3.1.10)
 - [Download&Install audioop-lts](https://pypi.org/project/audioop-lts/) (required for audio processing, using 0.2.2)
 - [Download&Install sounddevice](https://pypi.org/project/sounddevice/) (required for audio playback, using 0.5.5)
 - [Download&Install matplotlib](https://pypi.org/project/matplotlib/) (required for audio waveform plotting, using 3.10.8)

@@ -1,4 +1,4 @@
-from PyQt6 import QtGui, QtWidgets, QtCore, QtQuickWidgets#, QtOpenGLWidgets
+from PyQt6 import QtGui, QtWidgets, QtCore
 import lib
 
 class Toolbar(QtWidgets.QToolBar):
@@ -836,9 +836,209 @@ class LabeledSlider(QtWidgets.QWidget): # https://stackoverflow.com/a/54819051
 
         return
 
-# use opengl or rhi instead?
-class View3D(QtQuickWidgets.QQuickWidget):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.setResizeMode(QtQuickWidgets.QQuickWidget.ResizeMode.SizeRootObjectToView)
+
+try:
+    from PyQt6 import QtOpenGLWidgets
+    import OpenGL.GL as gl
+    from OpenGL import GLU
+    from OpenGL.arrays import vbo
+    import numpy as np
+    import math
+    texture = """
+--------
+--------
+-----#--
+-##--#--
+--------
+-#----#-
+--####--
+--------
+""".replace("\n", "")
+    np_texture = np.zeros((64*3), dtype=np.uint8)
+    for i, p in enumerate(texture):
+        v = 255 if p == "#" else 0
+        np_texture[i*3+0] = v
+        np_texture[i*3+1] = v
+        np_texture[i*3+2] = 64
+    texture_width = 8
+    texture_height = 8
+
+
+    class View3D(QtOpenGLWidgets.QOpenGLWidget):
+        def __init__(self, parent=None):
+            self.isUsable = True
+            self.distance = 1
+            self.turnH = math.pi/2
+            self.turnV = 0
+            self.renderInstructions = []
+            self.parent = parent
+            QtOpenGLWidgets.QOpenGLWidget.__init__(self, parent)
+            self.setFocusPolicy(QtCore.Qt.FocusPolicy.ClickFocus)
+            self.setStatusTip("Controls: WASD=Rotation, QE=Zoom out/in, R=Preview initial view")
+            self.eye_pos = [0, 0, 1]
+            self.target_pos = [0, 0, 0]
+            self.up_vector = [0, 1, 0]
+            self.texture_id = None
+            self.viewport_width = None
+            self.viewport_height = None
+    
+        def keyPressEvent(self, a0):
+            if a0.key() == QtCore.Qt.Key.Key_W:
+                self.turnV += 0.1
+            if a0.key() == QtCore.Qt.Key.Key_S:
+                self.turnV -= 0.1
+            if a0.key() == QtCore.Qt.Key.Key_D:
+                self.turnH -= 0.1
+            if a0.key() == QtCore.Qt.Key.Key_A:
+                self.turnH += 0.1
+            if a0.key() == QtCore.Qt.Key.Key_E:
+                self.distance -= 0.1
+            if a0.key() == QtCore.Qt.Key.Key_Q:
+                self.distance += 0.1
+            self.eye_pos[1] = self.distance*math.sin(self.turnV)
+            self.eye_pos[2] = self.distance*math.sin(self.turnH)*math.cos(self.turnV)
+            self.eye_pos[0] = self.distance*math.cos(self.turnH)*math.cos(self.turnV)
+            self.up_vector[1] = 1 if ((self.turnV / (2*math.pi) + 0.25) % 1) < 0.5 else -1
+            if a0.key() == QtCore.Qt.Key.Key_R:
+                self.eye_pos = [0, 0, 1]
+                self.up_vector = [0, 1, 0]
+            self.update()
+            return super().keyPressEvent(a0)
+    
+        def initializeGL(self):
+            # initialize the screen to black
+            gl.glClearColor(0, 0, 0, 255)
+            # enable depth testing
+            gl.glEnable(gl.GL_DEPTH_TEST)
+    
+        def resetView(self):
+            self.distance = 1
+            self.turnH = math.pi/2
+            self.turnV = 0
+            self.eye_pos = [0, 0, 1]
+            self.up_vector = [0, 1, 0]
+
+        def loadModel(self, commands:list[int], params:list[int]):
+            self.renderInstructions.clear()
+            self.resetView()
+            print(commands)
+            #print(params)
+
+            is_textured = False
+            is_lighted = False
+
+            for command, param in zip(commands, params):
+                if command == 0x20: # VERTEX COLOR
+                    word = int.from_bytes(param[0x00:0x02], 'little')
+                    r = word & 0x1f
+                    g = (word >> 5) & 0x1f
+                    b = (word >> 10) & 0x1f
+                    self.renderInstructions.append((gl.glColor3f,
+                        r / 0x1f,
+                        g / 0x1f,
+                        b / 0x1f
+                    ))
+                elif command == 0x21: # NORMAL VECTOR
+                    is_lighted = True
+                    dword = int.from_bytes(param[0x00:0x04], 'little')
+                    x = dword & 0x1ff
+                    x = x*-1 if (dword >> 9) & 1 else x
+                    y = (dword >> 10) & 0x1ff
+                    y = y*-1 if (dword >> 19) & 1 else y
+                    z = (dword >> 20) & 0x1ff
+                    z = z*-1 if (dword >> 29) & 1 else z
+                    self.renderInstructions.append((gl.glNormal3f,
+                        x / 0x1ff,
+                        y / 0x1ff,
+                        z / 0x1ff
+                    ))
+                elif command == 0x22: # UV COORDINATES
+                    is_textured = True
+                    self.renderInstructions.append((gl.glTexCoord2f,
+                        int.from_bytes(param[0x00:0x02], 'little', signed=True) / 0x10000,
+                        int.from_bytes(param[0x02:0x04], 'little', signed=True) / 0x10000
+                    ))
+                elif command == 0x23: # XYZ COORDINATES
+                    self.renderInstructions.append((gl.glVertex3f,
+                        int.from_bytes(param[0x00:0x02], 'little', signed=True) / 0x10000,
+                        int.from_bytes(param[0x02:0x04], 'little', signed=True) / 0x10000,
+                        int.from_bytes(param[0x04:0x06], 'little', signed=True) / 0x10000
+                    ))
+                elif command == 0x40: # BEGIN_VTXS
+                    self.renderInstructions.append((gl.glBegin,
+                        [gl.GL_TRIANGLES, gl.GL_QUADS, gl.GL_TRIANGLE_STRIP, gl.GL_QUAD_STRIP][param[0]]
+                    ))
+                elif command == 0x41: # END_VTXS
+                    self.renderInstructions.append((gl.glEnd,
+                    ))
+
+
+            if is_textured:
+                gl.glEnable(gl.GL_TEXTURE_2D)
+
+                self.texture_id = gl.glGenTextures(1)
+                gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture_id)
+                gl.glTexImage2D(
+                    gl.GL_TEXTURE_2D, 0, gl.GL_RGB, 
+                    texture_width, texture_height, 0, 
+                    gl.GL_BGR, gl.GL_UNSIGNED_BYTE, np_texture)
         
+                gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MAG_FILTER, gl.GL_NEAREST)
+                gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MIN_FILTER, gl.GL_NEAREST)
+            else:
+                gl.glDisable(gl.GL_TEXTURE_2D)
+
+            if is_lighted:
+                gl.glEnable(gl.GL_LIGHTING)
+                gl.glEnable(gl.GL_LIGHT0)
+                self.renderInstructions.append((gl.glLight,
+                    gl.GL_LIGHT0,
+                    gl.GL_POSITION,
+                    (5, 5, 5, 1)
+                ))
+                self.renderInstructions.append((gl.glLight,
+                    gl.GL_LIGHT0,
+                    gl.GL_AMBIENT,
+                    (0, 0, 0, 1)
+                ))
+                self.renderInstructions.append((gl.glLight,
+                    gl.GL_LIGHT0,
+                    gl.GL_DIFFUSE,
+                    (1, 1, 1, 1)
+                ))
+            else:
+                gl.glDisable(gl.GL_LIGHTING)
+                gl.glDisable(gl.GL_LIGHT0)
+            print(len(commands),len(params))
+            self.update()
+    
+
+        def resizeGL(self, width, height):
+            self.viewport_width = width
+            self.viewport_height = height
+
+
+        def paintGL(self):
+            gl.glViewport(0, 0, self.viewport_width, self.viewport_height)
+            gl.glMatrixMode(gl.GL_PROJECTION)
+            gl.glLoadIdentity()
+            aspect = self.viewport_width / float(self.viewport_height)
+            GLU.gluPerspective(45.0, aspect, 0.01, 100.0)
+            gl.glMatrixMode(gl.GL_MODELVIEW)
+    
+            gl.glLoadIdentity()
+            GLU.gluLookAt(*self.eye_pos, *self.target_pos, *self.up_vector)
+
+            gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
+    
+            # Add rendering code here!
+            #print(len(self.renderInstructions))
+            for instruction in self.renderInstructions:
+                #print(instruction)
+                instruction[0](*instruction[1:])
+except ImportError:
+    print("Could not load 3d rendering features")
+    class View3D(QtWidgets.QWidget):
+        def __init__(self, *args):
+            super().__init__(*args)
+            self.isUsable = False
