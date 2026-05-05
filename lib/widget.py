@@ -867,14 +867,19 @@ try:
     class View3D(QtOpenGLWidgets.QOpenGLWidget):
         def __init__(self, parent=None):
             self.isUsable = True
+            self.parent = parent
+            QtOpenGLWidgets.QOpenGLWidget.__init__(self, parent)
+            self.keys = []
+            self.key_delays = []
+            self.timer = QtCore.QTimer(self)
+            self.timer.timeout.connect(self.process_keys)
+            self.timer.start(40)
+            self.setFocusPolicy(QtCore.Qt.FocusPolicy.ClickFocus)
+            self.setStatusTip("Controls: WASD=Rotation, QE=Zoom out/in, R=Preview initial view")
+            self.renderInstructions = []
             self.distance = 1
             self.turnH = math.pi/2
             self.turnV = 0
-            self.renderInstructions = []
-            self.parent = parent
-            QtOpenGLWidgets.QOpenGLWidget.__init__(self, parent)
-            self.setFocusPolicy(QtCore.Qt.FocusPolicy.ClickFocus)
-            self.setStatusTip("Controls: WASD=Rotation, QE=Zoom out/in, R=Preview initial view")
             self.eye_pos = [0, 0, 1]
             self.target_pos = [0, 0, 0]
             self.up_vector = [0, 1, 0]
@@ -883,27 +888,46 @@ try:
             self.viewport_height = None
     
         def keyPressEvent(self, a0):
-            if a0.key() == QtCore.Qt.Key.Key_W:
-                self.turnV += 0.1
-            if a0.key() == QtCore.Qt.Key.Key_S:
-                self.turnV -= 0.1
-            if a0.key() == QtCore.Qt.Key.Key_D:
-                self.turnH -= 0.1
-            if a0.key() == QtCore.Qt.Key.Key_A:
-                self.turnH += 0.1
-            if a0.key() == QtCore.Qt.Key.Key_E:
-                self.distance -= 0.1
-            if a0.key() == QtCore.Qt.Key.Key_Q:
-                self.distance += 0.1
-            self.eye_pos[1] = self.distance*math.sin(self.turnV)
-            self.eye_pos[2] = self.distance*math.sin(self.turnH)*math.cos(self.turnV)
-            self.eye_pos[0] = self.distance*math.cos(self.turnH)*math.cos(self.turnV)
-            self.up_vector[1] = 1 if ((self.turnV / (2*math.pi) + 0.25) % 1) < 0.5 else -1
-            if a0.key() == QtCore.Qt.Key.Key_R:
-                self.eye_pos = [0, 0, 1]
-                self.up_vector = [0, 1, 0]
-            self.update()
+            if not a0.isAutoRepeat():
+                self.keys.append(a0.key())
+                self.key_delays.append(5)
+                self.process_keys(True)
+            #print(self.keys)
             return super().keyPressEvent(a0)
+
+        def keyReleaseEvent(self, a0):
+            if not a0.isAutoRepeat():
+                self.key_delays.pop(self.keys.index(a0.key()))
+                self.keys.remove(a0.key())
+            return super().keyReleaseEvent(a0)
+        
+        def isKeyFiring(self, key:QtCore.Qt.Key, press=False):
+            return bool(key in self.keys and (self.key_delays[self.keys.index(key)] <= 0 or press))
+
+        def process_keys(self, press=False):
+            if self.keys:
+                for i in range(len(self.key_delays)):
+                    self.key_delays[i] -= 1
+                if self.isKeyFiring(QtCore.Qt.Key.Key_W, press):
+                    self.turnV += 0.1
+                if self.isKeyFiring(QtCore.Qt.Key.Key_S, press):
+                    self.turnV -= 0.1
+                if self.isKeyFiring(QtCore.Qt.Key.Key_D, press):
+                    self.turnH -= 0.1
+                if self.isKeyFiring(QtCore.Qt.Key.Key_A, press):
+                    self.turnH += 0.1
+                if self.isKeyFiring(QtCore.Qt.Key.Key_E, press):
+                    self.distance -= 0.1
+                if self.isKeyFiring(QtCore.Qt.Key.Key_Q, press):
+                    self.distance += 0.1
+                self.eye_pos[1] = self.distance*math.sin(self.turnV)
+                self.eye_pos[2] = self.distance*math.sin(self.turnH)*math.cos(self.turnV)
+                self.eye_pos[0] = self.distance*math.cos(self.turnH)*math.cos(self.turnV)
+                self.up_vector[1] = 1 if ((self.turnV / (2*math.pi) + 0.25) % 1) < 0.5 else -1
+                if QtCore.Qt.Key.Key_R in self.keys:
+                    self.eye_pos = [0, 0, 1]
+                    self.up_vector = [0, 1, 0]
+                self.update()
     
         def initializeGL(self):
             # initialize the screen to black

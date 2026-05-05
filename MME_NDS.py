@@ -3334,6 +3334,10 @@ class MainWindow(QtWidgets.QMainWindow):
             widget.alphanum = self.displayAlphanumeric
             widget.numbase = self.displayBase
             widget.repaint()
+        for widget in self.findChildren(lib.widget.LabeledSpinBox): # update all widgets of same type with current settings
+            widget.sb.alphanum = self.displayAlphanumeric
+            widget.sb.numbase = self.displayBase
+            widget.sb.repaint()
         QtCore.qInstallMessageHandler(None) # Revert to default message handler
         if self.dialog_settings.isVisible() and (self.field_address.numbase != self.displayBase): # handle error manually
             QtWidgets.QMessageBox.critical(
