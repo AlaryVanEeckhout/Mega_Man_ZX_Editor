@@ -1,6 +1,6 @@
 from PyQt6 import QtGui, QtWidgets, QtCore#, QtMultimedia Qt6, Qt6.qsci
 from pathlib import Path
-import sys, os, platform, re, math
+import sys, os, platform, re, math, enum
 import argparse
 import traceback
 import bisect
@@ -106,6 +106,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.fastLevel = False
         self.load_preferences()
         self.UiComponents()
+
+    def _post_init(self): # called when window is ready to be presented (after WidgetSets has been defined)
+        self.file_editor_show(WidgetSets.EMPTY) # must be done before show to not deform the window from overload of widgets
         self.show()
         if args.openPath != None:
             self.loadROM(args.openPath)
@@ -1313,101 +1316,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # File callers
         self.FILEOPEN_WIDGETS: list[QtWidgets.QWidget] = [self.tree, *self.viewFormatsGroup.actions(), self.displayRawAction]
-        # Contents of widget sets, used in file_editor_show
-        self.WIDGETS_EMPTY: list[QtWidgets.QWidget] = [self.file_content_text]
-        self.WIDGETS_HEX: list[QtWidgets.QWidget] = [self.file_content_text, self.checkbox_textoverwite]
-        self.WIDGETS_TEXT: list[QtWidgets.QWidget] = [self.file_content_text, self.checkbox_textoverwite, self.dropdown_textindex]
-        self.WIDGETS_GRAPHIC: list[QtWidgets.QWidget] = [
-            self.file_content_gfx,
-            self.checkbox_depthUpdate,
-            self.label_depthUpdate,
-            self.dropdown_gfx_depth,
-            self.dropdown_gfx_index,
-            self.dropdown_gfx_subindex,
-            self.dropdown_gfx_palette,
-            self.field_tile_width,
-            self.label_tile_width,
-            self.field_tile_height,
-            self.label_tile_height,
-            self.field_tiles_per_row,
-            self.label_tiles_per_row,
-            self.field_tiles_per_column,
-            self.label_tiles_per_column,
-            self.widget_colorpick,
-            self.button_view_save,
-            self.button_view_load
-            ]
-        self.WIDGETS_OAM: list[QtWidgets.QWidget] = [
-            self.file_content_oam,
-            self.tabs_oam,
-            self.dropdown_oam_entry
-            ]
-        self.WIDGETS_PANM: list[QtWidgets.QWidget] = [
-            self.dropdown_panm_entry,
-            self.dropdown_panm_oamEntry,
-            self.dropdown_panm_frame,
-            self.field_panm_frameId,
-            self.field_panm_frameDuration,
-            self.checkbox_panm_loop,
-            self.field_panm_loopStart,
-            self.label_panm_colorSlots,
-            self.field_panm_colorSlot0,
-            self.field_panm_colorSlot1,
-            self.widget_colorpick,
-            self.gfx_scene_panm
-        ]
-        self.WIDGETS_FONT: list[QtWidgets.QWidget] = [
-            self.file_content_gfx,
-            self.field_tiles_per_row,
-            self.label_tiles_per_row,
-            self.field_tiles_per_column,
-            self.label_tiles_per_column,
-            self.field_font_size,
-            self.label_font_size,
-            self.field_font_width,
-            self.label_font_width,
-            self.field_font_height,
-            self.label_font_height,
-            self.label_font_indexingSpace,
-            self.label_font_charCount,
-            self.label_font_unusedStr,
-            self.widget_colorpick
-            ]
-        self.WIDGETS_SOUND: list[QtWidgets.QWidget] = [
-            ]
-        self.WIDGETS_VX: list[QtWidgets.QWidget] = [
-            self.field_vxHeader_length,
-            self.label_vxHeader_length,
-            self.field_vxHeader_width,
-            self.label_vxHeader_width,
-            self.field_vxHeader_height,
-            self.label_vxHeader_height,
-            self.field_vxHeader_streamCount,
-            self.label_vxHeader_streamCount,
-            self.field_vxHeader_framerate,
-            self.label_vxHeader_framerate,
-            self.field_vxHeader_sampleRate,
-            self.label_vxHeader_sampleRate,
-            self.field_vxHeader_quantizer,
-            self.label_vxHeader_quantiser,
-            self.field_vxHeader_frameSizeMax,
-            self.label_vxHeader_frameSizeMax,
-            self.field_vxHeader_audioExtraDataOffset,
-            self.label_vxHeader_audioExtraDataOffset,
-            self.field_vxHeader_seekTableOffset,
-            self.label_vxHeader_seekTableOffset,
-            self.field_vxHeader_seekTableEntryCount,
-            self.label_vxHeader_seekTableEntryCount
-            ]
-        self.WIDGETS_MODEL = [
-            self.dropdown_model_entry,
-            self.dropdown_model_geometry,
-            self.file_content_model
-        ]
-        # Associates each mode with a set of widgets to show or hide
-        self.WIDGET_SET_NAMES = ["Empty", "Hex", "Text", "Graphics", "OAM", "PAnm", "Font", "Sound", "VX", "Model"]
-        self.WIDGET_SETS = [self.WIDGETS_EMPTY, self.WIDGETS_HEX, self.WIDGETS_TEXT, self.WIDGETS_GRAPHIC, self.WIDGETS_OAM, self.WIDGETS_PANM, self.WIDGETS_FONT, self.WIDGETS_SOUND, self.WIDGETS_VX, self.WIDGETS_MODEL]
-        self.file_editor_show("Empty")
+        #self.WIDGET_SET_NAMES = ["Empty", "Hex", "Text", "Graphics", "OAM", "PAnm", "Font", "Sound", "VX", "Model"]
+        #self.WIDGET_SETS = [self.WIDGETS_EMPTY, self.WIDGETS_HEX, self.WIDGETS_TEXT, self.WIDGETS_GRAPHIC, self.WIDGETS_OAM, self.WIDGETS_PANM, self.WIDGETS_FONT, self.WIDGETS_SOUND, self.WIDGETS_VX, self.WIDGETS_MODEL]
+        #self.file_editor_show(WidgetSets.EMPTY)
 
         # Level Editor(WIP)
         self.layout_level_editpannel = QtWidgets.QVBoxLayout()
@@ -2013,6 +1924,7 @@ class MainWindow(QtWidgets.QMainWindow):
         #QtWidgets.QKeySequenceEdit()
 
         self.setStatusBar(QtWidgets.QStatusBar(self))
+
 
     def progressShow(self):
         self.window_progress.move(self.pos().x() + (self.width() - self.window_progress.width())//2, self.pos().y() + self.height()//2) # center progress bar
@@ -3339,6 +3251,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.fileEdited_object = None # change this into a generic file object
         self.file_content_text.setReadOnly(False)
         self.field_address.setDisabled(addr_disabled)
+        # todo: make it so that window emits pyqt signal when changing base so that BetterSpinBox can connect and do this on its own
         QtCore.qInstallMessageHandler(lambda a, b, c: None) # Silence Invalid base warnings from the following code
         for widget in self.findChildren(lib.widget.BetterSpinBox): # update all widgets of same type with current settings
             widget.alphanum = self.displayAlphanumeric
@@ -3368,6 +3281,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def treeSubCall(self, addr_reset):
         sender = self.sender()
         current_item = self.tree.currentItem()
+        self.widget_set = WidgetSets.EMPTY
         if current_item != None:
             current_id = int(current_item.text(0))
             current_name = current_item.text(1)
@@ -3406,13 +3320,16 @@ class MainWindow(QtWidgets.QMainWindow):
                             elif any(indicator.replace("fnt", "dat") in current_name for indicator in indicator_list["Graphics"]):
                                 self.fileDisplayState = "OAM"
                             elif any(indicator in current_name for indicator in indicator_list["Palette Animation"]):
-                                self.fileDisplayState = "Palette Animation"
+                                self.fileDisplayState = "PAnm"
                     else:
                         self.fileDisplayState = self.fileDisplayMode
 
                     self.file_content_text.setLineWrapMode(lib.widget.LongTextEdit.LineWrapMode.WidgetWidth)
+                    try:
+                        self.widget_set = WidgetSets[self.fileDisplayState.upper()]
+                    except KeyError:
+                        pass # remain EMPTY
                     if self.fileDisplayState == "Dialogue":
-                        self.widget_set = "Text"
                         if sender in self.FILEOPEN_WIDGETS:
                             dialogue_lang = current_name.split("_")[-1][:2] # get the two letters that indicate language
                             try:
@@ -3452,7 +3369,6 @@ class MainWindow(QtWidgets.QMainWindow):
                             self.file_content_text.setPlainText("")
                             self.file_content_text.setReadOnly(True)
                     elif self.fileDisplayState == "Graphics":
-                        self.widget_set = "Graphics"
                         if sender in self.FILEOPEN_WIDGETS:
                             self.layout_colorpick.rearrange(16, 16)
                             # reset from viewing font
@@ -3586,7 +3502,6 @@ class MainWindow(QtWidgets.QMainWindow):
                         self.field_tiles_per_row.setDisabled(False)
                         self.field_tiles_per_column.setDisabled(False)
                     elif self.fileDisplayState == "OAM":
-                        self.widget_set = "OAM"
                         if sender in self.FILEOPEN_WIDGETS:
                             self.field_address.setDisabled(True)
                             self.fileEdited_object = lib.oam.File(self.rom.files[current_id])
@@ -3791,8 +3706,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                         item.setSelected(item.obj_id == self.dropdown_oam_obj.currentIndex())
                         else:
                             print("empty frame!", self.fileEdited_object.oamsec.frameTable)
-                    elif self.fileDisplayState == "Palette Animation":
-                        self.widget_set = "PAnm"
+                    elif self.fileDisplayState == "PAnm":
                         if sender in self.FILEOPEN_WIDGETS:
                             self.fileEdited_object = lib.panim.File(self.rom.files[current_id])
                             self.dropdown_gfx_depth.setCurrentIndex(1)
@@ -3846,7 +3760,6 @@ class MainWindow(QtWidgets.QMainWindow):
                             if sender == self.dropdown_panm_entry:
                                 self.dropdown_panm_entry.previousIndex = self.dropdown_panm_entry.currentIndex()
                     elif self.fileDisplayState == "Font":
-                        self.widget_set = "Font"
                         if sender in self.FILEOPEN_WIDGETS:
                             self.layout_colorpick.rearrange(2, 1)
                             self.dropdown_gfx_depth.setCurrentIndex(0)
@@ -3868,13 +3781,10 @@ class MainWindow(QtWidgets.QMainWindow):
                                                    algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
                                                    grid=True)
                     elif self.fileDisplayState == "Sound":
-                        self.widget_set = "Empty" # placeholder
-                        #self.widget_set = "Sound"
                         self.file_content_text.setReadOnly(True)
                         self.file_content_text.setPlainText("Sound editor is not yet implemented.\n Right click on this file > open Sound Archive\nor click on the sound icon in the toolbar to open sound archive viewer.")
                         self.field_address.setDisabled(True)
                     elif self.fileDisplayState == "VX":
-                        self.widget_set = "VX"
                         self.field_address.setDisabled(True)
                         if sender in self.FILEOPEN_WIDGETS:
                             self.fileEdited_object = lib.act.ActImagine()
@@ -3892,7 +3802,6 @@ class MainWindow(QtWidgets.QMainWindow):
                             self.field_vxHeader_seekTableOffset.setValue(self.fileEdited_object.seek_table_offset)
                             self.field_vxHeader_seekTableEntryCount.setValue(self.fileEdited_object.seek_table_entries_qty)
                     elif self.fileDisplayState == "Model":
-                        self.widget_set = "Model"
                         self.file_content_model.setFocus()
                         self.field_address.setDisabled(True)
                         try:
@@ -3920,7 +3829,6 @@ class MainWindow(QtWidgets.QMainWindow):
                             if self.file_content_model.isUsable:
                                 self.file_content_model.loadModel(geometry.commands, geometry.params)
                     else:
-                        self.widget_set = "Empty"
                         self.field_address.setDisabled(True)
                         self.file_content_text.setReadOnly(True)
                         if self.fileDisplayState == "None":
@@ -3929,7 +3837,7 @@ class MainWindow(QtWidgets.QMainWindow):
                             file_knowledge = "not supported at the moment"
                         self.file_content_text.setPlainText(f"This file's format is {file_knowledge}.\n Go to [View > Converted formats] to disable file interpretation and view hex data.")
                 else:# if in hex display mode
-                    self.widget_set = "Hex"
+                    self.widget_set = WidgetSets.HEX
                     #hex_string = self.rom.files[current_id][self.relative_address:self.relative_address+self.file_content_text.page_charcount()].hex()
                     hex_string = ""
                     for i in range(0, self.file_content_text.page_linecount()*0x10):
@@ -3941,7 +3849,6 @@ class MainWindow(QtWidgets.QMainWindow):
                     self.file_content_text.setPlainText(hex_string)
                 self.file_content_text.setDisabled(False)
             else:# if it's a folder
-                self.widget_set = "Empty"
                 self.label_file_size.setText(f"Size: N/A")
                 self.field_address.setDisabled(True)
                 self.file_content_text.setPlainText("")
@@ -3950,7 +3857,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self.exportAction.setDisabled(False)
             self.replaceAction.setDisabled(False)
         else:# Nothing is selected, reset edit space
-            self.widget_set = "Empty"
             self.field_address.setDisabled(True)
             self.label_file_size.setText("Size: N/A")
             self.file_content_text.clear()
@@ -4552,25 +4458,19 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.tabs.currentIndex() == self.tabs.indexOf(self.page_explorer):
             self.treeCall()
 
-    def file_editor_show(self, mode: str): # UiComponents
-        mode_index = self.WIDGET_SET_NAMES.index(mode)
+    def file_editor_show(self, mode: WidgetSets):
         # Hide all widgets from other modes
-        for s in self.WIDGET_SETS:
-            if s != self.WIDGET_SETS[mode_index]:
-                for w in s:
+        for s in WidgetSets:
+            if s != mode:
+                for w in s.widgets:
                     w.hide()
         # Show widgets specific to this mode
-        for w in self.WIDGET_SETS[mode_index]:
+        for w in mode.widgets:
             w.show()
         # case-specific code
-        if mode == "Graphics" or "Font":
-            # Reset Values
-            #self.field_address.setValue(self.base_address)
+        if mode in [WidgetSets.GRAPHICS, WidgetSets.FONT, WidgetSets.PANM]:
             if self.file_content_gfx.sceneRect().width() != 0: # disallow zero div
                 self.file_content_gfx.fitInView2()
-            #print(f"{len(self.rom.save()):08X}")
-        elif mode == "Font":
-            pass
 
     def load_viewImage(self):
         dialog = QtWidgets.QFileDialog(
@@ -5144,11 +5044,107 @@ class MainWindow(QtWidgets.QMainWindow):
                     f.write(subdata)
         print("File extracted!")
 
-
-
-
 app = QtWidgets.QApplication(sys.argv)
 w = MainWindow()
+
+# Contents of widget sets, used in file_editor_show
+# Associates each mode with a set of widgets to show or hide
+class WidgetSets(enum.Enum):
+        def __init__(self, id: enum.auto, widgets:list[QtWidgets.QWidget]):
+            self.id = id
+            self.widgets = widgets
+        EMPTY = enum.auto(), [w.file_content_text]
+        HEX = enum.auto(), [w.file_content_text, w.checkbox_textoverwite]
+        # Associated with file display states
+        DIALOGUE = enum.auto(), [w.file_content_text, w.checkbox_textoverwite, w.dropdown_textindex]
+        GRAPHICS = enum.auto(), [
+            w.file_content_gfx,
+            w.checkbox_depthUpdate,
+            w.label_depthUpdate,
+            w.dropdown_gfx_depth,
+            w.dropdown_gfx_index,
+            w.dropdown_gfx_subindex,
+            w.dropdown_gfx_palette,
+            w.field_tile_width,
+            w.label_tile_width,
+            w.field_tile_height,
+            w.label_tile_height,
+            w.field_tiles_per_row,
+            w.label_tiles_per_row,
+            w.field_tiles_per_column,
+            w.label_tiles_per_column,
+            w.widget_colorpick,
+            w.button_view_save,
+            w.button_view_load
+            ]
+        OAM = enum.auto(), [
+            w.file_content_oam,
+            w.tabs_oam,
+            w.dropdown_oam_entry
+            ]
+        PANM = enum.auto(), [
+            w.dropdown_panm_entry,
+            w.dropdown_panm_oamEntry,
+            w.dropdown_panm_frame,
+            w.field_panm_frameId,
+            w.field_panm_frameDuration,
+            w.checkbox_panm_loop,
+            w.field_panm_loopStart,
+            w.label_panm_colorSlots,
+            w.field_panm_colorSlot0,
+            w.field_panm_colorSlot1,
+            w.widget_colorpick,
+            w.gfx_scene_panm
+        ]
+        FONT = enum.auto(), [
+            w.file_content_gfx,
+            w.field_tiles_per_row,
+            w.label_tiles_per_row,
+            w.field_tiles_per_column,
+            w.label_tiles_per_column,
+            w.field_font_size,
+            w.label_font_size,
+            w.field_font_width,
+            w.label_font_width,
+            w.field_font_height,
+            w.label_font_height,
+            w.label_font_indexingSpace,
+            w.label_font_charCount,
+            w.label_font_unusedStr,
+            w.widget_colorpick
+            ]
+        # SOUND is not defined, so the set remains EMPTY and the "not supported" message can be seen
+        #SOUND = enum.auto(), []
+        VX = enum.auto(), [
+            w.field_vxHeader_length,
+            w.label_vxHeader_length,
+            w.field_vxHeader_width,
+            w.label_vxHeader_width,
+            w.field_vxHeader_height,
+            w.label_vxHeader_height,
+            w.field_vxHeader_streamCount,
+            w.label_vxHeader_streamCount,
+            w.field_vxHeader_framerate,
+            w.label_vxHeader_framerate,
+            w.field_vxHeader_sampleRate,
+            w.label_vxHeader_sampleRate,
+            w.field_vxHeader_quantizer,
+            w.label_vxHeader_quantiser,
+            w.field_vxHeader_frameSizeMax,
+            w.label_vxHeader_frameSizeMax,
+            w.field_vxHeader_audioExtraDataOffset,
+            w.label_vxHeader_audioExtraDataOffset,
+            w.field_vxHeader_seekTableOffset,
+            w.label_vxHeader_seekTableOffset,
+            w.field_vxHeader_seekTableEntryCount,
+            w.label_vxHeader_seekTableEntryCount
+            ]
+        MODEL = enum.auto(), [
+            w.dropdown_model_entry,
+            w.dropdown_model_geometry,
+            w.file_content_model
+        ]
+w._post_init() # finalize now that WidgetSets exists
 
 #run the app
 try:
