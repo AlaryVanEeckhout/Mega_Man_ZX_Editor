@@ -307,10 +307,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.viewGraphicAction.triggered.connect(lambda: setattr(self, "fileDisplayMode", "Graphics"))
         self.viewGraphicAction.triggered.connect(lambda: self.treeCall())
 
+        self.viewModelAction = QtGui.QAction(QtGui.QIcon(str(PATH_ROOT / 'icons/cube')), '&Model', self) # ice icon
+        self.viewModelAction.setStatusTip('Files will be decrypted as NDS Geometry data.')
+        self.viewModelAction.setCheckable(True)
+        self.viewModelAction.triggered.connect(lambda: setattr(self, "fileDisplayMode", "Model"))
+        self.viewModelAction.triggered.connect(lambda: self.treeCall())
+
         self.viewFormatsGroup = QtGui.QActionGroup(self) #group for mutually exclusive togglable items
         self.viewFormatsGroup.addAction(self.viewAdaptAction)
         self.viewFormatsGroup.addAction(self.viewDialogueAction)
         self.viewFormatsGroup.addAction(self.viewGraphicAction)
+        self.viewFormatsGroup.addAction(self.viewModelAction)
 
         self.viewMenu = self.menu_bar.addMenu('&View')
         self.viewMenu.addAction(self.displayRawAction)
@@ -1305,7 +1312,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.file_content.addWidget(self.file_content_model)
 
         # File callers
-        self.FILEOPEN_WIDGETS: list[QtWidgets.QWidget] = [self.tree, self.viewAdaptAction, self.viewDialogueAction, self.viewGraphicAction, self.displayRawAction]
+        self.FILEOPEN_WIDGETS: list[QtWidgets.QWidget] = [self.tree, *self.viewFormatsGroup.actions(), self.displayRawAction]
         # Contents of widget sets, used in file_editor_show
         self.WIDGETS_EMPTY: list[QtWidgets.QWidget] = [self.file_content_text]
         self.WIDGETS_HEX: list[QtWidgets.QWidget] = [self.file_content_text, self.checkbox_textoverwite]
@@ -1397,6 +1404,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.dropdown_model_geometry,
             self.file_content_model
         ]
+        # Associates each mode with a set of widgets to show or hide
+        self.WIDGET_SET_NAMES = ["Empty", "Hex", "Text", "Graphics", "OAM", "PAnm", "Font", "Sound", "VX", "Model"]
+        self.WIDGET_SETS = [self.WIDGETS_EMPTY, self.WIDGETS_HEX, self.WIDGETS_TEXT, self.WIDGETS_GRAPHIC, self.WIDGETS_OAM, self.WIDGETS_PANM, self.WIDGETS_FONT, self.WIDGETS_SOUND, self.WIDGETS_VX, self.WIDGETS_MODEL]
         self.file_editor_show("Empty")
 
         # Level Editor(WIP)
@@ -3885,12 +3895,21 @@ class MainWindow(QtWidgets.QMainWindow):
                         self.widget_set = "Model"
                         self.file_content_model.setFocus()
                         self.field_address.setDisabled(True)
-                        if sender in self.FILEOPEN_WIDGETS:
-                            self.fileEdited_object = lib.model.File(self.rom.files[current_id])
-                            self.dropdown_model_entry.clear()
-                            for i in range(self.fileEdited_object.entryCount):
-                                self.dropdown_model_entry.addItem(f"model {i}")
-                        model = lib.model.ModelHeader(self.fileEdited_object.data[self.fileEdited_object.address_list[self.dropdown_model_entry.currentIndex()][0]:])
+                        try:
+                            if sender in self.FILEOPEN_WIDGETS:
+                                self.fileEdited_object = lib.model.File(self.rom.files[current_id])
+                                self.dropdown_model_entry.clear()
+                                for i in range(self.fileEdited_object.entryCount):
+                                    self.dropdown_model_entry.addItem(f"model {i}")
+                            model = lib.model.ModelHeader(self.fileEdited_object.data[self.fileEdited_object.address_list[self.dropdown_model_entry.currentIndex()][0]:])
+                        except Exception as e:
+                            print(e)
+                            QtWidgets.QMessageBox.critical(
+                                self,
+                                "Error loading 3D model",
+                                "The editor was unable to decode the header of this file or its geometry entries.\nMake sure the file you are trying to open is a model file."
+                            )
+                            return
                         if sender in [self.dropdown_model_entry, *self.FILEOPEN_WIDGETS]:
                             self.dropdown_model_geometry.clear()
                             for g in model.geometries:
@@ -4534,18 +4553,14 @@ class MainWindow(QtWidgets.QMainWindow):
             self.treeCall()
 
     def file_editor_show(self, mode: str): # UiComponents
-        modes = ["Empty", "Hex", "Text", "Graphics", "OAM", "PAnm", "Font", "Sound", "VX", "Model"]
-        # Associates each mode with a set of widgets to show or hide
-        widget_sets = [self.WIDGETS_EMPTY, self.WIDGETS_HEX, self.WIDGETS_TEXT, self.WIDGETS_GRAPHIC, self.WIDGETS_OAM, self.WIDGETS_PANM, self.WIDGETS_FONT, self.WIDGETS_SOUND, self.WIDGETS_VX, self.WIDGETS_MODEL]
-
-        mode_index = modes.index(mode)
+        mode_index = self.WIDGET_SET_NAMES.index(mode)
         # Hide all widgets from other modes
-        for s in widget_sets:
-            if s != widget_sets[mode_index]:
+        for s in self.WIDGET_SETS:
+            if s != self.WIDGET_SETS[mode_index]:
                 for w in s:
                     w.hide()
         # Show widgets specific to this mode
-        for w in widget_sets[mode_index]:
+        for w in self.WIDGET_SETS[mode_index]:
             w.show()
         # case-specific code
         if mode == "Graphics" or "Font":

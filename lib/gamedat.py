@@ -4,7 +4,7 @@ from . import dialogue
 
 # indicators determine what the file most likely contains based on its name
 I_GFX = ("_fnt",)
-I_GFX_ZX = I_GFX + ("face", "title", "bbom", "dm", "elf", "g_", "game_parm", "lmlevel", "miss", "repair", "sec_disk", "sub")
+I_GFX_ZX = I_GFX + ("face", "title", "bbom", "dm", "elf", "g_", "game_parm", "lmlevel", "miss", "puzzle", "repair", "sec_disk", "sub")
 I_GFX_ZXA = I_GFX + ("face", "title", "mm_", "dm", "ls_", "sub_")
 I_FONT = ("font",)
 I_DIALOGUE = ("talk", "m_")
