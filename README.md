@@ -1,8 +1,7 @@
 # Mega Man ZX Editor
-<details>
-<summary>Previews</summary>
-
 > <img src="https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/blob/main/GitHub-page-content/Showcase-GUI.png" /><br>Graphic User Interface of the editor
+<details>
+<summary>More Previews</summary>
 
 > <img src="https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/blob/main/GitHub-page-content/Showcase-Level.png" /><br>Level Editor section
 
