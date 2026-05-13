@@ -75,16 +75,13 @@ def baseToStr(l: list, b: int, alphanumeric: bool = False):
     for e in l:
         if e == ".":
             string += "."
-        elif b != 0 and (abs(b) <= 10 or abs(e) <= 9):
-            string += str(e)
-        elif alphanumeric and (abs(b) > 10 or b == 0) and abs(e) < len(symbols) and abs(e) < b:
+        elif (alphanumeric or abs(e) <= 9) and abs(e) < len(symbols) and abs(e) < b:
             string += symbols[abs(e)]
         else:
             string += "{" + str(e) + "}" # if out of symbol range, add base 10 value of symbol in curly brackets
     if l[0] < 0: # if negative number, rectify minus symbol
         string = string.replace("-", "")
         string = "-" + string
-    string = string
     return string
 
 def strToBase(s: str):
@@ -103,7 +100,7 @@ def strToBase(s: str):
     for i in list_2:
         if i == ".":
             list_final.append(i)
-        elif i.isalpha():
+        elif not i.isdigit(): 
             list_final.append(int(symbols.index(i.upper()))*sign)
         else:
             list_final.append(int(i)*sign)
@@ -123,14 +120,19 @@ def baseToNum(l: list, b: int):
             val_final += l2[i]*b**(len(l)-1 - i)
     return val_final
 
-def numToStr(n, b: int, alphanum: bool = False): #for convenience
+# convenience functions
+def numToStr(n, b: int, alphanum: bool = False):
     return baseToStr(numToBase(n, b), b, alphanum)
 
-def strToNum(s: str, b: int): #for convenience
+def strToNum(s: str, b: int):
     return baseToNum(strToBase(s), b)
 
-def strSetAlnum(s: str, b: int, alphanum: bool = False): #for convenience
+def strSetAlnum(s: str, b: int, alphanum: bool = False): # cannot change base
     return baseToStr(strToBase(s), b, alphanum)
+
+def strSetBase(s: str, b_prev:int, b: int, alphanum: bool = False):
+    return numToStr(strToNum(s, b_prev), b, alphanum)
+
 
 def str_subgroups(s: str, n):
     return [s[i:i+n] for i in range(0, len(s), n)]

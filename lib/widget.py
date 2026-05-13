@@ -614,6 +614,7 @@ class PlayButton(QtWidgets.QPushButton):
 class BetterSpinBox(QtWidgets.QDoubleSpinBox):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.dynamic_base = True
         self.alphanum = True
         self.numbase = 10
         self.setKeyboardTracking(False) # I don't even know why this isn't false by default
@@ -623,6 +624,10 @@ class BetterSpinBox(QtWidgets.QDoubleSpinBox):
         self.isInt = False
         self.acceptedSymbols = ["-", "{", "}", *lib.datconv.symbols]
         #self.setCorrectionMode(self.CorrectionMode.CorrectToNearestValue)
+        if self.dynamic_base:
+            self.getMainWindow().field_base.editingFinished.connect(self.updateBase)
+            self.getMainWindow().checkbox_alphanumeric.toggled.connect(self.updateBase)
+            self.updateBase()
 
     def fixup(self, str):
         return super().fixup(str)
@@ -666,11 +671,23 @@ class BetterSpinBox(QtWidgets.QDoubleSpinBox):
 
     def maximum(self):
         return int(super().maximum()) if self.isInt else super().maximum()
+    
+    def getMainWindow(self):
+        if hasattr(self.window(), "rom"):
+            return self.window()
+        else:
+            return self.window().parent()
+        
+    def updateBase(self):
+        self.alphanum = self.getMainWindow().displayAlphanumeric
+        self.numbase = self.getMainWindow().displayBase
+        self.setValue(self.value())
+        #print(f"BetterSpinBox {self.text()} repaint {self.getMainWindow(), self.getMainWindow().displayBase}")
 
 class LabeledSpinBox(QtWidgets.QWidget):
     def __init__(self, *args, labelText=None, labelFirst=True, Vertical=False, **kwargs):
         super().__init__(*args, **kwargs)
-        self.sb = BetterSpinBox()
+        self.sb = BetterSpinBox(self.getMainWindow())
         if Vertical:
                 self.setLayout(QtWidgets.QVBoxLayout())
         else:
@@ -696,6 +713,12 @@ class LabeledSpinBox(QtWidgets.QWidget):
                 self.layout().addWidget(self.label)
         else:
             self.layout().addWidget(self.sb)
+        
+    def getMainWindow(self):
+        if hasattr(self.window(), "rom"):
+            return self.window()
+        else:
+            return self.window().parent()
 
 class LongTextEdit(QtWidgets.QPlainTextEdit):
     def __init__(self, *args, charmap=lib.dialogue.CHARMAP_DIALOGUE_ZX_EN, **kwargs):

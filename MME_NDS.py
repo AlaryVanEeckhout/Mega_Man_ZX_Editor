@@ -252,12 +252,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_base.setValue(self.displayBase)
         self.field_base.setRange(-1000, 1000)
         self.field_base.editingFinished.connect(lambda: setattr(self, "displayBase", self.field_base.value()))
-        self.field_base.editingFinished.connect(self.reloadCall)
+        self.field_base.editingFinished.connect(lambda: self.reloadCall())
         self.checkbox_alphanumeric = QtWidgets.QCheckBox(self.page_settings_general)
         self.checkbox_alphanumeric.setText("Alphanumeric Numbers")
         self.checkbox_alphanumeric.setChecked(self.displayAlphanumeric)
         self.checkbox_alphanumeric.toggled.connect(lambda: setattr(self, "displayAlphanumeric", not self.displayAlphanumeric))
-        self.checkbox_alphanumeric.toggled.connect(self.reloadCall)
+        self.checkbox_alphanumeric.toggled.connect(lambda: self.reloadCall())
         # Performance Settings
         self.checkbox_fastLevel = QtWidgets.QCheckBox(self.page_settings_performance)
         self.checkbox_fastLevel.checkStateChanged.connect(lambda: setattr(self, "fastLevel", self.checkbox_fastLevel.isChecked()))
@@ -3251,23 +3251,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self.fileEdited_object = None # change this into a generic file object
         self.file_content_text.setReadOnly(False)
         self.field_address.setDisabled(addr_disabled)
-        # todo: make it so that window emits pyqt signal when changing base so that BetterSpinBox can connect and do this on its own
-        QtCore.qInstallMessageHandler(lambda a, b, c: None) # Silence Invalid base warnings from the following code
-        for widget in self.findChildren(lib.widget.BetterSpinBox): # update all widgets of same type with current settings
-            widget.alphanum = self.displayAlphanumeric
-            widget.numbase = self.displayBase
-            widget.repaint()
-        for widget in self.findChildren(lib.widget.LabeledSpinBox): # update all widgets of same type with current settings
-            widget.sb.alphanum = self.displayAlphanumeric
-            widget.sb.numbase = self.displayBase
-            widget.sb.repaint()
-        QtCore.qInstallMessageHandler(None) # Revert to default message handler
-        if self.dialog_settings.isVisible() and (self.field_address.numbase != self.displayBase): # handle error manually
-            QtWidgets.QMessageBox.critical(
-                                self,
-                                "Numeric Base Warning!",
-                                f"Base is not supported for inputting data in spinboxes.\n This means that all spinboxes will revert to base 10 until they are set to a supported base.\n Proceed at your own risk!"
-                                )
         for widget in self.findChildren(QtWidgets.QWidget):
             if not isinstance(widget, QtWidgets.QButtonGroup):
                 widget.blockSignals(True) # prevent treeCall from being executed twice in a row. Reduces lag
@@ -4430,12 +4413,15 @@ class MainWindow(QtWidgets.QMainWindow):
         if hasattr(self.rom, "name"):
             #print("reloadlevel " + str(level))
             if level == 0: #reload only necessary
-                self.treeCall() # update for betterspinboxes as well
                 self.treeBaseUpdate(self.tree_arm9)
                 self.treeBaseUpdate(self.tree_arm9Ovltable)
                 self.treeBaseUpdate(self.tree_arm7)
                 self.treeBaseUpdate(self.tree_arm7Ovltable)
                 self.treeBaseUpdate(self.tree_patches)
+                # since there is no treeCall, update the size label manually
+                if not ".Folder" in self.fileToEdit_name:# if it's a file
+                    val = self.label_file_size.text().split()[1]
+                    self.label_file_size.setText(f"Size: {lib.datconv.strSetBase(val, self.displayBase_old, self.displayBase, self.displayAlphanumeric).zfill(0)} bytes")
             elif level == 1: #medium reload
                 self.treeBaseUpdate(self.tree_arm9)
                 self.treeBaseUpdate(self.tree_arm9Ovltable)
