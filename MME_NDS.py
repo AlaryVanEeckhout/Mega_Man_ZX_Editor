@@ -4419,7 +4419,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.treeBaseUpdate(self.tree_arm7Ovltable)
                 self.treeBaseUpdate(self.tree_patches)
                 # since there is no treeCall, update the size label manually
-                if not ".Folder" in self.fileToEdit_name:# if it's a file
+                if not "N/A" in self.label_file_size.text():# if it has a size value
                     val = self.label_file_size.text().split()[1]
                     self.label_file_size.setText(f"Size: {lib.datconv.strSetBase(val, self.displayBase_old, self.displayBase, self.displayAlphanumeric).zfill(0)} bytes")
             elif level == 1: #medium reload
