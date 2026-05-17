@@ -84,7 +84,7 @@ try:
             player.stop()
 
 except ImportError:
-    print("dependencies for audio playback are not met. functions are disabled.")
+    print("Dependencies for audio playback are not met. Functions are disabled.")
     def playSSEQ(*args, **kwargs): return
     def playSWAV(*args, **kwargs): return
     def stopSound(*args, **kwargs): return

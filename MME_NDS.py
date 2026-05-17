@@ -1,3 +1,4 @@
+from __future__ import annotations
 from PyQt6 import QtGui, QtWidgets, QtCore#, QtMultimedia Qt6, Qt6.qsci
 from pathlib import Path
 import sys, os, platform, re, math, enum

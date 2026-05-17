@@ -1,4 +1,9 @@
-import sounddevice, numpy
+try:
+    import sounddevice
+except OSError:
+    print("PortAudio library not found")
+    raise ImportError # trigger the except block from sdat instead of actually crashing
+import numpy
 
 class WAVPlayer:
     def __init__(self, data: numpy.ndarray, samplerate: int, loop: int|None, totalLen:int=None):
