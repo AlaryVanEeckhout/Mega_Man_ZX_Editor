@@ -1,5 +1,6 @@
 from PyQt6 import QtGui, QtWidgets, QtCore
 import lib
+from .common import PATH_ROOT
 
 class Toolbar(QtWidgets.QToolBar):
     def __init__(self, *args, span: list[int]=None, **kwargs):
@@ -590,8 +591,8 @@ class PlayButton(QtWidgets.QPushButton):
         self.timer = QtCore.QTimer(self)
         self.timer.timeout.connect(self.on_timeout)
         self.pressed.connect(self.on_press)
-        self.icon_play = QtGui.QIcon('icons\\control.png')
-        self.icon_pause = QtGui.QIcon('icons\\control-pause.png')
+        self.icon_play = QtGui.QIcon(PATH_ROOT + 'icons\\control.png')
+        self.icon_pause = QtGui.QIcon(PATH_ROOT + 'icons\\control-pause.png')
         self.setIcon(self.icon_play)
 
     def on_timeout(self):

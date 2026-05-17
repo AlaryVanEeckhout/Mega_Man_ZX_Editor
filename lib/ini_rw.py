@@ -1,8 +1,10 @@
 # reader and writer of the preferences.ini file
 import os.path
 import re
+from .common import PATH_ROOT
 
-ini_dir = ""
+ini_dir = PATH_ROOT
+#print(ini_dir)
 info_name = "[INFO] "
 PRINTCOLOR_HEADER = '\033[95m' #purple
 PRINTCOLOR_OKBLUE = '\033[94m'
@@ -15,7 +17,7 @@ PRINTCOLOR_BOLD = '\033[1m'
 PRINTCOLOR_UNDERLINE = '\033[4m'
 
 def write(obj: object):
-    with open(ini_dir / "preferences.ini", "w") as my_file:
+    with open(ini_dir + "preferences.ini", "w") as my_file:
         my_file.write(
 f"""[SETTINGS]
 theme_index={obj.theme_index}
@@ -29,12 +31,12 @@ firstLaunch={obj.firstLaunch}"""
     print(info_name + PRINTCOLOR_OKCYAN + "wrote to ini file." + PRINTCOLOR_ENDC)
 
 def read(obj: object, sec="ALL_SECTIONS", inc: list[str]=[], exc: list[str]=[], property_type="string"): # load preferences into program
-    if os.path.exists(ini_dir / "preferences.ini"):
+    if os.path.exists(ini_dir + "preferences.ini"):
         print(info_name + PRINTCOLOR_OKGREEN + "ini file found." + PRINTCOLOR_ENDC)
         print(info_name + "reading values in \"" + property_type + "\" mode.")
         init_file = {}
         init_file_section = ""
-        with open(ini_dir / "preferences.ini", "r") as my_file:
+        with open(ini_dir + "preferences.ini", "r") as my_file:
             for line in my_file:
                 line = line.removesuffix("\n")
                 if line and line[0] == "[":

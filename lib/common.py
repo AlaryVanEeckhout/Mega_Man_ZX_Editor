@@ -1,3 +1,6 @@
+import sys
+PATH_ROOT = "/".join(sys.argv[0].split("/")[:-1]) + "/"
+
 class File:
     def __init__(self, data: bytes):
         self.data = data
