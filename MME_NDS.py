@@ -18,7 +18,7 @@ try:
     import matplotlib.pyplot as pyplt#, matplotlib.backends.backend_qtagg as qtagg
 except ImportError:
     pass
-isVXSupported = bool("lib.actimagine.package.actimagine" in sys.module)
+isVXSupported = bool("lib.actimagine.package.actimagine" in sys.modules)
 
 PATH_ROOT = Path(__file__).resolve().parent
 lib.ini_rw.ini_dir = PATH_ROOT
