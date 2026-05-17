@@ -14,11 +14,11 @@ import ndspy.rom, ndspy.codeCompression, ndspy.code
 import ndspy.soundArchive
 import ndspy.soundSequenceArchive
 import lib
-
 try:
     import matplotlib.pyplot as pyplt#, matplotlib.backends.backend_qtagg as qtagg
 except ImportError:
     pass
+isVXSupported = bool("lib.actimagine.package.actimagine" in sys.module)
 
 PATH_ROOT = Path(__file__).resolve().parent
 lib.ini_rw.ini_dir = PATH_ROOT
@@ -2370,7 +2370,9 @@ class MainWindow(QtWidgets.QMainWindow):
             dialog_formatSelect = QtWidgets.QDialog(self)
             dialog_formatSelect.setWindowTitle("Choose format and compression")
             dropdown_formatSelect = QtWidgets.QComboBox(dialog_formatSelect)
-            dropdown_formatSelect.addItems(["Raw", "English dialogue", "Bitmap", "VX"])
+            dropdown_formatSelect.addItems(["Raw", "English dialogue", "Bitmap"])
+            if isVXSupported:
+                dropdown_formatSelect.addItem("VX")
             dropdown_compressSelect = QtWidgets.QComboBox(dialog_formatSelect)
             dropdown_compressSelect.addItems(["No compression change", "compression", "decompression"])
             dropdown_compressSelect.currentIndexChanged.connect(lambda: dropdown_compresstypeSelect.setDisabled(dropdown_compressSelect.currentIndex() == 0))
@@ -2583,6 +2585,13 @@ class MainWindow(QtWidgets.QMainWindow):
                             print("folder import")
                             if fileExt == "vx":
                                 print("is vx")
+                                if not isVXSupported:
+                                    QtWidgets.QMessageBox.critical(
+                                        self,
+                                        "Unavailable feature",
+                                        "The editor cannot perform VX import due to dependency issues.\nMake sure the actimagine library is installed in the appropriate directory."
+                                    )
+                                    return
                                 self.progressShow()
                                 self.progressUpdate(0, "Loading folder", False)
                                 act = lib.act.ActImagine()
@@ -2606,6 +2615,11 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.progressHide()
                             else:
                                 print("not a special folder")
+                                QtWidgets.QMessageBox.information(
+                                    self,
+                                    "Unknown Format",
+                                    "The editor does not know what to do with this folder.\nIf you want it to be treated as a VX folder, please add \".vx\" at the end of its name."
+                                )
                                 return
 
                     if isinstance(fileInfo[2], bytearray): # other
@@ -3769,22 +3783,28 @@ class MainWindow(QtWidgets.QMainWindow):
                         self.file_content_text.setPlainText("Sound editor is not yet implemented.\n Right click on this file > open Sound Archive\nor click on the sound icon in the toolbar to open sound archive viewer.")
                         self.field_address.setDisabled(True)
                     elif self.fileDisplayState == "VX":
-                        self.field_address.setDisabled(True)
-                        if sender in self.FILEOPEN_WIDGETS:
-                            self.fileEdited_object = lib.act.ActImagine()
-                            self.fileEdited_object.load_vx(self.rom.files[current_id])
-                            #print(self.rom.files[current_id][5:6].hex()+self.rom.files[current_id][4:5].hex())
-                            self.field_vxHeader_length.setValue(self.fileEdited_object.frames_qty)
-                            self.field_vxHeader_width.setValue(self.fileEdited_object.frame_width)
-                            self.field_vxHeader_height.setValue(self.fileEdited_object.frame_height)
-                            self.field_vxHeader_framerate.setValue(self.fileEdited_object.frame_rate)
-                            self.field_vxHeader_quantizer.setValue(self.fileEdited_object.quantizer)
-                            self.field_vxHeader_sampleRate.setValue(self.fileEdited_object.audio_sample_rate)
-                            self.field_vxHeader_streamCount.setValue(self.fileEdited_object.audio_streams_qty)
-                            self.field_vxHeader_frameSizeMax.setValue(self.fileEdited_object.frame_data_size_max)
-                            self.field_vxHeader_audioExtraDataOffset.setValue(self.fileEdited_object.audio_extradata_offset)
-                            self.field_vxHeader_seekTableOffset.setValue(self.fileEdited_object.seek_table_offset)
-                            self.field_vxHeader_seekTableEntryCount.setValue(self.fileEdited_object.seek_table_entries_qty)
+                        if isVXSupported:
+                            self.field_address.setDisabled(True)
+                            if sender in self.FILEOPEN_WIDGETS:
+                                self.fileEdited_object = lib.act.ActImagine()
+                                self.fileEdited_object.load_vx(self.rom.files[current_id])
+                                #print(self.rom.files[current_id][5:6].hex()+self.rom.files[current_id][4:5].hex())
+                                self.field_vxHeader_length.setValue(self.fileEdited_object.frames_qty)
+                                self.field_vxHeader_width.setValue(self.fileEdited_object.frame_width)
+                                self.field_vxHeader_height.setValue(self.fileEdited_object.frame_height)
+                                self.field_vxHeader_framerate.setValue(self.fileEdited_object.frame_rate)
+                                self.field_vxHeader_quantizer.setValue(self.fileEdited_object.quantizer)
+                                self.field_vxHeader_sampleRate.setValue(self.fileEdited_object.audio_sample_rate)
+                                self.field_vxHeader_streamCount.setValue(self.fileEdited_object.audio_streams_qty)
+                                self.field_vxHeader_frameSizeMax.setValue(self.fileEdited_object.frame_data_size_max)
+                                self.field_vxHeader_audioExtraDataOffset.setValue(self.fileEdited_object.audio_extradata_offset)
+                                self.field_vxHeader_seekTableOffset.setValue(self.fileEdited_object.seek_table_offset)
+                                self.field_vxHeader_seekTableEntryCount.setValue(self.fileEdited_object.seek_table_entries_qty)
+                        else:
+                            self.widget_set = WidgetSets.EMPTY
+                            self.file_content_text.setReadOnly(True)
+                            self.file_content_text.setPlainText("VX editor is missing required dependencies to function.\n Make sure the actimagine library is installed in the appropriate folder.")
+                            self.field_address.setDisabled(True)
                     elif self.fileDisplayState == "Model":
                         self.file_content_model.setFocus()
                         self.field_address.setDisabled(True)

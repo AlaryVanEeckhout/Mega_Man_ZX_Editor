@@ -926,22 +926,30 @@ try:
         
         def isKeyFiring(self, key:QtCore.Qt.Key, press=False):
             return bool(key in self.keys and (self.key_delays[self.keys.index(key)] <= 0 or press))
+    
+        def areKeysFiring(self, keys:list[QtCore.Qt.Key], press=False):
+            key_found = None
+            for key in keys:
+                if key in self.keys:
+                    key_found = key
+                    break
+            return self.isKeyFiring(key_found, press=True)
 
         def process_keys(self, press=False):
             if self.keys:
                 for i in range(len(self.key_delays)):
                     self.key_delays[i] -= 1
-                if self.isKeyFiring(QtCore.Qt.Key.Key_W, press):
+                if self.areKeysFiring([QtCore.Qt.Key.Key_W, QtCore.Qt.Key.Key_Up], press):
                     self.turnV += 0.1
-                if self.isKeyFiring(QtCore.Qt.Key.Key_S, press):
+                if self.areKeysFiring([QtCore.Qt.Key.Key_S, QtCore.Qt.Key.Key_Down], press):
                     self.turnV -= 0.1
-                if self.isKeyFiring(QtCore.Qt.Key.Key_D, press):
+                if self.areKeysFiring([QtCore.Qt.Key.Key_D, QtCore.Qt.Key.Key_Right], press):
                     self.turnH -= 0.1
-                if self.isKeyFiring(QtCore.Qt.Key.Key_A, press):
+                if self.areKeysFiring([QtCore.Qt.Key.Key_A, QtCore.Qt.Key.Key_Left], press):
                     self.turnH += 0.1
-                if self.isKeyFiring(QtCore.Qt.Key.Key_E, press):
+                if self.areKeysFiring([QtCore.Qt.Key.Key_E, QtCore.Qt.Key.Key_ZoomIn], press):
                     self.distance -= 0.1
-                if self.isKeyFiring(QtCore.Qt.Key.Key_Q, press):
+                if self.areKeysFiring([QtCore.Qt.Key.Key_Q, QtCore.Qt.Key.Key_ZoomOut], press):
                     self.distance += 0.1
                 self.eye_pos[1] = self.distance*math.sin(self.turnV)
                 self.eye_pos[2] = self.distance*math.sin(self.turnH)*math.cos(self.turnV)
