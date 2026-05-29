@@ -92,7 +92,7 @@ class MainWindow(QtWidgets.QMainWindow):
         ]
         self.gfx_palette = self.GFX_PALETTES[0]
         self.fileEdited_object = None
-        self.levelEdited_ovlTable = {"entity slot": [], "entity coord": [], "level": []}
+        self.levelEdited_ovlTable = {"entity prel": [], "entity slot": [], "entity coord": [], "level": []}
         self.levelEdited_ovl_object = None
         self.levelEdited_object = None
         self.resize(self.window_width, self.window_height)
@@ -4054,10 +4054,10 @@ class MainWindow(QtWidgets.QMainWindow):
         entityt_size = arm9_bin[self.gamedat.arm9Addrs["entity"]+0x04:].find(bytes(4))+0x04
         #print(f"calculated overlay table size: 0x{entityt_size:02X}", "vs expected (ZX/ZXA) 0x120/0x10C")
         #addr_entityunkt = self.gamedat.arm9Addrs["entity"]+0*entityt_size # 4 bytes of data, usually at 0x01 after start of overlay?
-        #addr_entityunkt = self.gamedat.arm9Addrs["entity"]+1*entityt_size # table of some kind
+        addr_entityPrelt = self.gamedat.arm9Addrs["entity"]+1*entityt_size # Preload Entity?
         addr_entityCoordt = self.gamedat.arm9Addrs["entity"]+2*entityt_size # coordinates
         addr_entitySlott = self.gamedat.arm9Addrs["entity"]+3*entityt_size # slot defs
-        #addr_entityunkt = self.gamedat.arm9Addrs["entity"]+4*entityt_size #???
+        self.levelEdited_ovlTable["entity prel"].clear()
         self.levelEdited_ovlTable["entity slot"].clear()
         self.levelEdited_ovlTable["entity coord"].clear()
         self.levelEdited_ovlTable["level"].clear()
@@ -4065,10 +4065,13 @@ class MainWindow(QtWidgets.QMainWindow):
         skip_entity = 0
         if addr_levelt == 0:
             print("No ARM9 overlay pointer table address provided for entities of current game!")
+        def get_addr(table_addr: int, index: int, skip: int=0):
+            return int.from_bytes(arm9_bin[table_addr+(index-skip)*0x04:table_addr+0x04+(index-skip)*0x04], byteorder='little')
         for i in range(self.dropdown_level_area.count()):
-            addr_level = int.from_bytes(arm9_bin[addr_levelt+(i-skip_level)*0x04:addr_levelt+0x04+(i-skip_level)*0x04], byteorder='little')
-            addr_entityCoord = int.from_bytes(arm9_bin[addr_entityCoordt+(i-skip_entity)*0x04:addr_entityCoordt+0x04+(i-skip_entity)*0x04], byteorder='little')
-            addr_entitySlot = int.from_bytes(arm9_bin[addr_entitySlott+(i-skip_entity)*0x04:addr_entitySlott+0x04+(i-skip_entity)*0x04], byteorder='little')
+            addr_level = get_addr(addr_levelt, i, skip_level)
+            addr_entityPrel = get_addr(addr_entityPrelt, i, skip_entity)
+            addr_entityCoord = get_addr(addr_entityCoordt, i, skip_entity)
+            addr_entitySlot = get_addr(addr_entitySlott, i, skip_entity)
             if self.tree_arm9Ovltable.topLevelItem(int(self.dropdown_level_area.itemText(i))) is None: break
             if lib.datconv.strToNum(self.tree_arm9Ovltable.topLevelItem(int(self.dropdown_level_area.itemText(i))).text(4), self.displayBase) <= 0x60 and addr_level != 0x00000000:
                 print("re-ordering overlays struct table to fix level data alignment issue at", i)
@@ -4079,9 +4082,11 @@ class MainWindow(QtWidgets.QMainWindow):
             if lib.datconv.strToNum(self.tree_arm9Ovltable.topLevelItem(int(self.dropdown_level_area.itemText(i))).text(4), self.displayBase) <= 0x20 and addr_entityCoord != 0x00000000:
                 print("re-ordering overlays struct table to fix entity data alignment issue at", i)
                 skip_entity += 1
+                self.levelEdited_ovlTable["entity prel"].append(0)
                 self.levelEdited_ovlTable["entity coord"].append(0)
                 self.levelEdited_ovlTable["entity slot"].append(0)
             else:
+                self.levelEdited_ovlTable["entity prel"].append(addr_entityPrel)
                 self.levelEdited_ovlTable["entity coord"].append(addr_entityCoord)
                 self.levelEdited_ovlTable["entity slot"].append(addr_entitySlot)
         #print(arm9_bin[addr_entityt:addr_entityt+0x04*68].hex())
@@ -4243,12 +4248,20 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def loadEntities(self, screenSpacing:int=0):
         if not self.checkbox_entities_enable.isChecked(): return
+        isGFX = self.checkbox_entities_gfxEnable.isChecked()
         entities = self.levelEdited_ovl_object.entities
         if not hasattr(entities, "coords"): return
         self.field_level_entities_coords_slot.sb.setRange(0, len(entities.slots.entityList)-1) # prevent using inexistant slots
         
-        for i in range(len(entities.coords.entityList[1:-1])):
-            entityCoord = entities.coords.entityList[1:-1][i]
+        entityPrels_enemy = [] # list of enemy preloads
+        if isGFX:
+            for prel in entities.prels.entityList[:-1]:
+                if prel["kind"] == 0x03:
+                    entityPrels_enemy.append(prel)
+            entityPrels_enemy = sorted(entityPrels_enemy, key=lambda x: x["id"])
+            kind_enemy = [k for k,v in self.gamedat.entityNames.items() if v[0] == "Enemy"][0]
+        for i in range(1, len(entities.coords.entityList[:-1])):
+            entityCoord = entities.coords.entityList[i]
             try:
                 entitySlot = entities.slots.entityList[entityCoord["slot"]]
                 entitySlot_names = entities.slots.nameList[entityCoord["slot"]]
@@ -4269,16 +4282,29 @@ class MainWindow(QtWidgets.QMainWindow):
                 }
                 print(f"Entity slot {entityCoord["slot"]} did not load correclty. Slot may not exist in slot definitions.")
                 print(e)
+            oam_index = 0
+            if isGFX and entitySlot_names["kind"] == "Enemy": # WIP hacky way to guess enemy gfx
+                enemies_list = [] # list of enemies before this entity that use unique oam indexes
+                entitylist = sorted(entities.slots.entityList, key=lambda x: x["subkind"])
+                for entity in entitylist:
+                    if entity == entitySlot: break
+                    if entity["kind"] == kind_enemy and not (entity["subkind"] == entitySlot["subkind"] or any(entity["subkind"] == prev["subkind"] for prev in enemies_list)):
+                        enemies_list.append(entity)
+                if len(enemies_list) < len(entityPrels_enemy):
+                    # This only works if preload and slots list enemies in the same order (this is attempted via sorting by subkind/id)
+                    oam_index = entityPrels_enemy[len(enemies_list)]["id"]
+                else:
+                    print(f"Invalid enemy graphics requested by entity {i}")
             self.gfx_scene_level.scene().addItem(
                 lib.widget.LevelEntityItem(
-                coordIndex=i+1,
+                coordIndex=i,
                 coord=entityCoord,
                 slot=entitySlot,
                 slotnames=entitySlot_names,
                 screenSpacing=screenSpacing,
                 displayBase=self.displayBase,
                 alphanumeric=self.displayAlphanumeric,
-                graphicItems=self.OAM_processFrame(["obj_dat.bin", 0], 0)["items"] if self.checkbox_entities_gfxEnable.isChecked() else []
+                graphicItems=self.OAM_processFrame(["obj_dat.bin", oam_index], 0)["items"] if isGFX else []
                 )
             )
 

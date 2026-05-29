@@ -58,6 +58,8 @@ class Overlay:
 
         self.struct_RAMAddress = RAMAddressDict["level"][RAMAddressDictIndex]
         self.struct_address = self.getFileAddress(self.struct_RAMAddress)
+        self.entityPrel_RAMaddress = RAMAddressDict["entity prel"][RAMAddressDictIndex]
+        self.entityPrel_address = self.getFileAddress(self.entityPrel_RAMaddress)
         self.entityCoord_RAMAddress = RAMAddressDict["entity coord"][RAMAddressDictIndex]
         self.entityCoord_address = self.getFileAddress(self.entityCoord_RAMAddress)
         self.entitySlot_RAMAddress = RAMAddressDict["entity slot"][RAMAddressDictIndex]
@@ -109,10 +111,11 @@ class Overlay:
         self.screenLayout_camera = ScreenLayout(self.data, self.screenLayout_camera_address, loadReal=False) # width > realWidth for some reason
 
         print("Entities")
-        print(f"slot: 0x{self.entitySlot_RAMAddress:08X}")
+        print(f"preload: 0x{self.entityPrel_RAMaddress:08X}")
         print(f"coord: 0x{self.entityCoord_RAMAddress:08X}")
+        print(f"slot: 0x{self.entitySlot_RAMAddress:08X}")
 
-        self.entities = Entities(self.data, self.entitySlot_address, self.entityCoord_address, entitynamedict)
+        self.entities = Entities(self.data, self.entityPrel_address, self.entitySlot_address, self.entityCoord_address, entitynamedict)
 
     def getFileAddress(self, RAMAddress: int):
         return RAMAddress - self.RAMAddress
@@ -203,14 +206,38 @@ class ScreenMap:
 
 # for convenience
 class Entities:
-    def __init__(self, data: bytes, entitySlotaddress: int, entityCoordAddress: int, namedict: dict[str, dict]):
+    def __init__(self, data: bytes, entityPrelAddress: int, entitySlotAddress: int, entityCoordAddress: int, namedict: dict[str, dict]):
         self.data = data
+        if entityPrelAddress > 0:
+            self.prels = EntityPreloads(self.data, entityPrelAddress)
+            print(self.prels.entityList)
         if entityCoordAddress > 0:
             self.coords = EntityCoordinates(self.data, entityCoordAddress)
             print(self.coords.entityList)
-        if entitySlotaddress > 0:
-            self.slots = EntitySlots(self.data, entitySlotaddress, namedict)
+        if entitySlotAddress > 0:
+            self.slots = EntitySlots(self.data, entitySlotAddress, namedict)
             print(self.slots.entityList)
+
+class EntityPreloads:
+    def __init__(self, data: bytes, address: int):
+        self.data = data
+        self.startOffset = address
+        self.endOffset = self.startOffset + self.data[self.startOffset:].find(bytes.fromhex("FFFFFFFFFFFF0000"))+0x08
+
+        self.entityList: list[dict] = []
+        if self.startOffset == 0: return
+        for i in range(self.startOffset, self.endOffset, 0x08):
+            self.entityList.append({
+                "id": int.from_bytes(self.data[i:i+2], byteorder='little'), # OAM entry (?)
+                "id2": int.from_bytes(self.data[i+2:i+4], byteorder='little'), # secondary id for linked entities?
+                "unk4": int.from_bytes(self.data[i+4:i+5], byteorder='little'), # always 00?
+                "unk5": int.from_bytes(self.data[i+5:i+6], byteorder='little'), # 00 or FF?
+                "kind": int.from_bytes(self.data[i+6:i+7], byteorder='little'), # 00: background; 02: abstract?; 03: enemy.
+                "unk7": int.from_bytes(self.data[i+7:i+8], byteorder='little')}) # always 00?
+            #assert self.entityList[-1]["id"] == self.entityList[-1]["id2"]
+            
+    def toBytes(self):
+        raise NotImplementedError
 
 # EntityTemplate of rmz3 decomp
 class EntitySlots:

@@ -16,6 +16,7 @@ I_MODEL_ZXA = ("mdl_dat",)
 ARM9_ZX_E = {
     "entity": 0x000C9C7C, #each entry is 0x4*levelOverlayCount bytes
     "level": 0x000CB9D4,
+    #"???": 0x000CC6F0, # pointers outside of overlay
     "dialogue box" : 0x000BEC8C,
     "dialogue names jp": 0x000BF5CC,
     "dialogue names en": 0x000BF9EC,
