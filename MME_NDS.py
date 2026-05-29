@@ -102,7 +102,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.displayBase_old = 16
         self.displayAlphanumeric = True
         self.firstLaunch = True
-        self.fastLevel = False
+        self.noOAMItemCache = False
+        self.noLevelItemCache = False
         self.load_preferences()
         self.UiComponents()
 
@@ -115,7 +116,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def load_preferences(self):
         lib.ini_rw.read(self, "SETTINGS", property_type="int", exc=["displayAlphanumeric"])
         lib.ini_rw.read(self, "SETTINGS", property_type="bool", inc=["displayAlphanumeric"])
-        lib.ini_rw.read(self, "PERFORMANCE", property_type="bool", inc=["fastLevel"])
+        lib.ini_rw.read(self, "PERFORMANCE", property_type="bool")
         lib.ini_rw.read(self, "MISC", property_type="bool")
         if self.firstLaunch:
             firstLaunch_dialog = QtWidgets.QMessageBox()
@@ -258,12 +259,18 @@ class MainWindow(QtWidgets.QMainWindow):
         self.checkbox_alphanumeric.toggled.connect(lambda: setattr(self, "displayAlphanumeric", not self.displayAlphanumeric))
         self.checkbox_alphanumeric.toggled.connect(lambda: self.reloadCall())
         # Performance Settings
-        self.checkbox_fastLevel = QtWidgets.QCheckBox(self.page_settings_performance)
-        self.checkbox_fastLevel.checkStateChanged.connect(lambda: setattr(self, "fastLevel", self.checkbox_fastLevel.isChecked()))
-        self.checkbox_fastLevel.setChecked(self.fastLevel)
-        self.checkbox_fastLevel.setText("Disable LevelTileItem coordinate cache")
-        self.checkbox_fastLevel.setToolTip("Sacrifices some graphical fidelity in favor of faster rendering when zooming in/out")
-        self.checkbox_fastLevel.setToolTipDuration(10000)
+        self.checkbox_noOAMItemCache = QtWidgets.QCheckBox(self.page_settings_performance)
+        self.checkbox_noOAMItemCache.checkStateChanged.connect(lambda: setattr(self, "noOAMItemCache", self.checkbox_noOAMItemCache.isChecked()))
+        self.checkbox_noOAMItemCache.setChecked(self.noOAMItemCache)
+        self.checkbox_noOAMItemCache.setText("Disable OAMObjectItem coordinate cache")
+        self.checkbox_noOAMItemCache.setToolTip("Sacrifices some graphical fidelity in favor of faster rendering when zooming in/out")
+        self.checkbox_noOAMItemCache.setToolTipDuration(10000)
+        self.checkbox_noLevelItemCache = QtWidgets.QCheckBox(self.page_settings_performance)
+        self.checkbox_noLevelItemCache.checkStateChanged.connect(lambda: setattr(self, "noLevelItemCache", self.checkbox_noLevelItemCache.isChecked()))
+        self.checkbox_noLevelItemCache.setChecked(self.noLevelItemCache)
+        self.checkbox_noLevelItemCache.setText("Disable LevelTileItem coordinate cache")
+        self.checkbox_noLevelItemCache.setToolTip("Sacrifices some graphical fidelity in favor of faster rendering when zooming in/out")
+        self.checkbox_noLevelItemCache.setToolTipDuration(10000)
 
         self.dialog_settings.layout().addWidget(self.tabs_settings)
         self.page_settings_general.layout().addWidget(self.label_theme)
@@ -271,7 +278,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.page_settings_general.layout().addWidget(self.label_base)
         self.page_settings_general.layout().addWidget(self.field_base)
         self.page_settings_general.layout().addWidget(self.checkbox_alphanumeric)
-        self.page_settings_performance.layout().addWidget(self.checkbox_fastLevel)
+        self.page_settings_performance.layout().addWidget(self.checkbox_noOAMItemCache)
+        self.page_settings_performance.layout().addWidget(self.checkbox_noLevelItemCache)
 
         self.settingsAction = QtGui.QAction(QtGui.QIcon(PATH_ROOT + 'icons/gear'), '&Settings', self)
         self.settingsAction.setStatusTip('Settings')
@@ -3629,7 +3637,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                     self.slider_objSizeIndex.show()
                                     self.group_oam_objShape.show()
                                 for obj_item in frame_result["items"]:
-                                    self.file_content_oam.scene().addItem(obj_item)
+                                    self.file_content_oam.addItem(obj_item)
 
                                 if sender == self.dropdown_oam_entry:
                                     self.file_content_oam.fitInView2()
@@ -3644,7 +3652,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                     if isinstance(item, lib.widget.OAMObjectItem) and item.obj_id > self.dropdown_oam_obj.currentIndex():
                                         item.obj_id += 1
                                         item.setZValue(-item.obj_id) # update depth
-                                self.file_content_oam.scene().addItem(self.OAM_updateItemGFX(self.dropdown_oam_obj.currentIndex()+1))
+                                self.file_content_oam.addItem(self.OAM_updateItemGFX(self.dropdown_oam_obj.currentIndex()+1))
                                 self.dropdown_oam_obj.addItem(f"object {self.dropdown_oam_obj.count()}")
                                 self.dropdown_oam_obj.setCurrentIndex(self.dropdown_oam_obj.currentIndex()+1)
                                 

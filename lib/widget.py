@@ -351,6 +351,11 @@ class OAMView(View):
         super().__init__(*args, **kwargs)
         self.item_current: OAMObjectItem | None = None
 
+    def addItem(self, item: OAMObjectItem):
+        if self.window().checkbox_noOAMItemCache.isChecked():
+            item.setCacheMode(QtWidgets.QGraphicsPixmapItem.CacheMode.NoCache)
+        self.scene().addItem(item)
+
 class TilesetView(View):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -396,7 +401,7 @@ class LevelView(View):
         self.tileGroups: list[list[list[LevelTileItem]]] = []
 
     def addItem(self, item: LevelTileItem):
-        if self.window().checkbox_fastLevel.isChecked():
+        if self.window().checkbox_noLevelItemCache.isChecked():
             item.setCacheMode(QtWidgets.QGraphicsPixmapItem.CacheMode.NoCache)
         self.scene().addItem(item)
 

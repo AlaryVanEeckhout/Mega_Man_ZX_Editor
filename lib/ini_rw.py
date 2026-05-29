@@ -17,20 +17,31 @@ PRINTCOLOR_BOLD = '\033[1m'
 PRINTCOLOR_UNDERLINE = '\033[4m'
 
 def write(obj: object):
+    """obj: Self@MainWindow"""
+    def attr(s: str):
+        return f"{s}={getattr(obj, s)}"
     with open(ini_dir + "preferences.ini", "w") as my_file:
         my_file.write(
 f"""[SETTINGS]
-theme_index={obj.theme_index}
-displayBase={obj.displayBase}
-displayAlphanumeric={obj.displayAlphanumeric}
+{attr("theme_index")}
+{attr("displayBase")}
+{attr("displayAlphanumeric")}
 [PERFORMANCE]
-fastLevel={obj.fastLevel}
+{attr("noOAMItemCache")}
+{attr("noLevelItemCache")}
 [MISC]
-firstLaunch={obj.firstLaunch}"""
+{attr("firstLaunch")}"""
         )
     print(info_name + PRINTCOLOR_OKCYAN + "wrote to ini file." + PRINTCOLOR_ENDC)
 
 def read(obj: object, sec="ALL_SECTIONS", inc: list[str]=[], exc: list[str]=[], property_type="string"): # load preferences into program
+    """
+    obj: Self@MainWindow\n
+    sec: ini file section(s) where properties should be read\n
+    inc: list of properties to read (empty means all are included)\n
+    exc: list of properties not to read\n
+    property_type: determines how the properties will be read
+    """
     if os.path.exists(ini_dir + "preferences.ini"):
         print(info_name + PRINTCOLOR_OKGREEN + "ini file found." + PRINTCOLOR_ENDC)
         print(info_name + "reading values in \"" + property_type + "\" mode.")
