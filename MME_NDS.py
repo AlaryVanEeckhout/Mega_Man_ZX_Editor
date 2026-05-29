@@ -3,7 +3,6 @@ from PyQt6 import QtGui, QtWidgets, QtCore#, QtMultimedia Qt6, Qt6.qsci
 import sys, os, platform, re, math, enum
 import argparse
 import traceback
-import bisect
 #import logging, time, random
 import ndspy
 #import ndspy.graphics2D
