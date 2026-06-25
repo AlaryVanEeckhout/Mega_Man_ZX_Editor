@@ -16,23 +16,7 @@ try:
         pcm_list = loadBank(bank, sdat)
         print(sseq.events)
         #print(sseq.bankID)
-        # it would probably be better to have events be handled during playback
-        music = numpy.frombuffer(bytearray())
-        music.dtype = "int16"
-        pcm_index = 0
-        #music_frame = 0
-        for event in sseq.events:
-            pcm = pcm_list[pcm_index]
-            if isinstance(event, sa.soundSequence.NoteSequenceEvent):
-                if pcm is None: continue
-                music = numpy.append(music, pcm[:event.duration*64])
-            elif isinstance(event, sa.soundSequence.RestSequenceEvent):
-                music = numpy.append(music, numpy.zeros((event.duration*64), dtype="int16"))
-                #music_frame += event.duration
-            elif isinstance(event, sa.soundSequence.InstrumentSwitchSequenceEvent):
-                pcm_index = event.instrumentID
-            #music_frame += 1
-        player = wav_player.WAVPlayer(music, 22050, 0)
+        player = wav_player.SSEQPlayer(sseq.events, pcm_list, 22050, None)
         player.play()
 
     def loadBank(bank: sa.soundBank.SBNK, sdat: sa.SDAT):

@@ -596,8 +596,8 @@ class PlayButton(QtWidgets.QPushButton):
         self.timer = QtCore.QTimer(self)
         self.timer.timeout.connect(self.on_timeout)
         self.pressed.connect(self.on_press)
-        self.icon_play = QtGui.QIcon(PATH_ROOT + 'icons\\control.png')
-        self.icon_pause = QtGui.QIcon(PATH_ROOT + 'icons\\control-pause.png')
+        self.icon_play = QtGui.QIcon(PATH_ROOT + 'icons/control.png')
+        self.icon_pause = QtGui.QIcon(PATH_ROOT + 'icons/control-pause.png')
         self.setIcon(self.icon_play)
 
     def on_timeout(self):
