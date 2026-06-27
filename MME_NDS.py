@@ -3074,7 +3074,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if items[0].text(2) != "SWAV": return
         snd_data = ndspy.soundArchive.soundWaveArchive.soundWave.SWAV(self.file_fromItem(items[0])[0])
         fig, ax = pyplt.subplots()
-        ax.plot(lib.sdat.loadSWAV(snd_data))
+        ax.plot(lib.sdat.loadSWAV(snd_data).data)
         pyplt.show()
 
     #def codeeditCall(self):
@@ -5082,121 +5082,122 @@ class MainWindow(QtWidgets.QMainWindow):
                     f.write(subdata)
         print("File extracted!")
 
-app = QtWidgets.QApplication(sys.argv)
-w = MainWindow()
+if __name__ == "__main__":
+    app = QtWidgets.QApplication(sys.argv)
+    w = MainWindow()
 
-# Contents of widget sets, used in file_editor_show
-# Associates each mode with a set of widgets to show or hide
-class WidgetSets(enum.Enum):
-        def __init__(self, id: enum.auto, widgets:list[QtWidgets.QWidget]):
-            self.id = id
-            self.widgets = widgets
-        EMPTY = enum.auto(), [w.file_content_text]
-        HEX = enum.auto(), [w.file_content_text, w.checkbox_textoverwite]
-        # Associated with file display states
-        DIALOGUE = enum.auto(), [w.file_content_text, w.checkbox_textoverwite, w.dropdown_textindex]
-        GRAPHICS = enum.auto(), [
-            w.file_content_gfx,
-            w.checkbox_depthUpdate,
-            w.label_depthUpdate,
-            w.dropdown_gfx_depth,
-            w.dropdown_gfx_index,
-            w.dropdown_gfx_subindex,
-            w.dropdown_gfx_palette,
-            w.field_tile_width,
-            w.label_tile_width,
-            w.field_tile_height,
-            w.label_tile_height,
-            w.field_tiles_per_row,
-            w.label_tiles_per_row,
-            w.field_tiles_per_column,
-            w.label_tiles_per_column,
-            w.widget_colorpick,
-            w.button_view_save,
-            w.button_view_load
+    # Contents of widget sets, used in file_editor_show
+    # Associates each mode with a set of widgets to show or hide
+    class WidgetSets(enum.Enum):
+            def __init__(self, id: enum.auto, widgets:list[QtWidgets.QWidget]):
+                self.id = id
+                self.widgets = widgets
+            EMPTY = enum.auto(), [w.file_content_text]
+            HEX = enum.auto(), [w.file_content_text, w.checkbox_textoverwite]
+            # Associated with file display states
+            DIALOGUE = enum.auto(), [w.file_content_text, w.checkbox_textoverwite, w.dropdown_textindex]
+            GRAPHICS = enum.auto(), [
+                w.file_content_gfx,
+                w.checkbox_depthUpdate,
+                w.label_depthUpdate,
+                w.dropdown_gfx_depth,
+                w.dropdown_gfx_index,
+                w.dropdown_gfx_subindex,
+                w.dropdown_gfx_palette,
+                w.field_tile_width,
+                w.label_tile_width,
+                w.field_tile_height,
+                w.label_tile_height,
+                w.field_tiles_per_row,
+                w.label_tiles_per_row,
+                w.field_tiles_per_column,
+                w.label_tiles_per_column,
+                w.widget_colorpick,
+                w.button_view_save,
+                w.button_view_load
+                ]
+            OAM = enum.auto(), [
+                w.file_content_oam,
+                w.tabs_oam,
+                w.dropdown_oam_entry
+                ]
+            PANM = enum.auto(), [
+                w.dropdown_panm_entry,
+                w.dropdown_panm_oamEntry,
+                w.dropdown_panm_frame,
+                w.field_panm_frameId,
+                w.field_panm_frameDuration,
+                w.checkbox_panm_loop,
+                w.field_panm_loopStart,
+                w.label_panm_colorSlots,
+                w.field_panm_colorSlot0,
+                w.field_panm_colorSlot1,
+                w.widget_colorpick,
+                w.gfx_scene_panm
             ]
-        OAM = enum.auto(), [
-            w.file_content_oam,
-            w.tabs_oam,
-            w.dropdown_oam_entry
+            FONT = enum.auto(), [
+                w.file_content_gfx,
+                w.field_tiles_per_row,
+                w.label_tiles_per_row,
+                w.field_tiles_per_column,
+                w.label_tiles_per_column,
+                w.field_font_size,
+                w.label_font_size,
+                w.field_font_width,
+                w.label_font_width,
+                w.field_font_height,
+                w.label_font_height,
+                w.label_font_indexingSpace,
+                w.label_font_charCount,
+                w.label_font_unusedStr,
+                w.widget_colorpick
+                ]
+            # SOUND is not defined, so the set remains EMPTY and the "not supported" message can be seen
+            #SOUND = enum.auto(), []
+            VX = enum.auto(), [
+                w.field_vxHeader_length,
+                w.label_vxHeader_length,
+                w.field_vxHeader_width,
+                w.label_vxHeader_width,
+                w.field_vxHeader_height,
+                w.label_vxHeader_height,
+                w.field_vxHeader_streamCount,
+                w.label_vxHeader_streamCount,
+                w.field_vxHeader_framerate,
+                w.label_vxHeader_framerate,
+                w.field_vxHeader_sampleRate,
+                w.label_vxHeader_sampleRate,
+                w.field_vxHeader_quantizer,
+                w.label_vxHeader_quantiser,
+                w.field_vxHeader_frameSizeMax,
+                w.label_vxHeader_frameSizeMax,
+                w.field_vxHeader_audioExtraDataOffset,
+                w.label_vxHeader_audioExtraDataOffset,
+                w.field_vxHeader_seekTableOffset,
+                w.label_vxHeader_seekTableOffset,
+                w.field_vxHeader_seekTableEntryCount,
+                w.label_vxHeader_seekTableEntryCount
+                ]
+            MODEL = enum.auto(), [
+                w.dropdown_model_entry,
+                w.dropdown_model_geometry,
+                w.file_content_model
             ]
-        PANM = enum.auto(), [
-            w.dropdown_panm_entry,
-            w.dropdown_panm_oamEntry,
-            w.dropdown_panm_frame,
-            w.field_panm_frameId,
-            w.field_panm_frameDuration,
-            w.checkbox_panm_loop,
-            w.field_panm_loopStart,
-            w.label_panm_colorSlots,
-            w.field_panm_colorSlot0,
-            w.field_panm_colorSlot1,
-            w.widget_colorpick,
-            w.gfx_scene_panm
-        ]
-        FONT = enum.auto(), [
-            w.file_content_gfx,
-            w.field_tiles_per_row,
-            w.label_tiles_per_row,
-            w.field_tiles_per_column,
-            w.label_tiles_per_column,
-            w.field_font_size,
-            w.label_font_size,
-            w.field_font_width,
-            w.label_font_width,
-            w.field_font_height,
-            w.label_font_height,
-            w.label_font_indexingSpace,
-            w.label_font_charCount,
-            w.label_font_unusedStr,
-            w.widget_colorpick
-            ]
-        # SOUND is not defined, so the set remains EMPTY and the "not supported" message can be seen
-        #SOUND = enum.auto(), []
-        VX = enum.auto(), [
-            w.field_vxHeader_length,
-            w.label_vxHeader_length,
-            w.field_vxHeader_width,
-            w.label_vxHeader_width,
-            w.field_vxHeader_height,
-            w.label_vxHeader_height,
-            w.field_vxHeader_streamCount,
-            w.label_vxHeader_streamCount,
-            w.field_vxHeader_framerate,
-            w.label_vxHeader_framerate,
-            w.field_vxHeader_sampleRate,
-            w.label_vxHeader_sampleRate,
-            w.field_vxHeader_quantizer,
-            w.label_vxHeader_quantiser,
-            w.field_vxHeader_frameSizeMax,
-            w.label_vxHeader_frameSizeMax,
-            w.field_vxHeader_audioExtraDataOffset,
-            w.label_vxHeader_audioExtraDataOffset,
-            w.field_vxHeader_seekTableOffset,
-            w.label_vxHeader_seekTableOffset,
-            w.field_vxHeader_seekTableEntryCount,
-            w.label_vxHeader_seekTableEntryCount
-            ]
-        MODEL = enum.auto(), [
-            w.dropdown_model_entry,
-            w.dropdown_model_geometry,
-            w.file_content_model
-        ]
-w._post_init() # finalize now that WidgetSets exists
+    w._post_init() # finalize now that WidgetSets exists
 
-#run the app
-try:
-    app.exec()
-except BaseException:
-    QtWidgets.QMessageBox.critical(None,
-                                   "Error handling test",
-                                   traceback.format_exc())
-    traceback.print_exc()
-# After execution
-w.firstLaunch = False
-lib.ini_rw.write(w)
-if os.path.exists(w.temp_path) and w.romToEdit_name != "":
+    #run the app
     try:
-        os.remove(w.temp_path) # delete temporary ROM
-    except OSError as error:
-        print(error)
+        app.exec()
+    except BaseException:
+        QtWidgets.QMessageBox.critical(None,
+                                    "Error handling test",
+                                    traceback.format_exc())
+        traceback.print_exc()
+    # After execution
+    w.firstLaunch = False
+    lib.ini_rw.write(w)
+    if os.path.exists(w.temp_path) and w.romToEdit_name != "":
+        try:
+            os.remove(w.temp_path) # delete temporary ROM
+        except OSError as error:
+            print(error)
