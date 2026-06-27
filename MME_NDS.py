@@ -3209,8 +3209,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.trees_sdat.append(getattr(self, f"tree_sdat_{i}"))
         self.dropdown_sdat.setCurrentIndex(0)
 
-        for i, sdat in enumerate(self.sdats):
-            tree_current: lib.widget.EditorTree = getattr(self, f"tree_sdat_{i}")
+        for sdat_i, sdat in enumerate(self.sdats):
+            tree_current: lib.widget.EditorTree = getattr(self, f"tree_sdat_{sdat_i}")
 
             # all sdat sections follow the [(Name, object(data)), ...] format except swar with [(Name, object([object(data), ...])), ...] and groups, which have [(Name, [object(data), ...]), ...]
             item_sseq = QtWidgets.QTreeWidgetItem(["N/A", "Sequenced Music", "SSEQ"]) #SSEQ
@@ -3242,19 +3242,25 @@ class MainWindow(QtWidgets.QMainWindow):
                 sdat.groups
             ]
             for category in item_list:
-                for section in data_list[item_list.index(category)]:
-                    child = QtWidgets.QTreeWidgetItem([str(data_list[item_list.index(category)].index(section)), section[0], category.text(2)])
+                for section_i, section in enumerate(data_list[item_list.index(category)]):
+                    child = QtWidgets.QTreeWidgetItem([str(section_i), section[0], category.text(2)])
+                    if isinstance(section[1], type(sdat.sequences[0][1])):
+                        section[1].parse()
+                        if section[1].parsed:
+                            for event_i, event in enumerate(section[1].events):
+                                subChild = QtWidgets.QTreeWidgetItem([str(event_i), event.__repr__(), ""])
+                                child.addChild(subChild)
                     if hasattr(section[1], "bankID"):
                         child.setToolTip(0, "bankID: " + str(section[1].bankID))
-                    category.addChild(child)
-                    if hasattr(section[1], "sequences"):
+                    if hasattr(section[1], "sequences"): # sequenceArchives
                         for sseq_i, sseq in enumerate(section[1].sequences): # actually a list with [name, SSARSequence]
                             subChild = QtWidgets.QTreeWidgetItem([str(sseq_i), sseq[0], "SSARS"])
                             child.addChild(subChild)
-                    if hasattr(section[1], "waves"):
+                    if hasattr(section[1], "waves"): # waveArchives
                         for wave_i, wave in enumerate(section[1].waves):
                             subChild = QtWidgets.QTreeWidgetItem([str(wave_i), f"{child.text(1)} (Wave {wave_i})", "SWAV"])
                             child.addChild(subChild)
+                    category.addChild(child)
                 #progress.setValue(progress.value()+ 100//len(item_list))
 
             tree_current.addTopLevelItems(item_list)

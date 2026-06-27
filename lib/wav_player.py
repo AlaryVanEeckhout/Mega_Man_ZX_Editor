@@ -92,7 +92,7 @@ class SSEQPlayer:
         self.players.clear()
         self.players.append(NotePlayer())
         self.players[0].play()
-        print(f"Event Index {self.event_index}")
+        assert self.event_index == 0
         while self.loop or self.event_index < len(self.events):
             self.event_time = timer()
             if self.event_time-self.event_time_last >= self.event_time_targetDelta:
@@ -104,8 +104,12 @@ class SSEQPlayer:
                 if isinstance(event, sa.soundSequence.NoteSequenceEvent):
                     if sample is not None:
                         duration = int(self.get_bpm_tick()*event.duration*self.players[0].stream.samplerate) # for sample array
-                        print(f"samplerate {sample.samplerate}")
-                        self.players[0].play_note(event, sample, duration)
+                        sample_selected = sample
+                        if isinstance(sample, list):
+                            sample_selected = sample[event.pitch]
+                        print(f"samplerate {sample_selected.samplerate}")
+                        self.players[0].play_note(event, sample_selected, duration)
+                    
                 elif isinstance(event, sa.soundSequence.RestSequenceEvent):
                     # not actually a musical rest, how long to stop parsing events and let music play
                     # only this instruction sets event_time_targetDelta
