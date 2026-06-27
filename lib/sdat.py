@@ -31,8 +31,9 @@ try:
         def zoom(self, speed_factor, normalize_samplerate=False):
             new_samplerate = self.samplerate
             if normalize_samplerate:
-                new_samplerate = 8000
+                new_samplerate = 22050
                 speed_factor *= self.samplerate/new_samplerate
+                print(self.samplerate/new_samplerate)
             new_data = scipy.ndimage.zoom(self.data, 1 / speed_factor, order=0) # speed/pitch adjust
             new_loop = int(self.loop / speed_factor) if self.loop is not None else None
             new_sample = Sample(new_data, new_loop, new_samplerate)
@@ -56,7 +57,7 @@ try:
         sample_list = loadBank(bank, sdat)
         print(sseq.events)
         #print(sseq.bankID)
-        player = wav_player.SSEQPlayer(sseq.events, sample_list, 22050, None)
+        player = wav_player.SSEQPlayer(sseq.events, sample_list)
         player.play()
 
     def loadBank(bank: sa.soundBank.SBNK, sdat: sa.SDAT):
@@ -102,7 +103,7 @@ try:
         print(f"Sample rate: {swav.sampleRate}")
         sample = loadSWAV(swav)
         #sample.data //= 5
-        player = wav_player.WAVPlayer(sample, sample.samplerate)
+        player = wav_player.WAVPlayer(sample)
         player.play()
 
     def stopSound():

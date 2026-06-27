@@ -10,14 +10,15 @@ import threading
 from .sdat import Sample
 
 class WAVPlayer:
-    def __init__(self, sample: Sample, samplerate: int, stop_on_note_end: bool=True):
-        self.sample = sample
+    def __init__(self, sample: Sample, stop_on_note_end: bool=True):
+        STREAM_SAMPLERATE = 22050
+        self.sample = sample.zoom(sample.samplerate/STREAM_SAMPLERATE) # resample
         assert len(sample.data.shape) == 1
         self.current_frame = 0
         self.stop_on_note_end = stop_on_note_end
         self.duration = None
         self.stream = sounddevice.OutputStream(
-            samplerate=samplerate, 
+            samplerate=STREAM_SAMPLERATE,  # samplerate cannot change after being set
             dtype="int16", 
             callback=self.callback,
         )
@@ -54,10 +55,11 @@ class WAVPlayer:
         self.stream.abort()
 
 class NotePlayer(WAVPlayer):
-    def __init__(self, samplerate):
-        super().__init__(sample=Sample(numpy.zeros((1000), dtype="int16"), None, 8000), samplerate=samplerate, stop_on_note_end=False)
+    def __init__(self):
+        super().__init__(sample=Sample(numpy.zeros((1000), dtype="int16"), None, 8000), stop_on_note_end=False)
     
     def play_note(self, event:sa.soundSequence.NoteSequenceEvent, sample:Sample, duration:int):
+        #self.sample = sample.zoom(self.sample.samplerate/self.stream.samplerate) # resample
         speed_factor = 2.0 ** ((event.pitch-60) / 12.0)
         self.sample = sample.zoom(speed_factor) # speed/pitch adjust
         self.sample.data = numpy.astype((numpy.astype(self.sample.data, numpy.int32) * event.velocity) // 127, numpy.int16)
@@ -68,10 +70,9 @@ class NotePlayer(WAVPlayer):
 BPM_TICK_FACTOR = (64*2728/33000000) * 240
 
 class SSEQPlayer:
-    def __init__(self, events: list[sa.soundSequence.SequenceEvent], pcm_list:list[numpy.ndarray], samplerate: int, loop: int=None):
-        self.SAMPLERATE = samplerate
+    def __init__(self, events: list[sa.soundSequence.SequenceEvent], sample_list:list[Sample], loop: int=None):
         self.events = events
-        self.pcm_list = pcm_list
+        self.sample_list = sample_list
         self.loop = loop
         self.tempo = 150
         self.pcm_index = 0
@@ -89,7 +90,7 @@ class SSEQPlayer:
     def callback(self):
         self.event_time_last = timer()
         self.players.clear()
-        self.players.append(NotePlayer(self.SAMPLERATE))
+        self.players.append(NotePlayer())
         self.players[0].play()
         print(f"Event Index {self.event_index}")
         while self.loop or self.event_index < len(self.events):
@@ -99,27 +100,24 @@ class SSEQPlayer:
                 self.event_time_targetDelta = 0
             while self.event_time_targetDelta == 0:
                 event = self.events[self.event_index]
-                pcm = self.pcm_list[self.pcm_index]
+                sample = self.sample_list[self.pcm_index]
                 if isinstance(event, sa.soundSequence.NoteSequenceEvent):
-                    if pcm is not None:
-                        duration = int(self.get_bpm_tick()*event.duration*self.SAMPLERATE) # for sample array
-                        #print(event.duration)
-                        self.players[0].play_note(event, pcm, duration)
+                    if sample is not None:
+                        duration = int(self.get_bpm_tick()*event.duration*self.players[0].stream.samplerate) # for sample array
+                        print(f"samplerate {sample.samplerate}")
+                        self.players[0].play_note(event, sample, duration)
                 elif isinstance(event, sa.soundSequence.RestSequenceEvent):
                     # not actually a musical rest, how long to stop parsing events and let music play
                     # only this instruction sets event_time_targetDelta
                     self.event_time_targetDelta = self.get_bpm_tick()*event.duration
+                    print(f"tdelta {self.event_time_targetDelta}")
                 elif isinstance(event, sa.soundSequence.InstrumentSwitchSequenceEvent):
                     self.pcm_index = event.instrumentID
                 elif isinstance(event, sa.soundSequence.TempoSequenceEvent):
                     self.tempo = event.value
-                    #print(f"tempo {self.tempo}")
                 elif isinstance(event, sa.soundSequence.BeginTrackSequenceEvent):
                     pass # Instantiate WAVPlayers here
-                event_name = ""
-                if hasattr(event, "name"):
-                    event_name = event.name
-                print(f"{event_name} (event {self.event_index}/{len(self.events)-1}) tempo {self.tempo} tdelta {self.event_time_targetDelta}")
+                print(f"({self.event_index}/{len(self.events)-1}) tempo {self.tempo} {event.__str__()}")
                 self.event_index += 1
                 if self.event_index > len(self.events)-1:
                     self.stop()
