@@ -73,61 +73,104 @@ class SSEQPlayer:
     def __init__(self, events: list[sa.soundSequence.SequenceEvent], sample_list:list[Sample], loop: int=None):
         self.events = events
         self.sample_list = sample_list
-        self.loop = loop
+        self.loop = loop # should this exist?
         self.tempo = 150
-        self.pcm_index = 0
-        self.event_index = 0
-        self.event_time = 0
-        self.event_time_last = 0
-        self.event_time_targetDelta = 0
-        self.players: list[NotePlayer] = []
+        self.TRACKS_MAX = 16 # IDs 0 to 15
+        self.tracks = max(self.events[0].trackNumbers)+1 # used to create lists, skipped IDs are just ignored
+        self.sample_indexes: list[int] = [0]*self.tracks # index into bank instruments
+        self.event_indexes: list[int] = [0]*self.tracks
+        self.event_times: list[int] = [0]*self.tracks # current time
+        self.event_times_last: list[int] = [0]*self.tracks # time from previous wait
+        self.event_times_targetDelta: list[int] = [0]*self.tracks # target waiting time
+        self.return_indexes: list[int] = [0]*self.tracks # used with call and return events
+        self.tracks_finished: list[bool] = [False]*self.tracks
+        self.track_current = 0
+        self.players: list[NotePlayer] = [None]*self.tracks
         self.thread = None
         self.exit_flag = None
 
     def get_bpm_tick(self):
         return BPM_TICK_FACTOR / self.tempo
     
+    def next_track(self):
+        # True = there is a next track, False = looping pack to 0 or remaining track
+        try:
+            assert any(x for x in self.events[0].trackNumbers if x != self.track_current and not self.tracks_finished[x]) # check that there are other tracks to go to
+        except AssertionError:
+            return False
+        if self.track_current < self.tracks-1:
+            try:
+                self.track_current = min(x for x in self.events[0].trackNumbers if x > self.track_current and not self.tracks_finished[x]) # goto next track in set
+                return True
+            except ValueError:
+                pass
+        self.track_current = 0
+        return False
+
     def callback(self):
-        self.event_time_last = timer()
-        self.players.clear()
-        self.players.append(NotePlayer())
+        self.event_times_last = [timer()]*self.tracks
+        self.players[0] = NotePlayer()
         self.players[0].play()
-        assert self.event_index == 0
-        while self.loop or self.event_index < len(self.events):
-            self.event_time = timer()
-            if self.event_time-self.event_time_last >= self.event_time_targetDelta:
-                self.event_time_last += self.event_time_targetDelta
-                self.event_time_targetDelta = 0
-            while self.event_time_targetDelta == 0:
-                event = self.events[self.event_index]
-                sample = self.sample_list[self.pcm_index]
+        while self.loop or self.tracks_finished.count(True) < len(self.events[0].trackNumbers):
+            if self.players[self.track_current].stream.active == False:
+                raise InterruptedError
+            if self.tracks_finished[self.track_current]:
+                print(f"moving from completed track {self.track_current}")
+                self.next_track()
+                print(f"to track {self.track_current}")
+                print(self.tracks_finished)
+                continue
+            self.event_times[self.track_current] = timer()
+            if self.event_times[self.track_current]-self.event_times_last[self.track_current] >= self.event_times_targetDelta[self.track_current]:
+                self.event_times_last[self.track_current] += self.event_times_targetDelta[self.track_current]
+                self.event_times_targetDelta[self.track_current] = 0
+            while self.event_times_targetDelta[self.track_current] == 0:
+                event = self.events[self.event_indexes[self.track_current]]
+                sample = self.sample_list[self.sample_indexes[self.track_current]]
                 if isinstance(event, sa.soundSequence.NoteSequenceEvent):
                     if sample is not None:
-                        duration = int(self.get_bpm_tick()*event.duration*self.players[0].stream.samplerate) # for sample array
+                        duration = int(self.get_bpm_tick()*event.duration*self.players[self.track_current].stream.samplerate) # for sample array
                         sample_selected = sample
                         if isinstance(sample, list):
                             sample_selected = sample[event.pitch]
-                        print(f"samplerate {sample_selected.samplerate}")
-                        self.players[0].play_note(event, sample_selected, duration)
-                    
+                        if sample_selected is not None:
+                            print(f"samplerate {sample_selected.samplerate}")
+                            self.players[self.track_current].play_note(event, sample_selected, duration)
                 elif isinstance(event, sa.soundSequence.RestSequenceEvent):
                     # not actually a musical rest, how long to stop parsing events and let music play
                     # only this instruction sets event_time_targetDelta
-                    self.event_time_targetDelta = self.get_bpm_tick()*event.duration
-                    print(f"tdelta {self.event_time_targetDelta}")
+                    self.event_times_targetDelta[self.track_current] = self.get_bpm_tick()*event.duration
+                    print(f"tdelta {self.event_times_targetDelta[self.track_current]}")
                 elif isinstance(event, sa.soundSequence.InstrumentSwitchSequenceEvent):
-                    self.pcm_index = event.instrumentID
+                    self.sample_indexes[self.track_current] = event.instrumentID
                 elif isinstance(event, sa.soundSequence.TempoSequenceEvent):
                     self.tempo = event.value
-                elif isinstance(event, sa.soundSequence.BeginTrackSequenceEvent):
-                    pass # Instantiate WAVPlayers here
-                print(f"({self.event_index}/{len(self.events)-1}) tempo {self.tempo} {event.__str__()}")
-                self.event_index += 1
-                if self.event_index > len(self.events)-1:
+                elif isinstance(event, sa.soundSequence.CallSequenceEvent):
+                    self.return_indexes[self.track_current] = self.event_indexes[self.track_current]
+                    self.event_indexes[self.track_current] = next((i for i, obj in enumerate(self.events) if obj is event.destination))
+                elif isinstance(event, sa.soundSequence.JumpSequenceEvent):
+                    self.event_indexes[self.track_current] = next((i for i, obj in enumerate(self.events) if obj is event.destination))
+                elif isinstance(event, sa.soundSequence.ReturnSequenceEvent):
+                    self.event_indexes[self.track_current] = self.return_indexes[self.track_current]
+                elif isinstance(event, sa.soundSequence.BeginTrackSequenceEvent): # For Tracks other than Track 0
+                    self.event_indexes[event.trackNumber] = next((i for i, obj in enumerate(self.events) if obj is event.firstEvent))
+                    self.return_indexes[event.trackNumber] = self.event_indexes[event.trackNumber] # in case return is used without call, return to start of track
+                    self.players[event.trackNumber] = NotePlayer()
+                    self.players[event.trackNumber].play()
+                elif isinstance(event, sa.soundSequence.EndTrackSequenceEvent):
+                    self.tracks_finished[self.track_current] = True
+                    self.event_times_targetDelta[self.track_current] = 0xFFFF
+                print(f"({self.event_indexes[self.track_current]}/{len(self.events)-1}) tempo {self.tempo} {event}")
+                self.event_indexes[self.track_current] += 1
+                if not self.loop and self.event_indexes[self.track_current] > len(self.events)-1:
                     self.stop()
                     return
-            #print(f"exec time: {timer()-self.event_time}")
-            self.exit_flag.wait(self.event_time_targetDelta-(timer()-self.event_time))
+            #print(f"exec time: {timer()-self.event_time[0]}")
+            if not self.next_track(): # if we have gone through all tracks
+                wait_time = min(x for x in self.event_times_targetDelta if x > 0)-(timer()-self.event_times[self.track_current])
+                print(max(wait_time, 0))
+                self.exit_flag.wait(max(wait_time, 0))
+            print(f"process next track: {self.track_current}")
 
     def play(self):
         self.thread = threading.Thread(target=self.callback, daemon=True)
@@ -136,7 +179,8 @@ class SSEQPlayer:
 
     def stop(self):
         for player in self.players:
-            player.stop()
+            if player is not None:
+                player.stop()
         self.loop = False
-        self.event_index = len(self.events)-1
+        self.tracks_finished = [True]*len(self.tracks_finished)
         print("music stop")

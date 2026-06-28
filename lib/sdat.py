@@ -1,3 +1,5 @@
+global player
+player = None
 try:
     import ndspy.soundArchive as sa, numpy, struct, audioop# audioop-lts
     import scipy.ndimage
@@ -39,9 +41,6 @@ try:
             new_sample = Sample(new_data, new_loop, new_samplerate)
             return new_sample
     from . import wav_player
-
-    global player
-    player = None
 
 
             
