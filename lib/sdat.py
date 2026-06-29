@@ -4,10 +4,11 @@ try:
     import ndspy.soundArchive as sa, numpy, struct, audioop# audioop-lts
     import scipy.ndimage
     class Sample:
-        def __init__(self, data, loop, samplerate, pitch_change=True):
-            self.data: numpy.ndarray = data
+        def __init__(self, data: numpy.ndarray, loop: int, samplerate: int, notedef: sa.soundBank.NoteDefinition=None, pitch_change=True):
+            self.data = data
             self.loop = loop
             self.samplerate = samplerate
+            self.notedef = notedef
             self.pitch_change = pitch_change
         
         def get_data_range(self, start, end):
@@ -31,15 +32,10 @@ try:
                 out = numpy.concat((out, self.data[start:end]))
             return out
         
-        def zoom(self, speed_factor, normalize_samplerate=False):
-            new_samplerate = self.samplerate
-            if normalize_samplerate:
-                new_samplerate = 22050
-                speed_factor *= self.samplerate/new_samplerate
-                print(self.samplerate/new_samplerate)
+        def zoom(self, speed_factor):
             new_data = scipy.ndimage.zoom(self.data, 1 / speed_factor, order=0) # speed/pitch adjust
             new_loop = int(self.loop / speed_factor) if self.loop is not None else None
-            new_sample = Sample(new_data, new_loop, new_samplerate)
+            new_sample = Sample(new_data, new_loop, self.samplerate, self.notedef, self.pitch_change)
             return new_sample
     from . import wav_player
 
@@ -69,7 +65,7 @@ try:
             #print(i)
             if isinstance(i, sa.soundBank.SingleNoteInstrument):
                 #print(swar_list[i.noteDefinition.waveArchiveIDID].waves[i.noteDefinition.waveID])
-                sample_list.append(loadSWAV(swar_list[i.noteDefinition.waveArchiveIDID].waves[i.noteDefinition.waveID]))
+                sample_list.append(loadSWAV(swar_list[i.noteDefinition.waveArchiveIDID].waves[i.noteDefinition.waveID], i.noteDefinition))
             elif isinstance(i, sa.soundBank.RangeInstrument):
                 # contains one instrument per pitch in a certain range
                 sample_range = []
@@ -78,7 +74,7 @@ try:
                         sample_range.append(None)
                     else:
                         noteDefinition = i.noteDefinitions[d-i.firstPitch]
-                        sample = loadSWAV(swar_list[noteDefinition.waveArchiveIDID].waves[noteDefinition.waveID])
+                        sample = loadSWAV(swar_list[noteDefinition.waveArchiveIDID].waves[noteDefinition.waveID], noteDefinition)
                         sample.pitch_change = False
                         sample_range.append(sample)
                 assert len(sample_range) == 128
@@ -89,7 +85,7 @@ try:
                 for d in range(128):
                     for r in i.regions:
                         if r.lastPitch > len(sample_range): # assuming that all regions are sorted in ascending lastPitch order
-                            sample_range.append(loadSWAV(swar_list[r.noteDefinition.waveArchiveIDID].waves[r.noteDefinition.waveID]))
+                            sample_range.append(loadSWAV(swar_list[r.noteDefinition.waveArchiveIDID].waves[r.noteDefinition.waveID], r.noteDefinition))
                             break
                     if len(sample_range) <= d:
                         sample_range.append(None)
@@ -100,7 +96,7 @@ try:
         print(sample_list)
         return sample_list
 
-    def loadSWAV(swav: sa.soundWaveArchive.soundWave.SWAV):
+    def loadSWAV(swav: sa.soundWaveArchive.soundWave.SWAV, notedef: sa.soundBank.NoteDefinition=None):
         assert type(swav) == sa.soundWaveArchive.soundWave.SWAV
         if swav.waveType == sa.soundWaveArchive.soundWave.WaveType.ADPCM:
             # DS uses Low-Nibble first; audioop expects High-Nibble first.
@@ -112,7 +108,7 @@ try:
         else: #PCM8 or PCM16
             pcm_data = numpy.fromiter(swav.data, dtype="int16")
         loop = (swav.loopOffset-1)*8 if swav.isLooped else None
-        return Sample(pcm_data, loop, swav.sampleRate)
+        return Sample(pcm_data, loop, swav.sampleRate, notedef)
 
     # Intended for playback of individual SWAVs. Volume reduced to reasonable value.
     def playSWAV(swav: sa.soundWaveArchive.soundWave.SWAV):

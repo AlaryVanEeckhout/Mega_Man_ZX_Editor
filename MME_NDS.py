@@ -3058,14 +3058,21 @@ class MainWindow(QtWidgets.QMainWindow):
         if len(items) == 0: return
         if items[0].text(0) == "N/A": return
         snd_type = items[0].text(2)
-        if snd_type == "SWAV": # WIP
+        if snd_type == "SWAV":
             print("play SWAV")
             snd_data = ndspy.soundArchive.soundWaveArchive.soundWave.SWAV(self.file_fromItem(items[0])[0])
             lib.sdat.playSWAV(snd_data)
-        elif snd_type == "SSEQ": # Incomplete
+        elif snd_type == "SSEQ": # WIP
             print("play SSEQ")
-            sseq = ndspy.soundArchive.soundSequence.SSEQ(self.file_fromItem(items[0])[0], bankID=int(items[0].toolTip(0).removeprefix("bankID: ")))
-            lib.sdat.playSSEQ(sseq, self.sdats[self.dropdown_sdat.currentIndex()])
+            try:
+                sseq = ndspy.soundArchive.soundSequence.SSEQ(self.file_fromItem(items[0])[0], bankID=int(items[0].toolTip(0).removeprefix("bankID: ")))
+                lib.sdat.playSSEQ(sseq, self.sdats[self.dropdown_sdat.currentIndex()])
+            except ValueError:
+                QtWidgets.QMessageBox.critical(
+                    self,
+                    "Load Failed",
+                    "Could not load SSEQ because information is missing."
+                )
 
     def sdatPlotCall(self):
         items = self.trees_sdat[self.dropdown_sdat.currentIndex()].selectedItems()

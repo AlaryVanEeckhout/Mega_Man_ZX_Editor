@@ -59,14 +59,14 @@ class NotePlayer(WAVPlayer):
     def __init__(self):
         super().__init__(sample=Sample(numpy.zeros((1000), dtype="int16"), None, 8000), stop_on_note_end=False)
     
-    def play_note(self, event:sa.soundSequence.NoteSequenceEvent, sample:Sample, duration:int):
-        #self.sample = sample.zoom(self.sample.samplerate/self.stream.samplerate) # resample
+    def play_note(self, event:sa.soundSequence.NoteSequenceEvent, sample:Sample, duration:int, volume:int=127):
         if sample.pitch_change:
-            speed_factor = 2.0 ** ((event.pitch-60) / 12.0)
-            self.sample = sample.zoom(speed_factor) # speed/pitch adjust
+            speed_factor = 2.0 ** ((event.pitch-sample.notedef.pitch) / 12.0)
         else:
-            self.sample = sample
-        self.sample.data = numpy.astype((numpy.astype(self.sample.data, numpy.int32) * event.velocity) // 127, numpy.int16)
+            speed_factor = 1
+        # zoom also instantiates a copy to leave the sample itself intact
+        self.sample = sample.zoom(speed_factor) # speed/pitch adjust
+        self.sample.data = numpy.astype(((numpy.astype(self.sample.data, numpy.int32) * event.velocity*volume) // 127) // 127, numpy.int16)
         self.duration = duration
         self.current_frame = 0
 
@@ -86,7 +86,7 @@ class SSEQScheduler:
         # gives control to scheduler until all events are run
         self.sched.run()
 
-    def add_event(self, time, action, *args):
+    def add_event(self, time, priority, action, *args):
         #print(f"{time}: {action}")
         self.sched.enterabs(time, 0, action, args)
 
@@ -109,6 +109,7 @@ class Track:
         self.loop_index: int = None # used with begin and end loop events
         self.loop_count: int = 0 # used with begin and end loop events
         self.volume: int = 127
+        self.priority: int = 64 # Not sure what the default value should be
         self.player: NotePlayer = NotePlayer()
         self.player.play()
 
@@ -152,7 +153,7 @@ class SSEQPlayer:
                         sample_selected = sample[event.pitch]
                     if sample_selected is not None:
                         #print(f"samplerate {sample_selected.samplerate}")
-                        track.player.play_note(event, sample_selected, duration)
+                        track.player.play_note(event, sample_selected, duration, track.volume)
             elif isinstance(event, sa.soundSequence.RestSequenceEvent):
                 # not actually a musical rest, how long to stop parsing events and let music play
                 # only this instruction sets event_time_targetDelta
@@ -188,12 +189,14 @@ class SSEQPlayer:
             elif isinstance(event, sa.soundSequence.BeginTrackSequenceEvent): # For Tracks other than Track 0
                 self.tracks[event.trackNumber] = Track(next((i for i, obj in enumerate(self.events) if obj is event.firstEvent)))
                 self.tracks[event.trackNumber].event_time_last = self.time_start
-                self.scheduler.add_event(0, self.process_events_of_track, event.trackNumber) # start chain of events for this track
+                self.scheduler.add_event(0, track.priority, self.process_events_of_track, event.trackNumber) # start chain of events for this track
             elif isinstance(event, sa.soundSequence.EndTrackSequenceEvent):
                 print("end")
                 return
             elif isinstance(event, sa.soundSequence.TrackVolumeSequenceEvent):
                 track.volume = event.value
+            elif isinstance(event, sa.soundSequence.TrackPrioritySequenceEvent):
+                track.priority = event.value
             elif isinstance(event, sa.soundSequence.MonoPolySequenceEvent):
                 # POLY for SSEQ and MONO for SSARS, usually
                 # POLY = Notes have no delay and rests must be used
@@ -208,7 +211,7 @@ class SSEQPlayer:
                 return
         track.event_time_last += track.event_time_targetDelta
         track.event_time_targetDelta = 0
-        self.scheduler.add_event(track.event_time_last, self.process_events_of_track, track_current)
+        self.scheduler.add_event(track.event_time_last, track.priority, self.process_events_of_track, track_current)
 
 
     def stop(self):
