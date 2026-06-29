@@ -61,8 +61,11 @@ class NotePlayer(WAVPlayer):
     
     def play_note(self, event:sa.soundSequence.NoteSequenceEvent, sample:Sample, duration:int):
         #self.sample = sample.zoom(self.sample.samplerate/self.stream.samplerate) # resample
-        speed_factor = 2.0 ** ((event.pitch-60) / 12.0)
-        self.sample = sample.zoom(speed_factor) # speed/pitch adjust
+        if sample.pitch_change:
+            speed_factor = 2.0 ** ((event.pitch-60) / 12.0)
+            self.sample = sample.zoom(speed_factor) # speed/pitch adjust
+        else:
+            self.sample = sample
         self.sample.data = numpy.astype((numpy.astype(self.sample.data, numpy.int32) * event.velocity) // 127, numpy.int16)
         self.duration = duration
         self.current_frame = 0
@@ -102,9 +105,10 @@ class Track:
         self.event_index: int = event_index
         self.event_time_last: int = 0 # time of next event
         self.event_time_targetDelta: int = 0 # target waiting time
-        self.return_index: int = event_index # in case return is used without call, return to start of track
-        self.loop_index: int = 0 # used with begin and end loop events
+        self.return_index: int = None # in case return is used without call, return to start of track
+        self.loop_index: int = None # used with begin and end loop events
         self.loop_count: int = 0 # used with begin and end loop events
+        self.volume: int = 127
         self.player: NotePlayer = NotePlayer()
         self.player.play()
 
@@ -139,6 +143,7 @@ class SSEQPlayer:
         while track.event_time_targetDelta == 0:
             event = self.events[track.event_index]
             sample = self.sample_list[track.sample_index]
+            print(f"({track.event_index}/{len(self.events)-1}) tempo {self.tempo} {event}")
             if isinstance(event, sa.soundSequence.NoteSequenceEvent):
                 if sample is not None:
                     duration = int(self.get_bpm_tick()*event.duration*track.player.stream.samplerate) # for sample array
@@ -146,29 +151,40 @@ class SSEQPlayer:
                     if isinstance(sample, list):
                         sample_selected = sample[event.pitch]
                     if sample_selected is not None:
-                        print(f"samplerate {sample_selected.samplerate}")
+                        #print(f"samplerate {sample_selected.samplerate}")
                         track.player.play_note(event, sample_selected, duration)
             elif isinstance(event, sa.soundSequence.RestSequenceEvent):
                 # not actually a musical rest, how long to stop parsing events and let music play
                 # only this instruction sets event_time_targetDelta
                 track.event_time_targetDelta = self.get_bpm_tick()*event.duration
-                print(f"tdelta {track.event_time_targetDelta}")
+                #print(f"tdelta {track.event_time_targetDelta}")
             elif isinstance(event, sa.soundSequence.InstrumentSwitchSequenceEvent):
                 track.sample_index = event.instrumentID
             elif isinstance(event, sa.soundSequence.TempoSequenceEvent):
                 self.tempo = event.value
             elif isinstance(event, sa.soundSequence.CallSequenceEvent):
+                assert track.return_index is None
                 track.return_index = track.event_index
                 track.event_index = next((i for i, obj in enumerate(self.events) if obj is event.destination))
+                continue # skip increment event_index by 1
             elif isinstance(event, sa.soundSequence.JumpSequenceEvent):
                 track.event_index = next((i for i, obj in enumerate(self.events) if obj is event.destination))
+                continue # skip increment event_index by 1
             elif isinstance(event, sa.soundSequence.ReturnSequenceEvent):
                 track.event_index = track.return_index
+                track.return_index = None
             elif isinstance(event, sa.soundSequence.EndLoopSequenceEvent):
-                pass # todo
+                if track.loop_count > 0:
+                    track.loop_count -= 1
+                    print(f"EndLoopSequenceEvent {track.event_index} = {track.loop_index}")
+                    track.event_index = track.loop_index
+                else:
+                    track.loop_index = None
             elif isinstance(event, sa.soundSequence.BeginLoopSequenceEvent):
+                print(f"BeginLoopSequenceEvent {track.loop_index} = {track.event_index}")
+                assert track.loop_index is None
                 track.loop_index = track.event_index
-                # wip
+                track.loop_count = event.loopCount
             elif isinstance(event, sa.soundSequence.BeginTrackSequenceEvent): # For Tracks other than Track 0
                 self.tracks[event.trackNumber] = Track(next((i for i, obj in enumerate(self.events) if obj is event.firstEvent)))
                 self.tracks[event.trackNumber].event_time_last = self.time_start
@@ -176,7 +192,16 @@ class SSEQPlayer:
             elif isinstance(event, sa.soundSequence.EndTrackSequenceEvent):
                 print("end")
                 return
-            print(f"({track.event_index}/{len(self.events)-1}) tempo {self.tempo} {event}")
+            elif isinstance(event, sa.soundSequence.TrackVolumeSequenceEvent):
+                track.volume = event.value
+            elif isinstance(event, sa.soundSequence.MonoPolySequenceEvent):
+                # POLY for SSEQ and MONO for SSARS, usually
+                # POLY = Notes have no delay and rests must be used
+                # MONO = Notes have a delay
+                pass
+            #else:
+            #    if not isinstance(event, (sa.soundSequence.DefineTracksSequenceEvent, sa.soundSequence.PanSequenceEvent, sa.soundSequence.ExpressionSequenceEvent, sa.soundSequence.PortamentoSequenceEvent, sa.soundSequence.VibratoDepthSequenceEvent)):
+            #        raise NotImplementedError
             track.event_index += 1
             if not self.loop and track.event_index > len(self.events)-1:
                 self.stop()

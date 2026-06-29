@@ -4,10 +4,11 @@ try:
     import ndspy.soundArchive as sa, numpy, struct, audioop# audioop-lts
     import scipy.ndimage
     class Sample:
-        def __init__(self, data, loop, samplerate):
+        def __init__(self, data, loop, samplerate, pitch_change=True):
             self.data: numpy.ndarray = data
             self.loop = loop
             self.samplerate = samplerate
+            self.pitch_change = pitch_change
         
         def get_data_range(self, start, end):
             goal_len = end - start
@@ -77,7 +78,9 @@ try:
                         sample_range.append(None)
                     else:
                         noteDefinition = i.noteDefinitions[d-i.firstPitch]
-                        sample_range.append(loadSWAV(swar_list[noteDefinition.waveArchiveIDID].waves[noteDefinition.waveID]))
+                        sample = loadSWAV(swar_list[noteDefinition.waveArchiveIDID].waves[noteDefinition.waveID])
+                        sample.pitch_change = False
+                        sample_range.append(sample)
                 assert len(sample_range) == 128
                 sample_list.append(sample_range)
             elif isinstance(i, sa.soundBank.RegionalInstrument):
