@@ -14,7 +14,7 @@ try:
         def get_data_range(self, start, end):
             goal_len = end - start
             out = self.data[start:end]
-            if not self.loop:
+            if self.loop is None:
                 return numpy.append(out, numpy.zeros((goal_len-out.shape[0]), dtype=out.dtype))
             if start >= self.data.shape[0]:
                 # starts in loop part, add first loop in loop part
@@ -39,8 +39,14 @@ try:
             return new_sample
     from . import wav_player
 
-
-            
+    # samples for DS's PSG channels
+    SQUARE_SAMPLE_DATA = [
+        numpy.asarray(
+            [1 if i+j >= 7 else -1 for j in range(8)], 
+            dtype=numpy.int16
+        ) * 0x7FFF
+        for i in range(8)
+    ]
 
     def playSSEQ(sseq: sa.soundSequence.SSEQ, sdat: sa.SDAT):
         global player
@@ -60,12 +66,16 @@ try:
         sample_list: list[Sample] = []
         swar_list: list = []
         for s in bank.waveArchiveIDs:
-            swar_list.append(sdat.waveArchives[s][1])
+            swar_list.append(sdat.waveArchives[s][1]) # object is at index 1
         for i in bank.instruments:
             #print(i)
             if isinstance(i, sa.soundBank.SingleNoteInstrument):
                 #print(swar_list[i.noteDefinition.waveArchiveIDID].waves[i.noteDefinition.waveID])
-                sample_list.append(loadSWAV(swar_list[i.noteDefinition.waveArchiveIDID].waves[i.noteDefinition.waveID], i.noteDefinition))
+                if i.type == sa.soundBank.SINGLE_NOTE_PCM_INSTRUMENT_TYPE:
+                    sample_list.append(loadSWAV(swar_list[i.noteDefinition.waveArchiveIDID].waves[i.noteDefinition.waveID], i.noteDefinition))
+                elif i.type == sa.soundBank.SINGLE_NOTE_PSG_SQUARE_WAVE_INSTRUMENT_TYPE:
+                    sample = Sample(SQUARE_SAMPLE_DATA[i.noteDefinition.dutyCycle], loop=0, samplerate=int(440 * 2**(-3/4) * 8), notedef=i.noteDefinition)
+                    sample_list.append(sample)
             elif isinstance(i, sa.soundBank.RangeInstrument):
                 # contains one instrument per pitch in a certain range
                 sample_range = []
@@ -117,7 +127,7 @@ try:
         print(f"Wave type: {swav.waveType.name}")
         print(f"Sample rate: {swav.sampleRate}")
         sample = loadSWAV(swav)
-        #sample.data //= 5
+        sample.data //= 5 # reduce sound volume to something reasonable
         player = wav_player.WAVPlayer([sample])
         player.play()
 

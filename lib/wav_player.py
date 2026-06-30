@@ -15,7 +15,7 @@ class WAVPlayer:
         STREAM_SAMPLERATE = 22050
         self.POLY_MAX = 4 # just a random value idk
         self.slot_next = 0 # on what index of the sample array should the next sample arrive
-        self.polyphonic = True
+        self.polyphonic = False # mono by default, set by events
         self.samples: list[Sample] = [None]*self.POLY_MAX
         for i, sample in enumerate(samples):
             assert len(sample.data.shape) == 1
@@ -28,7 +28,6 @@ class WAVPlayer:
             dtype="int16", 
             callback=self.callback,
         )
-    
 
     def callback(self, outdata: numpy.ndarray, frames: int, time, status: sounddevice.CallbackFlags) -> None:
         is_note_end = False
@@ -83,7 +82,8 @@ class NotePlayer(WAVPlayer):
         speed_factor *= sample.samplerate/self.stream.samplerate
         # zoom also instantiates a copy to leave the sample itself intact
         self.samples[self.slot_next] = sample.zoom(speed_factor) # speed/pitch adjust
-        self.samples[self.slot_next].data = numpy.astype(((numpy.astype(self.samples[self.slot_next].data, numpy.int32) * event.velocity*volume) // 127) // 127, numpy.int16)
+        # divide by 5 is just to make the volume more bearable (and reduce clipping)
+        self.samples[self.slot_next].data = numpy.astype((((numpy.astype(self.samples[self.slot_next].data, numpy.int32) * event.velocity*volume) // 127) // 127) // 5, numpy.int16)
         self.durations[self.slot_next] = duration
         self.current_frames[self.slot_next] = 0
         self.slot_next = (self.slot_next + 1) % self.POLY_MAX # cycle through sample slots of player
