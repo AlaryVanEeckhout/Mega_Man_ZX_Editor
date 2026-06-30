@@ -118,7 +118,7 @@ try:
         print(f"Sample rate: {swav.sampleRate}")
         sample = loadSWAV(swav)
         #sample.data //= 5
-        player = wav_player.WAVPlayer(sample)
+        player = wav_player.WAVPlayer([sample])
         player.play()
 
     def stopSound():

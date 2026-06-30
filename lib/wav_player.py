@@ -11,13 +11,18 @@ import threading
 from .sdat import Sample
 
 class WAVPlayer:
-    def __init__(self, sample: Sample, stop_on_note_end: bool=True):
+    def __init__(self, samples: list[Sample], stop_on_note_end: bool=True):
         STREAM_SAMPLERATE = 22050
-        self.sample = sample.zoom(sample.samplerate/STREAM_SAMPLERATE) # resample
-        assert len(sample.data.shape) == 1
-        self.current_frame = 0
+        self.POLY_MAX = 4 # just a random value idk
+        self.slot_next = 0 # on what index of the sample array should the next sample arrive
+        self.polyphonic = True
+        self.samples: list[Sample] = [None]*self.POLY_MAX
+        for i, sample in enumerate(samples):
+            assert len(sample.data.shape) == 1
+            self.samples[i] = sample.zoom(sample.samplerate/STREAM_SAMPLERATE) # resample
+        self.current_frames = [0]*self.POLY_MAX
+        self.durations = [None]*self.POLY_MAX
         self.stop_on_note_end = stop_on_note_end
-        self.duration = None
         self.stream = sounddevice.OutputStream(
             samplerate=STREAM_SAMPLERATE,  # samplerate cannot change after being set
             dtype="int16", 
@@ -27,21 +32,30 @@ class WAVPlayer:
 
     def callback(self, outdata: numpy.ndarray, frames: int, time, status: sounddevice.CallbackFlags) -> None:
         is_note_end = False
-        # try filling outdata with data
-        range_start = self.current_frame
-        range_end = self.current_frame+frames
-        if self.duration is not None:
-            range_start = min(range_start, self.duration)
-            range_end = min(range_end, self.duration)
-        mono_outdata = self.sample.get_data_range(range_start, range_end)
-        if mono_outdata.shape[0] < frames:
-            mono_outdata = numpy.append(mono_outdata, numpy.zeros((frames-mono_outdata.shape[0]), dtype="int16"))
-        self.current_frame += mono_outdata.shape[0]
+        mono_outdata_final = numpy.zeros(frames, dtype="int16")
+        for i in range(len(self.samples)):
+            if self.samples[i] is None:
+                break
+            # try filling outdata with data
+            range_start = self.current_frames[i]
+            range_end = self.current_frames[i]+frames
+            if self.durations[i] is not None:
+                range_start = min(range_start, self.durations[i])
+                range_end = min(range_end, self.durations[i])
+            mono_outdata = self.samples[i].get_data_range(range_start, range_end)
+            if mono_outdata.shape[0] < frames:
+                mono_outdata = numpy.append(mono_outdata, numpy.zeros((frames-mono_outdata.shape[0]), dtype="int16"))
+            self.current_frames[i] += mono_outdata.shape[0]
+
+            if self.polyphonic:
+                mono_outdata_final += mono_outdata
+            else:
+                mono_outdata_final = mono_outdata
 
         #print(mono_outdata)
         # fill stereo outdata
         for i in range(outdata.shape[1]):
-            outdata[:, i] = mono_outdata
+            outdata[:, i] = mono_outdata_final
         # stop stream if at the end
         if is_note_end and self.stop_on_note_end:
             print("stop")
@@ -57,18 +71,22 @@ class WAVPlayer:
 
 class NotePlayer(WAVPlayer):
     def __init__(self):
-        super().__init__(sample=Sample(numpy.zeros((1000), dtype="int16"), None, 8000), stop_on_note_end=False)
+        super().__init__(samples=[Sample(numpy.zeros((1000), dtype="int16"), None, 8000)], stop_on_note_end=False)
     
     def play_note(self, event:sa.soundSequence.NoteSequenceEvent, sample:Sample, duration:int, volume:int=127):
         if sample.pitch_change:
             speed_factor = 2.0 ** ((event.pitch-sample.notedef.pitch) / 12.0)
         else:
             speed_factor = 1
+        # Compensate for samplerate difference between sample and stream
+        # For ZX, the difference is usually unnoticable, but it's obvious some in other games
+        speed_factor *= sample.samplerate/self.stream.samplerate
         # zoom also instantiates a copy to leave the sample itself intact
-        self.sample = sample.zoom(speed_factor) # speed/pitch adjust
-        self.sample.data = numpy.astype(((numpy.astype(self.sample.data, numpy.int32) * event.velocity*volume) // 127) // 127, numpy.int16)
-        self.duration = duration
-        self.current_frame = 0
+        self.samples[self.slot_next] = sample.zoom(speed_factor) # speed/pitch adjust
+        self.samples[self.slot_next].data = numpy.astype(((numpy.astype(self.samples[self.slot_next].data, numpy.int32) * event.velocity*volume) // 127) // 127, numpy.int16)
+        self.durations[self.slot_next] = duration
+        self.current_frames[self.slot_next] = 0
+        self.slot_next = (self.slot_next + 1) % self.POLY_MAX # cycle through sample slots of player
 
 #https://problemkaputt.de/gbatek.htm#dssoundfilessseqsoundsequence
 BPM_TICK_FACTOR = (64*2728/33000000) * 240
@@ -199,9 +217,9 @@ class SSEQPlayer:
                 track.priority = event.value
             elif isinstance(event, sa.soundSequence.MonoPolySequenceEvent):
                 # POLY for SSEQ and MONO for SSARS, usually
-                # POLY = Notes have no delay and rests must be used
-                # MONO = Notes have a delay
-                pass
+                # 0 = MONO: Notes have a delay
+                # 1 = POLY: Notes have no delay and rests must be used
+                track.player.polyphonic = not event.value
             #else:
             #    if not isinstance(event, (sa.soundSequence.DefineTracksSequenceEvent, sa.soundSequence.PanSequenceEvent, sa.soundSequence.ExpressionSequenceEvent, sa.soundSequence.PortamentoSequenceEvent, sa.soundSequence.VibratoDepthSequenceEvent)):
             #        raise NotImplementedError
