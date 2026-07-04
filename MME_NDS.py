@@ -1977,6 +1977,15 @@ class MainWindow(QtWidgets.QMainWindow):
     """
 
     def file_fromItem(self, item: QtWidgets.QTreeWidgetItem):
+        """
+        Returns:
+            `list` (a list of informations about the item's corresponding file):
+                - [0] `bytes`: _bytes object containing file data_
+                - [1] `str`: _string of the file name_
+                - [2] `object`: _parent object that allows saving this file's data_
+                - [3] `object`: _object within the parent object where the file is stored_
+                - [4] `object`: _like [3], but deeper, and only applies for some objects like SDAT_
+        """
         RESULT_EMPTY = [b'', "", None, None, None]
         tree = item.treeWidget()
         name = ""
@@ -2650,6 +2659,7 @@ class MainWindow(QtWidgets.QMainWindow):
                             dialog2.exec()
                             return
                         if isinstance(oldObject, ndspy.soundSequenceArchive.soundSequence.SSEQ): # bankID fix (defaults to 0)
+                            newObject.unk02 = oldObject.unk02
                             newObject.bankID = oldObject.bankID
                             newObject.volume = oldObject.volume
                             newObject.channelPressure = oldObject.channelPressure
@@ -3057,6 +3067,7 @@ class MainWindow(QtWidgets.QMainWindow):
         items: list[QtWidgets.QTreeWidgetItem] = self.trees_sdat[self.dropdown_sdat.currentIndex()].selectedItems()
         if len(items) == 0: return
         if items[0].text(0) == "N/A": return
+        item_id = int(items[0].text(0))
         snd_type = items[0].text(2)
         if snd_type == "SWAV":
             print("play SWAV")
@@ -3065,13 +3076,39 @@ class MainWindow(QtWidgets.QMainWindow):
         elif snd_type == "SSEQ": # WIP
             print("play SSEQ")
             try:
-                sseq = ndspy.soundArchive.soundSequence.SSEQ(self.file_fromItem(items[0])[0], bankID=int(items[0].toolTip(0).removeprefix("bankID: ")))
+                sseq = self.sdats[self.dropdown_sdat.currentIndex()].sequences[item_id][1]
+                sseq.parse()
                 lib.sdat.playSSEQ(sseq, self.sdats[self.dropdown_sdat.currentIndex()])
             except ValueError:
                 QtWidgets.QMessageBox.critical(
                     self,
                     "Load Failed",
                     "Could not load SSEQ because information is missing."
+                )
+        elif snd_type == "SSARS": # WIP
+            print("play SSARSequence")
+            # attempt to pass the SSARS as an SSEQ
+            try:
+                ssar: ndspy.soundArchive.soundSequenceArchive.SSAR = self.sdats[self.dropdown_sdat.currentIndex()].sequenceArchives[int(items[0].parent().text(0))][1]
+                ssars: ndspy.soundArchive.soundSequenceArchive.SSARSequence = ssar.sequences[item_id][1]
+                ssar.parse()
+                if ssars.parsed:
+                    event_index = next((i for i, obj in enumerate(ssar.events) if obj is ssars.firstEvent))
+                    print(event_index, ssars.firstEvent)
+                    ssars.events = ssar.events[event_index:]
+                    lib.sdat.playSSEQ(ssars, self.sdats[self.dropdown_sdat.currentIndex()])
+                else:
+                    QtWidgets.QMessageBox.critical(
+                        self,
+                        "Load Failed",
+                        "Could not load SSARS because parsing failed."
+                    )
+            except ValueError as e:
+                print(e)
+                QtWidgets.QMessageBox.critical(
+                    self,
+                    "Load Failed",
+                    "Could not load SSARS because information is missing."
                 )
 
     def sdatPlotCall(self):
@@ -3257,11 +3294,14 @@ class MainWindow(QtWidgets.QMainWindow):
                             for event_i, event in enumerate(section[1].events):
                                 subChild = QtWidgets.QTreeWidgetItem([str(event_i), event.__repr__(), ""])
                                 child.addChild(subChild)
+                        else:
+                            print(f"unable to parse SSEQ {section[0]}")
                     if hasattr(section[1], "bankID"):
                         child.setToolTip(0, "bankID: " + str(section[1].bankID))
                     if hasattr(section[1], "sequences"): # sequenceArchives
-                        for sseq_i, sseq in enumerate(section[1].sequences): # actually a list with [name, SSARSequence]
-                            subChild = QtWidgets.QTreeWidgetItem([str(sseq_i), sseq[0], "SSARS"])
+                        for ssars_i, ssars in enumerate(section[1].sequences): # actually a list with [name, SSARSequence]
+                            subChild = QtWidgets.QTreeWidgetItem([str(ssars_i), ssars[0], "SSARS"])
+                            subChild.setToolTip(0, "bankID: " + str(ssars[1].bankID))
                             child.addChild(subChild)
                     if hasattr(section[1], "waves"): # waveArchives
                         for wave_i, wave in enumerate(section[1].waves):

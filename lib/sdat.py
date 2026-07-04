@@ -51,7 +51,6 @@ try:
     def playSSEQ(sseq: sa.soundSequence.SSEQ, sdat: sa.SDAT):
         global player
         stopSound()
-        sseq.parse()
         if not sseq.parsed:
             print("Unable to parse sequence")
             return
@@ -59,6 +58,7 @@ try:
         sample_list = loadBank(bank, sdat)
         print(sseq.events)
         #print(sseq.bankID)
+        # todo: investigate playerID
         player = wav_player.SSEQPlayer(sseq.events, sample_list)
         player.play()
 

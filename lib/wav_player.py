@@ -83,7 +83,7 @@ class NotePlayer(WAVPlayer):
         # zoom also instantiates a copy to leave the sample itself intact
         self.samples[self.slot_next] = sample.zoom(speed_factor) # speed/pitch adjust
         # divide by 5 is just to make the volume more bearable (and reduce clipping)
-        self.samples[self.slot_next].data = numpy.astype((((numpy.astype(self.samples[self.slot_next].data, numpy.int32) * event.velocity*volume) // 127) // 127) // 5, numpy.int16)
+        self.samples[self.slot_next].data = numpy.astype(((numpy.astype(self.samples[self.slot_next].data, numpy.int32) * event.velocity*volume) // (127*127)) // 5, numpy.int16)
         self.durations[self.slot_next] = duration
         self.current_frames[self.slot_next] = 0
         self.slot_next = (self.slot_next + 1) % self.POLY_MAX # cycle through sample slots of player
@@ -156,13 +156,13 @@ class SSEQPlayer:
 
     def process_events_of_track(self, track_current: int):
         track = self.tracks[track_current]
-        print(f"track: {track_current}")
+        print(f"track: {track_current} tempo {self.tempo}")
         if track.player.stream.active == False:
             raise InterruptedError
         while track.event_time_targetDelta == 0:
             event = self.events[track.event_index]
             sample = self.sample_list[track.sample_index]
-            print(f"({track.event_index}/{len(self.events)-1}) tempo {self.tempo} {event}")
+            print(f"({track.event_index}/{len(self.events)-1}) {event}")
             if isinstance(event, sa.soundSequence.NoteSequenceEvent):
                 if sample is not None:
                     duration = int(self.get_bpm_tick()*event.duration*track.player.stream.samplerate) # for sample array
