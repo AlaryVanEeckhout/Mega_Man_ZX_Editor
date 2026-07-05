@@ -10,18 +10,25 @@ import sched
 import threading
 from .sdat import Sample
 
+class NoteInfo:
+    def __init__(self, sample: Sample, event: sa.soundSequence.SequenceEvent=None, duration: int=None):
+        self.current_frame = 0
+        self.sample = sample
+        self.event = event
+        self.duration = duration
+        # todo: pitch slide
+
 class WAVPlayer:
     def __init__(self, samples: list[Sample], stop_on_note_end: bool=True):
         STREAM_SAMPLERATE = 22050
         self.POLY_MAX = 4 # just a random value idk
+        self.slot_last = 0
         self.slot_next = 0 # on what index of the sample array should the next sample arrive
         self.polyphonic = False # mono by default, set by events
-        self.samples: list[Sample] = [None]*self.POLY_MAX
+        self.noteInfos: list[NoteInfo] = [None]*self.POLY_MAX
         for i, sample in enumerate(samples):
             assert len(sample.data.shape) == 1
-            self.samples[i] = sample.zoom(sample.samplerate/STREAM_SAMPLERATE) # resample
-        self.current_frames = [0]*self.POLY_MAX
-        self.durations = [None]*self.POLY_MAX
+            self.noteInfos[i] = NoteInfo(sample.zoom(sample.samplerate/STREAM_SAMPLERATE)) # resample
         self.stop_on_note_end = stop_on_note_end
         self.stream = sounddevice.OutputStream(
             samplerate=STREAM_SAMPLERATE,  # samplerate cannot change after being set
@@ -32,19 +39,19 @@ class WAVPlayer:
     def callback(self, outdata: numpy.ndarray, frames: int, time, status: sounddevice.CallbackFlags) -> None:
         is_note_end = False
         mono_outdata_final = numpy.zeros(frames, dtype="int16")
-        for i in range(len(self.samples)):
-            if self.samples[i] is None:
+        for noteInfo in self.noteInfos:
+            if noteInfo is None:
                 break
             # try filling outdata with data
-            range_start = self.current_frames[i]
-            range_end = self.current_frames[i]+frames
-            if self.durations[i] is not None:
-                range_start = min(range_start, self.durations[i])
-                range_end = min(range_end, self.durations[i])
-            mono_outdata = self.samples[i].get_data_range(range_start, range_end)
+            range_start = noteInfo.current_frame
+            range_end = noteInfo.current_frame+frames
+            if noteInfo.duration is not None:
+                range_start = min(range_start, noteInfo.duration)
+                range_end = min(range_end, noteInfo.duration)
+            mono_outdata = noteInfo.sample.get_data_range(range_start, range_end)
             if mono_outdata.shape[0] < frames:
                 mono_outdata = numpy.append(mono_outdata, numpy.zeros((frames-mono_outdata.shape[0]), dtype="int16"))
-            self.current_frames[i] += mono_outdata.shape[0]
+            noteInfo.current_frame += mono_outdata.shape[0]
 
             if self.polyphonic:
                 mono_outdata_final += mono_outdata
@@ -81,11 +88,11 @@ class NotePlayer(WAVPlayer):
         # For ZX, the difference is usually unnoticable, but it's obvious some in other games
         speed_factor *= sample.samplerate/self.stream.samplerate
         # zoom also instantiates a copy to leave the sample itself intact
-        self.samples[self.slot_next] = sample.zoom(speed_factor) # speed/pitch adjust
+        sample_new = sample.zoom(speed_factor) # speed/pitch adjust
         # divide by 5 is just to make the volume more bearable (and reduce clipping)
-        self.samples[self.slot_next].data = numpy.astype(((numpy.astype(self.samples[self.slot_next].data, numpy.int32) * event.velocity*volume) // (127*127)) // 5, numpy.int16)
-        self.durations[self.slot_next] = duration
-        self.current_frames[self.slot_next] = 0
+        sample_new.data = numpy.astype(((numpy.astype(sample_new.data, numpy.int32) * event.velocity*volume) // (127*127)) // 5, numpy.int16)
+        self.noteInfos[self.slot_next] = NoteInfo(sample_new, event, duration)
+        self.slot_last = self.slot_next
         self.slot_next = (self.slot_next + 1) % self.POLY_MAX # cycle through sample slots of player
 
 #https://problemkaputt.de/gbatek.htm#dssoundfilessseqsoundsequence
@@ -104,9 +111,9 @@ class SSEQScheduler:
         # gives control to scheduler until all events are run
         self.sched.run()
 
-    def add_event(self, time, priority, action, *args):
+    def add_event(self, time: float, priority, action, *args):
         #print(f"{time}: {action}")
-        self.sched.enterabs(time, 0, action, args)
+        self.sched.enterabs(time, priority, action, args)
 
     def start(self):
         self.thread = threading.Thread(target=self.thread_fn, daemon=True)
