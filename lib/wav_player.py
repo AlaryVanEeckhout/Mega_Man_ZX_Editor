@@ -29,7 +29,6 @@ class WAVPlayer:
         self.POLY_MAX = 4 # just a random value idk
         self.slot_last = 0
         self.slot_next = 0 # on what index of the sample array should the next sample arrive
-        self.polyphonic = False # mono by default, set by events
         self.noteInfos: list[NoteInfo] = [None]*self.POLY_MAX
         for i, sample in enumerate(samples):
             assert len(sample.data.shape) == 1
@@ -50,7 +49,7 @@ class WAVPlayer:
             # try filling outdata with data
             range_start = noteInfo.current_frame
             range_end = noteInfo.current_frame+frames
-            if noteInfo.duration is not None:
+            if noteInfo.duration is not None and noteInfo.duration != 0: # todo: duration 0 = infinite loop
                 range_start = min(range_start, noteInfo.duration)
                 range_end = min(range_end, noteInfo.duration)
             sample = noteInfo.sample
@@ -62,10 +61,7 @@ class WAVPlayer:
                 mono_outdata = numpy.append(mono_outdata, numpy.zeros((frames-mono_outdata.shape[0]), dtype="int16"))
             noteInfo.current_frame += mono_outdata.shape[0]
 
-            if self.polyphonic:
-                mono_outdata_final += mono_outdata
-            else:
-                mono_outdata_final = mono_outdata
+            mono_outdata_final += mono_outdata
 
         #print(mono_outdata)
         # fill stereo outdata
@@ -143,6 +139,7 @@ class Track:
         self.loop_index: int = None # used with begin and end loop events
         self.loop_count: int = 0 # used with begin and end loop events
         self.priority: int = 64 # Not sure what the default value should be
+        self.polyphonic = False # mono by default, set by events
         self.note_modifier: NoteModifier = NoteModifier()
         self.player: NotePlayer = NotePlayer()
         self.player.play()
@@ -156,6 +153,7 @@ class SSEQPlayer:
         self.TRACKS_MAX = 16 # IDs 0 to 15
         self.tracks: list[Track] = [None]*self.TRACKS_MAX
         self.time_start = 0 # used to set event_time_last of tracks
+        self.time_lagDelta = None # start lag
         self.scheduler = SSEQScheduler(lambda: self.process_events_of_track(0))
 
 
@@ -188,9 +186,11 @@ class SSEQPlayer:
                     if sample_selected is not None:
                         #print(f"samplerate {sample_selected.samplerate}")
                         track.player.play_note(event, sample_selected, duration, track.note_modifier)
+                if not track.polyphonic:
+                    track.event_time_targetDelta = self.get_bpm_tick()*event.duration
             elif isinstance(event, sa.soundSequence.RestSequenceEvent):
                 # not actually a musical rest, how long to stop parsing events and let music play
-                # only this instruction sets event_time_targetDelta
+                # only this instruction sets event_time_targetDelta in polyphonic mode
                 track.event_time_targetDelta = self.get_bpm_tick()*event.duration
                 #print(f"tdelta {track.event_time_targetDelta}")
             elif isinstance(event, sa.soundSequence.PortamentoSequenceEvent):
@@ -238,9 +238,17 @@ class SSEQPlayer:
                 # POLY for SSEQ and MONO for SSARS, usually
                 # 0 = MONO: Notes have a delay
                 # 1 = POLY: Notes have no delay and rests must be used
-                track.player.polyphonic = not event.value
+                track.polyphonic = not event.value
+                if self.time_lagDelta is None:
+                    # since this event consistently happens after all BeginTrackSequenceEvents
+                    # compensate for all the lag from starting track 0
+                    # so that the scheduler doesn't panic when playing the first few notes
+                    self.time_lagDelta = timer() - self.time_start
+                    for t in self.tracks:
+                        if t is not None:
+                            t.event_time_last += self.time_lagDelta
             #else:
-            #    if not isinstance(event, (sa.soundSequence.DefineTracksSequenceEvent, sa.soundSequence.PanSequenceEvent, sa.soundSequence.ExpressionSequenceEvent, sa.soundSequence.PortamentoSequenceEvent, sa.soundSequence.VibratoDepthSequenceEvent)):
+            #    if not isinstance(event, (sa.soundSequence.DefineTracksSequenceEvent, sa.soundSequence.PanSequenceEvent, sa.soundSequence.ExpressionSequenceEvent, sa.soundSequence.VibratoDepthSequenceEvent)):
             #        raise NotImplementedError
             track.event_index += 1
             if not self.loop and track.event_index > len(self.events)-1:

@@ -1986,6 +1986,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 - [3] `object`: _object within the parent object where the file is stored_
                 - [4] `object`: _like [3], but deeper, and only applies for some objects like SDAT_
         """
+        # this should return an object instead
         RESULT_EMPTY = [b'', "", None, None, None]
         tree = item.treeWidget()
         name = ""
