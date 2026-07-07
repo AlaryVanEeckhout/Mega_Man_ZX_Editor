@@ -11,12 +11,17 @@ import threading
 from .sdat import Sample
 
 class NoteInfo:
-    def __init__(self, sample: Sample, event: sa.soundSequence.SequenceEvent=None, duration: int=None):
+    def __init__(self, sample: Sample, event: sa.soundSequence.SequenceEvent=None, duration: int=None, modifier: NoteModifier=None):
         self.current_frame = 0
         self.sample = sample
         self.event = event
         self.duration = duration
-        # todo: pitch slide
+        self.modifier = modifier
+
+class NoteModifier:
+    def __init__(self, volume: int=127, portamento: int=0):
+        self.volume = volume
+        self.portamento = portamento # signed int8 value used as factor for pitch slides
 
 class WAVPlayer:
     def __init__(self, samples: list[Sample], stop_on_note_end: bool=True):
@@ -48,7 +53,11 @@ class WAVPlayer:
             if noteInfo.duration is not None:
                 range_start = min(range_start, noteInfo.duration)
                 range_end = min(range_end, noteInfo.duration)
-            mono_outdata = noteInfo.sample.get_data_range(range_start, range_end)
+            sample = noteInfo.sample
+            if noteInfo.modifier is not None:
+                # todo: understand why this formula works
+                sample = noteInfo.sample.zoom(1+noteInfo.modifier.portamento/(127*8.1653529516))
+            mono_outdata = sample.get_data_range(range_start, range_end)
             if mono_outdata.shape[0] < frames:
                 mono_outdata = numpy.append(mono_outdata, numpy.zeros((frames-mono_outdata.shape[0]), dtype="int16"))
             noteInfo.current_frame += mono_outdata.shape[0]
@@ -79,7 +88,7 @@ class NotePlayer(WAVPlayer):
     def __init__(self):
         super().__init__(samples=[Sample(numpy.zeros((1000), dtype="int16"), None, 8000)], stop_on_note_end=False)
     
-    def play_note(self, event:sa.soundSequence.NoteSequenceEvent, sample:Sample, duration:int, volume:int=127):
+    def play_note(self, event:sa.soundSequence.NoteSequenceEvent, sample:Sample, duration:int, notemod:NoteModifier=None):
         if sample.pitch_change:
             speed_factor = 2.0 ** ((event.pitch-sample.notedef.pitch) / 12.0)
         else:
@@ -90,8 +99,8 @@ class NotePlayer(WAVPlayer):
         # zoom also instantiates a copy to leave the sample itself intact
         sample_new = sample.zoom(speed_factor) # speed/pitch adjust
         # divide by 5 is just to make the volume more bearable (and reduce clipping)
-        sample_new.data = numpy.astype(((numpy.astype(sample_new.data, numpy.int32) * event.velocity*volume) // (127*127)) // 5, numpy.int16)
-        self.noteInfos[self.slot_next] = NoteInfo(sample_new, event, duration)
+        sample_new.data = numpy.astype(((numpy.astype(sample_new.data, numpy.int32) * event.velocity*notemod.volume) // (127*127)) // 5, numpy.int16)
+        self.noteInfos[self.slot_next] = NoteInfo(sample_new, event, duration, notemod)
         self.slot_last = self.slot_next
         self.slot_next = (self.slot_next + 1) % self.POLY_MAX # cycle through sample slots of player
 
@@ -133,8 +142,8 @@ class Track:
         self.return_index: int = None # in case return is used without call, return to start of track
         self.loop_index: int = None # used with begin and end loop events
         self.loop_count: int = 0 # used with begin and end loop events
-        self.volume: int = 127
         self.priority: int = 64 # Not sure what the default value should be
+        self.note_modifier: NoteModifier = NoteModifier()
         self.player: NotePlayer = NotePlayer()
         self.player.play()
 
@@ -178,12 +187,15 @@ class SSEQPlayer:
                         sample_selected = sample[event.pitch]
                     if sample_selected is not None:
                         #print(f"samplerate {sample_selected.samplerate}")
-                        track.player.play_note(event, sample_selected, duration, track.volume)
+                        track.player.play_note(event, sample_selected, duration, track.note_modifier)
             elif isinstance(event, sa.soundSequence.RestSequenceEvent):
                 # not actually a musical rest, how long to stop parsing events and let music play
                 # only this instruction sets event_time_targetDelta
                 track.event_time_targetDelta = self.get_bpm_tick()*event.duration
                 #print(f"tdelta {track.event_time_targetDelta}")
+            elif isinstance(event, sa.soundSequence.PortamentoSequenceEvent):
+                # event.value is a signed pitch value/factor, with 0 being normal pitch
+                track.note_modifier.portamento = int.from_bytes(bytearray([event.value]), signed=True)
             elif isinstance(event, sa.soundSequence.InstrumentSwitchSequenceEvent):
                 track.sample_index = event.instrumentID
             elif isinstance(event, sa.soundSequence.TempoSequenceEvent):
@@ -219,7 +231,7 @@ class SSEQPlayer:
                 print("end")
                 return
             elif isinstance(event, sa.soundSequence.TrackVolumeSequenceEvent):
-                track.volume = event.value
+                track.note_modifier.volume = event.value
             elif isinstance(event, sa.soundSequence.TrackPrioritySequenceEvent):
                 track.priority = event.value
             elif isinstance(event, sa.soundSequence.MonoPolySequenceEvent):

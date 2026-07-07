@@ -14,7 +14,7 @@ try:
         def get_data_range(self, start, end):
             goal_len = end - start
             out = self.data[start:end]
-            if self.loop is None:
+            if self.loop is None or (self.data.shape[0]-self.loop) == 0:
                 return numpy.append(out, numpy.zeros((goal_len-out.shape[0]), dtype=out.dtype))
             if start >= self.data.shape[0]:
                 # starts in loop part, add first loop in loop part
