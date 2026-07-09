@@ -54,7 +54,7 @@ class WAVPlayer:
                 range_end = min(range_end, noteInfo.duration)
             sample = noteInfo.sample
             if noteInfo.modifier is not None:
-                # todo: understand why this formula works
+                # todo: make this work regardless of samplerate
                 sample = noteInfo.sample.zoom(1+noteInfo.modifier.portamento/(127*8.1653529516))
             mono_outdata = sample.get_data_range(range_start, range_end)
             if mono_outdata.shape[0] < frames:
@@ -101,7 +101,7 @@ class NotePlayer(WAVPlayer):
         self.slot_next = (self.slot_next + 1) % self.POLY_MAX # cycle through sample slots of player
 
 #https://problemkaputt.de/gbatek.htm#dssoundfilessseqsoundsequence
-BPM_TICK_FACTOR = (64*2728/33000000) * 240
+BPM_TICK_FACTOR = (64*2728/33513982) * 240
 
 class SSEQScheduler:
     def __init__(self, callback):
@@ -135,7 +135,7 @@ class Track:
         self.event_index: int = event_index
         self.event_time_last: int = 0 # time of next event
         self.event_time_targetDelta: int = 0 # target waiting time
-        self.return_index: int = None # in case return is used without call, return to start of track
+        self.call_stack = []
         self.loop_index: int = None # used with begin and end loop events
         self.loop_count: int = 0 # used with begin and end loop events
         self.priority: int = 64 # Not sure what the default value should be
@@ -147,6 +147,7 @@ class Track:
 class SSEQPlayer:
     def __init__(self, events: list[sa.soundSequence.SequenceEvent], sample_list:list[Sample], loop: int=None):
         self.events = events
+        self.event_indexMap = {id(obj): i for i, obj in enumerate(self.events)}
         self.sample_list = sample_list
         self.loop = loop # should this exist?
         self.tempo = 150
@@ -175,9 +176,10 @@ class SSEQPlayer:
             raise InterruptedError
         while track.event_time_targetDelta == 0:
             event = self.events[track.event_index]
+            event_type = event.__class__
             sample = self.sample_list[track.sample_index]
             print(f"({track.event_index}/{len(self.events)-1}) {event}")
-            if isinstance(event, sa.soundSequence.NoteSequenceEvent):
+            if event_type is sa.soundSequence.NoteSequenceEvent:
                 if sample is not None:
                     duration = int(self.get_bpm_tick()*event.duration*track.player.stream.samplerate) # for sample array
                     sample_selected = sample
@@ -187,54 +189,52 @@ class SSEQPlayer:
                         #print(f"samplerate {sample_selected.samplerate}")
                         track.player.play_note(event, sample_selected, duration, track.note_modifier)
                 if not track.polyphonic:
-                    track.event_time_targetDelta = self.get_bpm_tick()*event.duration
-            elif isinstance(event, sa.soundSequence.RestSequenceEvent):
+                    track.event_time_targetDelta = event.duration*self.get_bpm_tick()
+            elif event_type is sa.soundSequence.RestSequenceEvent:
                 # not actually a musical rest, how long to stop parsing events and let music play
                 # only this instruction sets event_time_targetDelta in polyphonic mode
-                track.event_time_targetDelta = self.get_bpm_tick()*event.duration
+                track.event_time_targetDelta = event.duration*self.get_bpm_tick()
                 #print(f"tdelta {track.event_time_targetDelta}")
-            elif isinstance(event, sa.soundSequence.PortamentoSequenceEvent):
+            elif event_type is sa.soundSequence.PortamentoSequenceEvent:
                 # event.value is a signed pitch value/factor, with 0 being normal pitch
-                track.note_modifier.portamento = int.from_bytes(bytearray([event.value]), signed=True)
-            elif isinstance(event, sa.soundSequence.InstrumentSwitchSequenceEvent):
+                track.note_modifier.portamento = int.from_bytes(bytes([event.value]), signed=True)
+            elif event_type is sa.soundSequence.InstrumentSwitchSequenceEvent:
                 track.sample_index = event.instrumentID
-            elif isinstance(event, sa.soundSequence.TempoSequenceEvent):
+            elif event_type is sa.soundSequence.TempoSequenceEvent:
                 self.tempo = event.value
-            elif isinstance(event, sa.soundSequence.CallSequenceEvent):
-                assert track.return_index is None
-                track.return_index = track.event_index
-                track.event_index = next((i for i, obj in enumerate(self.events) if obj is event.destination))
+            elif event_type is sa.soundSequence.CallSequenceEvent:
+                track.call_stack.append(track.event_index)
+                track.event_index = self.event_indexMap[id(event.destination)]
                 continue # skip increment event_index by 1
-            elif isinstance(event, sa.soundSequence.JumpSequenceEvent):
-                track.event_index = next((i for i, obj in enumerate(self.events) if obj is event.destination))
+            elif event_type is sa.soundSequence.JumpSequenceEvent:
+                track.event_index = self.event_indexMap[id(event.destination)]
                 continue # skip increment event_index by 1
-            elif isinstance(event, sa.soundSequence.ReturnSequenceEvent):
-                track.event_index = track.return_index
-                track.return_index = None
-            elif isinstance(event, sa.soundSequence.EndLoopSequenceEvent):
+            elif event_type is sa.soundSequence.ReturnSequenceEvent:
+                track.event_index = track.call_stack.pop()
+            elif event_type is sa.soundSequence.EndLoopSequenceEvent:
                 if track.loop_count > 0:
                     track.loop_count -= 1
                     print(f"EndLoopSequenceEvent {track.event_index} = {track.loop_index}")
                     track.event_index = track.loop_index
                 else:
                     track.loop_index = None
-            elif isinstance(event, sa.soundSequence.BeginLoopSequenceEvent):
+            elif event_type is sa.soundSequence.BeginLoopSequenceEvent:
                 print(f"BeginLoopSequenceEvent {track.loop_index} = {track.event_index}")
                 assert track.loop_index is None
                 track.loop_index = track.event_index
                 track.loop_count = event.loopCount
-            elif isinstance(event, sa.soundSequence.BeginTrackSequenceEvent): # For Tracks other than Track 0
-                self.tracks[event.trackNumber] = Track(next((i for i, obj in enumerate(self.events) if obj is event.firstEvent)))
+            elif event_type is sa.soundSequence.BeginTrackSequenceEvent: # For Tracks other than Track 0
+                self.tracks[event.trackNumber] = Track(self.event_indexMap[id(event.firstEvent)])
                 self.tracks[event.trackNumber].event_time_last = self.time_start
                 self.scheduler.add_event(0, track.priority, self.process_events_of_track, event.trackNumber) # start chain of events for this track
-            elif isinstance(event, sa.soundSequence.EndTrackSequenceEvent):
+            elif event_type is sa.soundSequence.EndTrackSequenceEvent:
                 print("end")
                 return
-            elif isinstance(event, sa.soundSequence.TrackVolumeSequenceEvent):
+            elif event_type is sa.soundSequence.TrackVolumeSequenceEvent:
                 track.note_modifier.volume = event.value
-            elif isinstance(event, sa.soundSequence.TrackPrioritySequenceEvent):
+            elif event_type is sa.soundSequence.TrackPrioritySequenceEvent:
                 track.priority = event.value
-            elif isinstance(event, sa.soundSequence.MonoPolySequenceEvent):
+            elif event_type is sa.soundSequence.MonoPolySequenceEvent:
                 # POLY for SSEQ and MONO for SSARS, usually
                 # 0 = MONO: Notes have a delay
                 # 1 = POLY: Notes have no delay and rests must be used

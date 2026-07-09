@@ -114,9 +114,9 @@ try:
             data_np = numpy.frombuffer(swav.data[4:], dtype="uint8")
             adpcm_data = ((data_np & 0x0F) << 4) | ((data_np & 0xF0) >> 4)
 
-            pcm_data = numpy.frombuffer(audioop.adpcm2lin(adpcm_data, 2, state)[0], dtype="int16") * -1
+            pcm_data = numpy.frombuffer(audioop.adpcm2lin(adpcm_data, 2, state)[0], dtype="int16") * 1
         else: #PCM8 or PCM16
-            pcm_data = numpy.fromiter(swav.data, dtype="int16")
+            pcm_data = numpy.frombuffer(swav.data, dtype="int16")
         loop = (swav.loopOffset-1)*8 if swav.isLooped else None
         return Sample(pcm_data, loop, swav.sampleRate, notedef)
 
@@ -136,7 +136,7 @@ try:
         if player is not None:
             player.stop()
 
-except ImportError:
+except ImportError as e:
     print("Dependencies for audio playback are not met. Functions are disabled.")
     def playSSEQ(*args, **kwargs): return
     def playSWAV(*args, **kwargs): return
