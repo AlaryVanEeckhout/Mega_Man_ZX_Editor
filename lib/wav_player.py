@@ -9,6 +9,7 @@ from timeit import default_timer as timer
 import sched
 import threading
 from .sdat import Sample
+from .sdat import BPM_TICK_FACTOR, SSEQ_CLOCK_FREQ
 
 class NoteInfo:
     def __init__(self, sample: Sample, event: sa.soundSequence.SequenceEvent=None, duration: int=None, modifier: NoteModifier=None):
@@ -17,6 +18,8 @@ class NoteInfo:
         self.event = event
         self.duration = duration
         self.modifier = modifier
+        self.adsr_stage = 0 # 0 through 3 = adsr respectively
+        self.current_gain = 0 # adsr volume gain
 
 class NoteModifier:
     def __init__(self, volume: int=127, portamento: int=0):
@@ -26,6 +29,7 @@ class NoteModifier:
 class WAVPlayer:
     def __init__(self, samples: list[Sample], stop_on_note_end: bool=True):
         STREAM_SAMPLERATE = 22050
+        self.FRAME_RATIO = SSEQ_CLOCK_FREQ / STREAM_SAMPLERATE
         self.POLY_MAX = 4 # just a random value idk
         self.slot_last = 0
         self.slot_next = 0 # on what index of the sample array should the next sample arrive
@@ -54,8 +58,31 @@ class WAVPlayer:
                 range_end = min(range_end, noteInfo.duration)
             sample = noteInfo.sample
             if noteInfo.modifier is not None:
-                # todo: make this work regardless of samplerate
-                sample = noteInfo.sample.zoom(1+noteInfo.modifier.portamento/(127*8.1653529516))
+                # todo: understand why this formula works
+                portamento_factor = 0.12246868028*(self.stream.samplerate/sample.samplerate)
+                sample = noteInfo.sample.zoom(1+(noteInfo.modifier.portamento/127)*portamento_factor)
+            if False:#sample.notedef is not None:
+                if noteInfo.adsr_stage == 0: # attack
+                    if noteInfo.current_gain == 0.0: noteInfo.current_gain = 0.0001
+                    noteInfo.current_gain *= sample.attack_multiplier
+                    if noteInfo.current_gain >= 1.0:
+                        noteInfo.current_gain = 1.0
+                        noteInfo.adsr_stage = 1
+                elif noteInfo.adsr_stage == 1: # decay
+                    noteInfo.current_gain -= sample.decay_rate // self.stream.samplerate
+                    if noteInfo.current_gain <= sample.sustain_factor:
+                        self.current_gain = sample.sustain_factor
+                        noteInfo.adsr_stage = 2
+                elif noteInfo.adsr_stage == 2: # sustain
+                    # check for current_frame VS duration?
+                    pass
+                elif noteInfo.adsr_stage == 3: # release
+                    noteInfo.current_gain -= sample.release_rate // self.stream.samplerate
+                    if noteInfo.current_gain <= 0:
+                        self.current_gain = 0
+                        noteInfo.adsr_stage = 4 # end
+                sample.data *= noteInfo.current_gain
+                
             mono_outdata = sample.get_data_range(range_start, range_end)
             if mono_outdata.shape[0] < frames:
                 mono_outdata = numpy.append(mono_outdata, numpy.zeros((frames-mono_outdata.shape[0]), dtype="int16"))
@@ -99,9 +126,6 @@ class NotePlayer(WAVPlayer):
         self.noteInfos[self.slot_next] = NoteInfo(sample_new, event, duration, notemod)
         self.slot_last = self.slot_next
         self.slot_next = (self.slot_next + 1) % self.POLY_MAX # cycle through sample slots of player
-
-#https://problemkaputt.de/gbatek.htm#dssoundfilessseqsoundsequence
-BPM_TICK_FACTOR = (64*2728/33513982) * 240
 
 class SSEQScheduler:
     def __init__(self, callback):

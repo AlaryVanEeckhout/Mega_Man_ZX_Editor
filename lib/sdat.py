@@ -1,8 +1,14 @@
 global player
 player = None
+#https://problemkaputt.de/gbatek.htm#dssoundfilessseqsoundsequence
+NDS_CPU_CLOCK = 33513982
+TIMER_DIVIDER = 2728
+SSEQ_CLOCK_FREQ = NDS_CPU_CLOCK/TIMER_DIVIDER
+BPM_TICK_FACTOR = (64 * 240) / SSEQ_CLOCK_FREQ
 try:
     import ndspy.soundArchive as sa, numpy, struct, audioop# audioop-lts
     import scipy.ndimage
+    import math
     class Sample:
         def __init__(self, data: numpy.ndarray, loop: int, samplerate: int, notedef: sa.soundBank.NoteDefinition=None, pitch_change=True):
             self.data = data
@@ -10,6 +16,11 @@ try:
             self.samplerate = samplerate
             self.notedef = notedef
             self.pitch_change = pitch_change
+            if self.notedef is not None: # adsr
+                self.attack_coeff = self.get_attack_coeff()
+                self.decay_rate = self.get_decay_rate()
+                self.sustain_factor = self.get_sustain_factor()
+                self.release_rate = self.get_release_rate()
         
         def get_data_range(self, start, end):
             goal_len = end - start
@@ -31,6 +42,38 @@ try:
                 end -= self.data.shape[0] - self.loop
                 out = numpy.concat((out, self.data[start:end]))
             return out
+        
+        def get_attack_coeff(self):
+            assert self.notedef is not None
+            if self.notedef.attack == 127: 
+                return 0  # Instantaneous trigger
+            # The official hardware table lookup calculation
+            # Maps 0..127 into the DS engine cycle multiplier coefficient
+            if self.notedef.attack < 100:
+                return 255 - self.notedef.attack
+            else:
+                return (127 - self.notedef.attack) * 16
+        
+        def _get_linear_gain_slope(self, value):
+            if value == 0: return 0
+            # Decays and releases scale exponentially by powers of 2 in the hardware
+            if value < 120:
+                value2 = (value + 1) * 2
+            else:
+                value2 = (value - 119) * 256 + 240
+            value2 *= SSEQ_CLOCK_FREQ
+            return value2 / 92544.0
+            
+        def get_decay_rate(self):
+            assert self.notedef is not None
+            return self._get_linear_gain_slope(self.notedef.decay)
+        
+        def get_release_rate(self):
+            assert self.notedef is not None
+            return self._get_linear_gain_slope(self.notedef.release)
+
+        def get_sustain_factor(self):
+            return 1 if self.notedef is None else (self.notedef.sustain / 127.0) ** 2
         
         def zoom(self, speed_factor):
             new_data = scipy.ndimage.zoom(self.data, 1 / speed_factor, order=0) # speed/pitch adjust
