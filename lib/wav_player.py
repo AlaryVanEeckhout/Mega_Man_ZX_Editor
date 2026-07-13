@@ -12,7 +12,7 @@ from .sdat import Sample
 from .sdat import BPM_TICK_FACTOR, SSEQ_CLOCK_FREQ
 
 class NoteInfo:
-    def __init__(self, sample: Sample, event: sa.soundSequence.SequenceEvent=None, duration: int=None, modifier: NoteModifier=None):
+    def __init__(self, sample: Sample, event: sa.soundSequence.NoteSequenceEvent=None, duration: int=None, modifier: NoteModifier=None):
         self.current_frame = 0
         self.sample = sample
         self.event = event
@@ -29,7 +29,7 @@ class NoteModifier:
 class WAVPlayer:
     def __init__(self, samples: list[Sample], stop_on_note_end: bool=True):
         STREAM_SAMPLERATE = 22050
-        self.FRAME_RATIO = SSEQ_CLOCK_FREQ / STREAM_SAMPLERATE
+        self.SAMPLES_PER_CYCLE = STREAM_SAMPLERATE / SSEQ_CLOCK_FREQ
         self.POLY_MAX = 4 # just a random value idk
         self.slot_last = 0
         self.slot_next = 0 # on what index of the sample array should the next sample arrive
@@ -47,41 +47,45 @@ class WAVPlayer:
     def callback(self, outdata: numpy.ndarray, frames: int, time, status: sounddevice.CallbackFlags) -> None:
         is_note_end = False
         mono_outdata_final = numpy.zeros(frames, dtype="int16")
-        for noteInfo in self.noteInfos:
+        for noteInfo_i, noteInfo in enumerate(self.noteInfos):
             if noteInfo is None:
                 break
             # try filling outdata with data
             range_start = noteInfo.current_frame
             range_end = noteInfo.current_frame+frames
-            if noteInfo.duration is not None and noteInfo.duration != 0: # todo: duration 0 = infinite loop
-                range_start = min(range_start, noteInfo.duration)
-                range_end = min(range_end, noteInfo.duration)
-            sample = noteInfo.sample
+            #if noteInfo.duration is not None and noteInfo.duration != 0: # todo: duration 0 = infinite loop
+            #    range_start = min(range_start, noteInfo.duration)
+            #    range_end = min(range_end, noteInfo.duration)
+            sample = noteInfo.sample.zoom(1)
             if noteInfo.modifier is not None:
                 # todo: understand why this formula works
                 portamento_factor = 0.12246868028*(self.stream.samplerate/sample.samplerate)
                 sample = noteInfo.sample.zoom(1+(noteInfo.modifier.portamento/127)*portamento_factor)
-            if False:#sample.notedef is not None:
+            if sample.notedef is not None:
                 if noteInfo.adsr_stage == 0: # attack
-                    if noteInfo.current_gain == 0.0: noteInfo.current_gain = 0.0001
-                    noteInfo.current_gain *= sample.attack_multiplier
-                    if noteInfo.current_gain >= 1.0:
+                    if noteInfo.current_gain == 0.0:
+                        noteInfo.current_gain = 0.0001
+                        noteInfo.attack_multiplier = 60 * 0.00001 ** (-1.0 / (92544 * self.SAMPLES_PER_CYCLE)) if sample.attack_coeff > 0 else 1.0
+                    noteInfo.current_gain *= noteInfo.attack_multiplier
+                    if noteInfo.current_gain >= 1.0 or noteInfo.attack_multiplier == 1.0:
                         noteInfo.current_gain = 1.0
                         noteInfo.adsr_stage = 1
                 elif noteInfo.adsr_stage == 1: # decay
-                    noteInfo.current_gain -= sample.decay_rate // self.stream.samplerate
+                    noteInfo.current_gain -= sample.decay_rate / self.stream.samplerate
                     if noteInfo.current_gain <= sample.sustain_factor:
-                        self.current_gain = sample.sustain_factor
+                        noteInfo.current_gain = sample.sustain_factor
                         noteInfo.adsr_stage = 2
                 elif noteInfo.adsr_stage == 2: # sustain
-                    # check for current_frame VS duration?
-                    pass
+                    if noteInfo.current_frame > noteInfo.duration:
+                        noteInfo.adsr_stage = 3
                 elif noteInfo.adsr_stage == 3: # release
-                    noteInfo.current_gain -= sample.release_rate // self.stream.samplerate
+                    noteInfo.current_gain -= sample.release_rate / self.stream.samplerate
                     if noteInfo.current_gain <= 0:
-                        self.current_gain = 0
+                        noteInfo.current_gain = 0
                         noteInfo.adsr_stage = 4 # end
-                sample.data *= noteInfo.current_gain
+                #print(f"{sample.data}")
+                sample.data = numpy.astype(numpy.astype(sample.data, numpy.float64)*noteInfo.current_gain, numpy.int16)
+                #print(f"\t{sample.data}")
                 
             mono_outdata = sample.get_data_range(range_start, range_end)
             if mono_outdata.shape[0] < frames:

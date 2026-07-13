@@ -61,8 +61,11 @@ try:
                 value2 = (value + 1) * 2
             else:
                 value2 = (value - 119) * 256 + 240
+            # Scale to the sequencer clock frequency
             value2 *= SSEQ_CLOCK_FREQ
-            return value2 / 92544.0
+            # *60 because 1 step = 60 ticks
+            # 92544.0 converts raw hardware counter units into a meaningful rate
+            return (value2 * 60) / 92544.0
             
         def get_decay_rate(self):
             assert self.notedef is not None
