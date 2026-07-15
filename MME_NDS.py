@@ -10,7 +10,6 @@ import ndspy
 import ndspy.lz10
 import ndspy.rom, ndspy.codeCompression, ndspy.code
 import ndspy.soundArchive
-import ndspy.soundSequenceArchive
 import lib
 try:
     import matplotlib.pyplot as pyplt#, matplotlib.backends.backend_qtagg as qtagg
@@ -2052,30 +2051,32 @@ class MainWindow(QtWidgets.QMainWindow):
                 obj2.streamPlayers,
                 obj2.groups
                 ]
+                # to ensure that the loop is correctly exited once the results are found
+                file_found = False
                 for category in data_list:
+                    if file_found: break
                     for file in category:
+                        if file_found: break
                         obj3 = file[1]
                         obj2 = category
                         if file[0] == item.text(1):
                             data = obj3.save()
                             if isinstance(data, tuple):
                                 data = data[0]
-                            break
+                            file_found = True
                         elif item.parent() != None and file[0] == item.parent().text(1):
                             if item.text(2) == "SWAV":
                                 data = obj3.waves[int(item.text(0))].save()
                                 #print(type(data))
-                                break
                             elif item.text(2) == "SSARS":
                                 data = obj3.sequences[int(item.text(0))][1].save()
                                 print(data)
                                 if isinstance(data, tuple):
                                     data = data[0]
-                                break
                             else:
                                 print("unhandled data type")
                                 data = file
-                                break
+                            file_found = True
         return [data, name, obj, obj2, obj3]
     
     def patches_reload(self):
@@ -2659,7 +2660,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         except:
                             dialog2.exec()
                             return
-                        if isinstance(oldObject, ndspy.soundSequenceArchive.soundSequence.SSEQ): # bankID fix (defaults to 0)
+                        if isinstance(oldObject, ndspy.soundArchive.soundSequenceArchive.soundSequence.SSEQ): # bankID fix (defaults to 0)
                             newObject.unk02 = oldObject.unk02
                             newObject.bankID = oldObject.bankID
                             newObject.volume = oldObject.volume
@@ -3290,13 +3291,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 for section_i, section in enumerate(data_list[item_list.index(category)]):
                     child = QtWidgets.QTreeWidgetItem([str(section_i), section[0], category.text(2)])
                     if isinstance(section[1], type(sdat.sequences[0][1])):
-                        section[1].parse()
-                        if section[1].parsed:
-                            for event_i, event in enumerate(section[1].events):
-                                subChild = QtWidgets.QTreeWidgetItem([str(event_i), event.__repr__(), ""])
-                                child.addChild(subChild)
-                        else:
-                            print(f"unable to parse SSEQ {section[0]}")
+                        subChild = QtWidgets.QTreeWidgetItem(["N/A", "Loading...", ""]) # placeholder for dynamically loaded items
+                        child.addChild(subChild)
                     if hasattr(section[1], "bankID"):
                         child.setToolTip(0, "bankID: " + str(section[1].bankID))
                     if hasattr(section[1], "sequences"): # sequenceArchives
@@ -3313,8 +3309,41 @@ class MainWindow(QtWidgets.QMainWindow):
 
             tree_current.addTopLevelItems(item_list)
             tree_current.header().resizeSection(1, 250)
+            tree_current.itemExpanded.connect(self.treeSdatExpand)
             #progress.setValue(100)
             #progress.close()
+    
+    def treeSdatExpand(self, item: QtWidgets.QTreeWidgetItem):
+        """Loads tree items on demand when expanding parent item"""
+        item_placeholder = item.child(0)
+        child_list = []
+        if item_placeholder.text(0) == "N/A" and item_placeholder.text(1) == "Loading...":
+            if item.text(2) == "SSEQ":
+                sseq = self.file_fromItem(item)[4]
+                sseq.parse()
+                if sseq.parsed:
+                    for event_i, event in enumerate(sseq.events):
+                        child = QtWidgets.QTreeWidgetItem([str(event_i), event.__repr__(), "Event"])
+                        if event.__repr__().startswith("BeginTrackSequenceEvent"):
+                            subChild = QtWidgets.QTreeWidgetItem(["N/A", "Loading...", ""]) # placeholder for dynamically loaded items
+                            child.addChild(subChild)
+                        child_list.append(child)
+                else:
+                    print(f"unable to parse SSEQ {self.file_fromItem(item)[1]}")
+            elif item.text(2) == "Event": # to view the list of events from a track's first event
+                sseq = self.file_fromItem(item.parent())[4]
+                event_track = sseq.events[int(item.text(0))]
+                index_start = None
+                for event_i, event in enumerate(sseq.events):
+                    if index_start is not None:
+                        child = QtWidgets.QTreeWidgetItem([str(event_i), event.__repr__(), "Event (Preview)"])
+                        child_list.append(child)
+                    elif event == event_track.firstEvent:
+                        index_start = event_i
+                    if isinstance(event, ndspy.soundArchive.soundSequence.EndTrackSequenceEvent):
+                        break
+            item.removeChild(item_placeholder)
+            item.addChildren(child_list)
 
     def treeCall(self, addr_reset=False, addr_disabled=False):
         #print("Tree")
