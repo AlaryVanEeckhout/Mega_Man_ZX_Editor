@@ -63,9 +63,7 @@ class WAVPlayer:
                 sample = noteInfo.sample.zoom(1+(noteInfo.modifier.portamento/127)*portamento_factor)
             if sample.notedef is not None:
                 if noteInfo.adsr_stage == 0: # attack
-                    if noteInfo.current_gain == 0.0:
-                        noteInfo.current_gain = 0.0001
-                        noteInfo.attack_multiplier = 60 * 0.00001 ** (-1.0 / (92544 * self.SAMPLES_PER_CYCLE)) if sample.attack_coeff > 0 else 1.0
+                    #print(noteInfo.current_gain, sample.attack_rate / self.stream.samplerate)
                     noteInfo.current_gain *= noteInfo.attack_multiplier
                     if noteInfo.current_gain >= 1.0 or noteInfo.attack_multiplier == 1.0:
                         noteInfo.current_gain = 1.0
@@ -114,6 +112,24 @@ class WAVPlayer:
 class NotePlayer(WAVPlayer):
     def __init__(self):
         super().__init__(samples=[Sample(numpy.zeros((1000), dtype="int16"), None, 8000)], stop_on_note_end=False)
+
+    def add_note(self, noteInfo: NoteInfo):
+        sample = noteInfo.sample
+        if sample.notedef is not None:
+            noteInfo.current_gain = 0.0001
+            if sample.attack_coeff > 0:
+                if sample.notedef.attack < 100:
+                    # Standard linear-interval scaling
+                    exponent = -1.0 / (sample.attack_coeff * self.SAMPLES_PER_CYCLE)
+                else:
+                    # High-speed range override to match NDS bit-shift behavior
+                    exponent = -1.0 / ((sample.attack_coeff / 16.0) * self.SAMPLES_PER_CYCLE)
+                noteInfo.attack_multiplier = 60 * 0.00001 ** exponent
+            else:
+                noteInfo.attack_multiplier = 1.0
+        self.noteInfos[self.slot_next] = noteInfo
+        self.slot_last = self.slot_next
+        self.slot_next = (self.slot_next + 1) % self.POLY_MAX # cycle through sample slots of player
     
     def play_note(self, event:sa.soundSequence.NoteSequenceEvent, sample:Sample, duration:int, notemod:NoteModifier=None):
         if sample.pitch_change:
@@ -127,9 +143,7 @@ class NotePlayer(WAVPlayer):
         sample_new = sample.zoom(speed_factor) # speed/pitch adjust
         # divide by 5 is just to make the volume more bearable (and reduce clipping)
         sample_new.data = numpy.astype(((numpy.astype(sample_new.data, numpy.int32) * event.velocity*notemod.volume) // (127*127)) // 5, numpy.int16)
-        self.noteInfos[self.slot_next] = NoteInfo(sample_new, event, duration, notemod)
-        self.slot_last = self.slot_next
-        self.slot_next = (self.slot_next + 1) % self.POLY_MAX # cycle through sample slots of player
+        self.add_note(NoteInfo(sample_new, event, duration, notemod))
 
 class SSEQScheduler:
     def __init__(self, callback):
