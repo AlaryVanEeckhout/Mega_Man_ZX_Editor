@@ -22,6 +22,16 @@ try:
                 self.sustain_factor = self.get_sustain_factor()
                 self.release_rate = self.get_release_rate()
         
+        def __str__(self):
+            type_names = {
+                0: "none",
+                1: "single-note PCM",
+                2: "single-note PSG square wave",
+                3: "single-note PSG white noise",
+                16:"range",
+                17:"regional",}
+            return f"{type_names.get(self.notedef.type, hex(self.notedef.type))} {self.samplerate}Hz" + (f"  loop={self.loop}" if self.loop is not None else "") + ("" if self.pitch_change else "  single-pitch")
+        
         def get_data_range(self, start, end):
             goal_len = end - start
             out = self.data[start:end]
@@ -102,7 +112,7 @@ try:
             return
         bank = sdat.banks[sseq.bankID][1]
         sample_list = loadBank(bank, sdat)
-        print(sseq.events)
+        #print(sseq.events)
         #print(sseq.bankID)
         # todo: investigate playerID
         player = wav_player.SSEQPlayer(sseq.events, sample_list)
@@ -110,47 +120,55 @@ try:
 
     def loadBank(bank: sa.soundBank.SBNK, sdat: sa.SDAT):
         sample_list: list[Sample] = []
-        swar_list: list = []
+        swar_list = get_swar_list(bank, sdat)
+        for i in bank.instruments:
+            sample_list.append(loadInstrument(i, swar_list))
+
+        #print(sample_list)
+        return sample_list
+    
+    def get_swar_list(bank: sa.soundBank.SBNK, sdat: sa.SDAT) -> list[sa.soundWaveArchive.SWAR]:
+        swar_list = []
         for s in bank.waveArchiveIDs:
             swar_list.append(sdat.waveArchives[s][1]) # object is at index 1
-        for i in bank.instruments:
-            #print(i)
-            if isinstance(i, sa.soundBank.SingleNoteInstrument):
-                #print(swar_list[i.noteDefinition.waveArchiveIDID].waves[i.noteDefinition.waveID])
-                if i.type == sa.soundBank.SINGLE_NOTE_PCM_INSTRUMENT_TYPE:
-                    sample_list.append(loadSWAV(swar_list[i.noteDefinition.waveArchiveIDID].waves[i.noteDefinition.waveID], i.noteDefinition))
-                elif i.type == sa.soundBank.SINGLE_NOTE_PSG_SQUARE_WAVE_INSTRUMENT_TYPE:
-                    sample = Sample(SQUARE_SAMPLE_DATA[i.noteDefinition.dutyCycle], loop=0, samplerate=int(440 * 2**(-3/4) * 8), notedef=i.noteDefinition)
-                    sample_list.append(sample)
-            elif isinstance(i, sa.soundBank.RangeInstrument):
-                # contains one instrument per pitch in a certain range
-                sample_range = []
-                for d in range(128):
-                    if d < i.firstPitch or d-i.firstPitch > len(i.noteDefinitions)-1:
-                        sample_range.append(None)
-                    else:
-                        noteDefinition = i.noteDefinitions[d-i.firstPitch]
-                        sample = loadSWAV(swar_list[noteDefinition.waveArchiveIDID].waves[noteDefinition.waveID], noteDefinition)
-                        sample.pitch_change = False
-                        sample_range.append(sample)
-                assert len(sample_range) == 128
-                sample_list.append(sample_range)
-            elif isinstance(i, sa.soundBank.RegionalInstrument):
-                # like RangeInstrument, but an intrument is reused for multiple pitchs (region)
-                sample_range = []
-                for d in range(128):
-                    for r in i.regions:
-                        if r.lastPitch > len(sample_range): # assuming that all regions are sorted in ascending lastPitch order
-                            sample_range.append(loadSWAV(swar_list[r.noteDefinition.waveArchiveIDID].waves[r.noteDefinition.waveID], r.noteDefinition))
-                            break
-                    if len(sample_range) <= d:
-                        sample_range.append(None)
-                assert len(sample_range) == 128
-                sample_list.append(sample_range)
-            else:
-                sample_list.append(None)
-        print(sample_list)
-        return sample_list
+        return swar_list
+
+    def loadInstrument(i: sa.soundBank.Instrument, swar_list: list[sa.soundWaveArchive.SWAR]) -> Sample | list[Sample] | None:
+        #print(i)
+        if isinstance(i, sa.soundBank.SingleNoteInstrument):
+            #print(swar_list[i.noteDefinition.waveArchiveIDID].waves[i.noteDefinition.waveID])
+            if i.type == sa.soundBank.SINGLE_NOTE_PCM_INSTRUMENT_TYPE:
+                return loadSWAV(swar_list[i.noteDefinition.waveArchiveIDID].waves[i.noteDefinition.waveID], i.noteDefinition)
+            elif i.type == sa.soundBank.SINGLE_NOTE_PSG_SQUARE_WAVE_INSTRUMENT_TYPE:
+                sample = Sample(SQUARE_SAMPLE_DATA[i.noteDefinition.dutyCycle], loop=0, samplerate=int(440 * 2**(-3/4) * 8), notedef=i.noteDefinition)
+                return sample
+        elif isinstance(i, sa.soundBank.RangeInstrument):
+            # contains one instrument per pitch in a certain range
+            sample_range = []
+            for d in range(128):
+                if d < i.firstPitch or d-i.firstPitch > len(i.noteDefinitions)-1:
+                    sample_range.append(None)
+                else:
+                    noteDefinition = i.noteDefinitions[d-i.firstPitch]
+                    sample = loadSWAV(swar_list[noteDefinition.waveArchiveIDID].waves[noteDefinition.waveID], noteDefinition)
+                    sample.pitch_change = False
+                    sample_range.append(sample)
+            assert len(sample_range) == 128
+            return sample_range
+        elif isinstance(i, sa.soundBank.RegionalInstrument):
+            # like RangeInstrument, but an intrument is reused for multiple pitchs (region)
+            sample_range = []
+            for d in range(128):
+                for r in i.regions:
+                    if r.lastPitch > len(sample_range): # assuming that all regions are sorted in ascending lastPitch order
+                        sample_range.append(loadSWAV(swar_list[r.noteDefinition.waveArchiveIDID].waves[r.noteDefinition.waveID], r.noteDefinition))
+                        break
+                if len(sample_range) <= d:
+                    sample_range.append(None)
+            assert len(sample_range) == 128
+            return sample_range
+        else:
+            return None
 
     def loadSWAV(swav: sa.soundWaveArchive.soundWave.SWAV, notedef: sa.soundBank.NoteDefinition=None):
         assert type(swav) == sa.soundWaveArchive.soundWave.SWAV

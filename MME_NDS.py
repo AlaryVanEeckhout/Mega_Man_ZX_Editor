@@ -3237,6 +3237,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 ]))
         self.tree_arm7Ovltable.header().resizeSections(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
     
+    TREE_PLACEHOLDER = ["N/A", "Loading...", ""] # placeholder for dynamically loaded items
+
     def treeSdatUpdate(self):
         #print(str(self.sdats[self.dropdown_sdat.currentIndex()].groups)[:13000])
         #progress = QtWidgets.QProgressBar()
@@ -3291,8 +3293,13 @@ class MainWindow(QtWidgets.QMainWindow):
                 for section_i, section in enumerate(data_list[item_list.index(category)]):
                     child = QtWidgets.QTreeWidgetItem([str(section_i), section[0], category.text(2)])
                     if isinstance(section[1], type(sdat.sequences[0][1])):
-                        subChild = QtWidgets.QTreeWidgetItem(["N/A", "Loading...", ""]) # placeholder for dynamically loaded items
+                        subChild = QtWidgets.QTreeWidgetItem(self.TREE_PLACEHOLDER)
                         child.addChild(subChild)
+                    if hasattr(section[1], "instruments"):
+                        for instrument_i, instrument in enumerate(section[1].instruments):
+                            subChild = QtWidgets.QTreeWidgetItem([str(instrument_i), instrument.__str__(), "Instrument"])
+                            subChild.addChild(QtWidgets.QTreeWidgetItem(self.TREE_PLACEHOLDER))
+                            child.addChild(subChild)
                     if hasattr(section[1], "bankID"):
                         child.setToolTip(0, "bankID: " + str(section[1].bankID))
                     if hasattr(section[1], "sequences"): # sequenceArchives
@@ -3317,7 +3324,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """Loads tree items on demand when expanding parent item"""
         item_placeholder = item.child(0)
         child_list = []
-        if item_placeholder.text(0) == "N/A" and item_placeholder.text(1) == "Loading...":
+        if item_placeholder.text(0) == self.TREE_PLACEHOLDER[0] and item_placeholder.text(1) == self.TREE_PLACEHOLDER[1]:
             if item.text(2) == "SSEQ":
                 sseq = self.file_fromItem(item)[4]
                 sseq.parse()
@@ -3325,7 +3332,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     for event_i, event in enumerate(sseq.events):
                         child = QtWidgets.QTreeWidgetItem([str(event_i), event.__repr__(), "Event"])
                         if event.__repr__().startswith("BeginTrackSequenceEvent"):
-                            subChild = QtWidgets.QTreeWidgetItem(["N/A", "Loading...", ""]) # placeholder for dynamically loaded items
+                            subChild = QtWidgets.QTreeWidgetItem(self.TREE_PLACEHOLDER)
                             child.addChild(subChild)
                         child_list.append(child)
                 else:
@@ -3334,14 +3341,39 @@ class MainWindow(QtWidgets.QMainWindow):
                 sseq = self.file_fromItem(item.parent())[4]
                 event_track = sseq.events[int(item.text(0))]
                 index_start = None
-                for event_i, event in enumerate(sseq.events):
+                index_current = 0
+                index_list = []
+                while True:
+                    event = sseq.events[index_current]
                     if index_start is not None:
-                        child = QtWidgets.QTreeWidgetItem([str(event_i), event.__repr__(), "Event (Preview)"])
+                        if index_current in index_list:
+                            break # do not loop infinitely
+                        child = QtWidgets.QTreeWidgetItem([str(index_current), event.__str__(), "Event (Preview)"])
                         child_list.append(child)
+                        if isinstance(event, ndspy.soundArchive.soundSequence.JumpSequenceEvent):
+                            index_list.append(index_current)
+                            index_current = next(i for i, e in enumerate(sseq.events) if e is event.destination)
+                            continue
+                        if isinstance(event, ndspy.soundArchive.soundSequence.EndTrackSequenceEvent):
+                            break
                     elif event == event_track.firstEvent:
-                        index_start = event_i
-                    if isinstance(event, ndspy.soundArchive.soundSequence.EndTrackSequenceEvent):
-                        break
+                        index_start = index_current
+                        continue
+                    index_current += 1
+            elif item.text(2) == "Instrument":
+                sdat = self.sdats[self.dropdown_sdat.currentIndex()]
+                sbnk = self.file_fromItem(item.parent())[4]
+                swar_list = lib.sdat.get_swar_list(sbnk, sdat)
+                instrument = lib.sdat.loadInstrument(sbnk.instruments[int(item.text(0))], swar_list)
+                if isinstance(instrument, list):
+                    for pitch in range(128):
+                        child = QtWidgets.QTreeWidgetItem([str(pitch), instrument[pitch].__str__(), "SWAV (Preview)"])
+                        child_list.append(child)
+                else:
+                    for pitch in range(128):
+                        child = QtWidgets.QTreeWidgetItem([str(pitch), instrument.__str__(), "SWAV (Preview)"])
+                        child_list.append(child)
+
             item.removeChild(item_placeholder)
             item.addChildren(child_list)
 
