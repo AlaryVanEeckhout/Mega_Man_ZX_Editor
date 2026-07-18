@@ -3112,10 +3112,20 @@ class MainWindow(QtWidgets.QMainWindow):
             snd_data = ndspy.soundArchive.soundWaveArchive.soundWave.SWAV(self.file_fromItem(items[0]).data)
             lib.sdat.playSWAV(snd_data)
         if snd_type == "Note":
-            print("play SWAV")
-            instrument = self.file_fromItem(items[0].parent())
-            print(instrument.objects[-1])
-            #lib.sdat.playSWAV(snd_data)
+            print("play Note")
+            # Make a small SSEQ object just to play the note with the right instrument at the desired pitch
+            instrument = self.file_fromItem(items[0].parent()).objects[-1]
+            print(instrument)
+            bank_id = int(items[0].parent().parent().text(0))
+            instr_id = int(items[0].parent().text(0))
+            note_id = int(items[0].text(0))
+            sseq = ndspy.soundArchive.soundSequence.SSEQ(bankID=bank_id)
+            sseq.events = [
+                ndspy.soundArchive.soundSequence.InstrumentSwitchSequenceEvent(bank_id, instr_id),
+                ndspy.soundArchive.soundSequence.NoteSequenceEvent(note_id, 127, 0),
+                ndspy.soundArchive.soundSequence.EndTrackSequenceEvent()
+                ]
+            lib.sdat.playSSEQ(sseq, self.sdats[self.dropdown_sdat.currentIndex()])
         elif snd_type == "SSEQ": # WIP
             print("play SSEQ")
             try:
@@ -3128,9 +3138,9 @@ class MainWindow(QtWidgets.QMainWindow):
                     "Load Failed",
                     "Could not load SSEQ because information is missing."
                 )
-        elif snd_type == "SSARS": # WIP
+        elif snd_type == "SSARS":
             print("play SSARSequence")
-            # attempt to pass the SSARS as an SSEQ
+            # pass the SSARS as an SSEQ
             try:
                 ssar: ndspy.soundArchive.soundSequenceArchive.SSAR = self.sdats[self.dropdown_sdat.currentIndex()].sequenceArchives[int(items[0].parent().text(0))][1]
                 ssars: ndspy.soundArchive.soundSequenceArchive.SSARSequence = ssar.sequences[item_id][1]
@@ -3411,10 +3421,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 if isinstance(instrument, list):
                     for pitch in range(128):
                         child = QtWidgets.QTreeWidgetItem([str(pitch), instrument[pitch].__str__(), "Note"])
+                        child.setToolTip(0, ndspy.soundArchive._common.noteName(pitch))
                         child_list.append(child)
                 else:
                     for pitch in range(128):
                         child = QtWidgets.QTreeWidgetItem([str(pitch), instrument.__str__(), "Note"])
+                        child.setToolTip(0, ndspy.soundArchive._common.noteName(pitch))
                         child_list.append(child)
 
             item.removeChild(item_placeholder)
