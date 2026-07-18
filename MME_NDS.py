@@ -2065,15 +2065,15 @@ class MainWindow(QtWidgets.QMainWindow):
                             file_found = True
                         elif item.parent() != None and file[0] == item.parent().text(1):
                             if item.text(2) == "SWAV":
-                                data = objs[3].waves[int(item.text(0))].save()
-                                #print(type(data))
+                                objs.append(objs[3].waves[int(item.text(0))])
+                                data = objs[4].save()
                             elif item.text(2) == "SSARS":
-                                ssars = objs[3].sequences[int(item.text(0))][1]
-                                data = ssars.save()
+                                objs.append(objs[3].sequences[int(item.text(0))][1])
+                                data = objs[4].save()
                                 print(data)
                                 if isinstance(data, tuple):
                                     data = data[0]
-                                if not ssars.parsed and data is not None:
+                                if not objs[4].parsed and data is not None:
                                     data = int.to_bytes(data, 1+data//0x100, 'little')
                             elif item.text(2) == "Instrument":
                                 objs.append(objs[3].instruments[int(item.text(0))])
@@ -2377,7 +2377,7 @@ class MainWindow(QtWidgets.QMainWindow):
         dialog = QtWidgets.QFileDialog(
                 self,
                 "Export File",
-                "",
+                item.text(1),
                 "Supported Export Formats (*.bin *.txt *.bmp *.vx);;All Files (*)",
                 options=QtWidgets.QFileDialog.Option.DontUseNativeDialog,
                 )
@@ -2683,39 +2683,44 @@ class MainWindow(QtWidgets.QMainWindow):
                             oldObject = fileInfo.data
                         try:
                             newObject = type(oldObject).fromFile(f.name)
-                        except:
+                        except Exception as e:
+                            print(e)
                             dialog2.exec()
                             return
                         if isinstance(oldObject, ndspy.soundArchive.soundSequenceArchive.soundSequence.SSEQ): # bankID fix (defaults to 0)
-                            newObject.unk02 = oldObject.unk02
+                            #newObject.unk02 = oldObject.unk02
                             newObject.bankID = oldObject.bankID
-                            newObject.volume = oldObject.volume
-                            newObject.channelPressure = oldObject.channelPressure
-                            newObject.polyphonicPressure = oldObject.polyphonicPressure
-                            newObject.playerID = oldObject.playerID
+                            #newObject.volume = oldObject.volume
+                            #newObject.channelPressure = oldObject.channelPressure
+                            #newObject.polyphonicPressure = oldObject.polyphonicPressure
+                            #newObject.playerID = oldObject.playerID
                             #for sseq in fileInfo.objects[2]:
                             #    if sseq[0] == fileName:
                             #        newObject.bankID = sseq[1].bankID
-                            #        newName = fileInfo.data[0]
+                        elif isinstance(oldObject, ndspy.soundArchive.soundBank.SBNK): # waveArchiveIDs (defaults to [])
+                            newObject.waveArchiveIDs = oldObject.waveArchiveIDs
+                        elif isinstance(oldObject, ndspy.soundArchive.soundWaveArchive.SWAR): # waveArchiveIDs (defaults to [])
+                            print(newObject.waves)
                         print(oldObject)
                         print(newObject)
-                        if len(fileInfo.objects) <= 4:
-                            if fileInfo.data is None:
-                                print("data is empty")
-                                dialog2.exec()
-                                return
+                        if fileInfo.data is None:
+                            print("data is empty")
+                            dialog2.exec()
+                            return
+                        try:
                             #print(fileInfo.objects[-1] in fileInfo.objects[2][0])
                             objectIndex = next(i for i, x in enumerate(fileInfo.objects[2]) if fileInfo.objects[-1] in x)
-                            if hasattr(fileInfo.objects[-1], "waves"):
-                                    fileInfo.objects[-1].waves[fileInfo.objects[-1].waves.index(fileInfo.data)] = (newObject) 
-                                    fileInfo.objects[2][objectIndex][1] = fileInfo.objects[-1]
-                            elif hasattr(fileInfo.objects[-1], "sequences"):
-                                fileInfo.objects[-1].sequences[fileInfo.objects[-1].sequences.index(fileInfo.data)] = (newObject) 
-                                fileInfo.objects[2][objectIndex][1] = fileInfo.objects[-1]
+                            if hasattr(fileInfo.objects[-2], "waves"):
+                                    fileInfo.objects[-2].waves[fileInfo.objects[-2].waves.index(fileInfo.objects[-1])] = (newObject) 
+                                    fileInfo.objects[2][objectIndex][1] = fileInfo.objects[-2] # save to category
+                            elif hasattr(fileInfo.objects[-2], "sequences"):
+                                fileInfo.objects[-2].sequences[fileInfo.objects[-2].sequences.index(fileInfo.objects[-1])] = (newObject) 
+                                fileInfo.objects[2][objectIndex][1] = fileInfo.objects[-2]
                             else: # category object
                                 fileInfo.objects[2][objectIndex] = (newName, newObject)
-                        else:
-                            print("unhandled case: object too deep in hierarchy")
+                        except Exception as e:
+                            print(e)
+                            print("unhandled case: object probably too deep in hierarchy")
                             dialog2.exec()
                             return
                         setattr(self.sdats[self.dropdown_sdat.currentIndex()], categoryName, fileInfo.objects[2])
