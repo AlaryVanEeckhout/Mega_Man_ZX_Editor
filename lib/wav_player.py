@@ -53,9 +53,6 @@ class WAVPlayer:
             # try filling outdata with data
             range_start = noteInfo.current_frame
             range_end = noteInfo.current_frame+frames
-            #if noteInfo.duration is not None and noteInfo.duration != 0: # todo: duration 0 = infinite loop
-            #    range_start = min(range_start, noteInfo.duration)
-            #    range_end = min(range_end, noteInfo.duration)
             sample = noteInfo.sample.zoom(1)
             if noteInfo.modifier is not None:
                 # todo: understand why this formula works
@@ -74,7 +71,8 @@ class WAVPlayer:
                         noteInfo.current_gain = sample.sustain_factor
                         noteInfo.adsr_stage = 2
                 elif noteInfo.adsr_stage == 2: # sustain
-                    if noteInfo.current_frame > noteInfo.duration:
+                    # duration 0 = infinite loop
+                    if noteInfo.duration != 0 and noteInfo.current_frame > noteInfo.duration:
                         noteInfo.adsr_stage = 3
                 elif noteInfo.adsr_stage == 3: # release
                     noteInfo.current_gain -= sample.release_rate / self.stream.samplerate

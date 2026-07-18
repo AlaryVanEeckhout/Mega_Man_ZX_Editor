@@ -45,6 +45,16 @@ class RunnableDisplayProgress(QtCore.QRunnable):
         QtCore.QMetaObject.invokeMethod(w.progress, "setValue", QtCore.Qt.ConnectionType.QueuedConnection, QtCore.Q_ARG(int, 0))
         print("runnable finish")
 """
+class FileInfo:
+    def __init__(self, data: bytes | bytearray, name: str, objects: list[object]):
+        """
+        data `bytes|bytearray`: binary file data\n
+        name `str`: name of the file\n
+        objects `list[object]`: object hierarchy going from rom.files at index 0 to the most specific object
+        """
+        self.data = data
+        self.name = name
+        self.objects = objects
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -1976,33 +1986,20 @@ class MainWindow(QtWidgets.QMainWindow):
     """
 
     def file_fromItem(self, item: QtWidgets.QTreeWidgetItem):
-        """
-        Returns:
-            `list` (a list of informations about the item's corresponding file):
-                - [0] `bytes`: _bytes object containing file data_
-                - [1] `str`: _string of the file name_
-                - [2] `object`: _parent object that allows saving this file's data_
-                - [3] `object`: _object within the parent object where the file is stored_
-                - [4] `object`: _like [3], but deeper, and only applies for some objects like SDAT_
-        """
-        # this should return an object instead
-        RESULT_EMPTY = [b'', "", None, None, None]
         tree = item.treeWidget()
         name = ""
         data = bytes()
-        obj = self.rom.files
-        obj2 = None # allow ref to object
-        obj3 = None # for sdat objects in sections
+        objs = [self.rom.files]
         if tree == self.tree:
             name = item.text(1) + "." + item.text(2)
-            data = obj[int(item.text(0))]
+            data = objs[0][int(item.text(0))]
         else:
             if tree.ContextNameType == "[Filenames]":
                 name = item.text(1) + ("." + item.text(2)).replace(".Folder", " and contents")
             else:
                 name = tree.ContextNameType + item.text(0)
             if tree == self.tree_arm9: # 02000000 - 00004000 = 01FFC000
-                obj = self.rom.arm9
+                objs[0] = self.rom.arm9
                 if item.text(1) == "main code file":
                     data = self.rom.arm9
                 else:
@@ -2014,12 +2011,12 @@ class MainWindow(QtWidgets.QMainWindow):
                             data = self.rom.arm9[lib.datconv.strToNum(item.text(0), self.displayBase) - 0x01FFC000 - 0x00004000:]
                     else:
                         print("Explicit ARM9 code-sections are not (yet) supported")
-                        return RESULT_EMPTY
+                        return None
                         #data = ndspy.codeCompression._compress(self.rom.loadArm9().sections[int(tree.indexFromItem(item).row())].data) #compressed
                 name += ".bin"
             if tree == self.tree_arm7: # 02380000 - 0014E000 = 02232000
                 self.rom.arm7EntryAddress
-                obj = self.rom.arm7
+                objs[0] = self.rom.arm7
                 if item.text(2) == "True":
                     try:
                         item_next = tree.itemBelow(item)
@@ -2030,7 +2027,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         data = self.rom.arm7[lib.datconv.strToNum(item.text(0), self.displayBase) - 0x02232000 - 0x0014E000]
                 else:
                     print("Explicit ARM7 code-sections are not (yet) supported")
-                    return RESULT_EMPTY
+                    return None
                     #ndspy.codeCompression.compress(self.rom.loadArm7().sections[int(tree.indexFromItem(item).row())].data)
                 name += ".bin"
             if tree == self.tree_arm9Ovltable:
@@ -2040,44 +2037,58 @@ class MainWindow(QtWidgets.QMainWindow):
                 data = self.rom.files[int(item.text(0))] #.loadArm7Overlays()[int(item.text(0))].data
                 name += ".bin"
             if tree in self.trees_sdat:
-                obj2 = self.sdats[self.dropdown_sdat.currentIndex()]
+                objs.append(self.sdats[self.dropdown_sdat.currentIndex()])
                 data_list = [
-                obj2.sequences,
-                obj2.sequenceArchives,
-                obj2.banks,
-                obj2.waveArchives,
-                obj2.sequencePlayers,
-                obj2.streams,
-                obj2.streamPlayers,
-                obj2.groups
+                objs[1].sequences,
+                objs[1].sequenceArchives,
+                objs[1].banks,
+                objs[1].waveArchives,
+                objs[1].sequencePlayers,
+                objs[1].streams,
+                objs[1].streamPlayers,
+                objs[1].groups
                 ]
+                objs.append(None) # category
+                objs.append(None) # file
                 # to ensure that the loop is correctly exited once the results are found
                 file_found = False
                 for category in data_list:
                     if file_found: break
                     for file in category:
                         if file_found: break
-                        obj3 = file[1]
-                        obj2 = category
+                        objs[3] = file[1]
+                        objs[2] = category
                         if file[0] == item.text(1):
-                            data = obj3.save()
+                            data = objs[3].save()
                             if isinstance(data, tuple):
                                 data = data[0]
                             file_found = True
                         elif item.parent() != None and file[0] == item.parent().text(1):
                             if item.text(2) == "SWAV":
-                                data = obj3.waves[int(item.text(0))].save()
+                                data = objs[3].waves[int(item.text(0))].save()
                                 #print(type(data))
                             elif item.text(2) == "SSARS":
-                                data = obj3.sequences[int(item.text(0))][1].save()
+                                ssars = objs[3].sequences[int(item.text(0))][1]
+                                data = ssars.save()
                                 print(data)
                                 if isinstance(data, tuple):
                                     data = data[0]
+                                if not ssars.parsed and data is not None:
+                                    data = int.to_bytes(data, 1+data//0x100, 'little')
+                            elif item.text(2) == "Instrument":
+                                objs.append(objs[3].instruments[int(item.text(0))])
+                                if objs[4] is not None:
+                                    data = objs[4].save()
+                                else:
+                                    data = None
                             else:
-                                print("unhandled data type")
-                                data = file
+                                print(f"unhandled data type: {item.text(2)}")
+                                data = None
                             file_found = True
-        return [data, name, obj, obj2, obj3]
+                if file_found == False:
+                    print(f"no matches found for {item.text(1)}")
+                    return None
+        return FileInfo(data, name, objs)
     
     def patches_reload(self):
         #print("call")
@@ -2357,10 +2368,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_level_area.clear()
         self.dropdown_level_type.clear()
         self.textEdit_dialogueNames.clear()
+        if self.dropdown_sdat.currentIndex() != -1:
+            self.trees_sdat[self.dropdown_sdat.currentIndex()].hide()
         self.dropdown_sdat.clear()
         self.button_patches_apply.setDisabled(True)
-        for widget in self.trees_sdat:
-            self.page_sdat.layout().removeWidget(widget)
 
     def exportCall(self, item: QtWidgets.QTreeWidgetItem):
         dialog = QtWidgets.QFileDialog(
@@ -2410,21 +2421,25 @@ class MainWindow(QtWidgets.QMainWindow):
                 print("Item: " + item.text(0))
                 if item != None:
                     fileInfo = self.file_fromItem(item)
-                    if fileInfo == [b'', "", None, None]:
-                        print("could not fetch data from tree item")
+                    if fileInfo == None:
                         dialog2.setText("no file could be exported!\nmake sure to select a file before trying to export.")
                         dialog2.exec()
                         return
-                    elif not isinstance(fileInfo[0], (bytes, bytearray)): # both bytes and bytearray are essentially the same, but need to be checked for separately
-                        if type(fileInfo[0]) == tuple:
-                            fileData = fileInfo[0][1].save()
-                        else:
-                            fileData = fileInfo[0].save()
+                    elif fileInfo.data is None:
+                        dialog2.setText("The item you are trying to export returned empty data!\nmake sure to select a real file before trying to export.")
+                        dialog2.exec()
+                        return
+                    else:
+                        fileData = fileInfo.data
+                    if not isinstance(fileInfo.data, (bytes, bytearray)): # both bytes and bytearray are essentially the same, but need to be checked for separately
+                        # fileInfo.data is not the expected data
+                        if isinstance(fileInfo.data, tuple):
+                            fileData = fileInfo.data[1]
+                        if hasattr(fileData, "save"):
+                            fileData = fileData.save()
                         print(fileData)
                         if isinstance(fileData, tuple):
                             fileData = fileData[0]
-                    else:
-                        fileData = fileInfo[0] # fileInfo[0] is already the expected data
                     if not "Folder" in item.text(2): # if file
                         self.extract(fileData, name=name, path=path, format=dropdown_formatSelect.currentText(), compress=[dropdown_compressSelect.currentText(), dropdown_compresstypeSelect.currentText()])
                         dialog2.setText(f"file \"{item.text(1)}\" exported!")
@@ -2439,7 +2454,8 @@ class MainWindow(QtWidgets.QMainWindow):
                         for i in range(item.childCount()):
                             print(item.child(i).text(0))
                             # file_fromItem gets the name automatically
-                            self.extract(*self.file_fromItem(item.child(i))[:2], path=folder_path, format=dropdown_formatSelect.currentText(), compress=[dropdown_compressSelect.currentText(), dropdown_compresstypeSelect.currentText()])#, w.fileToEdit_name.replace(".Folder", "/")
+                            fileInfo = self.file_fromItem(item.child(i))
+                            self.extract(fileInfo.data, fileInfo.name, path=folder_path, format=dropdown_formatSelect.currentText(), compress=[dropdown_compressSelect.currentText(), dropdown_compresstypeSelect.currentText()])#, w.fileToEdit_name.replace(".Folder", "/")
                             #str(w.tree.currentItem().child(i).text(1) + "." + w.tree.currentItem().child(i).text(2)), 
                         dialog2.setText(f"folder \"{item.text(1)}\" exported!")
                     dialog2.exec()
@@ -2510,6 +2526,7 @@ class MainWindow(QtWidgets.QMainWindow):
             dialog.filterSelected.connect(lambda: self.switch_dialogMode(dialog))
             dialog.setLabelText(QtWidgets.QFileDialog.DialogLabel.Accept, "Import")
             dialog.setLabelText(QtWidgets.QFileDialog.DialogLabel.FileName, "Source:")
+            PARTITION_REGEX = r".*(_\d+)$"
             if dialog.exec(): # if file you're trying to replace is in ROM
                     isFolder = dialog.selectedNameFilter() == "Directories"
                     selectedFiles = dialog.selectedFiles()
@@ -2518,8 +2535,11 @@ class MainWindow(QtWidgets.QMainWindow):
                     dialog2.setWindowIcon(QtGui.QIcon(PATH_ROOT + 'icons/information'))
                     dialog2.setText("File import failed!")
                     fileInfo = self.file_fromItem(item)
-                    if not isFolder and str(selectedFiles[0]).split("/")[-1].split(".")[1] == "txt" and re.search(r".*(_\d+)$", str(selectedFiles[0]).split("/")[-1].split(".")[0]): # fileExt and fileName
-                        dialogue = lib.dialogue.DialogueFile(fileInfo[2][fileInfo[2].index(fileInfo[0])]) # object created before loop to improve performance
+                    if fileInfo is None:
+                        dialog2.exec()
+                        return
+                    if not isFolder and str(selectedFiles[0]).split("/")[-1].split(".")[1] == "txt" and re.search(PARTITION_REGEX, str(selectedFiles[0]).split("/")[-1].split(".")[0]): # fileExt and fileName
+                        dialogue = lib.dialogue.DialogueFile(fileInfo.data) # object created before loop to improve performance
                     for file in selectedFiles:
                         try:
                             fileName = str(file).split("/")[-1].split(".")[0]
@@ -2532,7 +2552,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                 fileEdited = f.read()
                                 #print(fileExt)
                                 # find a way to get attr and replace data at correct index.. maybe it's better to just save ROM and patch
-                                #self.rom.files[self.rom.files.index(self.file_fromItem(item)[0])]
+                                #self.rom.files[self.rom.files.index(self.file_fromItem(item).data)]
                                 supported_list = ["txt", "bmp",
                                                   "swar", "sbnk", "ssar", "sseq",
                                                   "cmp", "blz", "lz", "lz10", "lz77", 
@@ -2544,17 +2564,22 @@ class MainWindow(QtWidgets.QMainWindow):
                                 if not any(supported == fileExt.lower() for supported in supported_list): # unknown
                                     dialog2.exec()
                                     return
-                                elif not isinstance(fileInfo[2], type(None)):
+                                elif not isinstance(fileInfo.objects[0], type(None)):
                                     if fileExt == "txt": # english text file
-                                        if "en" in fileName or "jp" in fileName:
-                                            if re.search(r".*(_\d+)$", fileName) and dialogue: # match the indicator that the file is a chunk of the original file
-                                                dialogue.text_list[int(fileName.split("_")[-1])] = fileEdited.decode("utf-8") # add file text to object
-                                                if selectedFiles.index(file) == len(selectedFiles)-1: # if at last selected file
-                                                    data = dialogue.toBytes() # generate final binary to import (done only once to improve performance)
-                                            else: # forced dialogue state
+                                        # match the indicator that the file is a chunk of the original file
+                                        if ("en" in fileName or "jp" in fileName) and (re.search(PARTITION_REGEX, fileName) and dialogue):
+                                            dialogue.text_list[int(fileName.split("_")[-1])] = fileEdited.decode("utf-8") # add file text to object
+                                            if selectedFiles.index(file) == len(selectedFiles)-1: # if at last selected file
+                                                data = dialogue.toBytes() # generate final binary to import (done only once to improve performance)
+                                        else: #the file was generated in forced dialogue state or in an older version
+                                            print(fileName)
+                                            try:
                                                 data = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8")))
-                                        else:
-                                            data = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8")))
+                                            except RuntimeError as e:
+                                                print(e)
+                                                dialog2.setText("Unable to properly parse dialogue data!\nIf this file was exported on a previous version of the editor,\nmake sure the special commands like \"COUNTER\" (0xF9) have the updated name.")
+                                                dialog2.exec()
+                                                return
                                     elif fileExt == "bmp":
                                         img = QtGui.QImage()
                                         img.load(file)
@@ -2637,24 +2662,25 @@ class MainWindow(QtWidgets.QMainWindow):
                                     "The editor does not know what to do with this folder.\nIf you want it to be treated as a VX folder, please add \".vx\" at the end of its name."
                                 )
                                 return
-
-                    if isinstance(fileInfo[2], bytearray): # other
-                            fileInfo[2][fileInfo[2].index(fileInfo[0]):fileInfo[2].index(fileInfo[0])+len(fileInfo[0])] = data
+                    if isinstance(fileInfo.objects[0], bytearray): # other
+                            data_i = fileInfo.objects[0].index(fileInfo.data)
+                            fileInfo.objects[0][data_i:data_i+len(fileInfo.data)] = data
                             print(data[:0x15].hex())
-                    elif fileInfo[3] == None: # rom files
-                        fileInfo[2][fileInfo[2].index(fileInfo[0])] = data
+                    elif len(fileInfo.objects) == 1: # rom files
+                        data_i = fileInfo.objects[0].index(fileInfo.data)
+                        fileInfo.objects[0][data_i] = data
                         print(data[:0x15].hex())
-                    elif any(x for x in self.sdats[self.dropdown_sdat.currentIndex()].__dict__.values() if x == fileInfo[3]):
+                    elif any(x for x in self.sdats[self.dropdown_sdat.currentIndex()].__dict__.values() if x == fileInfo.objects[2]):
                         #SDAT. this code is very experimental and should not be expected to work perfectly
                         for key, value in self.sdats[self.dropdown_sdat.currentIndex()].__dict__.items():
-                            if value == fileInfo[3]:
+                            if value == fileInfo.objects[2]:
                                 categoryName = key
                                 break
                         newName = fileName
-                        if fileInfo[4] is not None: # object listed within object in one of the sdat sections
-                            oldObject = fileInfo[4]#fileInfo[0][1]
-                        else:
-                            oldObject = fileInfo[0]
+                        if len(fileInfo.objects) > 3: # object listed within object in one of the sdat sections
+                            oldObject = fileInfo.objects[-1] # the most specific object
+                        else: # if data can only be bytes, this else should be removed, because bytes does not have "fromFile"
+                            oldObject = fileInfo.data
                         try:
                             newObject = type(oldObject).fromFile(f.name)
                         except:
@@ -2667,28 +2693,38 @@ class MainWindow(QtWidgets.QMainWindow):
                             newObject.channelPressure = oldObject.channelPressure
                             newObject.polyphonicPressure = oldObject.polyphonicPressure
                             newObject.playerID = oldObject.playerID
-                            #for sseq in fileInfo[3]:
+                            #for sseq in fileInfo.objects[2]:
                             #    if sseq[0] == fileName:
                             #        newObject.bankID = sseq[1].bankID
-                            #        newName = fileInfo[0][0]
+                            #        newName = fileInfo.data[0]
                         print(oldObject)
                         print(newObject)
-                        objectIndex = fileInfo[3].index([x for x in fileInfo[3] if fileInfo[4] in x])
-                        if hasattr(fileInfo[4], "waves"):
-                                fileInfo[4].waves[fileInfo[4].waves.index(fileInfo[0])] = (newObject) 
-                                fileInfo[3][objectIndex][1] = fileInfo[4]
-                        elif hasattr(fileInfo[4], "sequences"):
-                            fileInfo[4].sequences[fileInfo[4].sequences.index(fileInfo[0])] = (newObject) 
-                            fileInfo[3][objectIndex][1] = fileInfo[4]
-                        else: # category object
-                            fileInfo[3][objectIndex] = (newName, newObject) 
-                        setattr(self.sdats[self.dropdown_sdat.currentIndex()], categoryName, fileInfo[3])
-                        fileInfo[2][self.sdats[self.dropdown_sdat.currentIndex()].fileID] = self.sdats[self.dropdown_sdat.currentIndex()].save() # save sdat to its parent object
+                        if len(fileInfo.objects) <= 4:
+                            if fileInfo.data is None:
+                                print("data is empty")
+                                dialog2.exec()
+                                return
+                            #print(fileInfo.objects[-1] in fileInfo.objects[2][0])
+                            objectIndex = next(i for i, x in enumerate(fileInfo.objects[2]) if fileInfo.objects[-1] in x)
+                            if hasattr(fileInfo.objects[-1], "waves"):
+                                    fileInfo.objects[-1].waves[fileInfo.objects[-1].waves.index(fileInfo.data)] = (newObject) 
+                                    fileInfo.objects[2][objectIndex][1] = fileInfo.objects[-1]
+                            elif hasattr(fileInfo.objects[-1], "sequences"):
+                                fileInfo.objects[-1].sequences[fileInfo.objects[-1].sequences.index(fileInfo.data)] = (newObject) 
+                                fileInfo.objects[2][objectIndex][1] = fileInfo.objects[-1]
+                            else: # category object
+                                fileInfo.objects[2][objectIndex] = (newName, newObject)
+                        else:
+                            print("unhandled case: object too deep in hierarchy")
+                            dialog2.exec()
+                            return
+                        setattr(self.sdats[self.dropdown_sdat.currentIndex()], categoryName, fileInfo.objects[2])
+                        fileInfo.objects[0][self.sdats[self.dropdown_sdat.currentIndex()].fileID] = self.sdats[self.dropdown_sdat.currentIndex()].save() # save sdat to its parent object
                         self.treeSdatUpdate() # refresh tree to avoid interactions with files that are not in the new state
                     else: # subfile
-                        for file in fileInfo[2]:
-                            if fileInfo[0] in file:
-                                fileInfo[2][fileInfo[2].index(file)][file.index(fileInfo[0]):file.index(fileInfo[0])+len(fileInfo[0])] = data
+                        for file in fileInfo.objects[0]:
+                            if fileInfo.data in file:
+                                fileInfo.objects[0][fileInfo.objects[0].index(file)][file.index(fileInfo.data):file.index(fileInfo.data)+len(fileInfo.data)] = data
                             
                     dialog2.setText("File \"" + str(selectedFiles[0]).split("/")[-1] + "\" imported!")
                     dialog2.exec()
@@ -3073,8 +3109,13 @@ class MainWindow(QtWidgets.QMainWindow):
         snd_type = items[0].text(2)
         if snd_type == "SWAV":
             print("play SWAV")
-            snd_data = ndspy.soundArchive.soundWaveArchive.soundWave.SWAV(self.file_fromItem(items[0])[0])
+            snd_data = ndspy.soundArchive.soundWaveArchive.soundWave.SWAV(self.file_fromItem(items[0]).data)
             lib.sdat.playSWAV(snd_data)
+        if snd_type == "Note":
+            print("play SWAV")
+            instrument = self.file_fromItem(items[0].parent())
+            print(instrument.objects[-1])
+            #lib.sdat.playSWAV(snd_data)
         elif snd_type == "SSEQ": # WIP
             print("play SSEQ")
             try:
@@ -3118,7 +3159,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if len(items) == 0: return
         if items[0].text(0) == "N/A": return
         if items[0].text(2) != "SWAV": return
-        snd_data = ndspy.soundArchive.soundWaveArchive.soundWave.SWAV(self.file_fromItem(items[0])[0])
+        snd_data = ndspy.soundArchive.soundWaveArchive.soundWave.SWAV(self.file_fromItem(items[0]).data)
         fig, ax = pyplt.subplots()
         ax.plot(lib.sdat.loadSWAV(snd_data).data)
         pyplt.show()
@@ -3244,6 +3285,8 @@ class MainWindow(QtWidgets.QMainWindow):
         #progress = QtWidgets.QProgressBar()
         #progress.setValue(0)
         #progress.show()
+        for widget in self.trees_sdat:
+            self.page_sdat.layout().removeWidget(widget)
         self.trees_sdat.clear()
         self.dropdown_sdat.clear()
         for i in range(len(self.sdats)):
@@ -3326,7 +3369,7 @@ class MainWindow(QtWidgets.QMainWindow):
         child_list = []
         if item_placeholder.text(0) == self.TREE_PLACEHOLDER[0] and item_placeholder.text(1) == self.TREE_PLACEHOLDER[1]:
             if item.text(2) == "SSEQ":
-                sseq = self.file_fromItem(item)[4]
+                sseq = self.file_fromItem(item).objects[-1]
                 sseq.parse()
                 if sseq.parsed:
                     for event_i, event in enumerate(sseq.events):
@@ -3336,9 +3379,9 @@ class MainWindow(QtWidgets.QMainWindow):
                             child.addChild(subChild)
                         child_list.append(child)
                 else:
-                    print(f"unable to parse SSEQ {self.file_fromItem(item)[1]}")
+                    print(f"unable to parse SSEQ {self.file_fromItem(item).name}")
             elif item.text(2) == "Event": # to view the list of events from a track's first event
-                sseq = self.file_fromItem(item.parent())[4]
+                sseq = self.file_fromItem(item.parent()).objects[-1]
                 event_track = sseq.events[int(item.text(0))]
                 index_start = None
                 index_current = 0
@@ -3362,16 +3405,16 @@ class MainWindow(QtWidgets.QMainWindow):
                     index_current += 1
             elif item.text(2) == "Instrument":
                 sdat = self.sdats[self.dropdown_sdat.currentIndex()]
-                sbnk = self.file_fromItem(item.parent())[4]
+                sbnk = self.file_fromItem(item.parent()).objects[-1]
                 swar_list = lib.sdat.get_swar_list(sbnk, sdat)
                 instrument = lib.sdat.loadInstrument(sbnk.instruments[int(item.text(0))], swar_list)
                 if isinstance(instrument, list):
                     for pitch in range(128):
-                        child = QtWidgets.QTreeWidgetItem([str(pitch), instrument[pitch].__str__(), "SWAV (Preview)"])
+                        child = QtWidgets.QTreeWidgetItem([str(pitch), instrument[pitch].__str__(), "Note"])
                         child_list.append(child)
                 else:
                     for pitch in range(128):
-                        child = QtWidgets.QTreeWidgetItem([str(pitch), instrument.__str__(), "SWAV (Preview)"])
+                        child = QtWidgets.QTreeWidgetItem([str(pitch), instrument.__str__(), "Note"])
                         child_list.append(child)
 
             item.removeChild(item_placeholder)
