@@ -805,8 +805,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_oam_animLoopStart.setRange(0, 0xFF)
         self.field_oam_animLoopStart.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
-        self.button_oam_animToStart = QtWidgets.QPushButton(self.page_oam_anims)
-        self.button_oam_animToStart.setIcon(QtGui.QIcon(PATH_ROOT + 'icons/control-skip-180'))
+        self.button_oam_animToStart = QtWidgets.QPushButton(QtGui.QIcon(PATH_ROOT + 'icons/control-skip-180'), "", self.page_oam_anims)
         self.button_oam_animToStart.setToolTip("To Start")
         self.button_oam_animToStart.pressed.connect(lambda: self.button_oam_animPlay.autoPause())
         self.button_oam_animToStart.pressed.connect(lambda: self.dropdown_oam_animFrame.setCurrentIndex(0))
@@ -815,8 +814,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.button_oam_animPlay.setToolTip("Play/Pause")
         self.button_oam_animPlay.frameRequested.connect(self.OAM_playAnimFrame)
 
-        self.button_oam_animToEnd = QtWidgets.QPushButton(self.page_oam_anims)
-        self.button_oam_animToEnd.setIcon(QtGui.QIcon(PATH_ROOT + 'icons/control-skip'))
+        self.button_oam_animToEnd = QtWidgets.QPushButton(QtGui.QIcon(PATH_ROOT + 'icons/control-skip'), "", self.page_oam_anims)
         self.button_oam_animToEnd.setToolTip("To End")
         self.button_oam_animToEnd.pressed.connect(lambda: self.button_oam_animPlay.autoPause())
         self.button_oam_animToEnd.pressed.connect(lambda: self.dropdown_oam_animFrame.setCurrentIndex(self.dropdown_oam_animFrame.count()-1))
@@ -834,16 +832,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_oam_obj.setStatusTip("Select the object to edit")
         self.dropdown_oam_obj.currentIndexChanged.connect(lambda: self.treeCall(addr_disabled=True))
 
-        self.button_oam_objSelect = QtWidgets.QPushButton(self.page_oam_frames)
-        self.button_oam_objSelect.setText("Select current object")
+        self.button_oam_objSelect = QtWidgets.QPushButton("Select current object", self.page_oam_frames)
         self.button_oam_objSelect.pressed.connect(lambda: self.treeCall(addr_disabled=True))
 
-        self.button_oam_objAdd = QtWidgets.QPushButton(self.page_oam_frames)
-        self.button_oam_objAdd.setText("Add object")
+        self.button_oam_objAdd = QtWidgets.QPushButton("Add object", self.page_oam_frames)
         self.button_oam_objAdd.pressed.connect(lambda: self.treeCall(addr_disabled=True))
 
-        self.button_oam_objRemove = QtWidgets.QPushButton(self.page_oam_frames)
-        self.button_oam_objRemove.setText("Remove object")
+        self.button_oam_objRemove = QtWidgets.QPushButton("Remove object", self.page_oam_frames)
         self.button_oam_objRemove.pressed.connect(lambda: self.treeCall(addr_disabled=True))
 
         self.field_objTileId = lib.widget.BetterSpinBox(self.page_oam_frames)
@@ -1147,8 +1142,27 @@ class MainWindow(QtWidgets.QMainWindow):
         self.page_sdat.setLayout(QtWidgets.QStackedLayout())
         self.dropdown_sdat = QtWidgets.QComboBox()
         self.dropdown_sdat.currentIndexChanged.connect(self.page_sdat.layout().setCurrentIndex)
+        self.container_sdat_tracks = QtWidgets.QGroupBox()
+        self.container_sdat_tracks.setTitle("Mute Tracks")
+        self.container_sdat_tracks.setLayout(QtWidgets.QGridLayout())
+        self.container_sdat_tracks.layout().setSpacing(0)
+        self.button_sdat_tracks_on = QtWidgets.QPushButton("Unmute All", self.dialog_sdat)
+        self.button_sdat_tracks_on.pressed.connect(lambda: self.mute_tracks(False))
+        self.button_sdat_tracks_off = QtWidgets.QPushButton("Mute All", self.dialog_sdat)
+        self.button_sdat_tracks_off.pressed.connect(lambda: self.mute_tracks(True))
+        self.container_sdat_tracks.layout().addWidget(self.button_sdat_tracks_on, 0, 0, 1, 8)
+        self.container_sdat_tracks.layout().addWidget(self.button_sdat_tracks_off, 0, 8, 1, 8)
+        self.buttons_sdat_track = []
+        for i in range(16):
+            setattr(self, f"button_sdat_track_{i}", QtWidgets.QPushButton(str(i), self.dialog_sdat))
+            button_sdat_track: QtWidgets.QPushButton = getattr(self, f"button_sdat_track_{i}")
+            button_sdat_track.setMinimumWidth(15)
+            button_sdat_track.setCheckable(True)
+            self.container_sdat_tracks.layout().addWidget(button_sdat_track, 1, i)
+            self.buttons_sdat_track.append(button_sdat_track)
 
         self.dialog_sdat.centralWidget().layout().addWidget(self.dropdown_sdat)
+        self.dialog_sdat.centralWidget().layout().addWidget(self.container_sdat_tracks)
         self.dialog_sdat.centralWidget().layout().addWidget(self.page_sdat)
 
         self.trees_sdat = []
@@ -3106,6 +3120,10 @@ class MainWindow(QtWidgets.QMainWindow):
             dialog.show()
             dialog.activateWindow()
 
+    def mute_tracks(self, on: bool):
+        for button in self.buttons_sdat_track:
+            button.setChecked(on)
+
     def sdatPlayCall(self):
         items: list[QtWidgets.QTreeWidgetItem] = self.trees_sdat[self.dropdown_sdat.currentIndex()].selectedItems()
         if len(items) == 0: return
@@ -3136,7 +3154,7 @@ class MainWindow(QtWidgets.QMainWindow):
             try:
                 sseq = self.sdats[self.dropdown_sdat.currentIndex()].sequences[item_id][1]
                 sseq.parse()
-                lib.sdat.playSSEQ(sseq, self.sdats[self.dropdown_sdat.currentIndex()])
+                lib.sdat.playSSEQ(sseq, self.sdats[self.dropdown_sdat.currentIndex()], self.buttons_sdat_track)
             except ValueError:
                 QtWidgets.QMessageBox.critical(
                     self,
@@ -3154,7 +3172,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     event_index = next((i for i, obj in enumerate(ssar.events) if obj is ssars.firstEvent))
                     print(event_index, ssars.firstEvent)
                     ssars.events = ssar.events[event_index:]
-                    lib.sdat.playSSEQ(ssars, self.sdats[self.dropdown_sdat.currentIndex()])
+                    lib.sdat.playSSEQ(ssars, self.sdats[self.dropdown_sdat.currentIndex()], self.buttons_sdat_track)
                 else:
                     QtWidgets.QMessageBox.critical(
                         self,
@@ -3355,7 +3373,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         child.addChild(subChild)
                     if hasattr(section[1], "instruments"):
                         for instrument_i, instrument in enumerate(section[1].instruments):
-                            subChild = QtWidgets.QTreeWidgetItem([str(instrument_i), instrument.__str__(), "Instrument"])
+                            subChild = QtWidgets.QTreeWidgetItem([str(instrument_i), str(instrument), "Instrument"])
                             subChild.addChild(QtWidgets.QTreeWidgetItem(self.TREE_PLACEHOLDER))
                             child.addChild(subChild)
                     if hasattr(section[1], "bankID"):
@@ -3388,8 +3406,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 sseq.parse()
                 if sseq.parsed:
                     for event_i, event in enumerate(sseq.events):
-                        child = QtWidgets.QTreeWidgetItem([str(event_i), event.__repr__(), "Event"])
-                        if event.__repr__().startswith("BeginTrackSequenceEvent"):
+                        child = QtWidgets.QTreeWidgetItem([str(event_i), repr(event), "Event"])
+                        if repr(event).startswith("BeginTrackSequenceEvent"):
                             subChild = QtWidgets.QTreeWidgetItem(self.TREE_PLACEHOLDER)
                             child.addChild(subChild)
                         child_list.append(child)
@@ -3406,7 +3424,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     if index_start is not None:
                         if index_current in index_list:
                             break # do not loop infinitely
-                        child = QtWidgets.QTreeWidgetItem([str(index_current), event.__str__(), "Event (Preview)"])
+                        child = QtWidgets.QTreeWidgetItem([str(index_current), str(event), "Event (Preview)"])
                         child_list.append(child)
                         if isinstance(event, ndspy.soundArchive.soundSequence.JumpSequenceEvent):
                             index_list.append(index_current)
@@ -3425,12 +3443,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 instrument = lib.sdat.loadInstrument(sbnk.instruments[int(item.text(0))], swar_list)
                 if isinstance(instrument, list):
                     for pitch in range(128):
-                        child = QtWidgets.QTreeWidgetItem([str(pitch), instrument[pitch].__str__(), "Note"])
+                        child = QtWidgets.QTreeWidgetItem([str(pitch), str(instrument[pitch]), "Note"])
                         child.setToolTip(0, ndspy.soundArchive._common.noteName(pitch))
                         child_list.append(child)
                 else:
                     for pitch in range(128):
-                        child = QtWidgets.QTreeWidgetItem([str(pitch), instrument.__str__(), "Note"])
+                        child = QtWidgets.QTreeWidgetItem([str(pitch), str(instrument), "Note"])
                         child.setToolTip(0, ndspy.soundArchive._common.noteName(pitch))
                         child_list.append(child)
 

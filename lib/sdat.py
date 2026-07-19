@@ -104,7 +104,7 @@ try:
         for i in range(8)
     ]
 
-    def playSSEQ(sseq: sa.soundSequence.SSEQ, sdat: sa.SDAT):
+    def playSSEQ(sseq: sa.soundSequence.SSEQ, sdat: sa.SDAT, trackButtons: list=None):
         global player
         stopSound()
         if not sseq.parsed:
@@ -115,7 +115,7 @@ try:
         #print(sseq.events)
         #print(sseq.bankID)
         # todo: investigate playerID
-        player = wav_player.SSEQPlayer(sseq.events, sample_list)
+        player = wav_player.SSEQPlayer(sseq.events, sample_list, trackButtons=trackButtons)
         player.play()
 
     def loadBank(bank: sa.soundBank.SBNK, sdat: sa.SDAT):

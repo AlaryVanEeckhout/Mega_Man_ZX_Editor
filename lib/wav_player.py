@@ -22,9 +22,14 @@ class NoteInfo:
         self.current_gain = 0 # adsr volume gain
 
 class NoteModifier:
-    def __init__(self, volume: int=127, portamento: int=0):
+    def __init__(self, volume: int=127, expression: int=127, portamento: int=0):
         self.volume = volume
+        self.expression = expression # volume multiplier
         self.portamento = portamento # signed int8 value used as factor for pitch slides
+    
+    @property
+    def final_volume_factor(self):
+        return (self.volume * self.expression) / (127 ** 2)
 
 class WAVPlayer:
     def __init__(self, samples: list[Sample], stop_on_note_end: bool=True):
@@ -80,7 +85,7 @@ class WAVPlayer:
                         noteInfo.current_gain = 0
                         noteInfo.adsr_stage = 4 # end
                 #print(f"{sample.data}")
-                sample.data = numpy.astype(numpy.astype(sample.data, numpy.float64)*noteInfo.current_gain, numpy.int16)
+                sample.data = numpy.astype(numpy.astype(sample.data, numpy.float64)*noteInfo.current_gain*noteInfo.modifier.final_volume_factor, numpy.int16)
                 #print(f"\t{sample.data}")
                 
             mono_outdata = sample.get_data_range(range_start, range_end)
@@ -140,7 +145,7 @@ class NotePlayer(WAVPlayer):
         # zoom also instantiates a copy to leave the sample itself intact
         sample_new = sample.zoom(speed_factor) # speed/pitch adjust
         # divide by 5 is just to make the volume more bearable (and reduce clipping)
-        sample_new.data = numpy.astype(((numpy.astype(sample_new.data, numpy.int32) * event.velocity*notemod.volume) // (127*127)) // 5, numpy.int16)
+        sample_new.data = numpy.astype(((numpy.astype(sample_new.data, numpy.int32) * event.velocity) // 127) // 5, numpy.int16)
         self.add_note(NoteInfo(sample_new, event, duration, notemod))
 
 class SSEQScheduler:
@@ -185,7 +190,7 @@ class Track:
         self.player.play()
 
 class SSEQPlayer:
-    def __init__(self, events: list[sa.soundSequence.SequenceEvent], sample_list:list[Sample], loop: int=None):
+    def __init__(self, events: list[sa.soundSequence.SequenceEvent], sample_list:list[Sample], loop: int=None, trackButtons: list=None):
         self.events = events
         self.event_indexMap = {id(obj): i for i, obj in enumerate(self.events)}
         self.sample_list = sample_list
@@ -193,6 +198,7 @@ class SSEQPlayer:
         self.tempo = 150
         self.TRACKS_MAX = 16 # IDs 0 to 15
         self.tracks: list[Track] = [None]*self.TRACKS_MAX
+        self.trackButtons = trackButtons
         self.time_start = 0 # used to set event_time_last of tracks
         self.time_lagDelta = None # start lag
         self.scheduler = SSEQScheduler(lambda: self.process_events_of_track(0))
@@ -211,15 +217,18 @@ class SSEQPlayer:
 
     def process_events_of_track(self, track_current: int):
         track = self.tracks[track_current]
-        print(f"track: {track_current} tempo {self.tempo}")
+        if not self.trackButtons[track_current].isChecked():
+            print(f"track: {track_current} tempo {self.tempo}")
         if track.player.stream.active == False:
             raise InterruptedError
         while track.event_time_targetDelta == 0:
             event = self.events[track.event_index]
             event_type = event.__class__
             sample = self.sample_list[track.sample_index]
-            print(f"({track.event_index}/{len(self.events)-1}) {event}")
+            if not self.trackButtons[track_current].isChecked():
+                print(f"({track.event_index}/{len(self.events)-1}) {event}")
             if event_type is sa.soundSequence.NoteSequenceEvent:
+                assert event.unknownFlag == 0 # this may be a symptom of VibratoDelaySequenceEvent not being properly parsed
                 if sample is not None:
                     duration = int(self.get_bpm_tick()*event.duration*track.player.stream.samplerate) # for sample array
                     sample_selected = sample
@@ -227,7 +236,8 @@ class SSEQPlayer:
                         sample_selected = sample[event.pitch]
                     if sample_selected is not None:
                         #print(f"samplerate {sample_selected.samplerate}")
-                        track.player.play_note(event, sample_selected, duration, track.note_modifier)
+                        if self.trackButtons is None or not self.trackButtons[track_current].isChecked():
+                            track.player.play_note(event, sample_selected, duration, track.note_modifier)
                 if not track.polyphonic:
                     track.event_time_targetDelta = event.duration*self.get_bpm_tick()
             elif event_type is sa.soundSequence.RestSequenceEvent:
@@ -235,6 +245,9 @@ class SSEQPlayer:
                 # only this instruction sets event_time_targetDelta in polyphonic mode
                 track.event_time_targetDelta = event.duration*self.get_bpm_tick()
                 #print(f"tdelta {track.event_time_targetDelta}")
+            elif event_type is sa.soundSequence.ExpressionSequenceEvent:
+                # event.value is a volume multiplier for the track
+                track.note_modifier.expression = event.value
             elif event_type is sa.soundSequence.PortamentoSequenceEvent:
                 # event.value is a signed pitch value/factor, with 0 being normal pitch
                 track.note_modifier.portamento = int.from_bytes(bytes([event.value]), signed=True)
@@ -289,6 +302,7 @@ class SSEQPlayer:
                             t.event_time_last += self.time_lagDelta
             #else:
             #    if not isinstance(event, (sa.soundSequence.DefineTracksSequenceEvent, sa.soundSequence.PanSequenceEvent, sa.soundSequence.ExpressionSequenceEvent, sa.soundSequence.VibratoDepthSequenceEvent)):
+            #        print(repr(event))
             #        raise NotImplementedError
             track.event_index += 1
             if not self.loop and track.event_index > len(self.events)-1:
