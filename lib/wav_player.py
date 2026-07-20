@@ -11,6 +11,8 @@ import threading
 from .sdat import Sample
 from .sdat import BPM_TICK_FACTOR, SSEQ_CLOCK_FREQ
 
+TWO_SEMITONES = 0.12246868028
+
 class NoteInfo:
     def __init__(self, sample: Sample, event: sa.soundSequence.NoteSequenceEvent=None, duration: int=None, modifier: NoteModifier=None):
         self.current_frame = 0
@@ -22,10 +24,14 @@ class NoteInfo:
         self.current_gain = 0 # adsr volume gain
 
 class NoteModifier:
-    def __init__(self, volume: int=127, expression: int=127, portamento: int=0):
+    def __init__(self, volume: int=127, expression: int=127, portamento: int=0, vibrato_depth: int=0, vibrato_speed: int=32, vibrato_delay: int=0, vibrato_range: int=1):
         self.volume = volume
         self.expression = expression # volume multiplier
         self.portamento = portamento # signed int8 value used as factor for pitch slides
+        self.vibrato_depth = vibrato_depth
+        self.vibrato_speed = vibrato_speed
+        self.vibrato_delay = vibrato_delay
+        self.vibrato_range = vibrato_range
     
     @property
     def final_volume_factor(self):
@@ -52,17 +58,31 @@ class WAVPlayer:
     def callback(self, outdata: numpy.ndarray, frames: int, time, status: sounddevice.CallbackFlags) -> None:
         is_note_end = False
         mono_outdata_final = numpy.zeros(frames, dtype="int16")
-        for noteInfo_i, noteInfo in enumerate(self.noteInfos):
+        for noteInfo in self.noteInfos:
             if noteInfo is None:
                 break
             # try filling outdata with data
             range_start = noteInfo.current_frame
             range_end = noteInfo.current_frame+frames
-            sample = noteInfo.sample.zoom(1)
+            portamento = 1
+            vibrato = 1
             if noteInfo.modifier is not None:
-                # todo: understand why this formula works
-                portamento_factor = 0.12246868028*(self.stream.samplerate/sample.samplerate)
-                sample = noteInfo.sample.zoom(1+(noteInfo.modifier.portamento/127)*portamento_factor)
+                if noteInfo.modifier.portamento != 0: # for performance
+                    portamento_ratio = TWO_SEMITONES*(noteInfo.modifier.portamento/127)
+                    adjustment_factor = (self.stream.samplerate/noteInfo.sample.samplerate)
+                    portamento = 1 + portamento_ratio*adjustment_factor
+                vibrato_delay_frames = noteInfo.modifier.vibrato_delay * 128
+                if noteInfo.modifier.vibrato_depth != 0 and noteInfo.current_frame >= vibrato_delay_frames:
+                    lfo_hz = (noteInfo.modifier.vibrato_speed * 33.5) / 127
+                    phase_start = 2 * numpy.pi * lfo_hz * (noteInfo.current_frame / self.stream.samplerate)
+                    vib_start = 2 ** ((noteInfo.modifier.vibrato_depth * noteInfo.modifier.vibrato_range * numpy.sin(phase_start)) / 1536)
+
+                    phase_end = 2 * numpy.pi * lfo_hz * ((noteInfo.current_frame + frames) / self.stream.samplerate)
+                    vib_end = 2 ** ((noteInfo.modifier.vibrato_depth * noteInfo.modifier.vibrato_range * numpy.sin(phase_end)) / 1536)
+
+                    # Average to approximate the chunk's scale
+                    vibrato = (vib_start + vib_end) / 2.0
+            sample = noteInfo.sample.zoom(portamento * vibrato)
             if sample.notedef is not None:
                 if noteInfo.adsr_stage == 0: # attack
                     #print(noteInfo.current_gain, sample.attack_rate / self.stream.samplerate)
@@ -251,6 +271,14 @@ class SSEQPlayer:
             elif event_type is sa.soundSequence.PortamentoSequenceEvent:
                 # event.value is a signed pitch value/factor, with 0 being normal pitch
                 track.note_modifier.portamento = int.from_bytes(bytes([event.value]), signed=True)
+            elif event_type is sa.soundSequence.VibratoDepthSequenceEvent:
+                track.note_modifier.vibrato_depth = event.value
+            elif event_type is sa.soundSequence.VibratoSpeedSequenceEvent:
+                track.note_modifier.vibrato_speed = event.value
+            elif event_type is sa.soundSequence.VibratoRangeSequenceEvent:
+                track.note_modifier.vibrato_range = event.value
+            elif event_type is sa.soundSequence.VibratoDelaySequenceEvent:
+                track.note_modifier.vibrato_delay = event.value
             elif event_type is sa.soundSequence.InstrumentSwitchSequenceEvent:
                 track.sample_index = event.instrumentID
             elif event_type is sa.soundSequence.TempoSequenceEvent:
@@ -301,7 +329,7 @@ class SSEQPlayer:
                         if t is not None:
                             t.event_time_last += self.time_lagDelta
             #else:
-            #    if not isinstance(event, (sa.soundSequence.DefineTracksSequenceEvent, sa.soundSequence.PanSequenceEvent, sa.soundSequence.ExpressionSequenceEvent, sa.soundSequence.VibratoDepthSequenceEvent)):
+            #    if not isinstance(event, (sa.soundSequence.DefineTracksSequenceEvent, sa.soundSequence.PanSequenceEvent, sa.soundSequence.RawDataSequenceEvent, sa.soundSequence.VibratoTypeSequenceEvent)):
             #        print(repr(event))
             #        raise NotImplementedError
             track.event_index += 1

@@ -71,10 +71,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.temp_path = PATH_ROOT + "temp/"
         self.rom = None #ndspy.rom.NintendoDSRom # placeholder definitions
         self.isGameSupported = False
-        self.gamedat = None
+        self.gamedat = None # game-specific data from gamedat.py
         self.rom_fat = [] # list of file addresses (see loadFat())
         self.sdats: list[ndspy.soundArchive.SDAT] = [] #ndspy.soundArchive.SDAT
-        self.base_address = 0
+        self.base_address = 0 # file address in ROM
         self.relative_address = 0
         self.romToEdit_name = ''
         self.romToEdit_ext = ''
