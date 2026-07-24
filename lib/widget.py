@@ -591,7 +591,7 @@ class PlayButton(QtWidgets.QPushButton):
     frameRequested = QtCore.pyqtSignal(bool)
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.rate = 16
+        self.rate = int(1000/60) #  1 step at 60 fps
         self.counter = 0
         self.timer = QtCore.QTimer(self)
         self.timer.timeout.connect(self.on_timeout)

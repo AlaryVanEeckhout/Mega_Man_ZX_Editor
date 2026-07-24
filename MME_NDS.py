@@ -1124,7 +1124,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.action_playSdat = QtGui.QAction(QtGui.QIcon(PATH_ROOT + 'icons/control'), "Play Sound", self)
         self.action_playSdat.setStatusTip("Play a SWAV or SSEQ")
-        self.action_playSdat.triggered.connect(self.sdatPlayCall)
+        self.action_playSdat.triggered.connect(self.sdatControlCall)
+        lib.sdat.player_info.finished.connect(lambda: self.action_playSdat.setIcon(QtGui.QIcon(PATH_ROOT + 'icons/control')))
+        lib.sdat.player_info.finished.connect(lambda: self.action_playSdat.setText("Play Sound"))
 
         self.action_stopSdat = QtGui.QAction(QtGui.QIcon(PATH_ROOT + 'icons/control-stop-square'), "Stop Sound", self)
         self.action_stopSdat.setStatusTip("Stop Sound")
@@ -2073,9 +2075,12 @@ class MainWindow(QtWidgets.QMainWindow):
                         objs[3] = file[1]
                         objs[2] = category
                         if file[0] == item.text(1):
-                            data = objs[3].save()
-                            if isinstance(data, tuple):
-                                data = data[0]
+                            try:
+                                data = objs[3].save()
+                                if isinstance(data, tuple):
+                                    data = data[0]
+                            except ValueError:
+                                data = None
                             file_found = True
                         elif item.parent() != None and file[0] == item.parent().text(1):
                             if item.text(2) == "SWAV":
@@ -3124,6 +3129,38 @@ class MainWindow(QtWidgets.QMainWindow):
         for button in self.buttons_sdat_track:
             button.setChecked(on)
 
+    def ssarsParse(self, ssar: ndspy.soundArchive.soundSequenceArchive.SSAR, ssars: ndspy.soundArchive.soundSequenceArchive.SSARSequence):
+        ssar.parse()
+        if ssars.parsed:
+            ssars.events = []
+            event_index = None
+            for i, obj in enumerate(ssar.events):
+                if obj is ssars.firstEvent:
+                    event_index = i
+                if event_index is not None:
+                    ssars.events.append(obj)
+                    if isinstance(obj, ndspy.soundArchive.soundSequence.EndTrackSequenceEvent):
+                        break
+            print(event_index, ssars.firstEvent)
+        else:
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Load Failed",
+                "Could not load SSARS because parsing failed."
+            )
+
+    def sdatControlCall(self):
+        if "Pause" in self.action_playSdat.text():
+            lib.sdat.pauseSound()
+            self.action_playSdat.setIcon(QtGui.QIcon(PATH_ROOT + 'icons/control'))
+            self.action_playSdat.setText("Resume Sound")
+        elif "Resume" in self.action_playSdat.text():
+            lib.sdat.resumeSound()
+            self.action_playSdat.setIcon(QtGui.QIcon(PATH_ROOT + 'icons/control-pause'))
+            self.action_playSdat.setText("Pause Sound")
+        else:
+            self.sdatPlayCall()
+
     def sdatPlayCall(self):
         items: list[QtWidgets.QTreeWidgetItem] = self.trees_sdat[self.dropdown_sdat.currentIndex()].selectedItems()
         if len(items) == 0: return
@@ -3148,7 +3185,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 ndspy.soundArchive.soundSequence.NoteSequenceEvent(note_id, 127, 0),
                 ndspy.soundArchive.soundSequence.EndTrackSequenceEvent()
                 ]
-            lib.sdat.playSSEQ(sseq, self.sdats[self.dropdown_sdat.currentIndex()])
+            lib.sdat.playSSEQ(sseq, self.sdats[self.dropdown_sdat.currentIndex()], self.buttons_sdat_track)
         elif snd_type == "SSEQ": # WIP
             print("play SSEQ")
             try:
@@ -3167,18 +3204,8 @@ class MainWindow(QtWidgets.QMainWindow):
             try:
                 ssar: ndspy.soundArchive.soundSequenceArchive.SSAR = self.sdats[self.dropdown_sdat.currentIndex()].sequenceArchives[int(items[0].parent().text(0))][1]
                 ssars: ndspy.soundArchive.soundSequenceArchive.SSARSequence = ssar.sequences[item_id][1]
-                ssar.parse()
-                if ssars.parsed:
-                    event_index = next((i for i, obj in enumerate(ssar.events) if obj is ssars.firstEvent))
-                    print(event_index, ssars.firstEvent)
-                    ssars.events = ssar.events[event_index:]
-                    lib.sdat.playSSEQ(ssars, self.sdats[self.dropdown_sdat.currentIndex()], self.buttons_sdat_track)
-                else:
-                    QtWidgets.QMessageBox.critical(
-                        self,
-                        "Load Failed",
-                        "Could not load SSARS because parsing failed."
-                    )
+                self.ssarsParse(ssar, ssars)
+                lib.sdat.playSSEQ(ssars, self.sdats[self.dropdown_sdat.currentIndex()], self.buttons_sdat_track)
             except ValueError as e:
                 print(e)
                 QtWidgets.QMessageBox.critical(
@@ -3186,6 +3213,8 @@ class MainWindow(QtWidgets.QMainWindow):
                     "Load Failed",
                     "Could not load SSARS because information is missing."
                 )
+        self.action_playSdat.setIcon(QtGui.QIcon(PATH_ROOT + 'icons/control-pause'))
+        self.action_playSdat.setText("Pause Sound")
 
     def sdatPlotCall(self):
         items = self.trees_sdat[self.dropdown_sdat.currentIndex()].selectedItems()
@@ -3381,6 +3410,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     if hasattr(section[1], "sequences"): # sequenceArchives
                         for ssars_i, ssars in enumerate(section[1].sequences): # actually a list with [name, SSARSequence]
                             subChild = QtWidgets.QTreeWidgetItem([str(ssars_i), ssars[0], "SSARS"])
+                            subChild.addChild(QtWidgets.QTreeWidgetItem(self.TREE_PLACEHOLDER))
                             subChild.setToolTip(0, "bankID: " + str(ssars[1].bankID))
                             child.addChild(subChild)
                     if hasattr(section[1], "waves"): # waveArchives
@@ -3402,19 +3432,27 @@ class MainWindow(QtWidgets.QMainWindow):
         child_list = []
         if item_placeholder.text(0) == self.TREE_PLACEHOLDER[0] and item_placeholder.text(1) == self.TREE_PLACEHOLDER[1]:
             if item.text(2) == "SSEQ":
-                sseq = self.file_fromItem(item).objects[-1]
+                sseq: ndspy.soundArchive.soundSequence.SSEQ = self.file_fromItem(item).objects[-1]
                 sseq.parse()
                 if sseq.parsed:
                     for event_i, event in enumerate(sseq.events):
                         child = QtWidgets.QTreeWidgetItem([str(event_i), repr(event), "Event"])
-                        if repr(event).startswith("BeginTrackSequenceEvent"):
+                        if isinstance(event, ndspy.soundArchive.soundSequence.BeginTrackSequenceEvent):
                             subChild = QtWidgets.QTreeWidgetItem(self.TREE_PLACEHOLDER)
                             child.addChild(subChild)
                         child_list.append(child)
                 else:
                     print(f"unable to parse SSEQ {self.file_fromItem(item).name}")
+            elif item.text(2) == "SSARS":
+                ssar: ndspy.soundArchive.soundSequenceArchive.SSAR = self.file_fromItem(item.parent()).objects[-1]
+                ssars: ndspy.soundArchive.soundSequenceArchive.SSARSequence = self.file_fromItem(item).objects[-1]
+                self.ssarsParse(ssar, ssars)
+                if ssars.parsed:
+                    for event_i, event in enumerate(ssars.events):
+                        child = QtWidgets.QTreeWidgetItem([str(event_i), repr(event), "Event (Preview)"])
+                        child_list.append(child)
             elif item.text(2) == "Event": # to view the list of events from a track's first event
-                sseq = self.file_fromItem(item.parent()).objects[-1]
+                sseq: ndspy.soundArchive.soundSequence.SSEQ = self.file_fromItem(item.parent()).objects[-1]
                 event_track = sseq.events[int(item.text(0))]
                 index_start = None
                 index_current = 0

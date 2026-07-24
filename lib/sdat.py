@@ -1,5 +1,11 @@
-global player
+global player, player_info
 player = None
+from PyQt6 import QtCore
+class GlobalPlayerInfo(QtCore.QObject):
+    finished = QtCore.pyqtSignal(bool)
+    def __init__(self):
+        super().__init__(None)
+player_info = GlobalPlayerInfo()
 #https://problemkaputt.de/gbatek.htm#dssoundfilessseqsoundsequence
 NDS_CPU_CLOCK = 33513982
 TIMER_DIVIDER = 2728
@@ -31,6 +37,10 @@ try:
                 16:"range",
                 17:"regional",}
             return f"{type_names.get(self.notedef.type, hex(self.notedef.type))} {self.samplerate}Hz" + (f"  loop={self.loop}" if self.loop is not None else "") + ("" if self.pitch_change else "  single-pitch")
+
+        def is_in_range(self, offset):
+            if self.loop is not None: return True
+            return offset < len(self.data)
         
         def get_data_range(self, start, end):
             goal_len = end - start
@@ -105,7 +115,7 @@ try:
     ]
 
     def playSSEQ(sseq: sa.soundSequence.SSEQ, sdat: sa.SDAT, trackButtons: list=None):
-        global player
+        global player, player_info
         stopSound()
         if not sseq.parsed:
             print("Unable to parse sequence")
@@ -116,6 +126,7 @@ try:
         #print(sseq.bankID)
         # todo: investigate playerID
         player = wav_player.SSEQPlayer(sseq.events, sample_list, trackButtons=trackButtons)
+        player.info = player_info
         player.play()
 
     def loadBank(bank: sa.soundBank.SBNK, sdat: sa.SDAT):
@@ -186,14 +197,25 @@ try:
 
     # Intended for playback of individual SWAVs. Volume reduced to reasonable value.
     def playSWAV(swav: sa.soundWaveArchive.soundWave.SWAV):
-        global player
+        global player, player_info
         stopSound()
         print(f"Wave type: {swav.waveType.name}")
         print(f"Sample rate: {swav.sampleRate}")
         sample = loadSWAV(swav)
         sample.data //= 5 # reduce sound volume to something reasonable
         player = wav_player.WAVPlayer([sample])
+        player.info = player_info
         player.play()
+
+    def pauseSound():
+        global player
+        if player is not None:
+            player.pause()
+
+    def resumeSound():
+        global player
+        if player is not None:
+            player.resume()
 
     def stopSound():
         global player
@@ -204,5 +226,7 @@ except ImportError as e:
     print("Dependencies for audio playback are not met. Functions are disabled.")
     def playSSEQ(*args, **kwargs): return
     def playSWAV(*args, **kwargs): return
+    def pauseSound(*args, **kwargs): return
+    def resumeSound(*args, **kwargs): return
     def stopSound(*args, **kwargs): return
     def plotSound(*args, **kwargs): return

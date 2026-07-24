@@ -42,6 +42,7 @@ class WAVPlayer:
         STREAM_SAMPLERATE = 22050
         self.SAMPLES_PER_CYCLE = STREAM_SAMPLERATE / SSEQ_CLOCK_FREQ
         self.POLY_MAX = 4 # just a random value idk
+        self.is_paused = False
         self.slot_last = 0
         self.slot_next = 0 # on what index of the sample array should the next sample arrive
         self.noteInfos: list[NoteInfo] = [None]*self.POLY_MAX
@@ -58,6 +59,10 @@ class WAVPlayer:
     def callback(self, outdata: numpy.ndarray, frames: int, time, status: sounddevice.CallbackFlags) -> None:
         is_note_end = False
         mono_outdata_final = numpy.zeros(frames, dtype="int16")
+        if self.is_paused: # make the player silent while retaining its state for resume
+            for i in range(outdata.shape[1]):
+                outdata[:, i] = mono_outdata_final
+            return
         for noteInfo in self.noteInfos:
             if noteInfo is None:
                 break
@@ -104,6 +109,8 @@ class WAVPlayer:
                     if noteInfo.current_gain <= 0:
                         noteInfo.current_gain = 0
                         noteInfo.adsr_stage = 4 # end
+                elif noteInfo.adsr_stage == 4:
+                    is_note_end = True
                 #print(f"{sample.data}")
                 sample.data = numpy.astype(numpy.astype(sample.data, numpy.float64)*noteInfo.current_gain*noteInfo.modifier.final_volume_factor, numpy.int16)
                 #print(f"\t{sample.data}")
@@ -111,6 +118,8 @@ class WAVPlayer:
             mono_outdata = sample.get_data_range(range_start, range_end)
             if mono_outdata.shape[0] < frames:
                 mono_outdata = numpy.append(mono_outdata, numpy.zeros((frames-mono_outdata.shape[0]), dtype="int16"))
+            if not sample.is_in_range(range_start):
+                is_note_end = True
             noteInfo.current_frame += mono_outdata.shape[0]
 
             mono_outdata_final += mono_outdata
@@ -121,16 +130,23 @@ class WAVPlayer:
             outdata[:, i] = mono_outdata_final
         # stop stream if at the end
         if is_note_end and self.stop_on_note_end:
-            print("stop")
+            if hasattr(self, "info"):
+                self.info.finished.emit(True)
             raise sounddevice.CallbackStop
     
-
     def play(self):
         self.stream.start()
-    
 
+    def pause(self):
+        self.is_paused = True
+
+    def resume(self):
+        self.is_paused = False
+    
     def stop(self):
         self.stream.abort()
+        if hasattr(self, "info"):
+            self.info.finished.emit(True)
 
 class NotePlayer(WAVPlayer):
     def __init__(self):
@@ -174,6 +190,8 @@ class SSEQScheduler:
         self.thread = None
         self.exit_flag = None
         self.sched = None
+        self.pause_queue = []
+        self.pause_time = None
     
     def thread_fn(self):
         self.sched = sched.scheduler(timer, self.exit_flag.wait)
@@ -188,6 +206,24 @@ class SSEQScheduler:
     def start(self):
         self.thread = threading.Thread(target=self.thread_fn, daemon=True)
         self.exit_flag = threading.Event()
+        self.thread.start()
+
+    def pause(self):
+        self.pause_time = timer()
+        self.pause_queue = self.sched.queue.copy()
+        # suspend all the events
+        for event in self.sched.queue:
+            self.sched.cancel(event)
+
+    def resume(self, resume_time: int):
+        # restore all the events
+        for event in self.pause_queue:
+            time_new = event.time + (resume_time-self.pause_time)
+            self.sched.enterabs(time_new, event.priority, event.action, event.argument, event.kwargs)
+        self.pause_time = None
+        self.pause_queue.clear()
+        # since the sched returned and the thread died, start a new thread
+        self.thread = threading.Thread(target=lambda:self.sched.run(), daemon=True)
         self.thread.start()
     
     def stop(self):
@@ -223,10 +259,8 @@ class SSEQPlayer:
         self.time_lagDelta = None # start lag
         self.scheduler = SSEQScheduler(lambda: self.process_events_of_track(0))
 
-
     def get_bpm_tick(self):
         return BPM_TICK_FACTOR / self.tempo
-
 
     def play(self):
         self.time_start = timer()
@@ -237,7 +271,8 @@ class SSEQPlayer:
 
     def process_events_of_track(self, track_current: int):
         track = self.tracks[track_current]
-        if not self.trackButtons[track_current].isChecked():
+        is_not_muted = bool(self.trackButtons is None or not self.trackButtons[track_current].isChecked())
+        if is_not_muted:
             print(f"track: {track_current} tempo {self.tempo}")
         if track.player.stream.active == False:
             raise InterruptedError
@@ -245,7 +280,7 @@ class SSEQPlayer:
             event = self.events[track.event_index]
             event_type = event.__class__
             sample = self.sample_list[track.sample_index]
-            if not self.trackButtons[track_current].isChecked():
+            if is_not_muted:
                 print(f"({track.event_index}/{len(self.events)-1}) {event}")
             if event_type is sa.soundSequence.NoteSequenceEvent:
                 assert event.unknownFlag == 0 # this may be a symptom of VibratoDelaySequenceEvent not being properly parsed
@@ -256,7 +291,7 @@ class SSEQPlayer:
                         sample_selected = sample[event.pitch]
                     if sample_selected is not None:
                         #print(f"samplerate {sample_selected.samplerate}")
-                        if self.trackButtons is None or not self.trackButtons[track_current].isChecked():
+                        if is_not_muted:
                             track.player.play_note(event, sample_selected, duration, track.note_modifier)
                 if not track.polyphonic:
                     track.event_time_targetDelta = event.duration*self.get_bpm_tick()
@@ -310,6 +345,10 @@ class SSEQPlayer:
                 self.scheduler.add_event(0, track.priority, self.process_events_of_track, event.trackNumber) # start chain of events for this track
             elif event_type is sa.soundSequence.EndTrackSequenceEvent:
                 print("end")
+                if self.scheduler.sched.empty():
+                    if hasattr(self, "info"):
+                        self.info.finished.emit(True)
+                    print("music finished")
                 return
             elif event_type is sa.soundSequence.TrackVolumeSequenceEvent:
                 track.note_modifier.volume = event.value
@@ -340,10 +379,25 @@ class SSEQPlayer:
         track.event_time_targetDelta = 0
         self.scheduler.add_event(track.event_time_last, track.priority, self.process_events_of_track, track_current)
 
+    def pause(self):
+        for track in self.tracks:
+            if track is not None:
+                track.player.pause()
+        self.scheduler.pause()
+
+    def resume(self):
+        resume_time = timer()
+        for track in self.tracks:
+            if track is not None:
+                track.player.resume()
+                track.event_time_last += (resume_time-self.scheduler.pause_time)
+        self.scheduler.resume(resume_time)
 
     def stop(self):
         for track in self.tracks:
             if track is not None:
                 track.player.stop()
         self.scheduler.stop()
+        if hasattr(self, "info"):
+            self.info.finished.emit(True)
         print("music stop")
