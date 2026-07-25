@@ -23,6 +23,7 @@
 *.mp4
 #specific files
 !requirements.txt
+ndspy/*
 devtools/*
 export/*
 temp/*

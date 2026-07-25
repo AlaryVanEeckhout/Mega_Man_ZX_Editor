@@ -3162,6 +3162,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.sdatPlayCall()
 
     def sdatPlayCall(self):
+        self.action_playSdat.setIcon(QtGui.QIcon(PATH_ROOT + 'icons/control'))
+        self.action_playSdat.setText("Play Sound")
         items: list[QtWidgets.QTreeWidgetItem] = self.trees_sdat[self.dropdown_sdat.currentIndex()].selectedItems()
         if len(items) == 0: return
         if items[0].text(0) == "N/A": return
@@ -3192,12 +3194,13 @@ class MainWindow(QtWidgets.QMainWindow):
                 sseq = self.sdats[self.dropdown_sdat.currentIndex()].sequences[item_id][1]
                 sseq.parse()
                 lib.sdat.playSSEQ(sseq, self.sdats[self.dropdown_sdat.currentIndex()], self.buttons_sdat_track)
-            except ValueError:
+            except ValueError, AttributeError:
                 QtWidgets.QMessageBox.critical(
                     self,
                     "Load Failed",
                     "Could not load SSEQ because information is missing."
                 )
+                return
         elif snd_type == "SSARS":
             print("play SSARSequence")
             # pass the SSARS as an SSEQ
@@ -3206,13 +3209,14 @@ class MainWindow(QtWidgets.QMainWindow):
                 ssars: ndspy.soundArchive.soundSequenceArchive.SSARSequence = ssar.sequences[item_id][1]
                 self.ssarsParse(ssar, ssars)
                 lib.sdat.playSSEQ(ssars, self.sdats[self.dropdown_sdat.currentIndex()], self.buttons_sdat_track)
-            except ValueError as e:
+            except (ValueError, AttributeError) as e:
                 print(e)
                 QtWidgets.QMessageBox.critical(
                     self,
                     "Load Failed",
                     "Could not load SSARS because information is missing."
                 )
+                return
         self.action_playSdat.setIcon(QtGui.QIcon(PATH_ROOT + 'icons/control-pause'))
         self.action_playSdat.setText("Pause Sound")
 
