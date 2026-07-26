@@ -61,7 +61,7 @@ Currently, there are no releases, so:
 - [Download&Install SciPy](https://pypi.org/project/scipy/) (submodule dependency)
 - This project > Code > Download ZIP
 - Extract the contents of the .zip file wherever you want
-- That's it! Now you can run RunEditor.bat (or run MME_NDS.py directly, from command line)
+- That's it! Now you can run RunEditor.bat (or run MME_NDS.py directly with python)
 ## Credits
 - Nitro filesystem handling: https://ndspy.readthedocs.io/en/latest/
 - GUI (PyQt6): https://www.riverbankcomputing.com/software/pyqt/

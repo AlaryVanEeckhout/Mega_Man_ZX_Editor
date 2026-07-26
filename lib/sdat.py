@@ -99,7 +99,7 @@ try:
             return 1 if self.notedef is None else (self.notedef.sustain / 127.0) ** 2
         
         def zoom(self, speed_factor):
-            new_data = scipy.ndimage.zoom(self.data, 1 / speed_factor, order=0) # speed/pitch adjust
+            new_data = scipy.ndimage.zoom(self.data, 1 / speed_factor, order=0, mode="grid-constant", grid_mode=True) # speed/pitch adjust
             new_loop = int(self.loop / speed_factor) if self.loop is not None else None
             new_sample = Sample(new_data, new_loop, self.samplerate, self.notedef, self.pitch_change)
             return new_sample
@@ -125,7 +125,10 @@ try:
         #print(sseq.events)
         #print(sseq.bankID)
         # todo: investigate playerID
-        player = wav_player.SSEQPlayer(sseq.events, sample_list, trackButtons=trackButtons)
+        firstEvent = None
+        if hasattr(sseq, "firstEvent"):
+            firstEvent = sseq.firstEvent
+        player = wav_player.SSEQPlayer(sseq.events, sample_list, firstEvent=firstEvent, trackButtons=trackButtons)
         player.info = player_info
         player.play()
 
@@ -180,6 +183,49 @@ try:
             return sample_range
         else:
             return None
+
+    def ssarsParse(ssar: sa.soundSequenceArchive.SSAR, ssars: sa.soundSequenceArchive.SSARSequence):
+        """
+        Calls the SSAR's `parse()` method, and gives the SSARS an `events` attribute if successful\n
+        Returns
+        -------
+            `bool`: Whether or not the parsing succeeded
+        """
+        ssar.parse()
+        if ssars.parsed:
+            # keep all of the ssar events in the ssars to ensure all events are reachable
+            ssars.events = ssar.events
+            return True
+        else:
+            print("SSARS did not parse correctly")
+            return False
+
+    def get_eventsPreview(events: list[sa.soundSequence.SequenceEvent], firstEvent: sa.soundSequence.SequenceEvent):
+        """
+        Gets a list of events in sseq from firstEvent to end of track or until a jump is re-encountered, confirming an infinite loop.\n
+        The events from additionnal tracks (initiated with BeginTrackSequenceEvent) are not included.
+        """
+        preview_eventList: list[tuple[int, sa.soundSequence.SequenceEvent]] = []
+        index_start = None
+        index_current = 0
+        jump_list = []
+        while True:
+            event = events[index_current]
+            if index_start is not None:
+                if index_current in jump_list:
+                    break # do not loop infinitely
+                preview_eventList.append((index_current, event))
+                if isinstance(event, sa.soundSequence.JumpSequenceEvent):
+                    jump_list.append(index_current)
+                    index_current = next(i for i, e in enumerate(events) if e is event.destination)
+                    continue
+                if isinstance(event, sa.soundSequence.EndTrackSequenceEvent):
+                    break
+            elif event == firstEvent:
+                index_start = index_current
+                continue
+            index_current += 1
+        return preview_eventList
 
     def loadSWAV(swav: sa.soundWaveArchive.soundWave.SWAV, notedef: sa.soundBank.NoteDefinition=None):
         assert type(swav) == sa.soundWaveArchive.soundWave.SWAV

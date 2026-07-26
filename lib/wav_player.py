@@ -11,6 +11,7 @@ import threading
 from .sdat import Sample
 from .sdat import BPM_TICK_FACTOR, SSEQ_CLOCK_FREQ
 
+STREAM_SAMPLERATE = 22050
 TWO_SEMITONES = 0.12246868028
 
 class NoteInfo:
@@ -39,7 +40,6 @@ class NoteModifier:
 
 class WAVPlayer:
     def __init__(self, samples: list[Sample], stop_on_note_end: bool=True):
-        STREAM_SAMPLERATE = 22050
         self.SAMPLES_PER_CYCLE = STREAM_SAMPLERATE / SSEQ_CLOCK_FREQ
         self.POLY_MAX = 4 # just a random value idk
         self.is_paused = False
@@ -212,8 +212,7 @@ class SSEQScheduler:
         self.pause_time = timer()
         self.pause_queue = self.sched.queue.copy()
         # suspend all the events
-        for event in self.sched.queue:
-            self.sched.cancel(event)
+        self.stop()
 
     def resume(self, resume_time: int):
         # restore all the events
@@ -227,8 +226,8 @@ class SSEQScheduler:
         self.thread.start()
     
     def stop(self):
-        # todo
-        pass
+        for event in self.sched.queue:
+            self.sched.cancel(event)
 
 class Track:
     def __init__(self, event_index=0):
@@ -246,8 +245,9 @@ class Track:
         self.player.play()
 
 class SSEQPlayer:
-    def __init__(self, events: list[sa.soundSequence.SequenceEvent], sample_list:list[Sample], loop: int=None, trackButtons: list=None):
+    def __init__(self, events: list[sa.soundSequence.SequenceEvent], sample_list:list[Sample], firstEvent:sa.soundSequence.SequenceEvent=None, loop: int=None, trackButtons: list=None):
         self.events = events
+        self.firstEvent = firstEvent
         self.event_indexMap = {id(obj): i for i, obj in enumerate(self.events)}
         self.sample_list = sample_list
         self.loop = loop # should this exist?
@@ -267,6 +267,8 @@ class SSEQPlayer:
         # the first track will start the others
         self.tracks[0] = Track()
         self.tracks[0].event_time_last = self.time_start
+        if self.firstEvent is not None:
+            self.tracks[0].event_index = self.event_indexMap[id(self.firstEvent)]
         self.scheduler.start()
 
     def process_events_of_track(self, track_current: int):
@@ -274,9 +276,9 @@ class SSEQPlayer:
         is_not_muted = bool(self.trackButtons is None or not self.trackButtons[track_current].isChecked())
         if is_not_muted:
             print(f"track: {track_current} tempo {self.tempo}")
-        if track.player.stream.active == False:
-            raise InterruptedError
         while track.event_time_targetDelta == 0:
+            if track.player.stream.active == False or track.player.is_paused:
+                raise InterruptedError
             event = self.events[track.event_index]
             event_type = event.__class__
             sample = self.sample_list[track.sample_index]
