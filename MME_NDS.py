@@ -1,6 +1,7 @@
 from __future__ import annotations
 from PyQt6 import QtGui, QtWidgets, QtCore#, QtMultimedia Qt6, Qt6.qsci
 import sys, os, platform, re, math, enum
+import ast
 import argparse
 import traceback
 #import logging, time, random
@@ -3037,6 +3038,13 @@ class MainWindow(QtWidgets.QMainWindow):
                     button_palettepick.setStyleSheet(f"background-color: #{self.gfx_palette[i]:08x}; color: white;")
                 self.treeCall()
                     
+    def saveSDATs(self):
+        for sdat in self.sdats:
+            self.rom.files[sdat.fileID] = sdat.save()
+
+    def saveToFile(self, name):
+        self.saveSDATs()
+        self.rom.saveToFile(name)
     
     def saveCall(self): #Save to external ROM
         save_buttons = [self.button_file_save, self.button_level_save, self.button_dialogueNames_save, self.button_patches_apply]
@@ -3063,7 +3071,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if dialog.exec(): # if you saved a file
             romName = dialog.selectedFiles()[0]
             print(romName)
-            self.rom.saveToFile(romName)
+            self.saveToFile(romName)
             print("ROM modifs saved!")
             # allow user to choose whether or not they want to reload fat
             reload_dialog = QtWidgets.QMessageBox()
@@ -3097,7 +3105,7 @@ class MainWindow(QtWidgets.QMainWindow):
             dialog_playtest.exec()
         if not os.path.exists("temp"):
                 os.mkdir("temp")
-        self.rom.saveToFile(self.temp_path)# Create temporary ROM to playtest
+        self.saveToFile(self.temp_path)# Create temporary ROM to playtest
         if 'dialog_playtest' in locals() and dialog_playtest.result():
             with open(self.temp_path, "r+b") as f:
                     if input_address.text() != "":
@@ -3427,9 +3435,44 @@ class MainWindow(QtWidgets.QMainWindow):
             tree_current.addTopLevelItems(item_list)
             tree_current.header().resizeSection(1, 250)
             tree_current.itemExpanded.connect(self.treeSdatExpand)
+            tree_current.itemActivated.connect(self.treeSdatEdit)
             #progress.setValue(100)
             #progress.close()
     
+    def treeSdatEdit(self, item: QtWidgets.QTreeWidgetItem, column: int):
+        dialog = QtWidgets.QInputDialog(self.dialog_sdat)
+        dialog.setWindowTitle("SDAT - Edit Event")
+        dialog.setLabelText("Enter an object and its arguments:")
+        dialog.setTextValue(item.text(column))
+        if column == 1 and "Event" in item.text(2):
+            dialog.show() # allow resizing
+            dialog.setMinimumWidth(500)
+            if dialog.exec():
+                try:
+                    new_obj = self.parseEventString(dialog.textValue())
+                except Exception as e:
+                    print("event string parse fail")
+                    print(e)
+                    return
+                fileInfo = self.file_fromItem(item.parent())
+                if item.text(2) == "Event":
+                        fileInfo.objects[-1].events[int(item.text(0))] = new_obj
+                        item.setText(1, repr(new_obj))
+                elif item.text(2) == "Event (Preview)" and item.parent().text(2) == "SSARS":
+                    fileInfo_parent = self.file_fromItem(item.parent().parent()) #SSAR
+                    fileInfo_parent.objects[-1].events[int(item.text(0))] = new_obj
+                    fileInfo.objects[-1].events = fileInfo_parent.objects[-1].events
+                    item.setText(1, repr(new_obj))
+
+    def parseEventString(self, s:str):
+        obj_s = s[:s.find("(")]
+        params_s = s[s.find("("):]
+        obj = getattr(ndspy.soundArchive.soundSequence, obj_s)
+        params = ast.literal_eval(params_s)
+        if not isinstance(params, tuple):
+            params = (params,)
+        return obj(*params)
+
     def treeSdatExpand(self, item: QtWidgets.QTreeWidgetItem):
         """Loads tree items on demand when expanding parent item"""
         item_placeholder = item.child(0)
