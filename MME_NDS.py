@@ -17,6 +17,7 @@ except ImportError:
     pass
 isVXSupported = bool("lib.actimagine.package.actimagine" in sys.modules)
 from lib.common import PATH_ROOT
+SPACES_FOLDER = "    "
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-R", "--ROM", help="NDS ROM to open using the editor.", dest="openPath")
@@ -3246,19 +3247,19 @@ class MainWindow(QtWidgets.QMainWindow):
                 tree_folder: list[QtWidgets.QTreeWidgetItem] = []
                 for f in str(self.rom.filenames).split("\n"):
                     if not "/" in f: # if file
-                        if "    " in f: # if contents of folder
-                            tree_folder[f.count("    ") - 1].addChild(QtWidgets.QTreeWidgetItem([f.split(" ")[0], f.split(" ")[-1].split(".")[0], f.split(".")[-1]]))
+                        if SPACES_FOLDER in f: # if contents of folder
+                            tree_folder[f.count(SPACES_FOLDER) - 1].addChild(QtWidgets.QTreeWidgetItem([f.split(" ")[0], f.split(" ")[-1].split(".")[0], f.split(".")[-1]]))
                         else:
                             tree_files.append(QtWidgets.QTreeWidgetItem([f.split(" ")[0], f.split(" ")[-1].split(".")[0], f.split(".")[-1]]))
                     else: # if folder
-                        if f.count("    ") < len(tree_folder):
-                            tree_folder[f.count("    ")] = QtWidgets.QTreeWidgetItem([f.split(" ")[0], f.split(" ")[-1].removesuffix("/"), "Folder"])
+                        if f.count(SPACES_FOLDER) < len(tree_folder):
+                            tree_folder[f.count(SPACES_FOLDER)] = QtWidgets.QTreeWidgetItem([f.split(" ")[0], f.split(" ")[-1].removesuffix("/"), "Folder"])
                         else:
                             tree_folder.append(QtWidgets.QTreeWidgetItem([f.split(" ")[0], f.split(" ")[-1].removesuffix("/"), "Folder"]))
-                        if not "    " in f:
-                            tree_files.append(tree_folder[f.count("    ")])
+                        if not SPACES_FOLDER in f:
+                            tree_files.append(tree_folder[f.count(SPACES_FOLDER)])
                         else:
-                            tree_folder[f.count("    ") - 1].addChild(tree_folder[f.count("    ")])
+                            tree_folder[f.count(SPACES_FOLDER) - 1].addChild(tree_folder[f.count(SPACES_FOLDER)])
         except Exception as e: # if failed, do nothing
             print("Failed to load filesystem")
         self.tree.clear()
@@ -3517,6 +3518,11 @@ class MainWindow(QtWidgets.QMainWindow):
         if current_item != None:
             current_id = int(current_item.text(0))
             current_name = current_item.text(1)
+            try:
+                current_path = self.rom.filenames.filenameOf(current_id)
+                current_path = current_path[:current_path.rfind("/")] + "/"
+            except ValueError:
+                current_path = ""
             current_ext  = current_item.text(2)
             if addr_reset:
                 self.relative_address = 0
@@ -3538,7 +3544,7 @@ class MainWindow(QtWidgets.QMainWindow):
                             self.fileDisplayState = "VX"
                         elif current_ext == "sdat":
                             self.fileDisplayState = "Sound"
-                        elif current_ext == "nbfc":
+                        elif current_ext in ["nbfc", "NCGR"]:
                             self.fileDisplayState = "Graphics"
                         elif current_ext == "bin":
                             if any(current_name.startswith(indicator) for indicator in indicator_list["Font"]):
@@ -3618,7 +3624,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.setPalette(self.GFX_PALETTES[3])
                             if current_ext == "nbfc":
                                 try:
-                                    pal = self.rom.getFileByName(current_name+".nbfp")
+                                    pal = self.rom.getFileByName(current_path+current_name+".nbfp")
                                     self.setPalette(lib.datconv.BGR15_to_ARGB32(pal))
                                 except:
                                     pass
@@ -3737,7 +3743,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         if sender in self.FILEOPEN_WIDGETS:
                             self.field_address.setDisabled(True)
                             self.fileEdited_object = lib.oam.File(self.rom.files[current_id])
-                            self.fileEdited_object.auxfile = lib.graphic.File(self.rom.getFileByName(current_name.replace("dat", "fnt")+".bin"))
+                            self.fileEdited_object.auxfile = lib.graphic.File(self.rom.getFileByName(current_path+current_name.replace("dat", "fnt")+".bin"))
                             self.fileEdited_object.objs = []
                             self.dropdown_oam_entry.clear()
                             for i in range(self.fileEdited_object.entryCount):
