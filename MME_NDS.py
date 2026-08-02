@@ -3581,7 +3581,7 @@ class MainWindow(QtWidgets.QMainWindow):
             try:
                 current_path = self.rom.filenames.filenameOf(current_id)
                 if current_path is not None:
-                    current_path = current_path[:current_path.rfind("/")] + "/"
+                    current_path = current_path[:current_path.rindex("/")] + "/"
                 else: raise ValueError
             except ValueError:
                 current_path = ""
