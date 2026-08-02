@@ -1,6 +1,6 @@
 # Running the application
 
-First you need to make sure the dependencies are installed. See README.md for more information.  
+First you need to make sure the dependencies are installed. See [the "Setup for usage" section in README.md](https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/blob/main/README.md#setup-for-usage) for more information.  
 To run the application, the file named "MME_NDS.py" must be run using python 3.
 
 # Opening a ROM
@@ -37,7 +37,40 @@ Dialogues are separated into what the application refers to as "messages".
 Each of those messages are usually separated by in-game events such as characters moving during a cutscene.
 
 The right panel contains the text of the current message you are viewing.  
-
+Above the text area, there is a dropdown allowing you to choose what message index to go to.
+A check box labeled "Overwrite existing text" is also present to the left of the dropdown. It toggles [overtype mode](https://en.wikipedia.org/wiki/Insert_key).
 
 > [!TIP]
-> You can right-click on the text area to open a list of special commands that can be inserted in the dialogue
+> You can right-click on the text area to open a list of special commands that can be inserted in the dialogue  
+> For more information on special commands, see [the wiki section on it](https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/wiki/Mega-Man-ZX-(USA)-Dialogue-chars-table)
+
+## Graphic Files
+
+## Font Files
+
+## OAM Files
+
+OAM stands for Object Attribute Memory.  
+Each OAM file relies on a graphic file for rendering.  
+The OAM file is called \<name\>_dat.bin and the associated graphic file is called \<name\>_fnt.bin
+
+### Frames
+
+### Animations
+
+> [!WARNING]
+> The saving of animations with removed or added frames is not yet on point, so avoid changing the amount of frames an animation has for now
+
+## Model Files
+
+# Editing a level
+
+## Tileset
+
+## Screens
+
+## Entities
+
+# Applying tweaks
+
+# Applying patches

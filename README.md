@@ -1,20 +1,21 @@
 # Mega Man ZX Editor
-> <img src="https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/blob/main/GitHub-page-content/Showcase-GUI.png" /><br>Graphic User Interface of the editor
+> <img src="https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/blob/main/GitHub-page-content/Showcase-GUI.png?raw=true" /><br>Graphic User Interface of the editor
 <details>
 <summary>More Previews</summary>
 
-> <img src="https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/blob/main/GitHub-page-content/Showcase-Level.png" /><br>Level Editor section
+> <img src="https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/blob/main/GitHub-page-content/Showcase-Level.png?raw=true" /><br>Level Editor section
 
-> <img src="https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/blob/main/GitHub-page-content/Showcase-3D.png" /><br>3D Model Viewer
+> <img src="https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/blob/main/GitHub-page-content/Showcase-3D.png?raw=true" /><br>3D Model Viewer
 
-> <img src="https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/blob/main/GitHub-page-content/Showcase-Dialogue.gif" /><br>Edited dialogue file (talk_m01_en1.bin) in-game
+> <img src="https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/blob/main/GitHub-page-content/Showcase-Dialogue.gif?raw=true" /><br>Edited dialogue file (talk_m01_en1.bin) in-game
 
-> <img src="https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/blob/main/GitHub-page-content/Showcase-Dialogue-ZXA.png" /><br>Edited dialogue file (talk_m01_en1.bin) in Mega Man ZX Advent</details>
+> <img src="https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/blob/main/GitHub-page-content/Showcase-Dialogue-ZXA.png?raw=true" /><br>Edited dialogue file (talk_m01_en1.bin) in Mega Man ZX Advent</details>
 ## What this is
-This is a tool I created in an attempt to make editing Mega Man ZX much easier.<br>
-If you need to know where specific assets, values, or code sections are in the game, please see the (unfinished) [wiki page](https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/wiki), as it contains documentation I accumulated on the game.
+This is a tool I created in an attempt to make editing Mega Man ZX much easier.  
+If you need to know where specific assets, values, or code sections are in the game, please see the (unfinished) [wiki page](https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/wiki), as it contains documentation I accumulated on the game.  
+If you don't know how to use this program, please see the [User Manual](https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/blob/main/UserManual.md).
 ## Progress
-Currently, I am focusing on the USA version of Mega Man ZX. This means that the editor's (full) compatibility with other versions of the game is not guarenteed at the moment (although, it's worth noting that the dialogue and level data files MMZXA has use the same structure as in MMZX, and as such, editing those files works for both games).<br>
+Currently, I am focusing on the USA version of Mega Man ZX. This means that the editor's (full) compatibility with other versions of the game is not guarenteed at the moment (although, it's worth noting that the dialogue and level data files MMZXA has use the same structure as in MMZX, and as such, editing those files works for both games).  
 The editor can edit, export and import english dialogue files and save them to the ROM. Other files can be viewed but I have not yet implemented the code to edit and/or export most of them in a converted format.
 ### Done
 - Dialogue text converter (for dialogue "talk_" and message "m_" files)
