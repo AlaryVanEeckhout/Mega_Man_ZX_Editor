@@ -129,7 +129,7 @@ class WAVPlayer:
         for i in range(outdata.shape[1]):
             outdata[:, i] = mono_outdata_final
         # stop stream if at the end
-        if is_note_end and self.stop_on_note_end:
+        if is_note_end and self.stop_on_note_end or not self.stream.active:
             if hasattr(self, "info"):
                 self.info.finished.emit(True)
             raise sounddevice.CallbackStop

@@ -3206,6 +3206,11 @@ class MainWindow(QtWidgets.QMainWindow):
                     "Could not load SSARS because information is missing."
                 )
                 return
+        elif snd_type == "STRM":
+            print("play STRM")
+            strm: ndspy.soundArchive.soundStream.STRM = self.sdats[self.dropdown_sdat.currentIndex()].streams[item_id][1]
+            lib.sdat.playSTRM(strm, self.buttons_sdat_track)
+        else: return # Avoid switching to pause icon if not playable
         self.action_playSdat.setIcon(QtGui.QIcon(PATH_ROOT + 'icons/control-pause'))
         self.action_playSdat.setText("Pause Sound")
 
@@ -3425,6 +3430,11 @@ class MainWindow(QtWidgets.QMainWindow):
                             subChild.addChild(QtWidgets.QTreeWidgetItem(self.TREE_PLACEHOLDER))
                             subChild.setToolTip(0, "bankID: " + str(ssars[1].bankID))
                             child.addChild(subChild)
+                    if hasattr(section[1], "channels"): # streams
+                        for ch_i, ch in enumerate(section[1].channels):
+                            subChild = QtWidgets.QTreeWidgetItem([str(ch_i), f"{child.text(1)} (Channel {ch_i})", "Channel"])
+                            subChild.addChild(QtWidgets.QTreeWidgetItem(self.TREE_PLACEHOLDER))
+                            child.addChild(subChild)
                     if hasattr(section[1], "waves"): # waveArchives
                         for wave_i, wave in enumerate(section[1].waves):
                             subChild = QtWidgets.QTreeWidgetItem([str(wave_i), f"{child.text(1)} (Wave {wave_i})", "SWAV"])
@@ -3438,40 +3448,6 @@ class MainWindow(QtWidgets.QMainWindow):
             tree_current.itemActivated.connect(self.treeSdatEdit)
             #progress.setValue(100)
             #progress.close()
-    
-    def treeSdatEdit(self, item: QtWidgets.QTreeWidgetItem, column: int):
-        dialog = QtWidgets.QInputDialog(self.dialog_sdat)
-        dialog.setWindowTitle("SDAT - Edit Event")
-        dialog.setLabelText("Enter an object and its arguments:")
-        dialog.setTextValue(item.text(column))
-        if column == 1 and "Event" in item.text(2):
-            dialog.show() # allow resizing
-            dialog.setMinimumWidth(500)
-            if dialog.exec():
-                try:
-                    new_obj = self.parseEventString(dialog.textValue())
-                except Exception as e:
-                    print("event string parse fail")
-                    print(e)
-                    return
-                fileInfo = self.file_fromItem(item.parent())
-                if item.text(2) == "Event":
-                        fileInfo.objects[-1].events[int(item.text(0))] = new_obj
-                        item.setText(1, repr(new_obj))
-                elif item.text(2) == "Event (Preview)" and item.parent().text(2) == "SSARS":
-                    fileInfo_parent = self.file_fromItem(item.parent().parent()) #SSAR
-                    fileInfo_parent.objects[-1].events[int(item.text(0))] = new_obj
-                    fileInfo.objects[-1].events = fileInfo_parent.objects[-1].events
-                    item.setText(1, repr(new_obj))
-
-    def parseEventString(self, s:str):
-        obj_s = s[:s.find("(")]
-        params_s = s[s.find("("):]
-        obj = getattr(ndspy.soundArchive.soundSequence, obj_s)
-        params = ast.literal_eval(params_s)
-        if not isinstance(params, tuple):
-            params = (params,)
-        return obj(*params)
 
     def treeSdatExpand(self, item: QtWidgets.QTreeWidgetItem):
         """Loads tree items on demand when expanding parent item"""
@@ -3531,9 +3507,50 @@ class MainWindow(QtWidgets.QMainWindow):
                         child = QtWidgets.QTreeWidgetItem([str(pitch), str(instrument), "Note"])
                         child.setToolTip(0, ndspy.soundArchive._common.noteName(pitch))
                         child_list.append(child)
+            elif item.text(2) == "Channel":
+                strm: ndspy.soundArchive.soundStream.STRM = self.sdats[self.dropdown_sdat.currentIndex()].streams[int(item.parent().text(0))][1]
+                channel = strm.channels[int(item.text(0))]
+                for block_i, block in enumerate(channel):
+                    child = QtWidgets.QTreeWidgetItem([str(block_i), str(block)[:20]+"...)", "Block"])
+                    child_list.append(child)
+
 
             item.removeChild(item_placeholder)
             item.addChildren(child_list)
+
+    def treeSdatEdit(self, item: QtWidgets.QTreeWidgetItem, column: int):
+        dialog = QtWidgets.QInputDialog(self.dialog_sdat)
+        dialog.setWindowTitle("SDAT - Edit Event")
+        dialog.setLabelText("Enter an object and its arguments:")
+        dialog.setTextValue(item.text(column))
+        if column == 1 and "Event" in item.text(2):
+            dialog.show() # allow resizing
+            dialog.setMinimumWidth(500)
+            if dialog.exec():
+                try:
+                    new_obj = self.parseEventString(dialog.textValue())
+                except Exception as e:
+                    print("event string parse fail")
+                    print(e)
+                    return
+                fileInfo = self.file_fromItem(item.parent())
+                if item.text(2) == "Event":
+                        fileInfo.objects[-1].events[int(item.text(0))] = new_obj
+                        item.setText(1, repr(new_obj))
+                elif item.text(2) == "Event (Preview)" and item.parent().text(2) == "SSARS":
+                    fileInfo_parent = self.file_fromItem(item.parent().parent()) #SSAR
+                    fileInfo_parent.objects[-1].events[int(item.text(0))] = new_obj
+                    fileInfo.objects[-1].events = fileInfo_parent.objects[-1].events
+                    item.setText(1, repr(new_obj))
+
+    def parseEventString(self, s:str):
+        obj_s = s[:s.find("(")]
+        params_s = s[s.find("("):]
+        obj = getattr(ndspy.soundArchive.soundSequence, obj_s)
+        params = ast.literal_eval(params_s)
+        if not isinstance(params, tuple):
+            params = (params,)
+        return obj(*params)
 
     def treeCall(self, addr_reset=False, addr_disabled=False):
         #print("Tree")
@@ -3563,7 +3580,9 @@ class MainWindow(QtWidgets.QMainWindow):
             current_name = current_item.text(1)
             try:
                 current_path = self.rom.filenames.filenameOf(current_id)
-                current_path = current_path[:current_path.rfind("/")] + "/"
+                if current_path is not None:
+                    current_path = current_path[:current_path.rfind("/")] + "/"
+                else: raise ValueError
             except ValueError:
                 current_path = ""
             current_ext  = current_item.text(2)

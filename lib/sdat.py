@@ -227,18 +227,24 @@ try:
             index_current += 1
         return preview_eventList
 
-    def loadSWAV(swav: sa.soundWaveArchive.soundWave.SWAV, notedef: sa.soundBank.NoteDefinition=None):
-        assert type(swav) == sa.soundWaveArchive.soundWave.SWAV
-        if swav.waveType == sa.soundWaveArchive.soundWave.WaveType.ADPCM:
+    def loadWave(data: bytes, waveType: sa.soundWaveArchive.soundWave.WaveType):
+        if waveType == sa.soundWaveArchive.soundWave.WaveType.ADPCM:
             # DS uses Low-Nibble first; audioop expects High-Nibble first.
-            state = struct.unpack('<hB', swav.data[:3]) # Parse the 4-byte ADPCM Header
-            data_np = numpy.frombuffer(swav.data[4:], dtype="uint8")
+            state = struct.unpack('<hB', data[:3]) # Parse the 4-byte ADPCM Header
+            data_np = numpy.frombuffer(data[4:], dtype="uint8")
             adpcm_data = ((data_np & 0x0F) << 4) | ((data_np & 0xF0) >> 4)
 
-            pcm_data = numpy.frombuffer(audioop.adpcm2lin(adpcm_data, 2, state)[0], dtype="int16") * 1
+            return numpy.frombuffer(audioop.adpcm2lin(adpcm_data, 2, state)[0], dtype="int16") * 1
         else: #PCM8 or PCM16
-            pcm_data = numpy.frombuffer(swav.data, dtype="int16")
-        loop = (swav.loopOffset-1)*8 if swav.isLooped else None
+            return numpy.frombuffer(data, dtype="int16")
+
+    def get_loop(offset: int, isLooped: bool=True):
+        return (offset-1)*8 if isLooped else None
+
+    def loadSWAV(swav: sa.soundWaveArchive.soundWave.SWAV, notedef: sa.soundBank.NoteDefinition=None):
+        assert type(swav) == sa.soundWaveArchive.soundWave.SWAV
+        pcm_data = loadWave(swav.data, swav.waveType)
+        loop = get_loop(swav.loopOffset, swav.isLooped)
         return Sample(pcm_data, loop, swav.sampleRate, notedef)
 
     # Intended for playback of individual SWAVs. Volume reduced to reasonable value.
@@ -248,6 +254,25 @@ try:
         print(f"Wave type: {swav.waveType.name}")
         print(f"Sample rate: {swav.sampleRate}")
         sample = loadSWAV(swav)
+        sample.data //= 5 # reduce sound volume to something reasonable
+        player = wav_player.WAVPlayer([sample])
+        player.info = player_info
+        player.play()
+
+    def loadSTRMChannel(strm: sa.soundStream.STRM, channel_idx: int):
+        assert type(strm) == sa.soundStream.STRM
+        pcm_data = loadWave(strm.channels[channel_idx][0], strm.waveType)
+        for index in range(1, len(strm.channels[channel_idx])):
+            pcm_data = numpy.append(pcm_data, loadWave(strm.channels[channel_idx][index], strm.waveType))
+        loop = get_loop(strm.loopOffset, strm.isLooped)
+        return Sample(pcm_data, loop, strm.sampleRate)
+
+    def playSTRM(strm: sa.soundStream.STRM, trackButtons: list=None):
+        global player, player_info
+        stopSound()
+        print(f"Wave type: {strm.waveType.name}")
+        print(f"Sample rate: {strm.sampleRate}")
+        sample = loadSTRMChannel(strm, 0)
         sample.data //= 5 # reduce sound volume to something reasonable
         player = wav_player.WAVPlayer([sample])
         player.info = player_info
