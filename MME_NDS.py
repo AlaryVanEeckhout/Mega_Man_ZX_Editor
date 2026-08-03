@@ -2193,22 +2193,25 @@ class MainWindow(QtWidgets.QMainWindow):
         for i in range(fat_size//8): # 8 bytes for start and end address of each file, so this is like range(fileCount)
             self.rom_fat.append(int.from_bytes(rom[fat_offset+i*8:fat_offset+i*8+4], "little"))
 
+    def handleROMFail(self, exception: str):
+        self.progressHide()
+        print(exception)
+        QtWidgets.QMessageBox.critical(
+        self,
+        "Failed to load ROM",
+        str(exception)
+        )
+        self.setWindowTitle("Mega Man ZX Editor")
+        self.setWindowIcon(QtGui.QIcon(PATH_ROOT + 'icons/appicon'))
+        for widget in self.findChildren(QtWidgets.QWidget):
+            widget.blockSignals(False)
+
     def loadROM(self, fname: str):
         if fname == "" or not os.path.exists(fname):
-            print("file does not exist.")
-            QtWidgets.QMessageBox.critical(
-            self,
-            "Failed to load ROM",
-            str("Could not find the file to load. Make sure the path entered is valid.")
-            )
+            self.handleROMFail("Could not find the file to load. Make sure the path entered is valid.")
             return
         if len(open(fname, 'rb').read()) <= 0:
-            print("file is empty")
-            QtWidgets.QMessageBox.critical(
-            self,
-            "Failed to load ROM",
-            str("An empty file is not a valid ROM! Please select a valid Nintendo DS file.")
-            )
+            self.handleROMFail("An empty file is not a valid ROM! Please select a valid Nintendo DS file.")
             return
 
         # reset stuff to prevent conflicts
@@ -2244,17 +2247,7 @@ class MainWindow(QtWidgets.QMainWindow):
             icon_title = str(self.rom.iconBanner[offset_icon_title:offset_icon_title+0x100].decode('UTF-16LE').replace("\x00", ""))
             print(icon_title)
         except Exception as e:
-            self.progressHide()
-            print(e)
-            QtWidgets.QMessageBox.critical(
-            self,
-            "Failed to load ROM",
-            str(e)
-            )
-            self.setWindowTitle("Mega Man ZX Editor")
-            self.setWindowIcon(QtGui.QIcon(PATH_ROOT + 'icons/appicon'))
-            for widget in self.findChildren(QtWidgets.QWidget):
-                widget.blockSignals(False)
+            self.handleROMFail(e)
             return
         try:
             #fileID = str(self.rom.filenames).rpartition(".sdat")[0].split()[-2]
@@ -2282,24 +2275,32 @@ class MainWindow(QtWidgets.QMainWindow):
             self.progressShow()
         self.progressUpdate(10, "Obtaining metadata")
         self.temp_path = PATH_ROOT + "temp/" + (self.romToEdit_name+self.romToEdit_ext)
-        self.setWindowTitle("Mega Man ZX Editor" + " <" + self.rom.name.decode() + ", Serial ID " + ''.join(char for char in self.rom.idCode.decode("utf-8") if char.isalnum())  + ", Rev." + str(self.rom.version) + ", Region " + str(self.rom.region) + ">" + " \"" + self.romToEdit_name + self.romToEdit_ext + "\"")
-        if not self.rom.name.decode() in lib.gamedat.GameEnum.__members__:
+        try:
+            rom_name = self.rom.name.decode()
+        except UnicodeDecodeError as e:
+            self.handleROMFail("ROM name invalid:\n"+str(e))
+            return
+        self.setWindowTitle("Mega Man ZX Editor" + " <" + rom_name + ", Serial ID " + ''.join(char for char in self.rom.idCode.decode("utf-8") if char.isalnum())  + ", Rev." + str(self.rom.version) + ", Region " + str(self.rom.region) + ">" + " \"" + self.romToEdit_name + self.romToEdit_ext + "\"")
+        if not rom_name in lib.gamedat.GameEnum.__members__:
             print("ROM is NOT supported! Continue at your own risk!")
             self.isGameSupported = False
             self.window_progress.hide()
             dialog = QtWidgets.QMessageBox(self)
             dialog.setWindowTitle("Warning!")
             dialog.setWindowIcon(QtGui.QIcon(PATH_ROOT + 'icons/exclamation'))
-            dialog.setText("Game \"" + self.rom.name.decode() + "\" is NOT supported! Continue at your own risk!")
+            dialog.setText("Game \"" + rom_name + "\" is NOT supported! Continue at your own risk!")
             dialog.exec()
             self.window_progress.show()
         else:
             self.isGameSupported = True
 
-        self.gamedat = lib.gamedat.GameEnum[self.rom.name.decode() if self.isGameSupported else "UNSUPPORTED"]
+        self.gamedat = lib.gamedat.GameEnum[rom_name if self.isGameSupported else "UNSUPPORTED"]
 
         self.progressUpdate(20, "Loading ARM9", True, icon_title, icon_pixmap)
         self.arm9_decompressed = self.rom.loadArm9()
+        if len(self.arm9_decompressed.sections[0].data) == 0:
+            self.handleROMFail("The ARM9 is missing!")
+            return
         self.treeArm9Update()
         self.progressUpdate(30, "Loading ARM7")
         self.treeArm7Update()
@@ -2311,15 +2312,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.progressUpdate(50, "Loading Patches")
         self.patches_reload()
         self.progressUpdate(90, "Loading game-specific content")
-        arm9_data = self.arm9_decompressed.save()
-        arm9_dialogueAddr = self.gamedat.arm9Addrs["dialogue names jp"]
         self.dropdown_dialogueNames.clear()
-        for i in range(0x100):
-            arm9_dialogueName = arm9_data[arm9_dialogueAddr+i*0x0C:arm9_dialogueAddr+i*0x0C+0x0C]
-            if not 0xFF in arm9_dialogueName:
-                break
-            self.dropdown_dialogueNames.addItem(f"Name 0x{i:02X}")
-        self.dropdown_dialogueNames.setCurrentIndex(-1)
+        if self.arm9_decompressed.codeSettingsOffs is not None:
+            arm9_data = self.arm9_decompressed.save() # this crashes if codeSettingsOffs is None
+            arm9_dialogueAddr = self.gamedat.arm9Addrs["dialogue names jp"]
+            for i in range(0x100):
+                arm9_dialogueName = arm9_data[arm9_dialogueAddr+i*0x0C:arm9_dialogueAddr+i*0x0C+0x0C]
+                if not 0xFF in arm9_dialogueName:
+                    break
+                self.dropdown_dialogueNames.addItem(f"Name 0x{i:02X}")
+            self.dropdown_dialogueNames.setCurrentIndex(-1)
         self.progressUpdate(100, "Finishing load")
         self.enable_editing_ui()
         self.file_content_text.setDisabled(True)
@@ -3151,6 +3153,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.sdatPlayCall()
 
     def sdatPlayCall(self):
+        if len(self.trees_sdat) == 0: return
         self.action_playSdat.setIcon(QtGui.QIcon(PATH_ROOT + 'icons/control'))
         self.action_playSdat.setText("Play Sound")
         items: list[QtWidgets.QTreeWidgetItem] = self.trees_sdat[self.dropdown_sdat.currentIndex()].selectedItems()
@@ -3215,6 +3218,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.action_playSdat.setText("Pause Sound")
 
     def sdatPlotCall(self):
+        if len(self.trees_sdat) == 0: return
         items = self.trees_sdat[self.dropdown_sdat.currentIndex()].selectedItems()
         if len(items) == 0: return
         if items[0].text(0) == "N/A": return
@@ -4695,11 +4699,12 @@ class MainWindow(QtWidgets.QMainWindow):
             self.gfx_scene_level.fitInView2()
 
     def loadTweaks(self):
-        arm9_bin = self.arm9_decompressed.save()
         for i in range(self.tabs_tweaks.count()):
             page = self.tabs_tweaks.widget(i)
             for widget in page.findChildren(QtWidgets.QWidget):
                 widget.deleteLater() # delete previously generated widgets
+        if self.gamedat.tweaks == {}: return
+        arm9_bin = self.arm9_decompressed.save()
         for category in self.gamedat.tweaks:
             field_parent: QtWidgets.QWidget = getattr(self, f"page_tweaks_{category.lower()}")
             for tweak in self.gamedat.tweaks[category]:
