@@ -41,14 +41,16 @@ class NoteModifier:
 class WAVPlayer:
     def __init__(self, samples: list[Sample], stop_on_note_end: bool=True):
         self.SAMPLES_PER_CYCLE = STREAM_SAMPLERATE / SSEQ_CLOCK_FREQ
-        self.POLY_MAX = 4 # just a random value idk
+        # apparently, a track can use more than one sound channel to play more notes at once
+        # this technically means that a track alone can play at most 16 notes at once, since there are 16 channels
+        # allowing 16 notes per player is therefore not truly accurate, since it allows more notes if multiple players use too many notes
+        self.POLY_MAX = 16 # the max amount of notes that can be played at once
         self.is_paused = False
-        self.slot_last = 0
         self.slot_next = 0 # on what index of the sample array should the next sample arrive
-        self.noteInfos: list[NoteInfo] = [None]*self.POLY_MAX
+        self.noteInfos: list[NoteInfo] = [] # list expands and shrinks as needed
         for i, sample in enumerate(samples):
             assert len(sample.data.shape) == 1
-            self.noteInfos[i] = NoteInfo(sample.zoom(sample.samplerate/STREAM_SAMPLERATE)) # resample
+            self.noteInfos.append(NoteInfo(sample.zoom(sample.samplerate/STREAM_SAMPLERATE))) # resample
         self.stop_on_note_end = stop_on_note_end
         self.stream = sounddevice.OutputStream(
             samplerate=STREAM_SAMPLERATE,  # samplerate cannot change after being set
@@ -57,15 +59,13 @@ class WAVPlayer:
         )
 
     def callback(self, outdata: numpy.ndarray, frames: int, time, status: sounddevice.CallbackFlags) -> None:
-        is_note_end = False
+        is_note_end = True
         mono_outdata_final = numpy.zeros(frames, dtype="int16")
         if self.is_paused: # make the player silent while retaining its state for resume
             for i in range(outdata.shape[1]):
                 outdata[:, i] = mono_outdata_final
             return
         for noteInfo in self.noteInfos:
-            if noteInfo is None:
-                break
             # try filling outdata with data
             range_start = noteInfo.current_frame
             range_end = noteInfo.current_frame+frames
@@ -110,19 +110,22 @@ class WAVPlayer:
                         noteInfo.current_gain = 0
                         noteInfo.adsr_stage = 4 # end
                 elif noteInfo.adsr_stage == 4:
-                    is_note_end = True
+                    self.noteInfos.remove(noteInfo)
+                    continue
                 #print(f"{sample.data}")
                 sample.data = numpy.astype(numpy.astype(sample.data, numpy.float64)*noteInfo.current_gain*noteInfo.modifier.final_volume_factor, numpy.int16)
                 #print(f"\t{sample.data}")
+            if not sample.is_in_range(range_start):
+                self.noteInfos.remove(noteInfo)
+                continue
                 
             mono_outdata = sample.get_data_range(range_start, range_end)
             if mono_outdata.shape[0] < frames:
                 mono_outdata = numpy.append(mono_outdata, numpy.zeros((frames-mono_outdata.shape[0]), dtype="int16"))
-            if not sample.is_in_range(range_start):
-                is_note_end = True
             noteInfo.current_frame += mono_outdata.shape[0]
 
             mono_outdata_final += mono_outdata
+            is_note_end = False # if at least one note is not finished yet, the player isn't done
 
         #print(mono_outdata)
         # fill stereo outdata
@@ -150,7 +153,7 @@ class WAVPlayer:
 
 class NotePlayer(WAVPlayer):
     def __init__(self):
-        super().__init__(samples=[Sample(numpy.zeros((1000), dtype="int16"), None, 8000)], stop_on_note_end=False)
+        super().__init__(samples=[], stop_on_note_end=False)
 
     def add_note(self, noteInfo: NoteInfo):
         sample = noteInfo.sample
@@ -166,9 +169,12 @@ class NotePlayer(WAVPlayer):
                 noteInfo.attack_multiplier = 60 * 0.00001 ** exponent
             else:
                 noteInfo.attack_multiplier = 1.0
-        self.noteInfos[self.slot_next] = noteInfo
-        self.slot_last = self.slot_next
-        self.slot_next = (self.slot_next + 1) % self.POLY_MAX # cycle through sample slots of player
+        if len(self.noteInfos) < 16:
+            self.noteInfos.append(noteInfo)
+            self.slot_next = 0
+        else:
+            self.noteInfos[self.slot_next] = noteInfo
+            self.slot_next = (self.slot_next + 1) % self.POLY_MAX # cycle through sample slots of player
     
     def play_note(self, event:sa.soundSequence.NoteSequenceEvent, sample:Sample, duration:int, notemod:NoteModifier=None):
         if sample.pitch_change:
