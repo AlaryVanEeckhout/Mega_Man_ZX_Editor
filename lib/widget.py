@@ -134,10 +134,14 @@ class OAMObjectItem(PixmapItem):
     def itemChange(self, change: QtWidgets.QGraphicsPixmapItem.GraphicsItemChange, value: QtCore.QVariant):
         if change == QtWidgets.QGraphicsPixmapItem.GraphicsItemChange.ItemPositionChange and self.scene():
             if QtWidgets.QApplication.mouseButtons() == QtCore.Qt.MouseButton.LeftButton:
-                rect = self.getWindow().file_content_oam.sceneRect()
-                x = min(max(rect.left(), value.x()), rect.right())
-                y = min(max(rect.top(), value.y()), rect.bottom())
-                return QtCore.QPointF(int(x), int(y))
+                view_parent: OAMView = self.getWindow().file_content_oam
+                if view_parent.boundaries is not None:
+                    rect = view_parent.boundaries.rect()
+                    x = min(max(rect.left(), value.x()), rect.right())
+                    y = min(max(rect.top(), value.y()), rect.bottom())
+                    return QtCore.QPointF(int(x), int(y))
+                else: 
+                    return value
             else:
                 return value
         else:
@@ -349,6 +353,7 @@ class GFXView(View):
 class OAMView(View):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.boundaries: QtWidgets.QGraphicsRectItem = None
         self.item_current: OAMObjectItem | None = None
 
     def addItem(self, item: OAMObjectItem):

@@ -3907,7 +3907,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                 OAMRect = QtCore.QRectF(-128, -128, 256, 256)
                                 crosshairPen = QtGui.QPen()
                                 crosshairPen.setWidthF(0.05) # extra thin line
-                                self.file_content_oam.scene().addRect(OAMRect)
+                                self.file_content_oam.boundaries = self.file_content_oam.scene().addRect(OAMRect)
                                 self.file_content_oam.scene().addLine(OAMRect.left(), 0, OAMRect.right(), 0, crosshairPen)
                                 self.file_content_oam.scene().addLine(0, OAMRect.top(), 0, OAMRect.bottom(), crosshairPen)
                                 if not isinstance(sender, lib.widget.BetterSpinBox) and sender not in [
