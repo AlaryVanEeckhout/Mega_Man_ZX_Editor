@@ -1169,7 +1169,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dialog_sdat.centralWidget().layout().addWidget(self.container_sdat_tracks)
         self.dialog_sdat.centralWidget().layout().addWidget(self.page_sdat)
 
-        self.trees_sdat = []
+        self.trees_sdat: list[lib.widget.EditorTree] = []
 
         #VX
         self.label_vxHeader_length = QtWidgets.QLabel(self.page_explorer)
@@ -3234,6 +3234,13 @@ class MainWindow(QtWidgets.QMainWindow):
         if items[0].text(2) == "SWAV":
             swav = ndspy.soundArchive.soundWaveArchive.soundWave.SWAV(self.file_fromItem(items[0]).data)
             snd_data = lib.sdat.loadSWAV(swav).data
+        elif items[0].text(2) == "Channel":
+            strm: ndspy.soundArchive.soundStream.STRM = self.file_fromItem(items[0].parent()).objects[-1]
+            snd_data = bytearray().join(strm.channels[int(items[0].text(0))])
+            print(snd_data[:0x10])
+        elif items[0].text(2) == "Block":
+            strm: ndspy.soundArchive.soundStream.STRM = self.file_fromItem(items[0].parent().parent()).objects[-1]
+            snd_data = strm.channels[int(items[0].parent().text(0))][int(items[0].text(0))]
         elif items[0].text(2) == "Note":
             sdat = self.sdats[self.dropdown_sdat.currentIndex()]
             instrument = self.file_fromItem(items[0].parent()).objects[-1]
@@ -3250,6 +3257,8 @@ class MainWindow(QtWidgets.QMainWindow):
                     speed_factor *= 2.0 ** ((note_id-sample.notedef.pitch) / 12.0)
                 sample = sample.zoom(speed_factor)
                 snd_data = sample.data
+        else:
+            return
         fig, ax = pyplt.subplots()
         if snd_data is not None:
             ax.plot(snd_data)
