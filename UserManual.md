@@ -96,15 +96,15 @@ The spinbox under the "frame" dropdown controls the tile ID where this objects'g
 The checkboxes labeled "Filp H" and "Filp V" allow to filp the object horizontally and vertically, respectively.  
 The slider controls the dimensions of the current object and its graphics.  
 The "Shape" options allow to get different dimension options for the slider.
-The two spinboxes below are, from left to right, for the X and Y position of the object. Those positions are in a value range from -128 to 127.
+The two spinboxes below are, from left to right, for the X and Y position of the object. Those positions are in a value range from -0x80 to 0x7F.
 
 ### Animations
 
 In this tab, the canvas is just there to visualise animations, and does not allow frame modifications.  
 Animations are a set of frame indexes and durations.  
 The duration value works in a peculiar way:
-- At the first frame of the animation, it is simply a 0-255 duration value in frames.
-- After the first frame, 255 is used to end the animation, 254 is used to begin a loop (causing the frame index to be used as a looping point parameter), and 0 becomes a duration of 255 frames.
+- At the first frame of the animation, it is simply a 0x00-0xFF duration value in frames.
+- After the first frame, 0xFF is used to end the animation, 0xFE is used to begin a loop (causing the frame index to be used as a looping point parameter), and 0x00 becomes a duration of 0xFF frames.
 
 The dropdown at the top left allows to select the current animation.  
 The dropdown to the right lets you select a frame of the animation to view and edit.
@@ -197,8 +197,45 @@ To draw tiles in a screen, simply click on that tile from the tileset canvas and
 
 The screen layout data is stored in the level overlay.
 
+This is where you can change the screen arrangement of the level.  
+Levels have multiple layers with a unique layout each.
+
+Each layout has its own tab: Layout 0, Layout 1, Layout 2, Layout 3, Camera Scroll Layout, Radar Scope Layout, Tileset Offset Map (?), and Behavior Map (?)  
+In each case, the layout is represented as a grid of spinboxes with the values inside being the values for each screen.
+
+### Layout 0
+
+This is the main layout of the level, the layer that has collision and that the player interacts with.
+
+Here, the values represent an index into the list of screens available from the tileset file.
+
+### Layouts 1-3
+
+Those layouts may be used for parallax background or foreground, in no particular order.
+
+### Camera Scroll Layout
+
+This layout determines how the camera should treat each screen of the level.  
+It appears this follows the same code as in [Mega Man Zero 3](https://coltaho.com/ZeroEditor/Zero3_ReadMe.html)  
+- 0x0-0xD: Free range (will not scroll to screens with IDs different by 2 or more until the player goes in them)
+- 0xE: Sky (camera does not scroll to the screen, but the player can move freely)
+- 0xF: Kill zone
+
 > [!NOTE]
-> This would be where you can change the screen arrangement of the level, but it is not implemented yet.
+> Some configurations may cause the level to be unable to load.  
+> I am not sure why, but so far it seems to occur whenever a Free range screen value differs from the adjacent screens by more than 2, or when a 0xE screen has Free range screens over it.
+
+### Radar Scope Layout
+
+This is the screen layout that you will see on the sub-screen of the DS when using Model P or Model L.
+
+### Tileset Offset Map?
+
+I'm not sure what this is, but sometimes the values in this layout change exactly at places where graphics are swapped in the tileset.
+
+### Behavior Map?
+
+Very similar to the previous one, but there is less variation in the values.
 
 ## Entities
 

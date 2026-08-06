@@ -1413,7 +1413,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.page_level_tileset.layout().setContentsMargins(10,0,0,0)
         self.page_level_screens = QtWidgets.QWidget(self.tabs_level)
         self.page_level_screens.setLayout(QtWidgets.QVBoxLayout())
-        self.page_level_screens.layout().setContentsMargins(10,0,0,0)
+        self.page_level_screens.layout().setContentsMargins(0,0,0,0)
         self.page_level_entities = QtWidgets.QWidget(self.tabs_level)
         self.page_level_entities.setLayout(QtWidgets.QVBoxLayout())
         self.page_level_entities.layout().setContentsMargins(10,0,0,0)
@@ -1658,14 +1658,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_screen_tilesetOffset.setStatusTip("Set how many graphic entries from the graphic table to skip for the tileset")
 
         self.tabs_level_screens = QtWidgets.QTabWidget(self.page_level_screens)
-        self.page_level_screens_layout0 = QtWidgets.QWidget(self.tabs_level_screens)
-        self.page_level_screens_layout1 = QtWidgets.QWidget(self.tabs_level_screens)
-        self.page_level_screens_layout2 = QtWidgets.QWidget(self.tabs_level_screens)
-        self.page_level_screens_layout3 = QtWidgets.QWidget(self.tabs_level_screens)
-        self.page_level_screens_layout_camera = QtWidgets.QWidget(self.tabs_level_screens)
-        self.page_level_screens_layout_radar = QtWidgets.QWidget(self.tabs_level_screens)
-        self.page_level_screens_map_offset = QtWidgets.QWidget(self.tabs_level_screens)
-        self.page_level_screens_map_behavior = QtWidgets.QWidget(self.tabs_level_screens)
+        self.page_level_screens_layout0 = QtWidgets.QScrollArea(self.tabs_level_screens)
+        self.page_level_screens_layout1 = QtWidgets.QScrollArea(self.tabs_level_screens)
+        self.page_level_screens_layout2 = QtWidgets.QScrollArea(self.tabs_level_screens)
+        self.page_level_screens_layout3 = QtWidgets.QScrollArea(self.tabs_level_screens)
+        self.page_level_screens_layout_camera = QtWidgets.QScrollArea(self.tabs_level_screens)
+        self.page_level_screens_layout_camera.setStatusTip("0=Free range; 2-D=Sticky if delta>2; E=Sky; F=Killzone")
+        self.page_level_screens_layout_radar = QtWidgets.QScrollArea(self.tabs_level_screens)
+        self.page_level_screens_map_offset = QtWidgets.QScrollArea(self.tabs_level_screens)
+        self.page_level_screens_map_behavior = QtWidgets.QScrollArea(self.tabs_level_screens)
         self.tabs_level_screens.addTab(self.page_level_screens_layout0, "Layout 0")
         self.tabs_level_screens.addTab(self.page_level_screens_layout1, "Layout 1")
         self.tabs_level_screens.addTab(self.page_level_screens_layout2, "Layout 2")
@@ -1674,6 +1675,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tabs_level_screens.addTab(self.page_level_screens_layout_radar, "Radar Scope Layout")
         self.tabs_level_screens.addTab(self.page_level_screens_map_offset, "Tileset Offset Map")
         self.tabs_level_screens.addTab(self.page_level_screens_map_behavior, "Behavior Map")
+        for tab_i in range(self.tabs_level_screens.count()):
+            tab: QtWidgets.QScrollArea = self.tabs_level_screens.widget(tab_i)
+            tab.setWidgetResizable(True)
+            tab.setWidget(QtWidgets.QWidget())
+            tab.widget().setLayout(QtWidgets.QGridLayout())
+            tab.widget().layout().setSpacing(0)
+            tab.widget().layout().setContentsMargins(0,0,0,0)
 
         self.checkbox_entities_enable = QtWidgets.QCheckBox(self.page_level_entities)
         self.checkbox_entities_enable.setChecked(True)
@@ -4401,12 +4409,17 @@ class MainWindow(QtWidgets.QMainWindow):
         #print([f"{addr:08X}" for addr in self.levelEdited_ovlTable["entity"]])
 
     def openLevel(self):
+        """
+        Loads the base information necessary to load a level.  
+        returns 0 if successful, returns 1 if there is a problem.
+        """
         self.button_level_save.setDisabled(True)
         self.lineedit_level_tilesetName.setDisabled(True)
         if self.dropdown_level_area.currentText() == "":
             return 1 # error code
         self.gfx_scene_level.scene().clear()
         self.gfx_scene_tileset.scene().clear()
+        self.unloadScreenLayouts()
         ovlID = int(self.dropdown_level_area.currentText())
         self.levelEdited_ovl_object = lib.level.Overlay(self.rom.loadArm9Overlays([ovlID])[ovlID].data,
                                                         lib.datconv.strToNum(self.tree_arm9Ovltable.topLevelItem(ovlID).text(1), self.displayBase),
@@ -4554,6 +4567,65 @@ class MainWindow(QtWidgets.QMainWindow):
             item.tileGroup = self.gfx_scene_level.tileGroups[screen_id][metaTile_index]
             #print(item.pos())
 
+    def loadScreens(self, file: lib.level.File, level: lib.level.Level, screenSpacing: int=4):
+        self.initScreens()
+        if level == file.level:
+            for i in range(self.levelEdited_ovl_object.screenLayout0.height):
+                for j in range(self.levelEdited_ovl_object.screenLayout0.realWidth):
+                    if j >= self.levelEdited_ovl_object.screenLayout0.width:
+                        break # skip unused screens
+                    self.loadScreen(self.levelEdited_ovl_object.screenLayout0.layout[i][j], j*(16*(8*2)+screenSpacing), i*(12*(8*2)+screenSpacing))
+        elif level == file.level_radar:
+            for i in range(self.levelEdited_ovl_object.screenLayout_radar.height):
+                for j in range(self.levelEdited_ovl_object.screenLayout_radar.realWidth):
+                    if j >= self.levelEdited_ovl_object.screenLayout_radar.width:
+                        break # skip unused screens
+                    self.loadScreen(self.levelEdited_ovl_object.screenLayout_radar.layout[i][j], j*(16*(8*2)+screenSpacing), i*(12*(8*2)+screenSpacing))
+
+    def unloadScreenLayout(self, parent: QtWidgets.QWidget):
+        for widget in parent.findChildren(lib.widget.BetterSpinBox):
+            widget.deleteLater() # delete previously generated widgets
+
+    def unloadScreenLayouts(self):
+        self.unloadScreenLayout(self.page_level_screens_layout0.widget())
+        self.unloadScreenLayout(self.page_level_screens_layout1.widget())
+        self.unloadScreenLayout(self.page_level_screens_layout2.widget())
+        self.unloadScreenLayout(self.page_level_screens_layout3.widget())
+        self.unloadScreenLayout(self.page_level_screens_layout_camera.widget())
+        self.unloadScreenLayout(self.page_level_screens_layout_radar.widget())
+        self.unloadScreenLayout(self.page_level_screens_map_offset.widget())
+        self.unloadScreenLayout(self.page_level_screens_map_behavior.widget())
+
+    def loadScreenLayout(self, screenLayout: lib.level.ScreenLayout | lib.level.ScreenMap, parent: QtWidgets.QWidget):
+        self.unloadScreenLayout(parent)
+        for row_i, row in enumerate(screenLayout.layout):
+            for col_i, col in enumerate(row):
+                widget = lib.widget.BetterSpinBox(parent)
+                widget.isInt = True
+                if isinstance(screenLayout, lib.level.ScreenMap):
+                    widget.setMinimumWidth(50)
+                    widget.numfill = 4
+                    widget.setRange(0x0000, 0xFFFF)
+                else:
+                    widget.setMinimumWidth(35)
+                    widget.numfill = 2
+                    widget.setRange(0x00, 0xFF)
+                widget.setValue(col)
+                widget.valueChanged.connect(lambda value, r=row_i, c=col_i: screenLayout.layout[r].__setitem__(c, int(value)))
+                #widget.valueChanged.connect(lambda value, r=row_i, c=col_i: print(screenLayout.layout, screenLayout.layout[r], value, sep="\n"))
+                widget.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+                parent.layout().addWidget(widget, row_i, col_i)
+
+    def loadScreenLayouts(self):
+        self.loadScreenLayout(self.levelEdited_ovl_object.screenLayout0, self.page_level_screens_layout0.widget())
+        self.loadScreenLayout(self.levelEdited_ovl_object.screenLayout1, self.page_level_screens_layout1.widget())
+        self.loadScreenLayout(self.levelEdited_ovl_object.screenLayout2, self.page_level_screens_layout2.widget())
+        self.loadScreenLayout(self.levelEdited_ovl_object.screenLayout3, self.page_level_screens_layout3.widget())
+        self.loadScreenLayout(self.levelEdited_ovl_object.screenLayout_camera, self.page_level_screens_layout_camera.widget())
+        self.loadScreenLayout(self.levelEdited_ovl_object.screenLayout_radar, self.page_level_screens_layout_radar.widget())
+        self.loadScreenLayout(self.levelEdited_ovl_object.map_tilesetOffset, self.page_level_screens_map_offset.widget())
+        self.loadScreenLayout(self.levelEdited_ovl_object.map_behavior, self.page_level_screens_map_behavior.widget())
+
     def loadEntities(self, screenSpacing:int=0):
         if not self.checkbox_entities_enable.isChecked(): return
         isGFX = self.checkbox_entities_gfxEnable.isChecked()
@@ -4629,6 +4701,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.levelEdited_object == None:
             if self.openLevel() == 1:
                 return
+        self.loadScreenLayouts()
         self.lineedit_level_tilesetName.setEnabled(True)
         file = self.levelEdited_object
         level = file.levels[self.dropdown_level_type.currentIndex()]
@@ -4680,20 +4753,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.gfx_scene_level.scene().clear()
         if self.gfx_scene_tileset.metaTiles == []:
             return
-        self.initScreens()
         screenSpacing = 4
-        if level == file.level:
-            for i in range(self.levelEdited_ovl_object.screenLayout0.height):
-                for j in range(self.levelEdited_ovl_object.screenLayout0.realWidth):
-                    if j >= self.levelEdited_ovl_object.screenLayout0.width:
-                        break # skip unused screens
-                    self.loadScreen(self.levelEdited_ovl_object.screenLayout0.layout[i][j], j*(16*(8*2)+screenSpacing), i*(12*(8*2)+screenSpacing))
-        elif level == file.level_radar:
-            for i in range(self.levelEdited_ovl_object.screenLayout_radar.height):
-                for j in range(self.levelEdited_ovl_object.screenLayout_radar.realWidth):
-                    if j >= self.levelEdited_ovl_object.screenLayout_radar.width:
-                        break # skip unused screens
-                    self.loadScreen(self.levelEdited_ovl_object.screenLayout_radar.layout[i][j], j*(16*(8*2)+screenSpacing), i*(12*(8*2)+screenSpacing))
+        self.loadScreens(file, level, screenSpacing)
         self.loadEntities(screenSpacing)
         if self.checkbox_level_fitInView.isChecked():
             self.gfx_scene_level.fitInView2()

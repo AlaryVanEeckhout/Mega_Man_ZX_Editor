@@ -85,7 +85,7 @@ class Overlay:
         self.screenLayout3_address = self.getFileAddress(self.screenLayout3_RAMAddress)
         self.screenLayout_radar_RAMAddress = int.from_bytes(self.data[self.struct_address+0x20:self.struct_address+0x24], byteorder='little')
         self.screenLayout_radar_address = self.getFileAddress(self.screenLayout_radar_RAMAddress)
-        self.map_tilesetOffset_RAMAddress = int.from_bytes(self.data[self.struct_address+0xC8:self.struct_address+0xCC], byteorder='little') # maybe?
+        self.map_tilesetOffset_RAMAddress = int.from_bytes(self.data[self.struct_address+0xC8:self.struct_address+0xCC], byteorder='little') # looks like tileset offset slot IDs or something
         self.map_tilesetOffset_address = self.getFileAddress(self.map_tilesetOffset_RAMAddress)
         self.unk_RAMAddress = int.from_bytes(self.data[self.struct_address+0xEC:self.struct_address+0xF0], byteorder='little')
         self.map_behavior_RAMAddress = int.from_bytes(self.data[self.struct_address+0xF0:self.struct_address+0xF4], byteorder='little') # maybe?
@@ -126,29 +126,29 @@ class Overlay:
         print(tilesetName_bin)
         self.data[self.tilesetName_address:self.tilesetName_address+0x08] = tilesetName_bin
         # Layouts
-        screenLayout0_bin = self.screenLayout0.toBytes()
-        self.data[self.screenLayout0_address:self.screenLayout0_address+len(screenLayout0_bin)] = screenLayout0_bin
-        screenLayout1_bin = self.screenLayout1.toBytes()
-        self.data[self.screenLayout1_address:self.screenLayout1_address+len(screenLayout1_bin)] = screenLayout1_bin
-        screenLayout2_bin = self.screenLayout2.toBytes()
-        self.data[self.screenLayout2_address:self.screenLayout2_address+len(screenLayout2_bin)] = screenLayout2_bin
-        screenLayout3_bin = self.screenLayout3.toBytes()
-        self.data[self.screenLayout3_address:self.screenLayout3_address+len(screenLayout3_bin)] = screenLayout3_bin
-        screenLayout_radar_bin = self.screenLayout_radar.toBytes()
-        self.data[self.screenLayout_radar_address:self.screenLayout_radar_address+len(screenLayout_radar_bin)] = screenLayout_radar_bin
-        screenLayout_camera_bin = self.screenLayout_camera.toBytes()
-        self.data[self.screenLayout_camera_address:self.screenLayout_camera_address+len(screenLayout_camera_bin)] = screenLayout_camera_bin
-        map_tilesetOffset_bin = self.map_tilesetOffset.toBytes()
-        self.data[self.map_tilesetOffset_address:self.map_tilesetOffset_address+len(map_tilesetOffset_bin)] = map_tilesetOffset_bin
-        map_behavior_bin = self.map_behavior.toBytes()
-        self.data[self.map_behavior_address:self.map_behavior_address+len(map_behavior_bin)] = map_behavior_bin
+        screenLayout0_bin = self.screenLayout0.data
+        self.data[self.screenLayout0_address:self.screenLayout0_address+len(screenLayout0_bin)] = self.screenLayout0.toBytes()
+        screenLayout1_bin = self.screenLayout1.data
+        self.data[self.screenLayout1_address:self.screenLayout1_address+len(screenLayout1_bin)] = self.screenLayout1.toBytes()
+        screenLayout2_bin = self.screenLayout2.data
+        self.data[self.screenLayout2_address:self.screenLayout2_address+len(screenLayout2_bin)] = self.screenLayout2.toBytes()
+        screenLayout3_bin = self.screenLayout3.data
+        self.data[self.screenLayout3_address:self.screenLayout3_address+len(screenLayout3_bin)] = self.screenLayout3.toBytes()
+        screenLayout_radar_bin = self.screenLayout_radar.data
+        self.data[self.screenLayout_radar_address:self.screenLayout_radar_address+len(screenLayout_radar_bin)] = self.screenLayout_radar.toBytes()
+        screenLayout_camera_bin = self.screenLayout_camera.data
+        self.data[self.screenLayout_camera_address:self.screenLayout_camera_address+len(screenLayout_camera_bin)] = self.screenLayout_camera.toBytes()
+        map_tilesetOffset_bin = self.map_tilesetOffset.data
+        self.data[self.map_tilesetOffset_address:self.map_tilesetOffset_address+len(map_tilesetOffset_bin)] = self.map_tilesetOffset.toBytes()
+        map_behavior_bin = self.map_behavior.data
+        self.data[self.map_behavior_address:self.map_behavior_address+len(map_behavior_bin)] = self.map_behavior.toBytes()
         # Entities
         if hasattr(self.entities, "slots"):
-            slots_bin = self.entities.slots.toBytes()
-            self.data[self.entitySlot_address:self.entitySlot_address+len(slots_bin)] = slots_bin
+            slots_bin = self.entities.slots.data
+            self.data[self.entitySlot_address:self.entitySlot_address+len(slots_bin)] = self.entities.slots.toBytes()
         if hasattr(self.entities, "coords"):
-            coords_bin = self.entities.coords.toBytes()
-            self.data[self.entityCoord_address:self.entityCoord_address+len(coords_bin)] = coords_bin
+            coords_bin = self.entities.coords.data
+            self.data[self.entityCoord_address:self.entityCoord_address+len(coords_bin)] = self.entities.coords.toBytes()
         #print(self.data[self.entityCoord_address:self.entityCoord_address+len(coords_bin)].hex())
         #print(self.data[self.entitySlot_address:self.entitySlot_address+len(slots_bin)].hex())
         return self.data
@@ -174,10 +174,18 @@ class ScreenLayout:
             if len(layoutRow) == self.loadWidth:
                 self.layout.append(layoutRow.copy())
                 layoutRow.clear()
-        print([[f"{screenID:02X}" for screenID in row] for row in self.layout])
+        #print([[f"{screenID:02X}" for screenID in row] for row in self.layout])
     
     def toBytes(self):
-        return self.data
+        new_data = bytearray()
+        new_data += int.to_bytes(self.realWidth, 1, 'little')
+        new_data += int.to_bytes(self.skip, 1, 'little')
+        new_data += int.to_bytes(self.width, 1, 'little')
+        new_data += int.to_bytes(self.height, 1, 'little')
+        for row in self.layout:
+            for col in row:
+                new_data += int.to_bytes(col, 1, 'little')
+        return new_data
 
 class ScreenMap:
     def __init__(self, data: bytes, address: int, loadReal: bool=False):
@@ -199,15 +207,23 @@ class ScreenMap:
             if len(layoutRow) == self.loadWidth:
                 self.layout.append(layoutRow.copy())
                 layoutRow.clear()
-        print([[f"{screenID:04X}" for screenID in row] for row in self.layout])
+        #print([[f"{screenID:04X}" for screenID in row] for row in self.layout])
     
     def toBytes(self):
-        return self.data
+        new_data = bytearray()
+        new_data += int.to_bytes(self.realWidth, 2, 'little')
+        new_data += int.to_bytes(self.skip, 2, 'little')
+        new_data += int.to_bytes(self.width, 2, 'little')
+        new_data += int.to_bytes(self.height, 2, 'little')
+        for row in self.layout:
+            for col in row:
+                new_data += int.to_bytes(col, 2, 'little')
+        return new_data
 
 # for convenience
 class Entities:
     def __init__(self, data: bytes, entityPrelAddress: int, entitySlotAddress: int, entityCoordAddress: int, namedict: dict[str, dict]):
-        self.data = data
+        self.data = data # the entire overlay data. each object will use it to find its own data
         if entityPrelAddress > 0:
             self.prels = EntityPreloads(self.data, entityPrelAddress)
             print(self.prels.entityList)
@@ -220,20 +236,21 @@ class Entities:
 
 class EntityPreloads:
     def __init__(self, data: bytes, address: int):
-        self.data = data
         self.startOffset = address
-        self.endOffset = self.startOffset + self.data[self.startOffset:].find(bytes.fromhex("FFFFFFFFFFFF0000"))+0x08
+        self.endOffset = self.startOffset + data[self.startOffset:].find(bytes.fromhex("FFFFFFFFFFFF0000"))+0x08
+        self.data = data[self.startOffset:self.endOffset]
+        #print(data[self.startOffset:self.endOffset].hex())
 
         self.entityList: list[dict] = []
         if self.startOffset == 0: return
         for i in range(self.startOffset, self.endOffset, 0x08):
             self.entityList.append({
-                "id": int.from_bytes(self.data[i:i+2], byteorder='little'), # OAM entry (?)
-                "id2": int.from_bytes(self.data[i+2:i+4], byteorder='little'), # secondary id for linked entities?
-                "unk4": int.from_bytes(self.data[i+4:i+5], byteorder='little'), # always 00?
-                "unk5": int.from_bytes(self.data[i+5:i+6], byteorder='little'), # 00 or FF?
-                "kind": int.from_bytes(self.data[i+6:i+7], byteorder='little'), # 00: background; 02: abstract?; 03: enemy.
-                "unk7": int.from_bytes(self.data[i+7:i+8], byteorder='little')}) # always 00?
+                "id": int.from_bytes(data[i:i+2], byteorder='little'), # OAM entry (?)
+                "id2": int.from_bytes(data[i+2:i+4], byteorder='little'), # secondary id for linked entities?
+                "unk4": int.from_bytes(data[i+4:i+5], byteorder='little'), # always 00?
+                "unk5": int.from_bytes(data[i+5:i+6], byteorder='little'), # 00 or FF?
+                "kind": int.from_bytes(data[i+6:i+7], byteorder='little'), # 00: background; 02: abstract?; 03: enemy.
+                "unk7": int.from_bytes(data[i+7:i+8], byteorder='little')}) # always 00?
             #assert self.entityList[-1]["id"] == self.entityList[-1]["id2"]
             
     def toBytes(self):
@@ -242,14 +259,13 @@ class EntityPreloads:
 # EntityTemplate of rmz3 decomp
 class EntitySlots:
     def __init__(self, data: bytes, address: int, namedict: dict[str, dict]):
-        self.data = data
         self._address = address
         self._namedict = namedict
         self.entityList: list[dict] = []
         self.nameList: list[dict] = []
         index = 0
         while True:
-            entity_data = self.data[address+index*0x0C:address+index*0x0C+0x0C]
+            entity_data = data[self._address+index*0x0C:self._address+index*0x0C+0x0C]
             if  len(entity_data) != 0x0C or entity_data[0] not in [0x01, 0x02, 0x04, 0x10, 0x11, 0x12, 0x41, 0x50]: # todo: find the correct way to detect structure end
                 print(entity_data.hex())
                 break
@@ -268,14 +284,19 @@ class EntitySlots:
                 "unkB": entity_data[11],
             })
             self.nameList.append({})
-            self.updateName(index)
+            self._updateNameFromData(index, entity_data)
             index += 1
+        #print(data[address:address+index*0x0C].hex())
+        self.data = data[self._address:self._address+index*0x0C]
     
-    def updateName(self, list_index:int, fromDict:bool=False):
+    def updateName(self, list_index:int, fromDict:bool=False): # for convenience
         if fromDict:
             entity_data = self.entityToBytes(self.entityList[list_index])
         else:
-            entity_data = self.data[self._address+list_index*0x0C:self._address+list_index*0x0C+0x0C]
+            entity_data = self.data[list_index*0x0C:list_index*0x0C+0x0C]
+        self._updateNameFromData(list_index, entity_data)
+
+    def _updateNameFromData(self, list_index:int, entity_data: bytes):
         dict_current = self._namedict
         dict_previous = None
         param_list = []
@@ -325,17 +346,17 @@ class EntitySlots:
 # EntityTemplateCoord of rmz3 decomp
 class EntityCoordinates:
     def __init__(self, data: bytes, address: int):
-        self.data = data
         self.startOffset = address
-        self.endOffset = self.startOffset + self.data[self.startOffset:].find(bytes.fromhex("FFFFFF7FFF7F0000"))+0x08
+        self.endOffset = self.startOffset + data[self.startOffset:].find(bytes.fromhex("FFFFFF7FFF7F0000"))+0x08
+        self.data = data[self.startOffset:self.endOffset]
         #self.slotMax = 0
         self.entityList: list[dict] = []
         if self.startOffset == 0: return
         for i in range(self.startOffset, self.endOffset, 0x08):
             self.entityList.append({
-                "x": int.from_bytes(self.data[i:i+4], byteorder='little'),
-                "y": int.from_bytes(self.data[i+4:i+6], byteorder='little'),
-                "slot": int.from_bytes(self.data[i+6:i+8], byteorder='little')})
+                "x": int.from_bytes(data[i:i+4], byteorder='little'),
+                "y": int.from_bytes(data[i+4:i+6], byteorder='little'),
+                "slot": int.from_bytes(data[i+6:i+8], byteorder='little')})
             #self.slotMax = max(self.slotMax, self.entityList[-1]["slot"])
     
     def toBytes(self):
