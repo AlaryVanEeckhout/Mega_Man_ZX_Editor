@@ -200,7 +200,7 @@ The screen layout data is stored in the level overlay.
 This is where you can change the screen arrangement of the level.  
 Levels have multiple layers with a unique layout each.
 
-Each layout has its own tab: Layout 0, Layout 1, Layout 2, Layout 3, Camera Scroll Layout, Radar Scope Layout, Tileset Offset Map (?), and Behavior Map (?)  
+Each layout has its own tab: Layout 0, Layout 1, Layout 2, Layout 3, Camera Scroll Layout, Radar Scope Layout, Tileset Offset Map, and Behavior Map (?)  
 In each case, the layout is represented as a grid of spinboxes with the values inside being the values for each screen.
 
 ### Layout 0
@@ -229,9 +229,10 @@ It appears this follows the same code as in [Mega Man Zero 3](https://coltaho.co
 
 This is the screen layout that you will see on the sub-screen of the DS when using Model P or Model L.
 
-### Tileset Offset Map?
+### Tileset Offset Map
 
-I'm not sure what this is, but sometimes the values in this layout change exactly at places where graphics are swapped in the tileset.
+This appears to be what controls the graphics swap in the tileset from screen to screen.  
+The game will load the tileset based on the leftmost visible screen.
 
 ### Behavior Map?
 

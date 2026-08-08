@@ -4392,6 +4392,7 @@ class MainWindow(QtWidgets.QMainWindow):
             print("No ARM9 overlay pointer table address provided for entities of current game!")
         def get_addr(table_addr: int, index: int, skip: int=0):
             return int.from_bytes(arm9_bin[table_addr+(index-skip)*0x04:table_addr+0x04+(index-skip)*0x04], byteorder='little')
+        #print(entityt_size//0x4, self.dropdown_level_area.count())
         for i in range(self.dropdown_level_area.count()):
             addr_level = get_addr(addr_levelt, i, skip_level)
             addr_entityPrel = get_addr(addr_entityPrelt, i, skip_entity)
@@ -4611,6 +4612,7 @@ class MainWindow(QtWidgets.QMainWindow):
             for col_i, col in enumerate(row):
                 widget = lib.widget.BetterSpinBox(parent)
                 widget.isInt = True
+                widget.setToolTip(f"row {row_i}\ncolumn {col_i}")
                 if isinstance(screenLayout, lib.level.ScreenMap):
                     widget.setMinimumWidth(50)
                     widget.numfill = 4

@@ -3,13 +3,13 @@ import enum
 from . import dialogue
 
 # indicators determine what the file most likely contains based on its name
-I_GFX = ("_fnt",)
-I_GFX_ZX = I_GFX + ("face", "title", "bbom", "dm", "elf", "g_", "game_parm", "lmlevel", "miss", "puzzle", "repair", "sec_disk", "sub")
-I_GFX_ZXA = I_GFX + ("face", "title", "mm_", "dm", "ls_", "sub_")
+I_MUGSHOT = ("face",)
+I_GFX = I_MUGSHOT + ("_fnt",)
+I_GFX_ZX = I_GFX + ("title", "bbom", "dm", "elf", "g_", "game_parm", "lmlevel", "miss", "puzzle", "repair", "sec_disk", "sub")
+I_GFX_ZXA = I_GFX + ("title", "mm_", "dm", "ls_", "sub_")
 I_FONT = ("font",)
 I_DIALOGUE = ("talk", "m_")
 I_PANM = ("panm",)
-I_MUGSHOT = ("face",)
 I_MODEL_ZX = ("model", "nmdtest")
 I_MODEL_ZXA = ("mdl_dat",)
 # relative ROM pointers to uncompressed ARM9
@@ -46,7 +46,6 @@ ARM9_ZXA_J = {
     "dialogue names en": 0,
     "dialogue font": 0x000DF968
 }
-# add dicts for charmaps? (en, jp, names en, names jp)
 CHARMAPS_ZX = {
     "en": dialogue.CHARMAP_DIALOGUE_ZX_EN,
     "jp": dialogue.CHARMAP_DIALOGUE_ZX_JP,
