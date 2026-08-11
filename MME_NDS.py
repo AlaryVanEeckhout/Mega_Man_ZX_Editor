@@ -220,19 +220,29 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dialog_about.setWindowIcon(QtGui.QIcon(PATH_ROOT + 'icons/information'))
         self.dialog_about.setWindowTitle("About Mega Man ZX Editor")
         self.dialog_about.resize(500, 500)
+        self.dialog_about.setLayout(QtWidgets.QGridLayout())
+        self.dialog_about.layout().setContentsMargins(0,0,0,0)
+        self.dialog_about.layout().setSpacing(0)
         self.text_about = QtWidgets.QTextBrowser(self.dialog_about)
         self.text_about.resize(self.dialog_about.width(), self.dialog_about.height())
-        self.text_about.setText(f"""Supports:\
-                                \rMEGAMANZX (Mega Man ZX)\
-                                \rROCKMANZX (ロックマン ゼクス)\
-                                \rMEGAMANZXA (Mega Man ZX Advent)\
-                                \rROCKMANZXA (ロックマンゼクス アドベント)\
+        self.text_about.setText(
+            f"""Supports:\
+            \rMEGAMANZX (Mega Man ZX)\
+            \rROCKMANZX (ロックマン ゼクス)\
+            \rMEGAMANZXA (Mega Man ZX Advent)\
+            \rROCKMANZXA (ロックマンゼクス アドベント)\
 
-                                \rVersionning:\
-                                \rEditor version: {self.VERSION_EDITOR} (final objective(s) completed, major functional features, WIP features)\
-                                \rPython version: {self.VERSION_PYTHON} (your version is {platform.python_version()})\
-                                \rPyQt version: {self.VERSION_PYQT} (your version is {QtCore.PYQT_VERSION_STR})\
-                                \rNDSPy version: {self.VERSION_NDSPY} (your version is {list(ndspy.VERSION)[0]}.{list(ndspy.VERSION)[1]}.{list(ndspy.VERSION)[2]})""")
+            \rVersionning:\
+            \rEditor version: {self.VERSION_EDITOR} (final objective(s) completed, major functional features, WIP features)\
+            \rPython version: {self.VERSION_PYTHON} (your version is {platform.python_version()})\
+            \rPyQt version: {self.VERSION_PYQT} (your version is {QtCore.PYQT_VERSION_STR})\
+            \rNDSPy version: {self.VERSION_NDSPY} (your version is {list(ndspy.VERSION)[0]}.{list(ndspy.VERSION)[1]}.{list(ndspy.VERSION)[2]})"""
+        )
+        self.button_aboutQt = QtWidgets.QPushButton("About Qt", self.dialog_about)
+        self.button_aboutQt.pressed.connect(lambda: app.aboutQt())
+        self.dialog_about.layout().addWidget(self.text_about)
+        self.dialog_about.layout().addWidget(self.button_aboutQt)
+
         self.aboutAction = QtGui.QAction(QtGui.QIcon(PATH_ROOT + 'icons/information'), '&About', self)
         self.aboutAction.setStatusTip('Show information about the application')
         self.aboutAction.triggered.connect(lambda: self.dialog_about.exec())
@@ -5559,7 +5569,14 @@ if __name__ == "__main__":
     w._post_init() # finalize now that WidgetSets exists
 
     def handle_exception(exc_type, exc_value, exc_tb):
-        QtWidgets.QMessageBox.critical(None, "Critical Error", str(exc_value))
+        result = QtWidgets.QMessageBox.critical(
+            None,
+            "Critical Error",
+            str(exc_value),
+            QtWidgets.QMessageBox.StandardButton.Ignore, QtWidgets.QMessageBox.StandardButton.Abort)
+        if result == QtWidgets.QMessageBox.StandardButton.Abort:
+            app.quit()
+        
         sys.__excepthook__(exc_type, exc_value, exc_tb)
     sys.excepthook = handle_exception
     #run the app
