@@ -82,10 +82,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.romToEdit_ext = ''
         self.romToEdit_path = '' # for overwrite save
         self.fileToEdit_name = ''
-        self.fileDisplayRaw = False # Display file in 'raw'(hex) format. Else, displayed in readable format
-        self.fileDisplayMode = "Adapt" # Modes: Adapt, Binary, Dialogue, Graphics, Font, Sound, Movie, Code
-        self.fileDisplayState = "None" # Same states as mode
-        self.widget_set = "Empty" # Empty, Text, Graphics, Font, Sound, VX
+        self.fileDisplayState = "None" # States: None, Binary, Dialogue, Graphics, Font, OAM, Sound, VX, Model
+        self.widget_set = "Empty" # Empty, Text, Graphics, Font, OAM, Sound, VX, Model
         self.GFX_PALETTES = [
             [0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], # default
             [0xff000000, 0xffffffff]*128, # font
@@ -302,45 +300,49 @@ class MainWindow(QtWidgets.QMainWindow):
         self.appMenu = self.menu_bar.addMenu('&Application')
         self.appMenu.addActions([self.aboutAction, self.settingsAction, self.exitAction])
 
-        self.displayRawAction = QtGui.QAction(QtGui.QIcon(PATH_ROOT + 'icons/brain'), '&Converted formats', self)
-        self.displayRawAction.setStatusTip('Displays files in a readable format instead of hex format.')
-        self.displayRawAction.setCheckable(True)
-        self.displayRawAction.setChecked(True)
-        self.displayRawAction.triggered.connect(self.display_format_toggleCall)
+        self.displayConvAction = QtGui.QAction(QtGui.QIcon(PATH_ROOT + 'icons/brain'), '&Converted formats', self)
+        self.displayConvAction.setStatusTip('Displays files in a readable format instead of "raw" hex format.')
+        self.displayConvAction.setCheckable(True)
+        self.displayConvAction.setChecked(True)
+        self.displayConvAction.triggered.connect(self.display_format_toggleCall)
 
         self.viewAdaptAction = QtGui.QAction(QtGui.QIcon(PATH_ROOT + 'icons/document-node'), '&Adapt', self)
         self.viewAdaptAction.setStatusTip('Files will be decrypted on a case per case basis.')
-        self.viewAdaptAction.setCheckable(True)
-        self.viewAdaptAction.setChecked(True)
-        self.viewAdaptAction.triggered.connect(lambda: setattr(self, "fileDisplayMode", "Adapt"))
-        self.viewAdaptAction.triggered.connect(lambda: self.treeCall())
 
         self.viewDialogueAction = QtGui.QAction(QtGui.QIcon(PATH_ROOT + 'icons/document-text'), '&Dialogue', self)
         self.viewDialogueAction.setStatusTip('Files will be decrypted as in-game dialogues.')
-        self.viewDialogueAction.setCheckable(True)
-        self.viewDialogueAction.triggered.connect(lambda: setattr(self, "fileDisplayMode", "Dialogue"))
-        self.viewDialogueAction.triggered.connect(lambda: self.treeCall())
+
+        self.viewDialogueAction = QtGui.QAction(QtGui.QIcon(PATH_ROOT + 'icons/edit'), '&Font', self)
+        self.viewDialogueAction.setStatusTip('Files will be decrypted as font graphics.')
 
         self.viewGraphicAction = QtGui.QAction(QtGui.QIcon(PATH_ROOT + 'icons/appicon'), '&Graphics', self)
         self.viewGraphicAction.setStatusTip('Files will be decrypted as graphics.')
-        self.viewGraphicAction.setCheckable(True)
-        self.viewGraphicAction.triggered.connect(lambda: setattr(self, "fileDisplayMode", "Graphics"))
-        self.viewGraphicAction.triggered.connect(lambda: self.treeCall())
+
+        self.viewOAMAction = QtGui.QAction(QtGui.QIcon(PATH_ROOT + 'icons/block'), '&OAM', self)
+        self.viewOAMAction.setStatusTip('Files will be decrypted as Object Attribute Memory data.')
+
+        self.viewPAnmAction = QtGui.QAction(QtGui.QIcon(PATH_ROOT + 'icons/palette'), '&PAnm', self)
+        self.viewPAnmAction.setStatusTip('Files will be decrypted as Palette Animation data.')
 
         self.viewModelAction = QtGui.QAction(QtGui.QIcon(PATH_ROOT + 'icons/cube'), '&Model', self) # ice icon
         self.viewModelAction.setStatusTip('Files will be decrypted as NDS Geometry data.')
-        self.viewModelAction.setCheckable(True)
-        self.viewModelAction.triggered.connect(lambda: setattr(self, "fileDisplayMode", "Model"))
-        self.viewModelAction.triggered.connect(lambda: self.treeCall())
 
         self.viewFormatsGroup = QtGui.QActionGroup(self) #group for mutually exclusive togglable items
         self.viewFormatsGroup.addAction(self.viewAdaptAction)
         self.viewFormatsGroup.addAction(self.viewDialogueAction)
         self.viewFormatsGroup.addAction(self.viewGraphicAction)
+        self.viewFormatsGroup.addAction(self.viewOAMAction)
+        self.viewFormatsGroup.addAction(self.viewPAnmAction)
         self.viewFormatsGroup.addAction(self.viewModelAction)
+        for action in self.viewFormatsGroup.actions():
+            action.setCheckable(True)
+            action.triggered.connect(lambda: self.treeCall())
+            #action.triggered.connect(lambda _, a=action: setattr(self, "fileDisplayMode", a.text().replace("&", "")))
+            #action.triggered.connect(lambda _, a=action: print(a.text()))
+        self.viewAdaptAction.setChecked(True)
 
         self.viewMenu = self.menu_bar.addMenu('&View')
-        self.viewMenu.addAction(self.displayRawAction)
+        self.viewMenu.addAction(self.displayConvAction)
         self.displayFormatSubmenu = self.viewMenu.addMenu(QtGui.QIcon(PATH_ROOT + 'icons/document-convert'), '&Set edit mode...')
         self.displayFormatSubmenu.addAction(self.viewAdaptAction)
         self.displayFormatSubmenu.addSeparator()
@@ -1348,10 +1350,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.file_content.addWidget(self.file_content_model)
 
         # File callers
-        self.FILEOPEN_WIDGETS: list[QtWidgets.QWidget] = [self.tree, *self.viewFormatsGroup.actions(), self.displayRawAction]
-        #self.WIDGET_SET_NAMES = ["Empty", "Hex", "Text", "Graphics", "OAM", "PAnm", "Font", "Sound", "VX", "Model"]
-        #self.WIDGET_SETS = [self.WIDGETS_EMPTY, self.WIDGETS_HEX, self.WIDGETS_TEXT, self.WIDGETS_GRAPHIC, self.WIDGETS_OAM, self.WIDGETS_PANM, self.WIDGETS_FONT, self.WIDGETS_SOUND, self.WIDGETS_VX, self.WIDGETS_MODEL]
-        #self.file_editor_show(WidgetSets.EMPTY)
+        self.FILEOPEN_WIDGETS: list[QtWidgets.QWidget] = [self.tree, *self.viewFormatsGroup.actions(), self.displayConvAction]
 
         # Level Editor(WIP)
         self.layout_level_editpannel = QtWidgets.QVBoxLayout()
@@ -2789,9 +2788,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 dialog.exec()
     
     def display_format_toggleCall(self):
-        self.fileDisplayRaw = not self.fileDisplayRaw
         self.displayFormatSubmenu.setDisabled(self.displayFormatSubmenu.isEnabled())
-        self.widgetIcon_update(self.displayRawAction, QtGui.QIcon(PATH_ROOT + 'icons/brain'), QtGui.QIcon(PATH_ROOT + 'icons/document-binary'))
+        self.widgetIcon_update(self.displayConvAction, QtGui.QIcon(PATH_ROOT + 'icons/brain'), QtGui.QIcon(PATH_ROOT + 'icons/document-binary'))
         self.treeCall()
 
     def value_update_Call(self, var, val, istreecall=True):
@@ -3619,9 +3617,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.field_address.setValue(self.base_address+self.relative_address)
             if not ".Folder" in self.fileToEdit_name:# if it's a file
                 self.label_file_size.setText(f"Size: {lib.datconv.numToStr(len(self.rom.files[current_id]), self.displayBase, self.displayAlphanumeric).zfill(0)} bytes")
-                if self.fileDisplayRaw == False:
+                if self.displayConvAction.isChecked():
                     indicator_list = self.gamedat.fileIndicators
-                    if self.fileDisplayMode == "Adapt":
+                    if self.viewFormatsGroup.checkedAction() == self.viewAdaptAction:
                         self.fileDisplayState = "None"
                         if current_ext == "vx":
                             self.fileDisplayState = "VX"
@@ -3643,7 +3641,7 @@ class MainWindow(QtWidgets.QMainWindow):
                             elif any(indicator in current_name for indicator in indicator_list["Palette Animation"]):
                                 self.fileDisplayState = "PAnm"
                     else:
-                        self.fileDisplayState = self.fileDisplayMode
+                        self.fileDisplayState = self.viewFormatsGroup.checkedAction().text().replace("&", "")
 
                     self.file_content_text.setLineWrapMode(lib.widget.LongTextEdit.LineWrapMode.WidgetWidth)
                     try:
@@ -4570,6 +4568,7 @@ class MainWindow(QtWidgets.QMainWindow):
         screen = self.levelEdited_object.levels[self.dropdown_level_type.currentIndex()].screens[screen_id]
         for metaTile_index, metaTile in enumerate(screen):
             item = lib.widget.LevelTileItem(index=metaTile_index, id=metaTile, screen=screen_id)
+            # todo: add logic for TilesetOffsetMap
             item.setPixmap(self.gfx_scene_tileset.metaTiles[metaTile].pixmap())
             item.setPos(x + 16*(metaTile_index%16),y + 16*(metaTile_index//16))
             self.gfx_scene_level.addItem(item)
@@ -4925,7 +4924,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def save_filecontent(self): #Save to virtual ROM
         file_id = int(self.tree.currentItem().text(0))
-        if self.fileDisplayRaw == False:
+        if self.displayConvAction.isChecked():
             if self.fileDisplayState == "Dialogue": # dialogue names are handled in a separate function
                 if self.dropdown_textindex.isEnabled():
                     self.fileEdited_object.text_list[self.dropdown_textindex.currentIndex()] = self.file_content_text.toPlainText()
@@ -5559,14 +5558,12 @@ if __name__ == "__main__":
             ]
     w._post_init() # finalize now that WidgetSets exists
 
+    def handle_exception(exc_type, exc_value, exc_tb):
+        QtWidgets.QMessageBox.critical(None, "Critical Error", str(exc_value))
+        sys.__excepthook__(exc_type, exc_value, exc_tb)
+    sys.excepthook = handle_exception
     #run the app
-    try:
-        app.exec()
-    except BaseException:
-        QtWidgets.QMessageBox.critical(None,
-                                    "Error handling test",
-                                    traceback.format_exc())
-        traceback.print_exc()
+    app.exec()
     # After execution
     w.firstLaunch = False
     lib.ini_rw.write(w)
