@@ -2731,26 +2731,26 @@ class MainWindow(QtWidgets.QMainWindow):
                             newObject.waveArchiveIDs = oldObject.waveArchiveIDs
                         elif isinstance(oldObject, ndspy.soundArchive.soundWaveArchive.SWAR): # waveArchiveIDs (defaults to [])
                             print(newObject.waves)
-                        print(oldObject)
-                        print(newObject)
+                        print(f"oldObject: {oldObject}")
+                        print(f"newObject: {newObject}")
                         if fileInfo.data is None:
                             print("data is empty")
                             dialog2.exec()
                             return
                         try:
                             #print(fileInfo.objects[-1] in fileInfo.objects[2][0])
-                            objectIndex = next(i for i, x in enumerate(fileInfo.objects[2]) if fileInfo.objects[-1] in x)
-                            if hasattr(fileInfo.objects[-2], "waves"):
-                                    fileInfo.objects[-2].waves[fileInfo.objects[-2].waves.index(fileInfo.objects[-1])] = (newObject) 
-                                    fileInfo.objects[2][objectIndex][1] = fileInfo.objects[-2] # save to category
-                            elif hasattr(fileInfo.objects[-2], "sequences"):
-                                fileInfo.objects[-2].sequences[fileInfo.objects[-2].sequences.index(fileInfo.objects[-1])] = (newObject) 
-                                fileInfo.objects[2][objectIndex][1] = fileInfo.objects[-2]
-                            else: # category object
+                            if hasattr(fileInfo.objects[-2], "waves"): # SWAR
+                                fileInfo.objects[-2].waves[fileInfo.objects[-2].waves.index(fileInfo.objects[-1])] = (newObject)
+                            elif hasattr(fileInfo.objects[-2], "sequences"): # SSAR
+                                fileInfo.objects[-2].sequences[fileInfo.objects[-2].sequences.index(fileInfo.objects[-1])] = (newObject)
+                            elif fileInfo.objects[-1] == fileInfo.objects[3]: # category object
+                                objectIndex = next(i for i, x in enumerate(fileInfo.objects[2]) if fileInfo.objects[3] in x) # index of category obj in category
                                 fileInfo.objects[2][objectIndex] = (newName, newObject)
+                            else:
+                                raise NotImplementedError
                         except Exception as e:
-                            print(e)
-                            print("unhandled case: object probably too deep in hierarchy")
+                            print(type(e), e)
+                            print(f"Object of type {type(fileInfo.objects[-1])} unhandled")
                             dialog2.exec()
                             return
                         setattr(self.sdats[self.dropdown_sdat.currentIndex()], categoryName, fileInfo.objects[2])
