@@ -322,8 +322,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.viewDialogueAction = QtGui.QAction(QtGui.QIcon(PATH_ROOT + 'icons/document-text'), '&Dialogue', self)
         self.viewDialogueAction.setStatusTip('Files will be decrypted as in-game dialogues.')
 
-        self.viewDialogueAction = QtGui.QAction(QtGui.QIcon(PATH_ROOT + 'icons/edit'), '&Font', self)
-        self.viewDialogueAction.setStatusTip('Files will be decrypted as font graphics.')
+        self.viewFontAction = QtGui.QAction(QtGui.QIcon(PATH_ROOT + 'icons/edit'), '&Font', self)
+        self.viewFontAction.setStatusTip('Files will be decrypted as font graphics.')
 
         self.viewGraphicAction = QtGui.QAction(QtGui.QIcon(PATH_ROOT + 'icons/appicon'), '&Graphics', self)
         self.viewGraphicAction.setStatusTip('Files will be decrypted as graphics.')
@@ -340,6 +340,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.viewFormatsGroup = QtGui.QActionGroup(self) #group for mutually exclusive togglable items
         self.viewFormatsGroup.addAction(self.viewAdaptAction)
         self.viewFormatsGroup.addAction(self.viewDialogueAction)
+        self.viewFormatsGroup.addAction(self.viewFontAction)
         self.viewFormatsGroup.addAction(self.viewGraphicAction)
         self.viewFormatsGroup.addAction(self.viewOAMAction)
         self.viewFormatsGroup.addAction(self.viewPAnmAction)
@@ -347,8 +348,6 @@ class MainWindow(QtWidgets.QMainWindow):
         for action in self.viewFormatsGroup.actions():
             action.setCheckable(True)
             action.triggered.connect(lambda: self.treeCall())
-            #action.triggered.connect(lambda _, a=action: setattr(self, "fileDisplayMode", a.text().replace("&", "")))
-            #action.triggered.connect(lambda _, a=action: print(a.text()))
         self.viewAdaptAction.setChecked(True)
 
         self.viewMenu = self.menu_bar.addMenu('&View')

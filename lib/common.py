@@ -10,9 +10,9 @@ class File:
             offset = 0x04+index*0x04 # 4 bytes per entry
             self.address_list.append([int.from_bytes(self.data[offset:offset+0x03], byteorder="little"), #rom offset
                                       int.from_bytes(self.data[offset+0x03:offset+0x04], byteorder="little")]) # =0x80 if lz10 compressed, else 0
-            assert self.address_list[index][0] < self.fileSize
+            assert self.address_list[index][0] < self.fileSize, "One of the entries does not respect the file size!"
             if index > 0:
-                assert self.address_list[index][0] >= self.address_list[index-1][0]
+                assert self.address_list[index][0] >= self.address_list[index-1][0], "One of the entries has a smaller address than the previous one!"
         self.header_size = self.address_list[0][0] if self.entryCount>0 else 0x04
 
     def headerToBytes(self):
