@@ -594,12 +594,11 @@ class MainWindow(QtWidgets.QMainWindow):
         
         #Address bar
         self.field_address = lib.widget.BetterSpinBox(self.page_explorer)
-        self.field_address.numfill = 8
+        self.field_address.set_numfill(8)
         self.field_address.setFont(self.font_caps)
         self.field_address.setValue(self.base_address+self.relative_address)
         self.field_address.isInt = True
         #self.field_address.setPrefix("0x")
-        self.field_address.numbase = self.displayBase
         #self.field_address.textChanged.connect(lambda: self.value_update_Call("relative_address", library.dataconverter.baseToInt(library.dataconverter.strToBase(self.field_address.text()), self.field_address.displayIntegerBase()) - self.base_address, True))
         self.field_address.textChanged.connect(lambda: self.value_update_Call("relative_address", int(self.field_address.valueFromText(self.field_address.text()) - self.base_address), True))
         self.field_address.setDisabled(True)
@@ -627,7 +626,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_tile_width.setFont(self.font_caps)
         self.field_tile_width.setValue(self.tile_width)
         self.field_tile_width.setMinimum(1)
-        self.field_tile_width.numbase = self.displayBase
         self.field_tile_width.isInt = True
         self.field_tile_width.valueChanged.connect(lambda: self.value_update_Call("tile_width", int(self.field_tile_width.value()), True))
         self.field_tile_width.valueChanged.connect(self.file_content_gfx.fitInView2)
@@ -645,7 +643,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_tile_height.setFont(self.font_caps)
         self.field_tile_height.setValue(self.tile_height)
         self.field_tile_height.setMinimum(1)
-        self.field_tile_height.numbase = self.displayBase
         self.field_tile_height.isInt = True
         self.field_tile_height.valueChanged.connect(lambda: self.value_update_Call("tile_height", int(self.field_tile_height.value()), True)) 
         self.field_tile_height.valueChanged.connect(self.file_content_gfx.fitInView2)
@@ -665,7 +662,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_tiles_per_row.setValue(self.tiles_per_row)
         self.field_tiles_per_row.setMinimum(1)
         self.field_tiles_per_row.isInt = True
-        self.field_tiles_per_row.numbase = self.displayBase
         self.field_tiles_per_row.valueChanged.connect(lambda: self.value_update_Call("tiles_per_row", int(self.field_tiles_per_row.value()), True))
         self.field_tiles_per_row.valueChanged.connect(self.file_content_gfx.fitInView2)
 
@@ -684,7 +680,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_tiles_per_column.setValue(self.tiles_per_column)
         self.field_tiles_per_column.setMinimum(1)
         self.field_tiles_per_column.isInt = True
-        self.field_tiles_per_column.numbase = self.displayBase
         self.field_tiles_per_column.valueChanged.connect(lambda: self.value_update_Call("tiles_per_column", int(self.field_tiles_per_column.value()), True))
         self.field_tiles_per_column.valueChanged.connect(self.file_content_gfx.fitInView2)
 
@@ -859,7 +854,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_objTileId.setStatusTip("OAM tile id is half the value of VRAM tile id")
         self.field_objTileId.isInt = True
         self.field_objTileId.setRange(0, 0x3FF)
-        self.field_objTileId.numbase = self.displayBase
         self.field_objTileId.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.field_objTileId.valueChanged.connect(lambda: self.OAM_updateItemGFX(self.dropdown_oam_obj.currentIndex(), item=self.file_content_oam.item_current))
 
@@ -1047,7 +1041,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_font_size.setFont(self.font_caps)
         self.field_font_size.setMinimum(0)
         self.field_font_size.isInt = True
-        self.field_font_size.numbase = self.displayBase
         self.field_font_size.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.label_font_size = QtWidgets.QLabel(self.page_explorer)
         self.label_font_size.setText("file size")
@@ -1060,7 +1053,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_font_width.setFont(self.font_caps)
         self.field_font_width.setMinimum(0)
         self.field_font_width.isInt = True
-        self.field_font_width.numbase = self.displayBase
         self.field_font_width.setStatusTip("Make sure that this is an even number to prevent the game from crashing")
         self.field_font_width.valueChanged.connect(lambda: self.treeCall())
         self.field_font_width.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
@@ -1076,7 +1068,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_font_height.setFont(self.font_caps)
         self.field_font_height.setMinimum(0)
         self.field_font_height.isInt = True
-        self.field_font_height.numbase = self.displayBase
         self.field_font_height.valueChanged.connect(lambda: self.treeCall())
         self.field_font_height.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.field_font_height.valueChanged.connect(self.file_content_gfx.fitInView2)
@@ -1189,7 +1180,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_vxHeader_length = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_vxHeader_length.setFont(self.font_caps)
         self.field_vxHeader_length.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_length.numfill = 8
+        self.field_vxHeader_length.set_numfill(8)
         self.field_vxHeader_length.isInt = True
         self.field_vxHeader_length.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_length = QtWidgets.QVBoxLayout()
@@ -1202,7 +1193,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_vxHeader_framerate = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_vxHeader_framerate.setDecimals(16) # increase precision to allow spinbox to respect range
         self.field_vxHeader_framerate.setRange(0x00000000,65535.9999847412109375) # prevent impossible values (max is ffff.ffff)
-        #self.field_vxHeader_framerate.numfill = 8
+        #self.field_vxHeader_framerate.set_numfill(8)
         self.field_vxHeader_framerate.textChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_framerate = QtWidgets.QVBoxLayout()
         self.layout_vxHeader_framerate.addWidget(self.label_vxHeader_framerate)
@@ -1214,7 +1205,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_vxHeader_frameSizeMax = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_vxHeader_frameSizeMax.setFont(self.font_caps)
         self.field_vxHeader_frameSizeMax.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_frameSizeMax.numfill = 8
+        self.field_vxHeader_frameSizeMax.set_numfill(8)
         self.field_vxHeader_frameSizeMax.isInt = True
         self.field_vxHeader_frameSizeMax.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_frameSizeMax = QtWidgets.QVBoxLayout()
@@ -1232,7 +1223,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_vxHeader_streamCount = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_vxHeader_streamCount.setFont(self.font_caps)
         self.field_vxHeader_streamCount.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_streamCount.numfill = 8
+        self.field_vxHeader_streamCount.set_numfill(8)
         self.field_vxHeader_streamCount.isInt = True
         self.field_vxHeader_streamCount.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_streamCount = QtWidgets.QVBoxLayout()
@@ -1245,7 +1236,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_vxHeader_sampleRate = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_vxHeader_sampleRate.setFont(self.font_caps)
         self.field_vxHeader_sampleRate.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_sampleRate.numfill = 8
+        self.field_vxHeader_sampleRate.set_numfill(8)
         self.field_vxHeader_sampleRate.isInt = True
         self.field_vxHeader_sampleRate.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_sampleRate = QtWidgets.QVBoxLayout()
@@ -1258,7 +1249,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_vxHeader_audioExtraDataOffset = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_vxHeader_audioExtraDataOffset.setFont(self.font_caps)
         self.field_vxHeader_audioExtraDataOffset.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_audioExtraDataOffset.numfill = 8
+        self.field_vxHeader_audioExtraDataOffset.set_numfill(8)
         self.field_vxHeader_audioExtraDataOffset.isInt = True
         self.field_vxHeader_audioExtraDataOffset.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_audioExtraDataOffset = QtWidgets.QVBoxLayout()
@@ -1276,7 +1267,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_vxHeader_width = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_vxHeader_width.setFont(self.font_caps)
         self.field_vxHeader_width.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_width.numfill = 8
+        self.field_vxHeader_width.set_numfill(8)
         self.field_vxHeader_width.isInt = True
         self.field_vxHeader_width.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_width = QtWidgets.QVBoxLayout()
@@ -1289,7 +1280,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_vxHeader_height = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_vxHeader_height.setFont(self.font_caps)
         self.field_vxHeader_height.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_height.numfill = 8
+        self.field_vxHeader_height.set_numfill(8)
         self.field_vxHeader_height.isInt = True
         self.field_vxHeader_height.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_height = QtWidgets.QVBoxLayout()
@@ -1306,7 +1297,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_vxHeader_quantizer = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_vxHeader_quantizer.setFont(self.font_caps)
         self.field_vxHeader_quantizer.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_quantizer.numfill = 8
+        self.field_vxHeader_quantizer.set_numfill(8)
         self.field_vxHeader_quantizer.isInt = True
         self.field_vxHeader_quantizer.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_quantiser = QtWidgets.QVBoxLayout()
@@ -1319,7 +1310,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_vxHeader_seekTableOffset = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_vxHeader_seekTableOffset.setFont(self.font_caps)
         self.field_vxHeader_seekTableOffset.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_seekTableOffset.numfill = 8
+        self.field_vxHeader_seekTableOffset.set_numfill(8)
         self.field_vxHeader_seekTableOffset.isInt = True
         self.field_vxHeader_seekTableOffset.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_seekTableOffset = QtWidgets.QVBoxLayout()
@@ -1332,7 +1323,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_vxHeader_seekTableEntryCount = lib.widget.BetterSpinBox(self.page_explorer)
         self.field_vxHeader_seekTableEntryCount.setFont(self.font_caps)
         self.field_vxHeader_seekTableEntryCount.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_seekTableEntryCount.numfill = 8
+        self.field_vxHeader_seekTableEntryCount.set_numfill(8)
         self.field_vxHeader_seekTableEntryCount.isInt = True
         self.field_vxHeader_seekTableEntryCount.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
         self.layout_vxHeader_seekTableEntryCount = QtWidgets.QVBoxLayout()
@@ -1459,8 +1450,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_metaTile_topLeft_id = lib.widget.BetterSpinBox(self.page_level_tileset)
         self.field_metaTile_topLeft_id.setToolTip("Tile ID")
         self.field_metaTile_topLeft_id.isInt = True
-        self.field_metaTile_topLeft_id.numbase = self.displayBase
-        self.field_metaTile_topLeft_id.numfill = 3
+        self.field_metaTile_topLeft_id.set_numfill(3)
         self.field_metaTile_topLeft_id.setRange(0x0000, 0xFFFF)
         self.field_metaTile_topLeft_id.valueChanged.connect(lambda: self.changeTileGfx(0, 0xFFFF-0x03FF, self.field_metaTile_topLeft_id.value()))
         self.checkbox_metaTile_topLeft_flipH = QtWidgets.QCheckBox(self.page_level_tileset)
@@ -1469,7 +1459,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_metaTile_topLeft_attr = lib.widget.BetterSpinBox(self.page_level_tileset)
         self.field_metaTile_topLeft_attr.setToolTip("Palette ID")
         self.field_metaTile_topLeft_attr.isInt = True
-        self.field_metaTile_topLeft_attr.numbase = self.displayBase
         self.field_metaTile_topLeft_attr.setRange(0x0000, 0xFFFF)
         self.field_metaTile_topLeft_attr.valueChanged.connect(lambda: self.changeTileGfx(0, 0xFFFF-0xF000, self.field_metaTile_topLeft_attr.value()))
         self.checkbox_metaTile_topLeft_flipV = QtWidgets.QCheckBox(self.page_level_tileset)
@@ -1479,8 +1468,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_metaTile_topRight_id = lib.widget.BetterSpinBox(self.page_level_tileset)
         self.field_metaTile_topRight_id.setToolTip("Tile ID")
         self.field_metaTile_topRight_id.isInt = True
-        self.field_metaTile_topRight_id.numbase = self.displayBase
-        self.field_metaTile_topRight_id.numfill = 3
+        self.field_metaTile_topRight_id.set_numfill(3)
         self.field_metaTile_topRight_id.setRange(0x0000, 0xFFFF)
         self.field_metaTile_topRight_id.valueChanged.connect(lambda: self.changeTileGfx(1, 0xFFFF-0x03FF, self.field_metaTile_topRight_id.value()))
         self.checkbox_metaTile_topRight_flipH = QtWidgets.QCheckBox(self.page_level_tileset)
@@ -1489,7 +1477,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_metaTile_topRight_attr = lib.widget.BetterSpinBox(self.page_level_tileset)
         self.field_metaTile_topRight_attr.setToolTip("Palette ID")
         self.field_metaTile_topRight_attr.isInt = True
-        self.field_metaTile_topRight_attr.numbase = self.displayBase
         self.field_metaTile_topRight_attr.setRange(0x0000, 0xFFFF)
         self.field_metaTile_topRight_attr.valueChanged.connect(lambda: self.changeTileGfx(1, 0xFFFF-0xF000, self.field_metaTile_topRight_attr.value()))
         self.checkbox_metaTile_topRight_flipV = QtWidgets.QCheckBox(self.page_level_tileset)
@@ -1499,8 +1486,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_metaTile_bottomLeft_id = lib.widget.BetterSpinBox(self.page_level_tileset)
         self.field_metaTile_bottomLeft_id.setToolTip("Tile ID")
         self.field_metaTile_bottomLeft_id.isInt = True
-        self.field_metaTile_bottomLeft_id.numbase = self.displayBase
-        self.field_metaTile_bottomLeft_id.numfill = 3
+        self.field_metaTile_bottomLeft_id.set_numfill(3)
         self.field_metaTile_bottomLeft_id.setRange(0x0000, 0xFFFF)
         self.field_metaTile_bottomLeft_id.valueChanged.connect(lambda: self.changeTileGfx(2, 0xFFFF-0x03FF, self.field_metaTile_bottomLeft_id.value()))
         self.checkbox_metaTile_bottomLeft_flipH = QtWidgets.QCheckBox(self.page_level_tileset)
@@ -1509,7 +1495,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_metaTile_bottomLeft_attr = lib.widget.BetterSpinBox(self.page_level_tileset)
         self.field_metaTile_bottomLeft_attr.setToolTip("Palette ID")
         self.field_metaTile_bottomLeft_attr.isInt = True
-        self.field_metaTile_bottomLeft_attr.numbase = self.displayBase
         self.field_metaTile_bottomLeft_attr.setRange(0x0000, 0xFFFF)
         self.field_metaTile_bottomLeft_attr.valueChanged.connect(lambda: self.changeTileGfx(2, 0xFFFF-0xF000, self.field_metaTile_bottomLeft_attr.value()))
         self.checkbox_metaTile_bottomLeft_flipV = QtWidgets.QCheckBox(self.page_level_tileset)
@@ -1519,8 +1504,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_metaTile_bottomRight_id = lib.widget.BetterSpinBox(self.page_level_tileset)
         self.field_metaTile_bottomRight_id.setToolTip("Tile ID")
         self.field_metaTile_bottomRight_id.isInt = True
-        self.field_metaTile_bottomRight_id.numbase = self.displayBase
-        self.field_metaTile_bottomRight_id.numfill = 3
+        self.field_metaTile_bottomRight_id.set_numfill(3)
         self.field_metaTile_bottomRight_id.setRange(0x0000, 0xFFFF)
         self.field_metaTile_bottomRight_id.valueChanged.connect(lambda: self.changeTileGfx(3, 0xFFFF-0x03FF, self.field_metaTile_bottomRight_id.value()))
         self.checkbox_metaTile_bottomRight_flipH = QtWidgets.QCheckBox(self.page_level_tileset)
@@ -1529,7 +1513,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_metaTile_bottomRight_attr = lib.widget.BetterSpinBox(self.page_level_tileset)
         self.field_metaTile_bottomRight_attr.setToolTip("Palette ID")
         self.field_metaTile_bottomRight_attr.isInt = True
-        self.field_metaTile_bottomRight_attr.numbase = self.displayBase
         self.field_metaTile_bottomRight_attr.setRange(0x0000, 0xFFFF)
         self.field_metaTile_bottomRight_attr.valueChanged.connect(lambda: self.changeTileGfx(3, 0xFFFF-0xF000, self.field_metaTile_bottomRight_attr.value()))
         self.checkbox_metaTile_bottomRight_flipV = QtWidgets.QCheckBox(self.page_level_tileset)
@@ -1709,7 +1692,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_level_entities_coords_x = lib.widget.LabeledSpinBox(self.page_level_entities_coords, labelText="X:", Vertical=True)
         self.field_level_entities_coords_x.setDisabled(True)
         self.field_level_entities_coords_x.sb.isInt = True
-        self.field_level_entities_coords_x.sb.numbase = self.displayBase
         self.field_level_entities_coords_x.sb.setRange(0, 0xFFFFFF)
         self.field_level_entities_coords_x.setToolTip("X")
         self.field_level_entities_coords_x.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
@@ -1723,7 +1705,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_level_entities_coords_y = lib.widget.LabeledSpinBox(self.page_level_entities_coords, labelText="Y:", Vertical=True)
         self.field_level_entities_coords_y.setDisabled(True)
         self.field_level_entities_coords_y.sb.isInt = True
-        self.field_level_entities_coords_y.sb.numbase = self.displayBase
         self.field_level_entities_coords_y.sb.setRange(0, 0xFFFF)
         self.field_level_entities_coords_y.setToolTip("Y")
         self.field_level_entities_coords_y.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
@@ -1737,7 +1718,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_level_entities_coords_slot = lib.widget.LabeledSpinBox(self.page_level_entities_coords, labelText="Slot:", Vertical=True)
         self.field_level_entities_coords_slot.setDisabled(True)
         self.field_level_entities_coords_slot.sb.isInt = True
-        self.field_level_entities_coords_slot.sb.numbase = self.displayBase
         self.field_level_entities_coords_slot.sb.setRange(0, 0xFFFF)
         self.field_level_entities_coords_slot.setToolTip("Slot ID")
         self.field_level_entities_coords_slot.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
@@ -1758,7 +1738,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_level_entities_slots_attr = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Attributes(?):", Vertical=True)
         self.field_level_entities_slots_attr.setDisabled(True)
         self.field_level_entities_slots_attr.sb.isInt = True
-        self.field_level_entities_slots_attr.sb.numbase = self.displayBase
         self.field_level_entities_slots_attr.sb.setRange(0, 0xFF)
         self.field_level_entities_slots_attr.setToolTip("Attributes(?)")
         self.field_level_entities_slots_attr.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
@@ -1769,7 +1748,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_level_entities_slots_kind = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Kind:", Vertical=True)
         self.field_level_entities_slots_kind.setDisabled(True)
         self.field_level_entities_slots_kind.sb.isInt = True
-        self.field_level_entities_slots_kind.sb.numbase = self.displayBase
         self.field_level_entities_slots_kind.sb.setRange(0, 0xFF)
         self.field_level_entities_slots_kind.setToolTip("Kind")
         self.field_level_entities_slots_kind.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
@@ -1780,7 +1758,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_level_entities_slots_subkind = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Sub-kind:", Vertical=True)
         self.field_level_entities_slots_subkind.setDisabled(True)
         self.field_level_entities_slots_subkind.sb.isInt = True
-        self.field_level_entities_slots_subkind.sb.numbase = self.displayBase
         self.field_level_entities_slots_subkind.sb.setRange(0, 0xFF)
         self.field_level_entities_slots_subkind.setToolTip("Sub kind")
         self.field_level_entities_slots_subkind.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
@@ -1791,7 +1768,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_level_entities_slots_role = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Role:", Vertical=True)
         self.field_level_entities_slots_role.setDisabled(True)
         self.field_level_entities_slots_role.sb.isInt = True
-        self.field_level_entities_slots_role.sb.numbase = self.displayBase
         self.field_level_entities_slots_role.sb.setRange(0, 0xFF)
         self.field_level_entities_slots_role.setToolTip("Role")
         self.field_level_entities_slots_role.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
@@ -1802,7 +1778,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_level_entities_slots_modifier = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Modifier:", Vertical=True)
         self.field_level_entities_slots_modifier.setDisabled(True)
         self.field_level_entities_slots_modifier.sb.isInt = True
-        self.field_level_entities_slots_modifier.sb.numbase = self.displayBase
         self.field_level_entities_slots_modifier.sb.setRange(0, 0xFF)
         self.field_level_entities_slots_modifier.setToolTip("Modifier")
         self.field_level_entities_slots_modifier.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
@@ -1813,7 +1788,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_level_entities_slots_unk5 = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Unknown(0x5):", Vertical=True)
         self.field_level_entities_slots_unk5.setDisabled(True)
         self.field_level_entities_slots_unk5.sb.isInt = True
-        self.field_level_entities_slots_unk5.sb.numbase = self.displayBase
         self.field_level_entities_slots_unk5.sb.setRange(0, 0xFF)
         self.field_level_entities_slots_unk5.setToolTip("5")
         self.field_level_entities_slots_unk5.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
@@ -1824,7 +1798,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_level_entities_slots_unk6 = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Unknown(0x6):", Vertical=True)
         self.field_level_entities_slots_unk6.setDisabled(True)
         self.field_level_entities_slots_unk6.sb.isInt = True
-        self.field_level_entities_slots_unk6.sb.numbase = self.displayBase
         self.field_level_entities_slots_unk6.sb.setRange(0, 0xFF)
         self.field_level_entities_slots_unk6.setToolTip("6")
         self.field_level_entities_slots_unk6.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
@@ -1835,7 +1808,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_level_entities_slots_unk7 = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Unknown(0x7):", Vertical=True)
         self.field_level_entities_slots_unk7.setDisabled(True)
         self.field_level_entities_slots_unk7.sb.isInt = True
-        self.field_level_entities_slots_unk7.sb.numbase = self.displayBase
         self.field_level_entities_slots_unk7.sb.setRange(0, 0xFF)
         self.field_level_entities_slots_unk7.setToolTip("7")
         self.field_level_entities_slots_unk7.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
@@ -1846,7 +1818,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_level_entities_slots_unk8 = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Unknown(0x8):", Vertical=True)
         self.field_level_entities_slots_unk8.setDisabled(True)
         self.field_level_entities_slots_unk8.sb.isInt = True
-        self.field_level_entities_slots_unk8.sb.numbase = self.displayBase
         self.field_level_entities_slots_unk8.sb.setRange(0, 0xFF)
         self.field_level_entities_slots_unk8.setToolTip("8")
         self.field_level_entities_slots_unk8.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
@@ -1857,7 +1828,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_level_entities_slots_unk9 = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Unknown(0x9):", Vertical=True)
         self.field_level_entities_slots_unk9.setDisabled(True)
         self.field_level_entities_slots_unk9.sb.isInt = True
-        self.field_level_entities_slots_unk9.sb.numbase = self.displayBase
         self.field_level_entities_slots_unk9.sb.setRange(0, 0xFF)
         self.field_level_entities_slots_unk9.setToolTip("9")
         self.field_level_entities_slots_unk9.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
@@ -1868,7 +1838,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_level_entities_slots_unkA = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Unknown(0xA):", Vertical=True)
         self.field_level_entities_slots_unkA.setDisabled(True)
         self.field_level_entities_slots_unkA.sb.isInt = True
-        self.field_level_entities_slots_unkA.sb.numbase = self.displayBase
         self.field_level_entities_slots_unkA.sb.setRange(0, 0xFF)
         self.field_level_entities_slots_unkA.setToolTip("A")
         self.field_level_entities_slots_unkA.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
@@ -1879,7 +1848,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_level_entities_slots_unkB = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Unknown(0xB):", Vertical=True)
         self.field_level_entities_slots_unkB.setDisabled(True)
         self.field_level_entities_slots_unkB.sb.isInt = True
-        self.field_level_entities_slots_unkB.sb.numbase = self.displayBase
         self.field_level_entities_slots_unkB.sb.setRange(0, 0xFF)
         self.field_level_entities_slots_unkB.setToolTip("B")
         self.field_level_entities_slots_unkB.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
@@ -4649,11 +4617,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 widget.setToolTip(f"row {row_i}\ncolumn {col_i}")
                 if isinstance(screenLayout, lib.level.ScreenMap):
                     widget.setMinimumWidth(50)
-                    widget.numfill = 4
+                    widget.set_numfill(4)
                     widget.setRange(0x0000, 0xFFFF)
                 else:
                     widget.setMinimumWidth(35)
-                    widget.numfill = 2
+                    widget.set_numfill(2)
                     widget.setRange(0x00, 0xFF)
                 widget.setValue(col)
                 widget.valueChanged.connect(lambda value, r=row_i, c=col_i: screenLayout.layout[r].__setitem__(c, int(value)))
@@ -4823,8 +4791,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 setattr(self, field_name, lib.widget.LabeledSpinBox(field_parent, labelText=f"{tweak.split("_")[-1]} ({"" if tweak_data[2] else "u"}int{bitCount})"))
                 field: lib.widget.LabeledSpinBox = getattr(self, field_name)
                 field.sb.isInt = True
-                field.sb.numbase = self.displayBase
-                field.sb.numfill = tweak_data[1]*2
+                field.sb.set_numfill(tweak_data[1]*2)
                 if tweak_data[2]:
                     field.sb.setRange(-(2**(bitCount-1)), 2**(bitCount-1)-1)
                 else:

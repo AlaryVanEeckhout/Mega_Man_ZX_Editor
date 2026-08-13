@@ -635,14 +635,15 @@ class BetterSpinBox(QtWidgets.QDoubleSpinBox):
         self.setKeyboardTracking(False) # I don't even know why this isn't false by default
         self.setRange(-0xFFFFFFFF, 0xFFFFFFFF)
         #self.setDecimals(16) # cannot do setDecimals here because it will crash the program for... some reason. Have to do it for each instance instead.
-        self.numfill = 0
+        self._numfill = 0
+        self._fill_max_val = None
         self.isInt = False
         self.acceptedSymbols = ["-", "{", "}", *lib.datconv.symbols]
         #self.setCorrectionMode(self.CorrectionMode.CorrectToNearestValue)
         if self.dynamic_base:
-            self.getMainWindow().field_base.editingFinished.connect(self.updateBase)
-            self.getMainWindow().checkbox_alphanumeric.toggled.connect(self.updateBase)
-            self.updateBase()
+            self.getMainWindow().field_base.editingFinished.connect(lambda: self.updateBase())
+            self.getMainWindow().checkbox_alphanumeric.toggled.connect(lambda: self.updateBase())
+            self.updateBase(True)
 
     def fixup(self, str):
         return super().fixup(str)
@@ -660,7 +661,7 @@ class BetterSpinBox(QtWidgets.QDoubleSpinBox):
             return (QtGui.QValidator.State.Invalid, input, pos)
 
     def textFromValue(self, value): # overwrite of existing function with 2 args that determines how value is displayed inside spinbox
-        numfill = self.numfill
+        numfill = self._numfill
         if value < 0:
             numfill += 1
         if self.isInt:
@@ -692,10 +693,24 @@ class BetterSpinBox(QtWidgets.QDoubleSpinBox):
             return self.window()
         else:
             return self.window().parent()
-        
-    def updateBase(self):
+
+    def set_numfill(self, fill: int, base: int=16, update: bool=False):
+        if fill == 0:
+            self._numfill = 0
+        else:
+            if self._fill_max_val is None or not update:
+                self._fill_max_val = (base**fill) - 1
+            if self.numbase == base:
+                self._numfill = fill
+            else:
+                self._numfill = len(lib.datconv.numToBase(self._fill_max_val, self.numbase, decimals=0))
+      
+    def updateBase(self, init=False):
+        numbase_old = self.numbase
         self.alphanum = self.getMainWindow().displayAlphanumeric
         self.numbase = self.getMainWindow().displayBase
+        if not init:
+            self.set_numfill(self._numfill, numbase_old, update=True)
         self.setValue(self.value())
         #print(f"BetterSpinBox {self.text()} repaint {self.getMainWindow(), self.getMainWindow().displayBase}")
 

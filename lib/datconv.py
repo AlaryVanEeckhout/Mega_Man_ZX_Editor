@@ -42,6 +42,8 @@ def numToBase(n, b: int, decimals: int=16):
         n2 *= -1
     n2_counter = 0
     while n2 != 0 and n2 < 1: #fractionnal
+        if n2_counter >= decimals: # if the amount of digits decoded is starting to be unreasonable
+            break
         if n2 < 0 and b > 0:
             digits.append(int(n2 * b - b*signext(n2*b))) # substract to arrive at correct value if not 0
         else:
@@ -51,10 +53,8 @@ def numToBase(n, b: int, decimals: int=16):
         #print(n2)
         if b < 0:
             digits[len(digits)-1] *= -1 # Re-minus equals to number to make it correct sign
-        if n2_counter > decimals: # if the amount of digits decoded is starting to be unreasonable
-            break
         n2_counter += 1
-    if isfract:
+    if isfract and n2_counter > 0:
         digits.reverse()
         digits.append(".") # separator
     while n: #decimal
