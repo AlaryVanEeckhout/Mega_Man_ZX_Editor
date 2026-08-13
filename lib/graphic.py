@@ -73,7 +73,7 @@ class GraphicsTable(DataStructure): # possibly the same data structure as what I
     def getData(self, index:int):
         return self.data[self.getAddr(index)-self.offset_start:self.getAddrEnd(index)-self.offset_start]
     
-    def joinData(self, index_start:int=0, index_end:int|None=None):
+    def joinData(self, index_start: int=0, index_end: int|None=None):
         if index_end == None or index_end > self.offsetCount:
             index_end = self.offsetCount
         result = bytearray()
@@ -84,6 +84,8 @@ class GraphicsTable(DataStructure): # possibly the same data structure as what I
             result_indexes.append(len(result))
             #print(f"{self.getSize(i):04X}")
             #print(f"{self.getVRAMOffset(i):04X}")
+            #print(f"{i} {self.offset_list[i][1]:08X}")
+            #print(f"{self.offset_list[i][2]:08X}")
             try:
                 newData = ndspy.lz10.decompress(self.getData(i))
                 #print("cmp")

@@ -40,7 +40,8 @@ class LevelTileItem(PixmapItem):
         if item == None: return
         #print(f"tile {self.index} of screen {self.screen} = {self.getWindow().gfx_scene_tileset.metaTiles.index(item)}")
         self.setPixmap(item.pixmap())
-        self.id = self.getWindow().gfx_scene_tileset.metaTiles.index(item)
+        view: lib.widget.TilesetView = self.getWindow().tabs_level_tileset.currentWidget().children()[0]
+        self.id = view.metaTiles.index(item)
 
 class LevelEntityItem(QtWidgets.QGraphicsItemGroup):
     def __init__(self, *args, coordIndex:int=0, coord:dict[str]={}, slot:dict[str]={}, slotnames:dict[str]={}, screenSpacing:int=0, displayBase:int=10, alphanumeric=False, graphicItems:list[PixmapItem]=[], **kwargs):
@@ -422,7 +423,8 @@ class LevelView(View):
 
     def levelInteract(self, event: QtGui.QMouseEvent):
         if not self.mousePressed: return
-        if len(self.getMainWindow().gfx_scene_tileset.scene().selectedItems()) > 0:
+        view: lib.widget.TilesetView = self.getMainWindow().tabs_level_tileset.currentWidget().children()[0]
+        if len(view.scene().selectedItems()) > 0:
             if self.mouseLeftPressed:
                 self.tileDraw(event.pos())
             elif self.mouseRightPressed:
@@ -438,8 +440,9 @@ class LevelView(View):
                     print(f"screen ID: 0x{item_target.screen:02X}")
 
     def tileDraw(self, pos: QtCore.QPoint):
-        sItem_event = self.getMainWindow().gfx_scene_tileset.item_first
-        for sItem in self.getMainWindow().gfx_scene_tileset.scene().selectedItems():
+        view: lib.widget.TilesetView = self.getMainWindow().tabs_level_tileset.currentWidget().children()[0]
+        sItem_event = view.item_first
+        for sItem in view.scene().selectedItems():
             sItem_delta = sItem.pos().toPoint()-sItem_event.pos().toPoint()
             sItem_delta_spacing = QtCore.QPoint(sItem_delta.x()//16, sItem_delta.y()//16)
             sItem_delta_transformed = (sItem_delta-sItem_delta_spacing)*self.getMainWindow().gfx_scene_level.transform().m11()
@@ -452,12 +455,13 @@ class LevelView(View):
                 self.getMainWindow().levelEdited_object.levels[self.getMainWindow().dropdown_level_type.currentIndex()].screens[item_target.screen][item_target.index] = item_target.id
         
     def tilePick(self, pos: QtCore.QPoint, keepSelection=False):
+        view: lib.widget.TilesetView = self.getMainWindow().tabs_level_tileset.currentWidget().children()[0]
         item_target = self.itemAt(pos)
         if not keepSelection:
-            for item in self.getMainWindow().gfx_scene_tileset.scene().selectedItems():
+            for item in view.scene().selectedItems():
                 item.setSelected(False)
         if isinstance(item_target, LevelTileItem):
-            self.getMainWindow().gfx_scene_tileset.metaTiles[item_target.id].setSelected(True)
+            view.metaTiles[item_target.id].setSelected(True)
 
 class GridLayout(QtWidgets.QGridLayout):
     def __init__(self, *args, **kwargs):

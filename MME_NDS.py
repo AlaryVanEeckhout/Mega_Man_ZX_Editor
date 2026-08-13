@@ -1658,12 +1658,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_metaTile_properties = QtWidgets.QHBoxLayout()
         self.layout_metaTile_properties.addItem(self.layout_metaTile_shape)
         self.layout_metaTile_properties.addItem(self.layout_metaTile_attr)
-        self.gfx_scene_tileset = lib.widget.TilesetView(self.page_level_tileset)
-        self.gfx_scene_tileset.scene().selectionChanged.connect(self.loadTileProperties)
+        self.tabs_level_tileset = QtWidgets.QTabWidget(self.page_level_tileset)
 
-        self.field_screen_tilesetOffset = lib.widget.BetterSpinBox(self.page_level_tileset)
-        self.field_screen_tilesetOffset.setToolTip("Set tileset offset")
-        self.field_screen_tilesetOffset.setStatusTip("Set how many graphic entries from the graphic table to skip for the tileset")
+        self.checkbox_tileset_loadAll = QtWidgets.QCheckBox("Load all tilesets", self.page_level_tileset)
+        self.checkbox_tileset_loadAll.setStatusTip("Whether or not all used tilesets should be loaded. Disable if you want levels to load faster and don't need to see the graphics.")
+        self.checkbox_tileset_loadAll.setChecked(True)
+        self.checkbox_tileset_loadAll.hide()
 
         self.tabs_level_screens = QtWidgets.QTabWidget(self.page_level_screens)
         self.page_level_screens_layout0 = QtWidgets.QScrollArea(self.tabs_level_screens)
@@ -1909,9 +1909,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.page_leveleditor.layout().addItem(self.layout_level_editpannel)
         self.layout_level_editpannel.addItem(self.layout_level_area)
         self.layout_level_editpannel.addWidget(self.tabs_level)
-        self.page_level_tileset.layout().addWidget(self.field_screen_tilesetOffset)
+        self.page_level_tileset.layout().addWidget(self.checkbox_tileset_loadAll)
         self.page_level_tileset.layout().addItem(self.layout_metaTile_properties)
-        self.page_level_tileset.layout().addWidget(self.gfx_scene_tileset)
+        self.page_level_tileset.layout().addWidget(self.tabs_level_tileset)
         self.page_level_screens.layout().addWidget(self.tabs_level_screens)
         self.page_level_entities.layout().addItem(self.layout_entitySettings)
         self.page_level_entities.layout().addWidget(self.tabs_level_entities)
@@ -2403,7 +2403,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for widget in self.findChildren(QtWidgets.QWidget):
             widget.blockSignals(True)
         self.gfx_scene_level.scene().clear()
-        self.gfx_scene_tileset.scene().clear()
+        self.unloadTilesets()
         self.dropdown_level_area.clear()
         self.dropdown_level_type.clear()
         self.textEdit_dialogueNames.clear()
@@ -4212,14 +4212,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.textEdit_dialogueNames.setPlainText(lib.dialogue.DialogueFile.binToText(name, self.textEdit_dialogueNames.charmap))
         self.textEdit_dialogueNames.blockSignals(False)
 
+    def unloadTileProperties(self):
+        for i in range(self.layout_metaTile_properties.count()):
+            layout = self.layout_metaTile_properties.itemAt(i)
+            if isinstance(layout, QtWidgets.QLayout):
+                for j in range(layout.count()):
+                    layout.itemAt(j).widget().setDisabled(True)
+
     def loadTileProperties(self):
-        if not self.gfx_scene_tileset.scene().isActive(): return
-        if len(self.gfx_scene_tileset.scene().selectedItems()) == 0:
-            for i in range(self.layout_metaTile_properties.count()):
-                layout = self.layout_metaTile_properties.itemAt(i)
-                if isinstance(layout, QtWidgets.QLayout):
-                    for j in range(layout.count()):
-                        layout.itemAt(j).widget().setDisabled(True)
+        if self.tabs_level_tileset.currentWidget() is None: return
+        view: lib.widget.TilesetView = self.tabs_level_tileset.currentWidget().children()[0]
+        if not view.scene().isActive(): return
+        if len(view.scene().selectedItems()) == 0:
+            self.unloadTileProperties()
             return
         level = self.levelEdited_object.levels[self.dropdown_level_type.currentIndex()]
         for i in range(self.layout_metaTile_properties.count()):
@@ -4230,8 +4235,8 @@ class MainWindow(QtWidgets.QMainWindow):
         for w in self.group_metaTile_gfx.children():
                 w.blockSignals(True)
 
-        if len(self.gfx_scene_tileset.scene().selectedItems()) == 1:
-            metaTile_index = self.gfx_scene_tileset.metaTiles.index(*self.gfx_scene_tileset.scene().selectedItems())
+        if len(view.scene().selectedItems()) == 1:
+            metaTile_index = view.metaTiles.index(*view.scene().selectedItems())
             attr = level.collision[metaTile_index][1]
             attr_shape = (level.collision[metaTile_index][0] & 0xF0) >> 4
             self.dropdown_metaTile_collisionShape.setCurrentIndex(level.collision[metaTile_index][0] & 0x0F)
@@ -4298,9 +4303,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 w.blockSignals(False)
 
     def changeTileProperty(self, attrList:list, listIndex:int, bitstring: str, val: int):
-        self.button_level_save.setEnabled(bool(self.gfx_scene_tileset.scene().selectedItems()) or self.button_level_save.isEnabled())
-        for item in self.gfx_scene_tileset.scene().selectedItems():
-            metaTile_index = self.gfx_scene_tileset.metaTiles.index(item)
+        view: lib.widget.TilesetView = self.tabs_level_tileset.currentWidget().children()[0]
+        self.button_level_save.setEnabled(bool(view.scene().selectedItems()) or self.button_level_save.isEnabled())
+        for item in view.scene().selectedItems():
+            metaTile_index = view.metaTiles.index(item)
             bitmask = int(bitstring, 2)
             shiftL = len(bitstring)-1 - bitstring.rindex('0')
             attrList[metaTile_index][listIndex] = \
@@ -4435,7 +4441,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.dropdown_level_area.currentText() == "":
             return 1 # error code
         self.gfx_scene_level.scene().clear()
-        self.gfx_scene_tileset.scene().clear()
+        self.unloadTilesets()
         self.unloadScreenLayouts()
         ovlID = int(self.dropdown_level_area.currentText())
         self.levelEdited_ovl_object = lib.level.Overlay(self.rom.loadArm9Overlays([ovlID])[ovlID].data,
@@ -4486,55 +4492,48 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_level_type.setCurrentIndex(0)
         self.dropdown_level_type.setEnabled(self.dropdown_level_area.currentIndex() != -1)
 
-    def loadTileset(self, gfx_table: lib.graphic.GraphicsTable, pal_sec: lib.level.PaletteSection):
+    def unloadTilesets(self):
+        self.unloadTileProperties()
+        for i in range(self.tabs_level_tileset.count()):
+            tab = self.tabs_level_tileset.widget(i)
+            view: lib.widget.TilesetView = tab.children()[0]
+            view.deleteLater()
+            tab.deleteLater()
+        self.tabs_level_tileset.clear()
+
+    def loadTileset(self, view: lib.widget.TilesetView, gfx_table: lib.graphic.GraphicsTable, pal_list: list[int], gfx_index: int=0):
         print("load tileset")
-        self.gfx_scene_tileset.metaTiles = []
-        gfx_index = int(self.field_screen_tilesetOffset.value()) # tilesetOffset
+        view.metaTiles = []
         if gfx_index > gfx_table.offsetCount-1:
             print("tileset offset index out of range")
             return
-        if len(gfx_table.getData(gfx_index)) == 0:
+        gfx_data = gfx_table.joinData(gfx_index)[0]
+        if len(gfx_data) == 0:
             print("cannot load tileset without gfx")
             return
-        self.gfx_scene_tileset.scene().clearSelection() # prevent crash if multiple items selected
-        self.gfx_scene_tileset.scene().clear()
-        #gfx = lib.graphic.GraphicHeader(gfx_table.joinData()[0])
-        try:
-            gfx = lib.graphic.GraphicHeader(ndspy.lz10.decompress(gfx_table.joinData(gfx_index)[0]))
-        except TypeError:
-            gfx = lib.graphic.GraphicHeader(gfx_table.joinData(gfx_index)[0])
+        view.scene().clearSelection() # prevent crash if multiple items selected
+        view.scene().clear()
+        #self.gfx_scene_tileset.setUpdatesEnabled(False)
         pixmap = QtGui.QPixmap(16, 16)
         painter = QtGui.QPainter()
         painter.begin(pixmap)
-        pal_list: list[dict] = []
-        pl: dict = {}
         depth_obj = lib.datconv.CompressionAlgorithmEnum.EIGHTBPP
         palette_ref = self.GFX_PALETTES[3]
-        if len(set(gfx.data[:64])) > 1 and len(set(gfx.data[:32])) <= 1: #hotfixy way of checking for depth
+        if len(set(gfx_data[:64])) > 1 and len(set(gfx_data[:32])) <= 1: #hotfixy way of checking for depth
             print("First tile is not uniform in 8bpp. Switching to 4bpp.")
             depth_obj = lib.datconv.CompressionAlgorithmEnum.FOURBPP
             palette_ref = self.GFX_PALETTES[2]
-        print(f"unk: {gfx.unk13}")
-        ref = QtWidgets.QGraphicsPixmapItem(QtGui.QPixmap.fromImage(lib.datconv.binToQt(gfx.data, palette_ref, depth_obj, 32, len(gfx.data)//64//32)))
-        ref.setPos(-32*8-self.gfx_scene_tileset.item_spacing*2, 0)
-        self.gfx_scene_tileset.scene().addItem(ref) # to see the gfx used to construct tileset
-        print("loop start")
-        for i in range(pal_sec.palHeaderCount):
-            pl.clear()
-            for j in range(pal_sec.paletteHeaders[i].palCount):
-                #print(pal_sec.paletteHeaders[i].palettes[j][0])
-                pl[pal_sec.paletteHeaders[i].palettes[j][0]] = (lib.datconv.BGR15_to_ARGB32(
-                        pal_sec.data[pal_sec.paletteOffsets[i]+pal_sec.paletteHeaders[i].palettes[j][1]:
-                                    pal_sec.paletteOffsets[i]+pal_sec.paletteHeaders[i].palettes[j][1]+0x200]))
-            pal_list.append(pl.copy())
-        print("loop2 start")
+        ref = QtWidgets.QGraphicsPixmapItem(QtGui.QPixmap.fromImage(lib.datconv.binToQt(gfx_data, palette_ref, depth_obj, 32, len(gfx_data)//64//32)))
+        ref.setPos(-32*8-view.item_spacing*2, 0)
+        view.scene().addItem(ref) # to see the gfx used to construct tileset
+        gfx_data = gfx_data[:8*depth_obj.depth*0x3FF]
+        print("metatile loop start")
         for metaTile_index, metaTile in enumerate(self.levelEdited_object.levels[self.dropdown_level_type.currentIndex()].metaTiles):
             for tile_index, tile in enumerate(metaTile):
                 flipH = (tile & 0x0400) >> (8+2)
                 flipV = (tile & 0x0800) >> (8+3)
                 tileId = (tile & 0x03FF)
                 tile_pal = (tile & 0xF000) >> (8+4)
-                #print(pal_index, tile_pal)
                 try:
                     pal = pal_list[gfx_index][tile_pal]
                 except:
@@ -4551,18 +4550,43 @@ class MainWindow(QtWidgets.QMainWindow):
                             except:
                                 #print("palette error lvmax at", gfx_index, tile_pal)
                                 pal = list(pal_list[0].values())[0]
-                #gfx_bin = gfx.data[gfx.gfx_offset:][8*depth_obj.depth*tileId:]
-                gfx_bin = gfx.data[gfx.gfx_offset:][8*depth_obj.depth*tileId:]
-                #gfx_bin = gfx.data[gfx.gfx_offset:][gfx_ptrs[ptr_index]+8*depth_obj.depth*(tileId&0x3FF):]
+                gfx_bin = gfx_data[8*depth_obj.depth*tileId:8*depth_obj.depth*(tileId+1)]
                 painter.drawImage(QtCore.QRectF(8*(tile_index%2), 8*(tile_index//2), 8, 8), lib.datconv.binToQt(gfx_bin, pal, depth_obj, 1, 1).mirrored(flipH, flipV))
             
             metaTileItem = lib.widget.TilesetItem(pixmap)
-            metaTileItem.setPos((16+self.gfx_scene_tileset.item_spacing)*(metaTile_index%self.gfx_scene_tileset.item_columns), (16+self.gfx_scene_tileset.item_spacing)*(metaTile_index//self.gfx_scene_tileset.item_columns))
-            self.gfx_scene_tileset.scene().addItem(metaTileItem)
-            self.gfx_scene_tileset.metaTiles.append(metaTileItem)
+            metaTileItem.setPos((16+view.item_spacing)*(metaTile_index%view.item_columns), (16+view.item_spacing)*(metaTile_index//view.item_columns))
+            view.scene().addItem(metaTileItem)
+            view.metaTiles.append(metaTileItem)
         painter.end()
-        self.gfx_scene_tileset.fitInView2()
+        view.fitInView2()
         print("load tileset end")
+
+    def loadTilesets(self, gfx_table: lib.graphic.GraphicsTable, pal_sec: lib.level.PaletteSection, offsets: list[int]=[]):
+        self.unloadTilesets()
+        print(f"set of tilsetOffset values: {[f"{o:02X}" for o in offsets]}") # todo: figure out how those offsets work to implement tileset variants
+        pal_list: list[dict] = []
+        pl: dict = {}
+        for i in range(pal_sec.palHeaderCount):
+            pl.clear()
+            for j in range(pal_sec.paletteHeaders[i].palCount):
+                #print(pal_sec.paletteHeaders[i].palettes[j][0])
+                pl[pal_sec.paletteHeaders[i].palettes[j][0]] = (
+                    lib.datconv.BGR15_to_ARGB32(
+                        pal_sec.data[pal_sec.paletteOffsets[i]+pal_sec.paletteHeaders[i].palettes[j][1]:
+                        pal_sec.paletteOffsets[i]+pal_sec.paletteHeaders[i].palettes[j][1]+0x200]
+                    )
+                )
+            pal_list.append(pl.copy())
+        for offset in offsets:
+            page = QtWidgets.QWidget()
+            self.tabs_level_tileset.addTab(page, f"{offset:04X}")
+            setattr(self, f"gfx_view_tileset_{offset:04X}", lib.widget.TilesetView(page))
+            view: lib.widget.TilesetView = getattr(self, f"gfx_view_tileset_{offset:04X}")
+            view.scene().selectionChanged.connect(self.loadTileProperties)
+            page.setLayout(QtWidgets.QGridLayout())
+            page.layout().addWidget(view)
+            gfx_index_start = (offset & 0xF000) >> (0xC) # Hotfixy way to load prrox. the right graphics
+            self.loadTileset(view, gfx_table, pal_list, gfx_index_start)
 
     def initScreens(self):
         self.gfx_scene_level.tileGroups = []
@@ -4572,13 +4596,14 @@ class MainWindow(QtWidgets.QMainWindow):
             for metaTile_index in range(len(level.screens[screen_index])):
                 self.gfx_scene_level.tileGroups[screen_index].append([])
 
-    def loadScreen(self, screen_id: int, x: float=0, y: float=0):
+    def loadScreen(self, screen_id: int, x: float=0, y: float=0, offset: int=None):
         #print(f"screen {screen_id}")
         screen = self.levelEdited_object.levels[self.dropdown_level_type.currentIndex()].screens[screen_id]
         for metaTile_index, metaTile in enumerate(screen):
             item = lib.widget.LevelTileItem(index=metaTile_index, id=metaTile, screen=screen_id)
             # todo: add logic for TilesetOffsetMap
-            item.setPixmap(self.gfx_scene_tileset.metaTiles[metaTile].pixmap())
+            view: lib.widget.TilesetView = getattr(self, f"gfx_view_tileset_{offset:04X}")
+            item.setPixmap(view.metaTiles[metaTile].pixmap())
             item.setPos(x + 16*(metaTile_index%16),y + 16*(metaTile_index//16))
             self.gfx_scene_level.addItem(item)
             self.gfx_scene_level.tileGroups[screen_id][metaTile_index].append(item)
@@ -4588,17 +4613,18 @@ class MainWindow(QtWidgets.QMainWindow):
     def loadScreens(self, file: lib.level.File, level: lib.level.Level, screenSpacing: int=4):
         self.initScreens()
         if level == file.level:
-            for i in range(self.levelEdited_ovl_object.screenLayout0.height):
-                for j in range(self.levelEdited_ovl_object.screenLayout0.realWidth):
-                    if j >= self.levelEdited_ovl_object.screenLayout0.width:
-                        break # skip unused screens
-                    self.loadScreen(self.levelEdited_ovl_object.screenLayout0.layout[i][j], j*(16*(8*2)+screenSpacing), i*(12*(8*2)+screenSpacing))
+            layout = self.levelEdited_ovl_object.screenLayout0
         elif level == file.level_radar:
-            for i in range(self.levelEdited_ovl_object.screenLayout_radar.height):
-                for j in range(self.levelEdited_ovl_object.screenLayout_radar.realWidth):
-                    if j >= self.levelEdited_ovl_object.screenLayout_radar.width:
-                        break # skip unused screens
-                    self.loadScreen(self.levelEdited_ovl_object.screenLayout_radar.layout[i][j], j*(16*(8*2)+screenSpacing), i*(12*(8*2)+screenSpacing))
+            layout = self.levelEdited_ovl_object.screenLayout_radar
+        for i in range(layout.height):
+            for j in range(layout.realWidth):
+                if j >= layout.width:
+                    break # skip unused screens
+                try:
+                    offset = self.levelEdited_ovl_object.map_tilesetOffset.layout[i][j]
+                except IndexError:
+                    offset = self.levelEdited_ovl_object.map_tilesetOffset.layout[0][0]
+                self.loadScreen(layout.layout[i][j], j*(16*(8*2)+screenSpacing), i*(12*(8*2)+screenSpacing), offset)
 
     def unloadScreenLayout(self, parent: QtWidgets.QWidget):
         for widget in parent.findChildren(lib.widget.BetterSpinBox):
@@ -4728,16 +4754,16 @@ class MainWindow(QtWidgets.QMainWindow):
         print(f"gfx offset: {file.gfx_offset_rom:02X}")
         print(f"pal offset: {file.pal_offset_rom:02X}")
         print(f"leveldata size: {len(file.data[file.level_offset_rom:file.gfx_offset_rom])}")
-        gfx_ptrs = None
+        #gfx_ptrs = None
         if level == file.level:
             if file.gfx_offset_attr == 0x80: # if compressed
                 gfx_data = ndspy.lz10.decompress(file.data[file.gfx_offset_rom:file.pal_offset_rom])
             else:
                 gfx_data = file.data[file.gfx_offset_rom:file.pal_offset_rom]
             gfx_table = lib.graphic.GraphicsTable(gfx_data, start=file.gfx_offset_rom, end=file.pal_offset_rom)
-            table_dat = gfx_table.joinData()
-            gfx = lib.graphic.GraphicHeader(table_dat[0], start=file.gfx_offset_rom, end=file.pal_offset_rom)
-            gfx_ptrs = table_dat[1]
+            #table_dat = gfx_table.joinData()
+            #gfx = lib.graphic.GraphicHeader(table_dat[0], start=file.gfx_offset_rom, end=file.pal_offset_rom)
+            #gfx_ptrs = table_dat[1]
 
             pal_sec = lib.level.PaletteSection(file.data[file.pal_offset_rom:], file.pal_offset_attr == 0x80)
             #pal = lib.datconv.BGR15_to_ARGB32(pal_sec.data[pal_sec.palettes_offset:pal_sec.palettes_offset+0x200])
@@ -4748,17 +4774,17 @@ class MainWindow(QtWidgets.QMainWindow):
                 pointerpal = int.from_bytes(file_radar[0x08:0x0C], 'little')
                 gfx_table = lib.graphic.GraphicsTable(file_radar[pointergfx:], start=pointergfx, end=pointerpal)
                 # compressed part has redundant tiles at the end
-                gfx = lib.graphic.GraphicHeader(
-                    ndspy.lz10.decompress(gfx_table.getData(0))[:-0x200]+gfx_table.getData(gfx_table.offsetCount-self.buttonGroup_radar_tilesetType.checkedId()),
-                      start=gfx_table.getAddr(0), end=pointerpal)
+                #gfx = lib.graphic.GraphicHeader(
+                #    ndspy.lz10.decompress(gfx_table.getData(0))[:-0x200]+gfx_table.getData(gfx_table.offsetCount-self.buttonGroup_radar_tilesetType.checkedId()),
+                #      start=gfx_table.getAddr(0), end=pointerpal)
             else: # ZXA
                 file_radar = self.rom.files[self.rom.filenames.idOf("ls_map_def.bin")]
                 pointergfx = int.from_bytes(file_radar[0x04:0x08], 'little')
                 pointerpal = int.from_bytes(file_radar[0x08:0x0C], 'little')
                 gfx_table = lib.graphic.GraphicsTable(file_radar[pointergfx:], start=pointergfx, end=pointerpal)
-                gfx = lib.graphic.GraphicHeader(
-                    gfx_table.getData(0)[:-0x480]+gfx_table.getData(gfx_table.offsetCount-self.buttonGroup_radar_tilesetType.checkedId())[0x240:],
-                      start=gfx_table.getAddr(0), end=pointerpal)
+                #gfx = lib.graphic.GraphicHeader(
+                #    gfx_table.getData(0)[:-0x480]+gfx_table.getData(gfx_table.offsetCount-self.buttonGroup_radar_tilesetType.checkedId())[0x240:],
+                #      start=gfx_table.getAddr(0), end=pointerpal)
                 #gfx = lib.graphic.GraphicHeader(file_radar[pointergfx:], start=pointergfx, end=len(file_radar))
             pal_sec = lib.level.PaletteSection(file_radar[pointerpal:], False)
             #pal = lib.datconv.BGR15_to_ARGB32(pal_sec.data[pal_sec.palettes_offset:pal_sec.palettes_offset+0x200])
@@ -4768,10 +4794,13 @@ class MainWindow(QtWidgets.QMainWindow):
         #print(gfx.gfx_offset)
         #self.loadTileset(gfx_sec.data[gfx.offset_start+gfx.gfx_offset:], pal)
         #self.loadTileset(gfx.data[gfx.gfx_offset:], pal_sec, gfx_ptrs)
-        self.loadTileset(gfx_table, pal_sec)
+        offsets = set()
+        for o in self.levelEdited_ovl_object.map_tilesetOffset.layout:
+            offsets.update(o)
+        self.loadTilesets(gfx_table, pal_sec, offsets)
         self.gfx_scene_level.scene().clear()
-        if self.gfx_scene_tileset.metaTiles == []:
-            return
+        #if self.gfx_view_tileset.metaTiles == []:
+        #    return
         screenSpacing = 4
         self.loadScreens(file, level, screenSpacing)
         self.loadEntities(screenSpacing)

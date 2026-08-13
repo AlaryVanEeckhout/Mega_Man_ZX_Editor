@@ -231,12 +231,12 @@ This is the screen layout that you will see on the sub-screen of the DS when usi
 
 ### Tileset Offset Map
 
-This appears to be what controls the graphics swap in the tileset from screen to screen.  
+This map controls the graphics swap in the tileset from screen to screen.  
 The game will load the tileset based on the leftmost visible screen.
 
 ### Behavior Map?
 
-Very similar to the previous one, but there is less variation in the values.
+This appears to be what controls the role of the layers other than layer 0. It seems to have something to do with parallax.
 
 ## Entities
 

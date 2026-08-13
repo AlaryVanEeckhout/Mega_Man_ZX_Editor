@@ -33,7 +33,7 @@ class File(common.File):
         self.data = bytearray()
         self.data += int.to_bytes(self.entryCount, 4, 'little')
         self.data += int.to_bytes(self.level_offset_rom, 3, 'little')
-        self.data += int.to_bytes(self.level_offset_attr, 1, 'little')
+        self.data += int.to_bytes(0x80 if self.level.compressed else 0x00, 1, 'little')
         self.data += int.to_bytes(self.gfx_offset_rom, 3, 'little')
         self.data += int.to_bytes(self.gfx_offset_attr, 1, 'little')
         self.data += int.to_bytes(self.pal_offset_rom, 3, 'little')
@@ -47,7 +47,7 @@ class File(common.File):
             self.data += int.to_bytes(self.address_list[5][0], 3, 'little') # palette animations
             self.data += int.to_bytes(self.address_list[5][1], 1, 'little')
             self.data += int.to_bytes(self.address_list[6][0], 3, 'little') # radar level
-            self.data += int.to_bytes(self.address_list[6][1], 1, 'little')
+            self.data += int.to_bytes(0x80 if self.level_radar.compressed else 0x00, 1, 'little')
         self.data += int.to_bytes(self.fileSize, 4, 'little')
         return bytes(self.data)
 
@@ -370,7 +370,8 @@ class EntityCoordinates:
 
 class Level: # LZ10 compressed
     def __init__(self, data: bytes, compressed: bool=True):
-        if compressed:
+        self.compressed = compressed
+        if self.compressed:
             self.data = ndspy.lz10.decompress(data)
         else:
             self.data = data
@@ -411,7 +412,7 @@ class Level: # LZ10 compressed
         self.data.extend([byte for metaTile in self.metaTiles for tile in metaTile for byte in [tile & 0xFF, (tile & 0xFF00) >> 8]])
         self.data.extend([byte for metaTile in self.collision for byte in metaTile])
         self.data.extend([byte for screen in self.screens for metaTileId in screen for byte in [metaTileId & 0xFF, (metaTileId & 0xFF00) >> 8]])
-        return ndspy.lz10.compress(self.data) # compression is not as efficient. Resulting file is bigger
+        return self.data if not self.compressed else ndspy.lz10.compress(self.data) # compression is not as efficient. Resulting file is bigger
 
 class PaletteSection:
     def __init__(self, data: bytes, compressed: bool):
