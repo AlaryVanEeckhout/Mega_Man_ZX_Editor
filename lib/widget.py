@@ -38,7 +38,7 @@ class LevelTileItem(PixmapItem):
 
     def tileReplace(self, item: QtWidgets.QGraphicsPixmapItem):
         if item == None: return
-        #print(f"tile {self.index} of screen {self.screen} = {self.getWindow().gfx_scene_tileset.metaTiles.index(item)}")
+        #print(f"tile {self.index} of screen {self.screen} = {self.getWindow().gfx_view_tileset.metaTiles.index(item)}")
         self.setPixmap(item.pixmap())
         view: lib.widget.TilesetView = self.getWindow().tabs_level_tileset.currentWidget().children()[0]
         self.id = view.metaTiles.index(item)
@@ -445,7 +445,7 @@ class LevelView(View):
         for sItem in view.scene().selectedItems():
             sItem_delta = sItem.pos().toPoint()-sItem_event.pos().toPoint()
             sItem_delta_spacing = QtCore.QPoint(sItem_delta.x()//16, sItem_delta.y()//16)
-            sItem_delta_transformed = (sItem_delta-sItem_delta_spacing)*self.getMainWindow().gfx_scene_level.transform().m11()
+            sItem_delta_transformed = (sItem_delta-sItem_delta_spacing)*self.getMainWindow().gfx_view_level.transform().m11()
             item_target = self.itemAt(pos+sItem_delta_transformed)
             if isinstance(item_target, LevelTileItem):
                 for item in item_target.tileGroup:

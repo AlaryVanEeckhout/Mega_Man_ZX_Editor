@@ -1020,8 +1020,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_panm_colorSlot1.setRange(0x00, 0xFF)
         self.field_panm_colorSlot1.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
-        self.gfx_scene_panm = lib.widget.View(self.page_explorer)
-        self.gfx_scene_panm.hide()
+        self.gfx_view_panm = lib.widget.View(self.page_explorer)
+        self.gfx_view_panm.hide()
 
         self.layout_panm.addWidget(self.dropdown_panm_oamEntry, 0, 0)
         self.layout_panm.addWidget(self.dropdown_panm_entry, 0, 1)
@@ -1033,7 +1033,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_panm.addWidget(self.label_panm_colorSlots, 3, 0)
         self.layout_panm.addWidget(self.field_panm_colorSlot0, 4, 0)
         self.layout_panm.addWidget(self.field_panm_colorSlot1, 5, 0)
-        self.layout_panm.addWidget(self.gfx_scene_panm, 6, 0, 1, 2)
+        self.layout_panm.addWidget(self.gfx_view_panm, 6, 0, 1, 2)
         self.layout_panm.setSpacing(3)
 
         #Font
@@ -1696,12 +1696,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_level_entities_coords_x.setToolTip("X")
         self.field_level_entities_coords_x.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
         self.field_level_entities_coords_x.sb.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.coords.entityList,
-                                                                self.gfx_scene_level.scene().selectedItems()[0].coordIndex if
-                                                                len(self.gfx_scene_level.scene().selectedItems()) and isinstance(self.gfx_scene_level.scene().selectedItems()[0], lib.widget.LevelEntityItem) else None,
+                                                                self.gfx_view_level.scene().selectedItems()[0].coordIndex if
+                                                                len(self.gfx_view_level.scene().selectedItems()) and isinstance(self.gfx_view_level.scene().selectedItems()[0], lib.widget.LevelEntityItem) else None,
                                                                 "x",
                                                                 self.field_level_entities_coords_x.sb.value()))
-        self.field_level_entities_coords_x.sb.valueChanged.connect(lambda: self.gfx_scene_level.scene().selectedItems()[0].setX(self.gfx_scene_level.scene().selectedItems()[0].getSceneX(self.field_level_entities_coords_x.sb.value())) if
-                                                                len(self.gfx_scene_level.scene().selectedItems()) and isinstance(self.gfx_scene_level.scene().selectedItems()[0], lib.widget.LevelEntityItem) else None)
+        self.field_level_entities_coords_x.sb.valueChanged.connect(lambda: self.gfx_view_level.scene().selectedItems()[0].setX(self.gfx_view_level.scene().selectedItems()[0].getSceneX(self.field_level_entities_coords_x.sb.value())) if
+                                                                len(self.gfx_view_level.scene().selectedItems()) and isinstance(self.gfx_view_level.scene().selectedItems()[0], lib.widget.LevelEntityItem) else None)
         self.field_level_entities_coords_y = lib.widget.LabeledSpinBox(self.page_level_entities_coords, labelText="Y:", Vertical=True)
         self.field_level_entities_coords_y.setDisabled(True)
         self.field_level_entities_coords_y.sb.isInt = True
@@ -1709,12 +1709,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_level_entities_coords_y.setToolTip("Y")
         self.field_level_entities_coords_y.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
         self.field_level_entities_coords_y.sb.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.coords.entityList,
-                                                                self.gfx_scene_level.scene().selectedItems()[0].coordIndex if
-                                                                len(self.gfx_scene_level.scene().selectedItems()) and isinstance(self.gfx_scene_level.scene().selectedItems()[0], lib.widget.LevelEntityItem) else None,
+                                                                self.gfx_view_level.scene().selectedItems()[0].coordIndex if
+                                                                len(self.gfx_view_level.scene().selectedItems()) and isinstance(self.gfx_view_level.scene().selectedItems()[0], lib.widget.LevelEntityItem) else None,
                                                                 "y",
                                                                 self.field_level_entities_coords_y.sb.value()))
-        self.field_level_entities_coords_y.sb.valueChanged.connect(lambda: self.gfx_scene_level.scene().selectedItems()[0].setY(self.gfx_scene_level.scene().selectedItems()[0].getSceneY(self.field_level_entities_coords_y.sb.value())) if
-                                                                len(self.gfx_scene_level.scene().selectedItems()) and isinstance(self.gfx_scene_level.scene().selectedItems()[0], lib.widget.LevelEntityItem) else None)
+        self.field_level_entities_coords_y.sb.valueChanged.connect(lambda: self.gfx_view_level.scene().selectedItems()[0].setY(self.gfx_view_level.scene().selectedItems()[0].getSceneY(self.field_level_entities_coords_y.sb.value())) if
+                                                                len(self.gfx_view_level.scene().selectedItems()) and isinstance(self.gfx_view_level.scene().selectedItems()[0], lib.widget.LevelEntityItem) else None)
         self.field_level_entities_coords_slot = lib.widget.LabeledSpinBox(self.page_level_entities_coords, labelText="Slot:", Vertical=True)
         self.field_level_entities_coords_slot.setDisabled(True)
         self.field_level_entities_coords_slot.sb.isInt = True
@@ -1722,8 +1722,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_level_entities_coords_slot.setToolTip("Slot ID")
         self.field_level_entities_coords_slot.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
         self.field_level_entities_coords_slot.sb.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.coords.entityList,
-                                                                self.gfx_scene_level.scene().selectedItems()[0].coordIndex if
-                                                                len(self.gfx_scene_level.scene().selectedItems()) and isinstance(self.gfx_scene_level.scene().selectedItems()[0], lib.widget.LevelEntityItem) else None,
+                                                                self.gfx_view_level.scene().selectedItems()[0].coordIndex if
+                                                                len(self.gfx_view_level.scene().selectedItems()) and isinstance(self.gfx_view_level.scene().selectedItems()[0], lib.widget.LevelEntityItem) else None,
                                                                 "slot",
                                                                 self.field_level_entities_coords_slot.sb.value()))
         self.field_level_entities_coords_slot.sb.valueChanged.connect(lambda: self.loadEntityProperties())
@@ -1871,8 +1871,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tabs_level_entities.addTab(self.page_level_entities_coords, "Coordinates")
         self.tabs_level_entities.addTab(self.page_level_entities_slots, "Slot data")
 
-        self.gfx_scene_level = lib.widget.LevelView(self.page_leveleditor)
-        self.gfx_scene_level.scene().selectionChanged.connect(self.loadEntityProperties)
+        self.gfx_view_level = lib.widget.LevelView(self.page_leveleditor)
+        self.gfx_view_level.scene().selectionChanged.connect(self.loadEntityProperties)
 
         self.page_leveleditor.layout().addItem(self.layout_level_editpannel)
         self.layout_level_editpannel.addItem(self.layout_level_area)
@@ -1883,7 +1883,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.page_level_screens.layout().addWidget(self.tabs_level_screens)
         self.page_level_entities.layout().addItem(self.layout_entitySettings)
         self.page_level_entities.layout().addWidget(self.tabs_level_entities)
-        self.page_leveleditor.layout().addWidget(self.gfx_scene_level)
+        self.page_leveleditor.layout().addWidget(self.gfx_view_level)
 
         # Tweaks(WIP)
         self.tabs_tweaks = QtWidgets.QTabWidget(self.page_tweaks)
@@ -2371,7 +2371,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.unloadTilesets()
         for widget in self.findChildren(QtWidgets.QWidget):
             widget.blockSignals(True)
-        self.gfx_scene_level.scene().clear()
+        self.gfx_view_level.scene().clear()
         self.dropdown_level_area.clear()
         self.dropdown_level_type.clear()
         self.textEdit_dialogueNames.clear()
@@ -4045,13 +4045,13 @@ class MainWindow(QtWidgets.QMainWindow):
                             palette_preview[palette_current.colorSlot0] = self.gfx_palette[frame_current[0]*2]
                             palette_preview[palette_current.colorSlot1] = self.gfx_palette[frame_current[0]*2+1]
                             frame_result = self.OAM_processFrame(["obj_dat.bin", self.dropdown_panm_oamEntry.currentIndex()], 0, palette=palette_preview)["items"]
-                            self.gfx_scene_panm.scene().clear()
+                            self.gfx_view_panm.scene().clear()
                             OAMRect = QtCore.QRectF(-128, -128, 256, 256)
-                            self.gfx_scene_panm.scene().addRect(OAMRect)
+                            self.gfx_view_panm.scene().addRect(OAMRect)
                             for item in frame_result:
-                                self.gfx_scene_panm.scene().addItem(item)
+                                self.gfx_view_panm.scene().addItem(item)
                             if sender is not self.dropdown_panm_frame:
-                                self.gfx_scene_panm.fitInView2(False)
+                                self.gfx_view_panm.fitInView2(False)
                             self.dropdown_panm_frame.previousIndex = self.dropdown_panm_frame.currentIndex()
                             if sender == self.dropdown_panm_entry:
                                 self.dropdown_panm_entry.previousIndex = self.dropdown_panm_entry.currentIndex()
@@ -4299,7 +4299,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.changeTileProperty(level.metaTiles, index, bitstring, val)
 
     def loadEntityProperties(self):
-        if not self.gfx_scene_level.scene().isActive() or len(self.gfx_scene_level.scene().selectedItems()) == 0:
+        if not self.gfx_view_level.scene().isActive() or len(self.gfx_view_level.scene().selectedItems()) == 0:
             for w in self.page_level_entities_coords.findChildren(lib.widget.LabeledSpinBox):
                 w.setEnabled(False)
             for w in self.page_level_entities_slots.findChildren(lib.widget.LabeledSpinBox):
@@ -4309,7 +4309,7 @@ class MainWindow(QtWidgets.QMainWindow):
             w.setEnabled(True)
         for w in self.page_level_entities_slots.findChildren(lib.widget.LabeledSpinBox):
             w.setEnabled(True)
-        item: lib.widget.LevelEntityItem = self.gfx_scene_level.scene().selectedItems()[0]
+        item: lib.widget.LevelEntityItem = self.gfx_view_level.scene().selectedItems()[0]
         #print(item)
         for w in self.page_level_entities_coords.findChildren(lib.widget.LabeledSpinBox):
             w.blockSignals(True)
@@ -4347,10 +4347,10 @@ class MainWindow(QtWidgets.QMainWindow):
     def changeEntityAttribute(self, dict_list, dict_index:int, dict_key:str, value):
         if dict_index is None: return
         dict_list[dict_index][dict_key] = value
-        if len(self.gfx_scene_level.scene().selectedItems()) and isinstance(self.gfx_scene_level.scene().selectedItems()[0], lib.widget.LevelEntityItem):
+        if len(self.gfx_view_level.scene().selectedItems()) and isinstance(self.gfx_view_level.scene().selectedItems()[0], lib.widget.LevelEntityItem):
             self.levelEdited_ovl_object.entities.slots.updateName(self.field_level_entities_coords_slot.sb.value(), fromDict=True)
-            self.gfx_scene_level.scene().selectedItems()[0].updateInfo(
-                self.levelEdited_ovl_object.entities.coords.entityList[self.gfx_scene_level.scene().selectedItems()[0].coordIndex],
+            self.gfx_view_level.scene().selectedItems()[0].updateInfo(
+                self.levelEdited_ovl_object.entities.coords.entityList[self.gfx_view_level.scene().selectedItems()[0].coordIndex],
                 self.levelEdited_ovl_object.entities.slots.nameList[self.field_level_entities_coords_slot.sb.value()]
             ) 
 
@@ -4408,7 +4408,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.lineedit_level_tilesetName.setDisabled(True)
         if self.dropdown_level_area.currentText() == "":
             return 1 # error code
-        self.gfx_scene_level.scene().clear()
+        self.gfx_view_level.scene().clear()
         self.unloadTilesets()
         self.unloadScreenLayouts()
         ovlID = int(self.dropdown_level_area.currentText())
@@ -4554,12 +4554,12 @@ class MainWindow(QtWidgets.QMainWindow):
             self.loadTileset(view, gfx_table, pal_list, indexes)
 
     def initScreens(self):
-        self.gfx_scene_level.tileGroups = []
+        self.gfx_view_level.tileGroups = []
         level = self.levelEdited_object.levels[self.dropdown_level_type.currentIndex()]
         for screen_index in range(len(level.screens)):
-            self.gfx_scene_level.tileGroups.append([])
+            self.gfx_view_level.tileGroups.append([])
             for metaTile_index in range(len(level.screens[screen_index])):
-                self.gfx_scene_level.tileGroups[screen_index].append([])
+                self.gfx_view_level.tileGroups[screen_index].append([])
 
     def loadScreen(self, screen_id: int, x: float=0, y: float=0, offset: int=None):
         #print(f"screen {screen_id}")
@@ -4572,9 +4572,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 print("crash", metaTile, view.metaTiles, hex(offset))
             item.setPixmap(view.metaTiles[metaTile].pixmap())
             item.setPos(x + 16*(metaTile_index%16),y + 16*(metaTile_index//16))
-            self.gfx_scene_level.addItem(item)
-            self.gfx_scene_level.tileGroups[screen_id][metaTile_index].append(item)
-            item.tileGroup = self.gfx_scene_level.tileGroups[screen_id][metaTile_index]
+            self.gfx_view_level.addItem(item)
+            self.gfx_view_level.tileGroups[screen_id][metaTile_index].append(item)
+            item.tileGroup = self.gfx_view_level.tileGroups[screen_id][metaTile_index]
             #print(item.pos())
 
     def loadScreens(self, file: lib.level.File, level: lib.level.Level, screenSpacing: int=4):
@@ -4692,7 +4692,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     oam_index = entityPrels_enemy[len(enemies_list)]["id"]
                 else:
                     print(f"Invalid enemy graphics requested by entity {i}")
-            self.gfx_scene_level.scene().addItem(
+            self.gfx_view_level.scene().addItem(
                 lib.widget.LevelEntityItem(
                 coordIndex=i,
                 coord=entityCoord,
@@ -4759,14 +4759,14 @@ class MainWindow(QtWidgets.QMainWindow):
             print("invalid level type!")
             return
         self.loadTilesets(gfx_table, pal_sec, offsets)
-        self.gfx_scene_level.scene().clear()
+        self.gfx_view_level.scene().clear()
         #if self.gfx_view_tileset.metaTiles == []:
         #    return
         screenSpacing = 4
         self.loadScreens(file, level, screenSpacing)
         self.loadEntities(screenSpacing)
         if self.checkbox_level_fitInView.isChecked():
-            self.gfx_scene_level.fitInView2()
+            self.gfx_view_level.fitInView2()
 
     def loadTweaks(self):
         for i in range(self.tabs_tweaks.count()):
@@ -5504,7 +5504,7 @@ if __name__ == "__main__":
                 w.field_panm_colorSlot0,
                 w.field_panm_colorSlot1,
                 w.widget_colorpick,
-                w.gfx_scene_panm
+                w.gfx_view_panm
             ]
             FONT = enum.auto(), [
                 w.file_content_gfx,
