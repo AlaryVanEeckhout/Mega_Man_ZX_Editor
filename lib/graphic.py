@@ -16,7 +16,7 @@ class File(common.File):
             self.offset_extraGfx = self.address_list[4][0]
 
 class DataStructure: # make the initialization with offsets more consistant
-    def __init__(self, data: bytes, start:int=0, end:int|None=None):
+    def __init__(self, data: bytes, start: int=0, end: int|None=None):
         if end == None:
             end = start+len(data)
         assert end > start
@@ -34,6 +34,7 @@ class DataStructure: # make the initialization with offsets more consistant
 class GraphicsTable(DataStructure): # possibly the same data structure as what I identified as GraphicsSection?
     def _init2(self):
         self.ENTRY_SIZE = 0x14
+        self.padding = 0x8000
         self.table_size = int.from_bytes(self.data[0x00:0x04], 'little')
         assert self.table_size % self.ENTRY_SIZE == 0 and self.table_size >= self.ENTRY_SIZE
         self.offsetCount = self.table_size//self.ENTRY_SIZE
@@ -72,30 +73,46 @@ class GraphicsTable(DataStructure): # possibly the same data structure as what I
     
     def getData(self, index:int):
         return self.data[self.getAddr(index)-self.offset_start:self.getAddrEnd(index)-self.offset_start]
+
+    def _joinData_iter(self, index: int, result: bytearray=None, result_indexes: list[int]=[]):
+        newData = bytearray()
+        #if len(newData) > 0: result_indexes.append(len(result))
+        result_indexes.append(len(result))
+        #print(f"{self.getSize(i):04X}")
+        #print(f"{self.getVRAMOffset(i):04X}")
+        #print(f"{i} {self.offset_list[i][1]:08X}")
+        #print(f"{self.offset_list[i][2]:08X}")
+        try:
+            newData = ndspy.lz10.decompress(self.getData(index))
+            #print("cmp")
+        except:
+            newData = self.getData(index)
+            #print("d")
+        result += newData
+        # 0x200 VRAM tiles padding aligns gfx correctly to be read
+        result += bytearray((-len(result)) & (self.padding-1))
+        return (result, result_indexes)
     
     def joinData(self, index_start: int=0, index_end: int|None=None):
         if index_end == None or index_end > self.offsetCount:
             index_end = self.offsetCount
         result = bytearray()
         result_indexes = []#[0]
-        newData = bytearray()
         for i in range(index_start, index_end):
-            #if len(newData) > 0: result_indexes.append(len(result))
-            result_indexes.append(len(result))
-            #print(f"{self.getSize(i):04X}")
-            #print(f"{self.getVRAMOffset(i):04X}")
-            #print(f"{i} {self.offset_list[i][1]:08X}")
-            #print(f"{self.offset_list[i][2]:08X}")
-            try:
-                newData = ndspy.lz10.decompress(self.getData(i))
-                #print("cmp")
-            except:
-                newData = self.getData(i)
-                #print("d")
-            result += newData
-            # 0x3800|0x7800 padding aligns gfx correctly to be read
-            result += bytearray((-len(result)) & 0x37FF)
-        return [result, result_indexes]
+            self._joinData_iter(i, result, result_indexes)
+        return (result, result_indexes)
+
+    def joinData_fromindexes(self, indexes: list[int]):
+        result = bytearray()
+        result_indexes = []#[0]
+        for i in indexes:
+            if i == 0xF: # no graphics, apparently
+                continue
+            if i > self.offsetCount-1:
+                print(f"tileset offset index {i} out of range {self.offsetCount}")
+                return
+            self._joinData_iter(i, result, result_indexes)
+        return (result, result_indexes)
 
 class GraphicSection(DataStructure):
     def _init2(self):

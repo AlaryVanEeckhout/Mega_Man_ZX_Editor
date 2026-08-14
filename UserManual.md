@@ -232,7 +232,22 @@ This is the screen layout that you will see on the sub-screen of the DS when usi
 ### Tileset Offset Map
 
 This map controls the graphics swap in the tileset from screen to screen.  
-The game will load the tileset based on the leftmost visible screen.
+The game will load the tileset based on the leftmost visible screen.  
+Each screen gets an word that corresponds to the graphics indexes that should be used in order from the leftmost nibble to the rightmost one.  
+The graphics are separated by chunks of 0x200 VRAM tiles.  
+
+For instance, 0x1210 means:
+- The first chunk of 0x200 VRAM tiles takes graphics from entry 0x1 of the GraphicsTable
+- The second chunk of 0x200 VRAM tiles takes graphics from entry 0x2 of the GraphicsTable
+- The third chunk of 0x200 VRAM tiles takes graphics from entry 0x1 of the GraphicsTable
+- The fourth chunk of 0x200 VRAM tiles takes graphics from entry 0x0 of the GraphicsTable
+
+There is also value 0xF, which seems to mean that the graphics will remain untouched (or will be unloaded?).
+
+> [!NOTE]
+> It looks liek the first and second chunks are used for the main layout,  
+> and possibly the third and fourth chunk are used for the other layouts,  
+> the fourth one in particular being for the distant background.
 
 ### Behavior Map?
 

@@ -103,7 +103,7 @@ class Overlay:
         self.screenLayout3 = ScreenLayout(self.data, self.screenLayout3_address)
         print(f"0x{self.map_tilesetOffset_RAMAddress:08X}: layout radar")
         self.screenLayout_radar = ScreenLayout(self.data, self.screenLayout_radar_address)
-        print(f"0x{self.map_tilesetOffset_RAMAddress:08X}: map tilesetOffset (?)")
+        print(f"0x{self.map_tilesetOffset_RAMAddress:08X}: map tilesetOffset")
         self.map_tilesetOffset = ScreenMap(self.data, self.map_tilesetOffset_address)
         print(f"0x{self.map_behavior_RAMAddress:08X}: map behavior (?)")
         self.map_behavior = ScreenMap(self.data, self.map_behavior_address)
@@ -157,7 +157,7 @@ class Overlay:
 class ScreenLayout:
     def __init__(self, data: bytes, address: int, loadReal: bool=True):
         self.realWidth = int.from_bytes(data[address:address+0x01], byteorder='little') # width used to load screens with correct alignment
-        self.skip = int.from_bytes(data[address+0x01:address+0x02], byteorder='little') # idk
+        self.skip = int.from_bytes(data[address+0x01:address+0x02], byteorder='little') # for tilesetOffset?
         self.width = int.from_bytes(data[address+0x02:address+0x03], byteorder='little') # width of used portion of layout
         self.height = int.from_bytes(data[address+0x03:address+0x04], byteorder='little')
         self.loadWidth = self.realWidth if loadReal else self.width
@@ -190,7 +190,7 @@ class ScreenLayout:
 class ScreenMap:
     def __init__(self, data: bytes, address: int, loadReal: bool=False):
         self.realWidth = int.from_bytes(data[address:address+0x02], byteorder='little') # width used to define effective screen space
-        self.skip = int.from_bytes(data[address+0x02:address+0x04], byteorder='little') # idk
+        self.skip = int.from_bytes(data[address+0x02:address+0x04], byteorder='little') # for the layout it applies to?
         self.width = int.from_bytes(data[address+0x04:address+0x06], byteorder='little') # width used to load all screens (?)
         self.height = int.from_bytes(data[address+0x06:address+0x08], byteorder='little')
         self.loadWidth = self.realWidth if loadReal else self.width
