@@ -1371,24 +1371,53 @@ class MainWindow(QtWidgets.QMainWindow):
         self.checkbox_level_fitInView = QtWidgets.QCheckBox("Reset view", self.page_leveleditor)
         self.checkbox_level_fitInView.setChecked(True)
 
-        self.lineedit_level_tilesetName = QtWidgets.QLineEdit("N/A", self.page_leveleditor)
-        self.lineedit_level_tilesetName.setToolTip("The name of the asset file that is used")
-        self.lineedit_level_tilesetName.setMaxLength(8)
-        self.lineedit_level_tilesetName.textChanged.connect(lambda: self.button_level_save.setEnabled(True))
-        self.lineedit_level_tilesetName.setDisabled(True)
-
         self.dropdown_level_area = QtWidgets.QComboBox(self.page_leveleditor)
         self.dropdown_level_area.setPlaceholderText("Select...")
         self.dropdown_level_area.setToolTip("Choose an overlay to load")
         self.dropdown_level_area.currentIndexChanged.connect(self.updateLevelareaUI)
         self.dropdown_level_area.setDisabled(True)
 
+        self.lineedit_level_tilesetName = QtWidgets.QLineEdit("N/A", self.page_leveleditor)
+        self.lineedit_level_tilesetName.setToolTip("The name of the asset file that is used")
+        self.lineedit_level_tilesetName.setMaxLength(8)
+        self.lineedit_level_tilesetName.textChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.lineedit_level_tilesetName.setDisabled(True)
+
+        self.layout_level_type = QtWidgets.QVBoxLayout()
+        self.layout_level_type.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+        self.layout_level_type.setContentsMargins(0,24,0,0)
         self.dropdown_level_type = QtWidgets.QComboBox(self.page_leveleditor)
         self.dropdown_level_type.setPlaceholderText("N/A")
         self.dropdown_level_type.setMinimumWidth(100)
         self.dropdown_level_type.setToolTip("Choose between normal level and scanner map (if applicable)")
         self.dropdown_level_type.currentIndexChanged.connect(lambda: self.group_radar_tilesetType.setEnabled(self.dropdown_level_type.currentIndex() == 1))
+        self.dropdown_level_type.currentIndexChanged.connect(lambda: self.checkbox_level_layout0.setEnabled(self.dropdown_level_type.currentIndex() == 0))
+        self.dropdown_level_type.currentIndexChanged.connect(lambda: self.checkbox_level_layout1.setEnabled(self.dropdown_level_type.currentIndex() == 0))
+        self.dropdown_level_type.currentIndexChanged.connect(lambda: self.checkbox_level_layout2.setEnabled(self.dropdown_level_type.currentIndex() == 0))
+        self.dropdown_level_type.currentIndexChanged.connect(lambda: self.checkbox_level_layout3.setEnabled(self.dropdown_level_type.currentIndex() == 0))
         self.dropdown_level_type.setDisabled(True)
+
+        self.layout_level_layouts = QtWidgets.QHBoxLayout()
+        self.checkbox_level_layout0 = QtWidgets.QCheckBox("0", self.page_leveleditor)
+        self.checkbox_level_layout0.setToolTip("Load Layout 0")
+        self.checkbox_level_layout0.setChecked(True)
+        self.checkbox_level_layout0.setDisabled(True)
+        self.checkbox_level_layout1 = QtWidgets.QCheckBox("1", self.page_leveleditor)
+        self.checkbox_level_layout1.setToolTip("Load Layout 1")
+        self.checkbox_level_layout1.setDisabled(True)
+        self.checkbox_level_layout2 = QtWidgets.QCheckBox("2", self.page_leveleditor)
+        self.checkbox_level_layout2.setToolTip("Load Layout 2")
+        self.checkbox_level_layout2.setDisabled(True)
+        self.checkbox_level_layout3 = QtWidgets.QCheckBox("3", self.page_leveleditor)
+        self.checkbox_level_layout3.setToolTip("Load Layout 3")
+        self.checkbox_level_layout3.setDisabled(True)
+        self.layout_level_layouts.addWidget(self.checkbox_level_layout0)
+        self.layout_level_layouts.addWidget(self.checkbox_level_layout1)
+        self.layout_level_layouts.addWidget(self.checkbox_level_layout2)
+        self.layout_level_layouts.addWidget(self.checkbox_level_layout3)
+
+        self.layout_level_type.addWidget(self.dropdown_level_type)
+        self.layout_level_type.addItem(self.layout_level_layouts)
 
         self.radio_radar_LX = QtWidgets.QRadioButton(self.page_leveleditor)
         self.radio_radar_LX.setText("Model LX")
@@ -1635,7 +1664,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_level_area.addWidget(self.button_level_load)
         self.layout_level_area.addWidget(self.checkbox_level_fitInView)
         self.layout_level_area.addItem(self.layout_level_areaName)
-        self.layout_level_area.addWidget(self.dropdown_level_type)
+        self.layout_level_area.addItem(self.layout_level_type)
         self.layout_level_area.addWidget(self.group_radar_tilesetType)
 
         self.layout_metaTile_properties = QtWidgets.QHBoxLayout()
@@ -4455,10 +4484,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.buttonGroup_radar_tilesetType.blockSignals(False)
         self.dropdown_level_type.clear()
         self.dropdown_level_type.addItem("Normal Level")
-        if self.levelEdited_object != None and len(self.levelEdited_object.levels) > 1:
+        if self.levelEdited_object is not None and len(self.levelEdited_object.levels) > 1:
             self.dropdown_level_type.addItem("Radar Level")
         self.dropdown_level_type.setCurrentIndex(0)
         self.dropdown_level_type.setEnabled(self.dropdown_level_area.currentIndex() != -1)
+        if self.levelEdited_ovl_object is not None:
+            self.checkbox_level_layout0.setEnabled(self.levelEdited_ovl_object.screenLayout0.size > self.levelEdited_ovl_object.screenLayout0.size_header)
+            self.checkbox_level_layout1.setEnabled(self.levelEdited_ovl_object.screenLayout1.size > self.levelEdited_ovl_object.screenLayout1.size_header)
+            self.checkbox_level_layout2.setEnabled(self.levelEdited_ovl_object.screenLayout2.size > self.levelEdited_ovl_object.screenLayout2.size_header)
+            self.checkbox_level_layout3.setEnabled(self.levelEdited_ovl_object.screenLayout3.size > self.levelEdited_ovl_object.screenLayout3.size_header)
 
     def unloadTilesets(self):
         self.unloadTileProperties()
@@ -4466,6 +4500,7 @@ class MainWindow(QtWidgets.QMainWindow):
             tab = self.tabs_level_tileset.widget(i)
             view: lib.widget.TilesetView = tab.children()[0]
             view.deleteLater()
+            delattr(self, f"gfx_view_tileset_{self.tabs_level_tileset.tabText(i)}")
             tab.deleteLater()
         self.tabs_level_tileset.clear() # signals must not be blocked for this to work
 
@@ -4489,8 +4524,10 @@ class MainWindow(QtWidgets.QMainWindow):
         view.scene().clear()
         #view.setUpdatesEnabled(False)
         pixmap = QtGui.QPixmap(16, 16)
+        pixmap.fill(QtCore.Qt.GlobalColor.transparent) # ensure there is an alpha layer
         painter = QtGui.QPainter()
         painter.begin(pixmap)
+        painter.setCompositionMode(QtGui.QPainter.CompositionMode.CompositionMode_Source) # make sure the painter overwrites the pixels
         ref = QtWidgets.QGraphicsPixmapItem(QtGui.QPixmap.fromImage(lib.datconv.binToQt(gfx_data, palette_ref, depth_obj, 32, len(gfx_data)//64//32)))
         ref.setPos(-32*8-view.item_spacing*2, 0)
         view.scene().addItem(ref) # to see the gfx used to construct tileset
@@ -4509,6 +4546,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 except:
                     #print("palette error at gfx", gfx_index, "pal", tile_pal)
                     pal = palette_ref
+                    pal[0] = 0
                 gfx_bin = gfx_data[gfx_offset:8*depth_obj.depth*(tileId+1)]
                 painter.drawImage(QtCore.QRectF(8*(tile_index%2), 8*(tile_index//2), 8, 8), lib.datconv.binToQt(gfx_bin, pal, depth_obj, 1, 1).mirrored(flipH, flipV))
             
@@ -4522,28 +4560,43 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def loadTilesets(self, gfx_table: lib.graphic.GraphicsTable, pal_sec: lib.level.PaletteSection, offsets: list[int]=[]):
         self.unloadTilesets()
-        print(f"set of tilsetOffset values: {[f"{o:02X}" for o in offsets]}") # todo: figure out how those offsets work to implement tileset variants
+        checkbox_list = [
+            self.checkbox_level_layout0,
+            self.checkbox_level_layout1,
+            self.checkbox_level_layout2,
+            self.checkbox_level_layout3
+        ]
+        count = 0
+        for check in checkbox_list:
+            count += (check.isChecked() and check.isEnabled())
+        render_mode = bool(count > 1)
+        print(f"set of tilsetOffset values: {[f"{o:04X}" for o in offsets]}")
         pal_list: list[dict] = []
         pl: dict = {}
         for i in range(pal_sec.palHeaderCount):
             pl.clear()
-            for j in range(pal_sec.paletteHeaders[i].palCount):
-                #print(pal_sec.paletteHeaders[i].palettes[j][0])
-                pl[pal_sec.paletteHeaders[i].palettes[j][0]] = (
+            for palinfo in pal_sec.paletteHeaders[i].palettes:
+                #print(palinfo[0])
+                pl[palinfo[0]] = (
                     lib.datconv.BGR15_to_ARGB32(
-                        pal_sec.data[pal_sec.paletteOffsets[i]+pal_sec.paletteHeaders[i].palettes[j][1]:
-                        pal_sec.paletteOffsets[i]+pal_sec.paletteHeaders[i].palettes[j][1]+0x200]
+                        pal_sec.data[pal_sec.paletteOffsets[i]+palinfo[1]:pal_sec.paletteOffsets[i]+palinfo[1]+0x200]
                     )
                 )
+                if render_mode:
+                    pl[palinfo[0]][0] = 0x00000000 # color 0 as transparency
             pal_list.append(pl.copy())
+        def load_tilesetPart(offset_name: str, indexes: list[int]):
+            if getattr(self, f"gfx_view_tileset_{offset_name}", None) is None:
+                page = QtWidgets.QWidget()
+                self.tabs_level_tileset.addTab(page, f"{offset_name}")
+                setattr(self, f"gfx_view_tileset_{offset_name}", lib.widget.TilesetView(page))
+                view: lib.widget.TilesetView = getattr(self, f"gfx_view_tileset_{offset_name}")
+                view.scene().selectionChanged.connect(self.loadTileProperties)
+                page.setLayout(QtWidgets.QGridLayout())
+                page.layout().addWidget(view)
+                self.loadTileset(view, gfx_table, pal_list, indexes)
+        level = self.levelEdited_object.levels[self.dropdown_level_type.currentIndex()]
         for offset in offsets:
-            page = QtWidgets.QWidget()
-            self.tabs_level_tileset.addTab(page, f"{offset:04X}")
-            setattr(self, f"gfx_view_tileset_{offset:04X}", lib.widget.TilesetView(page))
-            view: lib.widget.TilesetView = getattr(self, f"gfx_view_tileset_{offset:04X}")
-            view.scene().selectionChanged.connect(self.loadTileProperties)
-            page.setLayout(QtWidgets.QGridLayout())
-            page.layout().addWidget(view)
             # Make a list of indexes into the GraphicsTable
             indexes = [
                 (offset & 0xF000) >> (0xC),
@@ -4551,7 +4604,15 @@ class MainWindow(QtWidgets.QMainWindow):
                 (offset & 0x00F0) >> (0x4),
                 (offset & 0x000F) >> (0x0)
             ]
-            self.loadTileset(view, gfx_table, pal_list, indexes)
+            if level == self.levelEdited_object.level:
+                if self.checkbox_level_layout0.isEnabled() and self.checkbox_level_layout0.isChecked():
+                    load_tilesetPart(f"{indexes[0]:00X}{indexes[1]:00X}XX", indexes[:2])
+                if (self.checkbox_level_layout1.isEnabled() and self.checkbox_level_layout1.isChecked()) or (self.checkbox_level_layout2.isEnabled() and self.checkbox_level_layout2.isChecked()):
+                    load_tilesetPart(f"XX{indexes[2]:00X}X", indexes[2:3])
+                if self.checkbox_level_layout3.isEnabled() and self.checkbox_level_layout3.isChecked():
+                    load_tilesetPart(f"XXX{indexes[3]:00X}", indexes[3:])
+            elif level == self.levelEdited_object.level_radar:
+                load_tilesetPart(f"{offset:04X}", indexes)
 
     def initScreens(self):
         self.gfx_view_level.tileGroups = []
@@ -4561,42 +4622,56 @@ class MainWindow(QtWidgets.QMainWindow):
             for metaTile_index in range(len(level.screens[screen_index])):
                 self.gfx_view_level.tileGroups[screen_index].append([])
 
-    def loadScreen(self, screen_id: int, x: float=0, y: float=0, offset: int=None):
+    def loadScreen(self, screen_id: int, x: float=0, y: float=0, z: float=0, offset_name: str=None):
         #print(f"screen {screen_id}")
+        view: lib.widget.TilesetView = getattr(self, f"gfx_view_tileset_{offset_name}")
+        if view.metaTiles == []:
+            print(f"Screen {screen_id} could not load: The tileset {offset_name} has no tiles!")
+            return
         screen = self.levelEdited_object.levels[self.dropdown_level_type.currentIndex()].screens[screen_id]
         for metaTile_index, metaTile in enumerate(screen):
             item = lib.widget.LevelTileItem(index=metaTile_index, id=metaTile, screen=screen_id)
             # todo: add logic for TilesetOffsetMap
-            view: lib.widget.TilesetView = getattr(self, f"gfx_view_tileset_{offset:04X}")
             if metaTile > len(view.metaTiles):
-                print("crash", metaTile, view.metaTiles, hex(offset))
+                print("crash", metaTile, view.metaTiles, offset_name)
             item.setPixmap(view.metaTiles[metaTile].pixmap())
             item.setPos(x + 16*(metaTile_index%16),y + 16*(metaTile_index//16))
+            item.setZValue(z)
             self.gfx_view_level.addItem(item)
             self.gfx_view_level.tileGroups[screen_id][metaTile_index].append(item)
             item.tileGroup = self.gfx_view_level.tileGroups[screen_id][metaTile_index]
             #print(item.pos())
 
     def loadScreens(self, file: lib.level.File, level: lib.level.Level, screenSpacing: int=4):
+        def loadScreen_loop(layout: lib.level.ScreenLayout, slice_start: int=0, slice_end: int=4, radarOverride: bool=False):
+            offset = None
+            for i in range(layout.height):
+                for j in range(layout.realWidth):
+                    if j >= layout.width:
+                        break # skip unused screens
+                    if not radarOverride:
+                        try:
+                            if self.levelEdited_ovl_object.map_tilesetOffset.layout[i][j] != 0xFFFF:
+                                offset = self.levelEdited_ovl_object.map_tilesetOffset.layout[i][j]
+                        except IndexError:
+                            offset = self.levelEdited_ovl_object.map_tilesetOffset.layout[0][0]
+                    else:
+                        offset = 0x0FFF
+                    offset_name = "X"*slice_start + f"{offset:04X}"[slice_start:slice_end] + "X"*(4-slice_end)
+                    self.loadScreen(layout.layout[i][j], j*(16*(8*2)+screenSpacing), i*(12*(8*2)+screenSpacing), offset_name=offset_name)
         self.initScreens()
-        offset = None
         if level == file.level:
-            layout = self.levelEdited_ovl_object.screenLayout0
+            # todo: figure out how layouts 1-3 get their Z-position, check what there is at overlay address 0x021944A2
+            if self.checkbox_level_layout2.isEnabled() and self.checkbox_level_layout2.isChecked():
+                loadScreen_loop(self.levelEdited_ovl_object.screenLayout2, 2, 3)
+            if self.checkbox_level_layout1.isEnabled() and self.checkbox_level_layout1.isChecked():
+                loadScreen_loop(self.levelEdited_ovl_object.screenLayout1, 2, 3)
+            if self.checkbox_level_layout0.isEnabled() and self.checkbox_level_layout0.isChecked():
+                loadScreen_loop(self.levelEdited_ovl_object.screenLayout0, 0, 2)
+            if self.checkbox_level_layout3.isEnabled() and self.checkbox_level_layout3.isChecked():
+                loadScreen_loop(self.levelEdited_ovl_object.screenLayout3, 3, 4)
         elif level == file.level_radar:
-            layout = self.levelEdited_ovl_object.screenLayout_radar
-        for i in range(layout.height):
-            for j in range(layout.realWidth):
-                if j >= layout.width:
-                    break # skip unused screens
-                if level == file.level:
-                    try:
-                        if self.levelEdited_ovl_object.map_tilesetOffset.layout[i][j] != 0xFFFF:
-                            offset = self.levelEdited_ovl_object.map_tilesetOffset.layout[i][j]
-                    except IndexError:
-                        offset = self.levelEdited_ovl_object.map_tilesetOffset.layout[0][0]
-                elif level == file.level_radar:
-                    offset = 0x0FFF
-                self.loadScreen(layout.layout[i][j], j*(16*(8*2)+screenSpacing), i*(12*(8*2)+screenSpacing), offset)
+            loadScreen_loop(self.levelEdited_ovl_object.screenLayout_radar, radarOverride=True)
 
     def unloadScreenLayout(self, parent: QtWidgets.QWidget):
         for widget in parent.findChildren(lib.widget.BetterSpinBox):

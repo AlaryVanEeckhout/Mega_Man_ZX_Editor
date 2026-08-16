@@ -2,7 +2,7 @@
 #import os.path
 #import numpy
 #import PIL, PIL.Image
-from PyQt6 import QtGui
+from PyQt6 import QtGui, QtCore
 #import io
 import enum
 
@@ -188,8 +188,8 @@ def binToQt(binary_data: bytearray, palette: list[int]=[0xff000000+((0x0b7421*i)
     # take only the data that will be used for the qt widget and convert to bitstring
     file_bits = "".join([bit for byte in binary_data[:tilesPerRow*tilesPerColumn*tileWidth*tileHeight*algorithm.depth//8] for bit in bin(byte)[2:].zfill(8)])
     image_widget = QtGui.QImage(tileWidth*tilesPerRow, tileHeight*tilesPerColumn, QtGui.QImage.Format.Format_Indexed8)
+    image_widget.fill(QtCore.Qt.GlobalColor.transparent)
     image_widget.setColorTable(palette) # 32bit ARGB color format
-    image_widget.fill(15)
     pixel_index = 0
     step = 1 # amount of pixels processed at once
     #print(file_bits)

@@ -101,7 +101,7 @@ class Overlay:
         self.screenLayout2 = ScreenLayout(self.data, self.screenLayout2_address)
         print(f"0x{self.screenLayout3_RAMAddress:08X}: layout3")
         self.screenLayout3 = ScreenLayout(self.data, self.screenLayout3_address)
-        print(f"0x{self.map_tilesetOffset_RAMAddress:08X}: layout radar")
+        print(f"0x{self.screenLayout_radar_RAMAddress:08X}: layout radar")
         self.screenLayout_radar = ScreenLayout(self.data, self.screenLayout_radar_address)
         print(f"0x{self.map_tilesetOffset_RAMAddress:08X}: map tilesetOffset")
         self.map_tilesetOffset = ScreenMap(self.data, self.map_tilesetOffset_address)
@@ -428,7 +428,14 @@ class PaletteSection:
         for i in range(self.palHeaderCount):
             self.paletteOffsets.append(int.from_bytes(self.data[0x04+i*0x04:0x08+i*0x04], 'little'))
         for i in range(self.palHeaderCount):
-            self.paletteHeaders.append(PaletteHeader(self.data[self.paletteOffsets[i]:self.paletteOffsets[i+1] if i+1<self.palHeaderCount else -1]))
+            if i+1 >= self.palHeaderCount:
+                data = self.data[self.paletteOffsets[i]:]
+            else:
+                if self.paletteOffsets[i] == self.paletteOffsets[i+1]:
+                    data = self.data[self.paletteOffsets[i]:self.paletteOffsets[i]+0x200]
+                else:
+                    data = self.data[self.paletteOffsets[i]:self.paletteOffsets[i+1]]
+            self.paletteHeaders.append(PaletteHeader(data))
         
 
     def toBytes(self):
