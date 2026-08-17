@@ -4505,7 +4505,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tabs_level_tileset.clear() # signals must not be blocked for this to work
 
     def loadTileset(self, view: lib.widget.TilesetView, gfx_table: lib.graphic.GraphicsTable, pal_list: list[int], gfx_indexes: list[int]=[]):
-        print("load tileset")
+        print(f"load tileset {[f"{i:01X}" for i in gfx_indexes]}")
         view.metaTiles = []
         gfx_data = bytearray()
         gfx_ptrs = []
@@ -4527,6 +4527,7 @@ class MainWindow(QtWidgets.QMainWindow):
         pixmap.fill(QtCore.Qt.GlobalColor.transparent) # ensure there is an alpha layer
         painter = QtGui.QPainter()
         painter.begin(pixmap)
+        painter.setRenderHints(QtGui.QPainter.RenderHint.Antialiasing | QtGui.QPainter.RenderHint.SmoothPixmapTransform, False)
         painter.setCompositionMode(QtGui.QPainter.CompositionMode.CompositionMode_Source) # make sure the painter overwrites the pixels
         ref = QtWidgets.QGraphicsPixmapItem(QtGui.QPixmap.fromImage(lib.datconv.binToQt(gfx_data, palette_ref, depth_obj, 32, len(gfx_data)//64//32)))
         ref.setPos(-32*8-view.item_spacing*2, 0)
@@ -4548,7 +4549,13 @@ class MainWindow(QtWidgets.QMainWindow):
                     pal = palette_ref
                     pal[0] = 0
                 gfx_bin = gfx_data[gfx_offset:8*depth_obj.depth*(tileId+1)]
-                painter.drawImage(QtCore.QRectF(8*(tile_index%2), 8*(tile_index//2), 8, 8), lib.datconv.binToQt(gfx_bin, pal, depth_obj, 1, 1).mirrored(flipH, flipV))
+                if depth_obj == lib.datconv.CompressionAlgorithmEnum.EIGHTBPP: # Optimized method
+                    img = QtGui.QImage(gfx_bin, 8, 8, depth_obj.depth, QtGui.QImage.Format.Format_Indexed8).mirrored(flipH, flipV)
+                    img.raw_data = gfx_bin # keep reference to prevent crash
+                    img.setColorTable(pal)
+                else: # If QImage does not support loading the binary data from constructor
+                    img = lib.datconv.binToQt(gfx_bin, pal, depth_obj, 1, 1).mirrored(flipH, flipV)
+                painter.drawImage(8*(tile_index%2), 8*(tile_index//2), img)
             
             metaTileItem = lib.widget.TilesetItem(pixmap)
             metaTileItem.setPos((16+view.item_spacing)*(metaTile_index%view.item_columns), (16+view.item_spacing)*(metaTile_index//view.item_columns))

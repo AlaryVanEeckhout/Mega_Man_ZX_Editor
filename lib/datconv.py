@@ -134,7 +134,7 @@ def strSetBase(s: str, b_prev:int, b: int, alphanum: bool = False):
     return numToStr(strToNum(s, b_prev), b, alphanum)
 
 
-def str_subgroups(s: str, n):
+def str_subgroups(s: str, n: int):
     return [s[i:i+n] for i in range(0, len(s), n)]
 
 def bitstrToBytes(s: str):
@@ -195,7 +195,7 @@ def binToQt(binary_data: bytearray, palette: list[int]=[0xff000000+((0x0b7421*i)
     #print(file_bits)
     
     match algorithm:
-        case CompressionAlgorithmEnum.ONEBPP: # For english 8x16 and JP 16x16 fonts
+        case CompressionAlgorithmEnum.ONEBPP: # NDS 1bpp for english 8x16 and JP 16x16 fonts
             file_bits = "".join([file_bits[i:i+8][::-1] for i in range(0, len(file_bits), 8)]) # reverse the order of the bits in each byte
             pixel_colors = str_subgroups(file_bits, algorithm.depth) # color indexes to palette
             for i in range(tilesPerRow*tilesPerColumn): # iterate through tiles
@@ -215,7 +215,6 @@ def binToQt(binary_data: bytearray, palette: list[int]=[0xff000000+((0x0b7421*i)
                 tile_y = int(i / tilesPerRow)*tileHeight
                 for j in range(0, tileWidth*tileHeight, step): # iterate through pixels
                     if pixel_index >= len(pixel_colors): return image_widget
-                    #print(str_subgroups(file_bits, 4)[pixel_index])
                     x = int(j % tileWidth)
                     y = int(j / tileWidth)
                     x2 = int((j+1) % tileWidth)
@@ -230,7 +229,6 @@ def binToQt(binary_data: bytearray, palette: list[int]=[0xff000000+((0x0b7421*i)
                 tile_y = int(i / tilesPerRow)*tileHeight
                 for j in range(0, tileWidth*tileHeight, step): # iterate through pixels
                     if pixel_index >= len(pixel_colors): return image_widget
-                    #print(str_subgroups(file_bits, 4)[pixel_index])
                     x = int(j % tileWidth)
                     y = int(j / tileWidth)
                     image_widget.setPixel(tile_x+x, tile_y+y, int(pixel_colors[pixel_index], 2))
