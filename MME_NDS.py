@@ -2860,7 +2860,7 @@ class MainWindow(QtWidgets.QMainWindow):
             pal.extend(lib.datconv.BGR15_to_ARGB32(gfxsec.data[pal_off:pal_off+gfxheader.palette_size]))
         else:
             #print("palette changed")
-            #print(int.from_bytes(oamsec.data[oamsec.paletteTable_offset:oamsec.paletteTable_offset+2]))
+            #print(oamsec.paletteTable_count, oamsec.paletteTable_shift)
             if len(oamsec.header_items) == 4:
                 pal = oamsec.paletteTable[0]
             else: # palette may be handled dynamically in RAM
@@ -5095,7 +5095,7 @@ class MainWindow(QtWidgets.QMainWindow):
                             self.fileEdited_object.address_list[i][0] += objCountDelta*obj.SIZE
                         self.fileEdited_object.fileSize += objCountDelta*obj.SIZE
                         w.rom.files[file_id][:self.fileEdited_object.header_size] = self.fileEdited_object.headerToBytes() # update file header pointers
-                elif self.tabs_oam.currentWidget()==self.page_oam_anims:
+                elif self.tabs_oam.currentWidget()==self.page_oam_anims: # todo: make it work on diff anim frame count
                     if -1 in [self.dropdown_oam_entry.currentIndex(), self.dropdown_oam_anim.currentIndex(),
                             self.dropdown_oam_animFrame.currentIndex()]:
                         print("no valid animation data to save!")
@@ -5117,23 +5117,38 @@ class MainWindow(QtWidgets.QMainWindow):
                     if isDurationfix:
                         print(f"while saving, special duration was found in frame {self.dropdown_oam_animFrame.currentIndex()} of animation and frame was modified to match expected duration")
                     save_data = anim.toBytes()
-                    save_offset =  self.fileEdited_object.oamsec.offset_start+self.fileEdited_object.oamsec.animTable_offset+anim.frames_offset
+                    save_offset = section.offset_start+section.animTable_offset+anim.frames_offset
                     save_offset_end = save_offset+anim.oldFrameCount*anim.FRAME_SIZE
                     print(save_data.hex(), w.rom.files[file_id][save_offset:save_offset_end].hex())
                     w.rom.files[file_id][save_offset:save_offset_end] = save_data
-                    frameCountDelta = len(anim.frames) - anim.oldFrameCount
+                    anim_SizeDelta = (len(anim.frames) - anim.oldFrameCount)*anim.FRAME_SIZE
                     #delta_size = frameCountDelta*anim.FRAME_SIZE
-                    if frameCountDelta != 0: # not all pointers were identified, so this does not fully work
+                    if anim_SizeDelta != 0:
                         offset = section.offset_start + section.animTable_offset + self.dropdown_oam_anim.currentIndex()*section.ANIMTABLE_PTR_SIZE
                         for i in range(offset+section.ANIMTABLE_PTR_SIZE, section.offset_start + section.animTable_offset + section.animTable_size, section.ANIMTABLE_PTR_SIZE):
-                            #print(frameCountDelta*anim.FRAME_SIZE, w.rom.files[file_id][i:i+section.ANIMTABLE_PTR_SIZE].hex())
-                            w.rom.files[file_id][i:i+section.ANIMTABLE_PTR_SIZE] = int.to_bytes(int.from_bytes(w.rom.files[file_id][i:i+section.ANIMTABLE_PTR_SIZE], 'little')+frameCountDelta*anim.FRAME_SIZE, section.ANIMTABLE_PTR_SIZE, 'little') # update header obj offset
-                        for i in range(2, len(section.header_items)): # section pointers from palette
-                                section.header_items[i] += frameCountDelta*anim.FRAME_SIZE
+                            #print(animSizeDelta, w.rom.files[file_id][i:i+section.ANIMTABLE_PTR_SIZE].hex())
+                            w.rom.files[file_id][i:i+section.ANIMTABLE_PTR_SIZE] = int.to_bytes(int.from_bytes(w.rom.files[file_id][i:i+section.ANIMTABLE_PTR_SIZE], 'little')+anim_SizeDelta, section.ANIMTABLE_PTR_SIZE, 'little') # update table anim offset
+                        # pad the end of animation data
+                        if len(section.header_items) == 4:
+                            offset_fullAnim_end = section.offset_start + section.header_items[2]
+                        else:
+                            offset_fullAnim_end = section.offset_end
+                        anim_fullData = w.rom.files[file_id][section.offset_start + section.header_items[1]:offset_fullAnim_end+anim_SizeDelta]
+                        padding_oldSize = len(anim_fullData)
+                        anim_fullData = anim_fullData.rstrip(b'\x00') # remove padding from size
+                        padding_oldSize -= len(anim_fullData)
+                        padding = bytearray((-len(anim_fullData)) & (0x04-1)) # calculate new padding
+                        w.rom.files[file_id][offset_fullAnim_end-padding_oldSize+anim_SizeDelta:offset_fullAnim_end+anim_SizeDelta] = padding
+                        fullAnim_SizeDelta = anim_SizeDelta + len(padding) - padding_oldSize
+                        print(anim_SizeDelta, len(padding), padding_oldSize)
+                        # other pointers in section
+                        for i in range(2, len(section.header_items)): # section pointers after animation (2+)
+                                section.header_items[i] += fullAnim_SizeDelta
                         w.rom.files[file_id][section.offset_start:section.offset_start+section.header_size] = section.headerToBytes() # update section header pointers
-                        for i in range(self.dropdown_oam_entry.currentIndex()+1, len(self.fileEdited_object.address_list)): # file
-                            self.fileEdited_object.address_list[i][0] += frameCountDelta*anim.FRAME_SIZE
-                        self.fileEdited_object.fileSize += frameCountDelta*anim.FRAME_SIZE
+                        # other pointers in file
+                        for i in range(self.dropdown_oam_entry.currentIndex()+1, len(self.fileEdited_object.address_list)):
+                            self.fileEdited_object.address_list[i][0] += fullAnim_SizeDelta
+                        self.fileEdited_object.fileSize += fullAnim_SizeDelta
                         w.rom.files[file_id][:self.fileEdited_object.header_size] = self.fileEdited_object.headerToBytes() # update file header pointers
                     anim.oldFrameCount = len(anim.frames)
                 # update data of oamsec

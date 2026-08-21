@@ -118,9 +118,6 @@ The "Add Frame" button inserts a new animation frame directly after the currentl
 
 The "Remove Frame" button removes the currently selected animation frame from the list.
 
-> [!WARNING]
-> The saving of animations with removed or added frames is not yet on point, so avoid changing the amount of frames an animation has for now
-
 Just above the canvas, there are three media playback buttons.  
 The play button in the middle will play the currently selected animation from the currently selected frame.
 
@@ -153,8 +150,14 @@ The toolbar contains a Play/Pause button, a Stop button, and a Plot button.
 
 ### SSEQ Modification
 
+#### Events
 For SSEQs or SSARs, if you expand them, you will see a list of events.  
 Double-clicking or pressing Enter on those events will open an input dialog.
+#### Full Replacement
+An SSEQ file relies on a SBNK, which in turn relies on an SWAR containing SWAVs.  
+To properly replace a music, you must therefore replace all three files.
+
+If you hover your cursor over the ID of an SSEQ, you will see the ID of the SBNK it uses.
 
 ## VX Files
 Those files use the Actimagine video codec to encode videos and sound effects.
@@ -166,7 +169,7 @@ To properly see the contents of this kind of file, you need to export it.
 
 There are two ways to export a file:
 1. Right-click on the file in the list, and click on "Export \<name\>".
-2. Once the file is open, go in the File menu and click on "Export..."
+2. Once the file is selected/open, go in the File menu and click on "Export..."
 
 A dialog will pop-up, prompting you to choose the location to save.
 
@@ -180,6 +183,11 @@ The dropdown on the right allows you to select what algorithm to use (if applica
 If unsure, you should leave those dropdowns at their default values.
 
 # Importing a File
+
+There are three ways to import a file:
+1. Right-click on the file in the list, and click on "Replace \<name\>".
+2. Once the file is selected/open, go in the File menu and click on "Import..." > "Replace..."
+3. Go in the File menu and click on "Import..." > "Replace by name..."
 
 # Editing a Level
 

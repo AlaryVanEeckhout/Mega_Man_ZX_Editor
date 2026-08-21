@@ -27,8 +27,7 @@ class OAMSection:
         for i in range(0, self.header_size, 0x04):
             self.header_items.append(int.from_bytes(self.data[i:i+0x04], byteorder='little'))
         self.frameTable_constant = int.from_bytes(self.data[self.header_items[0]:self.header_items[0]+0x04], byteorder='little')
-        if self.frameTable_constant != 0x04:
-            print(f"unexpected frameTable constant value: {self.frameTable_constant}")
+        assert self.frameTable_constant == 0x04, f"unexpected frameTable constant value: {self.frameTable_constant}"
         self.frameTable_offset = self.header_items[0]+self.frameTable_constant # relative to section
         self.frameTable_size = int.from_bytes(self.data[self.frameTable_offset:self.frameTable_offset+0x02], byteorder='little') # first oam pointer
         self.frameTable: list[list[int]] = []
@@ -38,10 +37,11 @@ class OAMSection:
             obj_sec = int.from_bytes(self.data[i+0x03:i+0x04], byteorder='little') # id of gfx section, apparently
             #print(f"pointer: {obj_ptr:02X}; count: {obj_cnt:02X};")
             self.frameTable.append([obj_ptr, obj_cnt, obj_sec]) # add frame data to frame list
-        self.animTable: list[int] = []
+        self.animTable: list[int] = [] # table of pointers to animation data
         self.ANIMTABLE_PTR_SIZE = 0x02
         if len(self.header_items) > 1:
             self.animTable_constant = int.from_bytes(self.data[self.header_items[1]:self.header_items[1]+0x04], byteorder='little')
+            assert self.animTable_constant == 0x04, f"unexpected animTable constant value: {self.animTable_constant}"
             self.animTable_offset = self.header_items[1]+self.animTable_constant
             self.animTable_size = int.from_bytes(self.data[self.animTable_offset:self.animTable_offset+0x02], byteorder='little')
             for i in range(self.animTable_offset, self.animTable_offset+self.animTable_size, 0x02):
@@ -49,18 +49,25 @@ class OAMSection:
         self.paletteTable = []
         self.unkTable = []
         if len(self.header_items) == 4: # if palette and unk exist
-            self.paletteTable_offset = self.header_items[2]
-            self.unkTable_offset = self.header_items[3]
-            for i in range(self.paletteTable_offset+4,
-                           self.paletteTable_offset+4+0x200*self.data[self.paletteTable_offset],
+            self.paletteTable_offset = self.header_items[2]+0x04
+            self.paletteTable_count = self.data[self.header_items[2]]
+            self.paletteTable_shift = self.data[self.header_items[2]+0x01]
+            for i in range(self.paletteTable_offset,
+                           self.paletteTable_offset+0x200*self.paletteTable_count,
                            0x200):
                 #(note that this section of the palette might still be used by the graphics and may not be white in-game)
-                pal = [0xffffffff]*(self.data[self.paletteTable_offset+1]) # add white to shift the palette
+                pal = [0xffffffff]*self.paletteTable_shift # add white to shift the palette
                 pal.extend(datconv.BGR15_to_ARGB32(self.data[i:i+0x200]))
                 self.paletteTable.append(pal)
+            self.unkTable_constant = int.from_bytes(self.data[self.header_items[3]:self.header_items[3]+0x04], byteorder='little')
+            assert self.unkTable_constant == 0x04, f"unexpected unkTable constant value: {self.unkTable_constant}"
+            self.unkTable_offset = self.header_items[3]+self.unkTable_constant
             for i in range(self.unkTable_offset, self.offset_end-self.offset_start, 0x04):
-                self.unkTable.append(int.from_bytes(self.data[i:i+0x04], byteorder='little'))
-            print([f"{unk:08X}" for unk in self.unkTable])
+                self.unkTable.append(
+                    [int.from_bytes(self.data[i:i+0x02], byteorder='little'),
+                    int.from_bytes(self.data[i+0x02:i+0x04], byteorder='little')]
+                )
+            print(f"OAM unk table[{len(self.unkTable)}]: ", [f"{unk[0]:04X} {unk[1]:04X}" for unk in self.unkTable])
     
     def headerToBytes(self):
         data = bytearray()
@@ -99,7 +106,7 @@ class Animation:
         return Animation(oam.data[oam.animTable_offset:], frames_offset)
     
     def toBytes(self):
-        self.frames[-1] = [self.loopStart, 0xFE if self.isLooping else 0xFF]
+        self.frames[-1] = [self.loopStart, (0xFE if self.isLooping else 0xFF)]
         data = bytearray([e for l in self.frames for e in l])
         return data
 
