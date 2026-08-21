@@ -3442,7 +3442,8 @@ class MainWindow(QtWidgets.QMainWindow):
                     if isinstance(section[1], type(sdat.sequences[0][1])):
                         subChild = QtWidgets.QTreeWidgetItem(self.TREE_PLACEHOLDER)
                         child.addChild(subChild)
-                    if hasattr(section[1], "instruments"):
+                    if hasattr(section[1], "instruments"): # banks
+                        child.setToolTip(0, f"SWAR IDs : {section[1].waveArchiveIDs}")
                         for instrument_i, instrument in enumerate(section[1].instruments):
                             subChild = QtWidgets.QTreeWidgetItem([str(instrument_i), str(instrument), "Instrument"])
                             subChild.addChild(QtWidgets.QTreeWidgetItem(self.TREE_PLACEHOLDER))

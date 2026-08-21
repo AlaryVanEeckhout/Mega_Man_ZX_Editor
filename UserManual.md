@@ -153,11 +153,13 @@ The toolbar contains a Play/Pause button, a Stop button, and a Plot button.
 #### Events
 For SSEQs or SSARs, if you expand them, you will see a list of events.  
 Double-clicking or pressing Enter on those events will open an input dialog.
-#### Full Replacement
-An SSEQ file relies on a SBNK, which in turn relies on an SWAR containing SWAVs.  
-To properly replace a music, you must therefore replace all three files.
 
-If you hover your cursor over the ID of an SSEQ, you will see the ID of the SBNK it uses.
+#### Full Replacement
+An SSEQ file relies on a SBNK, which in turn relies on one (or more) SWAR(s) containing SWAVs.  
+To properly replace a music, you must therefore replace all three (or more) files.
+
+If you hover your cursor over the ID of a SSEQ, you will see the ID of the SBNK it uses.  
+If you hover your cursor over the ID of a SBNK, you will see the ID(s) of the SWAR(s) it uses.  
 
 ## VX Files
 Those files use the Actimagine video codec to encode videos and sound effects.
