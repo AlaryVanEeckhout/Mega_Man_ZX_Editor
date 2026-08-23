@@ -619,83 +619,55 @@ class MainWindow(QtWidgets.QMainWindow):
         self.button_view_load.setToolTip("Load from bmp")
         self.button_view_load.setStatusTip("Load BMP into view")
         self.button_view_load.pressed.connect(self.load_viewImage)
-        #Tile Wifth
+
+        #Tile Width
         self.tile_width = 8
-        self.field_tile_width = lib.widget.BetterSpinBox(self.page_explorer)
+        self.field_tile_width = lib.widget.LabeledSpinBox(self.page_explorer, labelText="width:", Vertical=True)
         self.field_tile_width.setStatusTip(f"Set tile width to {lib.datconv.numToStr(16, self.displayBase, self.displayAlphanumeric)}, {lib.datconv.numToStr(32, self.displayBase, self.displayAlphanumeric)} or {lib.datconv.numToStr(64, self.displayBase, self.displayAlphanumeric)} for some ZXA sprites")
-        self.field_tile_width.setFont(self.font_caps)
-        self.field_tile_width.setValue(self.tile_width)
-        self.field_tile_width.setMinimum(1)
-        self.field_tile_width.isInt = True
-        self.field_tile_width.valueChanged.connect(lambda: self.value_update_Call("tile_width", int(self.field_tile_width.value()), True))
-        self.field_tile_width.valueChanged.connect(self.file_content_gfx.fitInView2)
+        self.field_tile_width.sb.setFont(self.font_caps)
+        self.field_tile_width.sb.setValue(self.tile_width)
+        self.field_tile_width.sb.setMinimum(1)
+        self.field_tile_width.sb.isInt = True
+        self.field_tile_width.sb.valueChanged.connect(lambda: self.value_update_Call("tile_width", int(self.field_tile_width.sb.value()), True))
+        self.field_tile_width.sb.valueChanged.connect(self.file_content_gfx.fitInView2)
 
-        self.label_tile_width = QtWidgets.QLabel(self.page_explorer)
-        self.label_tile_width.setText(" width")
-
-        self.layout_tile_width = QtWidgets.QVBoxLayout()
-        self.layout_tile_width.addWidget(self.field_tile_width)
-        self.layout_tile_width.addWidget(self.label_tile_width)
-        self.layout_tile_width.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
         #Tile Height
         self.tile_height = 8
-        self.field_tile_height = lib.widget.BetterSpinBox(self.page_explorer)
-        self.field_tile_height.setFont(self.font_caps)
-        self.field_tile_height.setValue(self.tile_height)
-        self.field_tile_height.setMinimum(1)
-        self.field_tile_height.isInt = True
-        self.field_tile_height.valueChanged.connect(lambda: self.value_update_Call("tile_height", int(self.field_tile_height.value()), True)) 
-        self.field_tile_height.valueChanged.connect(self.file_content_gfx.fitInView2)
+        self.field_tile_height = lib.widget.LabeledSpinBox(self.page_explorer, labelText="height:", Vertical=True)
+        self.field_tile_height.sb.setFont(self.font_caps)
+        self.field_tile_height.sb.setValue(self.tile_height)
+        self.field_tile_height.sb.setMinimum(1)
+        self.field_tile_height.sb.isInt = True
+        self.field_tile_height.sb.valueChanged.connect(lambda: self.value_update_Call("tile_height", int(self.field_tile_height.sb.value()), True)) 
+        self.field_tile_height.sb.valueChanged.connect(self.file_content_gfx.fitInView2)
 
-        self.label_tile_height = QtWidgets.QLabel(self.page_explorer)
-        self.label_tile_height.setText(" height")
-
-        self.layout_tile_height = QtWidgets.QVBoxLayout()
-        self.layout_tile_height.addWidget(self.field_tile_height)
-        self.layout_tile_height.addWidget(self.label_tile_height)
-        self.layout_tile_height.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
         #Tiles Per row
         self.tiles_per_row = 8
-        self.field_tiles_per_row = lib.widget.BetterSpinBox(self.page_explorer)
+        self.field_tiles_per_row = lib.widget.LabeledSpinBox(self.page_explorer, labelText="columns:", Vertical=True)
         self.field_tiles_per_row.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Fixed)
-        self.field_tiles_per_row.setFont(self.font_caps)
-        self.field_tiles_per_row.setValue(self.tiles_per_row)
-        self.field_tiles_per_row.setMinimum(1)
-        self.field_tiles_per_row.isInt = True
-        self.field_tiles_per_row.valueChanged.connect(lambda: self.value_update_Call("tiles_per_row", int(self.field_tiles_per_row.value()), True))
-        self.field_tiles_per_row.valueChanged.connect(self.file_content_gfx.fitInView2)
+        self.field_tiles_per_row.sb.setFont(self.font_caps)
+        self.field_tiles_per_row.sb.setValue(self.tiles_per_row)
+        self.field_tiles_per_row.sb.setMinimum(1)
+        self.field_tiles_per_row.sb.isInt = True
+        self.field_tiles_per_row.sb.valueChanged.connect(lambda: self.value_update_Call("tiles_per_row", int(self.field_tiles_per_row.sb.value()), True))
+        self.field_tiles_per_row.sb.valueChanged.connect(self.file_content_gfx.fitInView2)
 
-        self.label_tiles_per_row = QtWidgets.QLabel(self.page_explorer)
-        self.label_tiles_per_row.setText(" columns")
-
-        self.layout_tiles_per_row = QtWidgets.QVBoxLayout()
-        self.layout_tiles_per_row.addWidget(self.field_tiles_per_row)
-        self.layout_tiles_per_row.addWidget(self.label_tiles_per_row)
-        self.layout_tiles_per_row.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
         #Tiles Per Column
         self.tiles_per_column = 8
-        self.field_tiles_per_column = lib.widget.BetterSpinBox(self.page_explorer)
+        self.field_tiles_per_column = lib.widget.LabeledSpinBox(self.page_explorer, labelText="rows:", Vertical=True)
         self.field_tiles_per_column.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Fixed)
-        self.field_tiles_per_column.setFont(self.font_caps)
-        self.field_tiles_per_column.setValue(self.tiles_per_column)
-        self.field_tiles_per_column.setMinimum(1)
-        self.field_tiles_per_column.isInt = True
-        self.field_tiles_per_column.valueChanged.connect(lambda: self.value_update_Call("tiles_per_column", int(self.field_tiles_per_column.value()), True))
-        self.field_tiles_per_column.valueChanged.connect(self.file_content_gfx.fitInView2)
-
-        self.label_tiles_per_column = QtWidgets.QLabel(self.page_explorer)
-        self.label_tiles_per_column.setText(" rows")
-
-        self.layout_tiles_per_column = QtWidgets.QVBoxLayout()
-        self.layout_tiles_per_column.addWidget(self.field_tiles_per_column)
-        self.layout_tiles_per_column.addWidget(self.label_tiles_per_column)
-        self.layout_tiles_per_column.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+        self.field_tiles_per_column.sb.setFont(self.font_caps)
+        self.field_tiles_per_column.sb.setValue(self.tiles_per_column)
+        self.field_tiles_per_column.sb.setMinimum(1)
+        self.field_tiles_per_column.sb.isInt = True
+        self.field_tiles_per_column.sb.valueChanged.connect(lambda: self.value_update_Call("tiles_per_column", int(self.field_tiles_per_column.sb.value()), True))
+        self.field_tiles_per_column.sb.valueChanged.connect(self.file_content_gfx.fitInView2)
 
         self.layout_tile_settings = QtWidgets.QHBoxLayout()
-        self.layout_tile_settings.addItem(self.layout_tile_width)
-        self.layout_tile_settings.addItem(self.layout_tile_height)
-        self.layout_tile_settings.addItem(self.layout_tiles_per_row)
-        self.layout_tile_settings.addItem(self.layout_tiles_per_column)
+        self.layout_tile_settings.addWidget(self.field_tile_width)
+        self.layout_tile_settings.addWidget(self.field_tile_height)
+        self.layout_tile_settings.addWidget(self.field_tiles_per_row)
+        self.layout_tile_settings.addWidget(self.field_tiles_per_column)
 
         self.dropdown_gfx_index = QtWidgets.QComboBox(self.page_explorer)
         self.dropdown_gfx_index.setPlaceholderText("no section entries")
@@ -1042,7 +1014,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.field_font_charCount.sb.setMinimum(0)
         self.field_font_charCount.sb.isInt = True
         self.field_font_charCount.sb.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
-        self.field_font_charCount.layout().setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
 
         self.field_font_width = lib.widget.LabeledSpinBox(self.page_explorer, labelText="char width:", Vertical=True)
         self.field_font_width.sb.setFont(self.font_caps)
@@ -1157,170 +1128,104 @@ class MainWindow(QtWidgets.QMainWindow):
         self.trees_sdat: list[lib.widget.EditorTree] = []
 
         #VX
-        self.label_vxHeader_length = QtWidgets.QLabel(self.page_explorer)
-        self.label_vxHeader_length.setText("Duration(frames): ")
-        self.label_vxHeader_length.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.field_vxHeader_length = lib.widget.BetterSpinBox(self.page_explorer)
-        self.field_vxHeader_length.setFont(self.font_caps)
-        self.field_vxHeader_length.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_length.set_numfill(8)
-        self.field_vxHeader_length.isInt = True
-        self.field_vxHeader_length.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
-        self.layout_vxHeader_length = QtWidgets.QVBoxLayout()
-        self.layout_vxHeader_length.addWidget(self.label_vxHeader_length)
-        self.layout_vxHeader_length.addWidget(self.field_vxHeader_length)
+        self.field_vxHeader_length = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Duration (frames): ", Vertical=True)
+        self.field_vxHeader_length.sb.setFont(self.font_caps)
+        self.field_vxHeader_length.sb.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_length.sb.set_numfill(8)
+        self.field_vxHeader_length.sb.isInt = True
+        self.field_vxHeader_length.sb.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
-        self.label_vxHeader_framerate = QtWidgets.QLabel(self.page_explorer)
-        self.label_vxHeader_framerate.setText("Frame rate: ")
-        self.label_vxHeader_framerate.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.field_vxHeader_framerate = lib.widget.BetterSpinBox(self.page_explorer)
-        self.field_vxHeader_framerate.setDecimals(16) # increase precision to allow spinbox to respect range
-        self.field_vxHeader_framerate.setRange(0x00000000,65535.9999847412109375) # prevent impossible values (max is ffff.ffff)
-        #self.field_vxHeader_framerate.set_numfill(8)
-        self.field_vxHeader_framerate.textChanged.connect(lambda: self.button_file_save.setEnabled(True))
-        self.layout_vxHeader_framerate = QtWidgets.QVBoxLayout()
-        self.layout_vxHeader_framerate.addWidget(self.label_vxHeader_framerate)
-        self.layout_vxHeader_framerate.addWidget(self.field_vxHeader_framerate)
+        self.field_vxHeader_framerate = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Frame rate: ", Vertical=True)
+        self.field_vxHeader_framerate.sb.setDecimals(16) # increase precision to allow spinbox to respect range
+        self.field_vxHeader_framerate.sb.setRange(0x00000000,65535.9999847412109375) # prevent impossible values (max is ffff.ffff)
+        #self.field_vxHeader_framerate.sb.set_numfill(8)
+        self.field_vxHeader_framerate.sb.textChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
-        self.label_vxHeader_frameSizeMax = QtWidgets.QLabel(self.page_explorer)
-        self.label_vxHeader_frameSizeMax.setText("Maximal frame data size: ")
-        self.label_vxHeader_frameSizeMax.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.field_vxHeader_frameSizeMax = lib.widget.BetterSpinBox(self.page_explorer)
-        self.field_vxHeader_frameSizeMax.setFont(self.font_caps)
-        self.field_vxHeader_frameSizeMax.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_frameSizeMax.set_numfill(8)
-        self.field_vxHeader_frameSizeMax.isInt = True
-        self.field_vxHeader_frameSizeMax.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
-        self.layout_vxHeader_frameSizeMax = QtWidgets.QVBoxLayout()
-        self.layout_vxHeader_frameSizeMax.addWidget(self.label_vxHeader_frameSizeMax)
-        self.layout_vxHeader_frameSizeMax.addWidget(self.field_vxHeader_frameSizeMax)
+        self.field_vxHeader_frameSizeMax = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Maximal frame data size: ", Vertical=True)
+        self.field_vxHeader_frameSizeMax.sb.setFont(self.font_caps)
+        self.field_vxHeader_frameSizeMax.sb.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_frameSizeMax.sb.set_numfill(8)
+        self.field_vxHeader_frameSizeMax.sb.isInt = True
+        self.field_vxHeader_frameSizeMax.sb.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
         self.layout_vx_framesHeader = QtWidgets.QHBoxLayout()
-        self.layout_vx_framesHeader.addItem(self.layout_vxHeader_length)
-        self.layout_vx_framesHeader.addItem(self.layout_vxHeader_framerate)
-        self.layout_vx_framesHeader.addItem(self.layout_vxHeader_frameSizeMax)
+        self.layout_vx_framesHeader.addWidget(self.field_vxHeader_length)
+        self.layout_vx_framesHeader.addWidget(self.field_vxHeader_framerate)
+        self.layout_vx_framesHeader.addWidget(self.field_vxHeader_frameSizeMax)
 
-        self.label_vxHeader_streamCount = QtWidgets.QLabel(self.page_explorer)
-        self.label_vxHeader_streamCount.setText("Audio stream count: ")
-        self.label_vxHeader_streamCount.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.field_vxHeader_streamCount = lib.widget.BetterSpinBox(self.page_explorer)
-        self.field_vxHeader_streamCount.setFont(self.font_caps)
-        self.field_vxHeader_streamCount.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_streamCount.set_numfill(8)
-        self.field_vxHeader_streamCount.isInt = True
-        self.field_vxHeader_streamCount.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
-        self.layout_vxHeader_streamCount = QtWidgets.QVBoxLayout()
-        self.layout_vxHeader_streamCount.addWidget(self.label_vxHeader_streamCount)
-        self.layout_vxHeader_streamCount.addWidget(self.field_vxHeader_streamCount)
+        self.field_vxHeader_streamCount = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Audio stream count: ", Vertical=True)
+        self.field_vxHeader_streamCount.sb.setFont(self.font_caps)
+        self.field_vxHeader_streamCount.sb.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_streamCount.sb.set_numfill(8)
+        self.field_vxHeader_streamCount.sb.isInt = True
+        self.field_vxHeader_streamCount.sb.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
-        self.label_vxHeader_sampleRate = QtWidgets.QLabel(self.page_explorer)
-        self.label_vxHeader_sampleRate.setText("Sound sample rate(Hz): ")
-        self.label_vxHeader_sampleRate.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.field_vxHeader_sampleRate = lib.widget.BetterSpinBox(self.page_explorer)
-        self.field_vxHeader_sampleRate.setFont(self.font_caps)
-        self.field_vxHeader_sampleRate.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_sampleRate.set_numfill(8)
-        self.field_vxHeader_sampleRate.isInt = True
-        self.field_vxHeader_sampleRate.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
-        self.layout_vxHeader_sampleRate = QtWidgets.QVBoxLayout()
-        self.layout_vxHeader_sampleRate.addWidget(self.label_vxHeader_sampleRate)
-        self.layout_vxHeader_sampleRate.addWidget(self.field_vxHeader_sampleRate)
+        self.field_vxHeader_sampleRate = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Sound sample rate (Hz): ", Vertical=True)
+        self.field_vxHeader_sampleRate.sb.setFont(self.font_caps)
+        self.field_vxHeader_sampleRate.sb.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_sampleRate.sb.set_numfill(8)
+        self.field_vxHeader_sampleRate.sb.isInt = True
+        self.field_vxHeader_sampleRate.sb.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
-        self.label_vxHeader_audioExtraDataOffset = QtWidgets.QLabel(self.page_explorer)
-        self.label_vxHeader_audioExtraDataOffset.setText("Extra audio data offset: ")
-        self.label_vxHeader_audioExtraDataOffset.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.field_vxHeader_audioExtraDataOffset = lib.widget.BetterSpinBox(self.page_explorer)
-        self.field_vxHeader_audioExtraDataOffset.setFont(self.font_caps)
-        self.field_vxHeader_audioExtraDataOffset.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_audioExtraDataOffset.set_numfill(8)
-        self.field_vxHeader_audioExtraDataOffset.isInt = True
-        self.field_vxHeader_audioExtraDataOffset.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
-        self.layout_vxHeader_audioExtraDataOffset = QtWidgets.QVBoxLayout()
-        self.layout_vxHeader_audioExtraDataOffset.addWidget(self.label_vxHeader_audioExtraDataOffset)
-        self.layout_vxHeader_audioExtraDataOffset.addWidget(self.field_vxHeader_audioExtraDataOffset)
+        self.field_vxHeader_audioExtraDataOffset = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Extra audio data offset: ", Vertical=True)
+        self.field_vxHeader_audioExtraDataOffset.sb.setFont(self.font_caps)
+        self.field_vxHeader_audioExtraDataOffset.sb.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_audioExtraDataOffset.sb.set_numfill(8)
+        self.field_vxHeader_audioExtraDataOffset.sb.isInt = True
+        self.field_vxHeader_audioExtraDataOffset.sb.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
         self.layout_vx_soundHeader = QtWidgets.QHBoxLayout()
-        self.layout_vx_soundHeader.addItem(self.layout_vxHeader_streamCount)
-        self.layout_vx_soundHeader.addItem(self.layout_vxHeader_sampleRate)
-        self.layout_vx_soundHeader.addItem(self.layout_vxHeader_audioExtraDataOffset)
+        self.layout_vx_soundHeader.addWidget(self.field_vxHeader_streamCount)
+        self.layout_vx_soundHeader.addWidget(self.field_vxHeader_sampleRate)
+        self.layout_vx_soundHeader.addWidget(self.field_vxHeader_audioExtraDataOffset)
 
-        self.label_vxHeader_width = QtWidgets.QLabel(self.page_explorer)
-        self.label_vxHeader_width.setText("Frame width(pixels): ")
-        self.label_vxHeader_width.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.field_vxHeader_width = lib.widget.BetterSpinBox(self.page_explorer)
-        self.field_vxHeader_width.setFont(self.font_caps)
-        self.field_vxHeader_width.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_width.set_numfill(8)
-        self.field_vxHeader_width.isInt = True
-        self.field_vxHeader_width.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
-        self.layout_vxHeader_width = QtWidgets.QVBoxLayout()
-        self.layout_vxHeader_width.addWidget(self.label_vxHeader_width)
-        self.layout_vxHeader_width.addWidget(self.field_vxHeader_width)
+        self.field_vxHeader_width = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Frame width (pixels): ", Vertical=True)
+        self.field_vxHeader_width.sb.setFont(self.font_caps)
+        self.field_vxHeader_width.sb.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_width.sb.set_numfill(8)
+        self.field_vxHeader_width.sb.isInt = True
+        self.field_vxHeader_width.sb.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
-        self.label_vxHeader_height = QtWidgets.QLabel(self.page_explorer)
-        self.label_vxHeader_height.setText("Frame height(pixels): ")
-        self.label_vxHeader_height.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.field_vxHeader_height = lib.widget.BetterSpinBox(self.page_explorer)
-        self.field_vxHeader_height.setFont(self.font_caps)
-        self.field_vxHeader_height.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_height.set_numfill(8)
-        self.field_vxHeader_height.isInt = True
-        self.field_vxHeader_height.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
-        self.layout_vxHeader_height = QtWidgets.QVBoxLayout()
-        self.layout_vxHeader_height.addWidget(self.label_vxHeader_height)
-        self.layout_vxHeader_height.addWidget(self.field_vxHeader_height)
+        self.field_vxHeader_height = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Frame height (pixels): ", Vertical=True)
+        self.field_vxHeader_height.sb.setFont(self.font_caps)
+        self.field_vxHeader_height.sb.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_height.sb.set_numfill(8)
+        self.field_vxHeader_height.sb.isInt = True
+        self.field_vxHeader_height.sb.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
         self.layout_vx_frameSize = QtWidgets.QHBoxLayout()
-        self.layout_vx_frameSize.addItem(self.layout_vxHeader_width)
-        self.layout_vx_frameSize.addItem(self.layout_vxHeader_height)
+        self.layout_vx_frameSize.addWidget(self.field_vxHeader_width)
+        self.layout_vx_frameSize.addWidget(self.field_vxHeader_height)
 
-        self.label_vxHeader_quantiser = QtWidgets.QLabel(self.page_explorer)
-        self.label_vxHeader_quantiser.setText("Quantiser: ")
-        self.label_vxHeader_quantiser.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.field_vxHeader_quantizer = lib.widget.BetterSpinBox(self.page_explorer)
-        self.field_vxHeader_quantizer.setFont(self.font_caps)
-        self.field_vxHeader_quantizer.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_quantizer.set_numfill(8)
-        self.field_vxHeader_quantizer.isInt = True
-        self.field_vxHeader_quantizer.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
-        self.layout_vxHeader_quantiser = QtWidgets.QVBoxLayout()
-        self.layout_vxHeader_quantiser.addWidget(self.label_vxHeader_quantiser)
-        self.layout_vxHeader_quantiser.addWidget(self.field_vxHeader_quantizer)
+        self.field_vxHeader_quantizer = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Quantiser: ", Vertical=True)
+        self.field_vxHeader_quantizer.sb.setFont(self.font_caps)
+        self.field_vxHeader_quantizer.sb.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_quantizer.sb.set_numfill(8)
+        self.field_vxHeader_quantizer.sb.isInt = True
+        self.field_vxHeader_quantizer.sb.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
-        self.label_vxHeader_seekTableOffset = QtWidgets.QLabel(self.page_explorer)
-        self.label_vxHeader_seekTableOffset.setText("Seek table offset: ")
-        self.label_vxHeader_seekTableOffset.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.field_vxHeader_seekTableOffset = lib.widget.BetterSpinBox(self.page_explorer)
-        self.field_vxHeader_seekTableOffset.setFont(self.font_caps)
-        self.field_vxHeader_seekTableOffset.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_seekTableOffset.set_numfill(8)
-        self.field_vxHeader_seekTableOffset.isInt = True
-        self.field_vxHeader_seekTableOffset.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
-        self.layout_vxHeader_seekTableOffset = QtWidgets.QVBoxLayout()
-        self.layout_vxHeader_seekTableOffset.addWidget(self.label_vxHeader_seekTableOffset)
-        self.layout_vxHeader_seekTableOffset.addWidget(self.field_vxHeader_seekTableOffset)
+        self.field_vxHeader_seekTableOffset = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Seek table offset: ", Vertical=True)
+        self.field_vxHeader_seekTableOffset.sb.setFont(self.font_caps)
+        self.field_vxHeader_seekTableOffset.sb.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_seekTableOffset.sb.set_numfill(8)
+        self.field_vxHeader_seekTableOffset.sb.isInt = True
+        self.field_vxHeader_seekTableOffset.sb.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
-        self.label_vxHeader_seekTableEntryCount = QtWidgets.QLabel(self.page_explorer)
-        self.label_vxHeader_seekTableEntryCount.setText("Seek table entry count: ")
-        self.label_vxHeader_seekTableEntryCount.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.field_vxHeader_seekTableEntryCount = lib.widget.BetterSpinBox(self.page_explorer)
-        self.field_vxHeader_seekTableEntryCount.setFont(self.font_caps)
-        self.field_vxHeader_seekTableEntryCount.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_seekTableEntryCount.set_numfill(8)
-        self.field_vxHeader_seekTableEntryCount.isInt = True
-        self.field_vxHeader_seekTableEntryCount.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
-        self.layout_vxHeader_seekTableEntryCount = QtWidgets.QVBoxLayout()
-        self.layout_vxHeader_seekTableEntryCount.addWidget(self.label_vxHeader_seekTableEntryCount)
-        self.layout_vxHeader_seekTableEntryCount.addWidget(self.field_vxHeader_seekTableEntryCount)
+        self.field_vxHeader_seekTableEntryCount = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Seek table entry count: ", Vertical=True)
+        self.field_vxHeader_seekTableEntryCount.sb.setFont(self.font_caps)
+        self.field_vxHeader_seekTableEntryCount.sb.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_seekTableEntryCount.sb.set_numfill(8)
+        self.field_vxHeader_seekTableEntryCount.sb.isInt = True
+        self.field_vxHeader_seekTableEntryCount.sb.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
         self.layout_vx_seekTable = QtWidgets.QHBoxLayout()
-        self.layout_vx_seekTable.addItem(self.layout_vxHeader_seekTableOffset)
-        self.layout_vx_seekTable.addItem(self.layout_vxHeader_seekTableEntryCount)
+        self.layout_vx_seekTable.addWidget(self.field_vxHeader_seekTableOffset)
+        self.layout_vx_seekTable.addWidget(self.field_vxHeader_seekTableEntryCount)
 
         self.file_content.addItem(self.layout_vx_framesHeader)
         self.file_content.addItem(self.layout_vx_soundHeader)
         self.file_content.addItem(self.layout_vx_frameSize)
-        self.file_content.addItem(self.layout_vxHeader_quantiser)
+        self.file_content.addWidget(self.field_vxHeader_quantizer)
         self.file_content.addItem(self.layout_vx_seekTable)
 
         self.dropdown_model_entry = QtWidgets.QComboBox(self.page_explorer)
@@ -3702,16 +3607,16 @@ class MainWindow(QtWidgets.QMainWindow):
                         if sender in self.FILEOPEN_WIDGETS:
                             self.layout_colorpick.rearrange(16, 16)
                             # reset from viewing font
-                            self.tile_width = self.field_tile_width.value()
-                            self.tile_height = self.field_tile_height.value()
+                            self.tile_width = self.field_tile_width.sb.value()
+                            self.tile_height = self.field_tile_height.sb.value()
                             if any(indicator in current_name for indicator in indicator_list["Mugshot"]): # for convenience
                                 self.tiles_per_column = 7
                                 self.tiles_per_row = 6
-                                self.field_tiles_per_column.setValue(self.tiles_per_column)
-                                self.field_tiles_per_row.setValue(self.tiles_per_row)
+                                self.field_tiles_per_column.sb.setValue(self.tiles_per_column)
+                                self.field_tiles_per_row.sb.setValue(self.tiles_per_row)
                             elif "dm" in current_name:
                                 self.tiles_per_row = 0x20
-                                self.field_tiles_per_row.setValue(self.tiles_per_row)
+                                self.field_tiles_per_row.sb.setValue(self.tiles_per_row)
                                 self.dropdown_gfx_depth.setCurrentIndex(2)
                                 self.setPalette(self.GFX_PALETTES[3])
                             if current_ext == "nbfc":
@@ -4123,17 +4028,17 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.fileEdited_object = lib.act.ActImagine()
                                 self.fileEdited_object.load_vx(self.rom.files[current_id])
                                 #print(self.rom.files[current_id][5:6].hex()+self.rom.files[current_id][4:5].hex())
-                                self.field_vxHeader_length.setValue(self.fileEdited_object.frames_qty)
-                                self.field_vxHeader_width.setValue(self.fileEdited_object.frame_width)
-                                self.field_vxHeader_height.setValue(self.fileEdited_object.frame_height)
-                                self.field_vxHeader_framerate.setValue(self.fileEdited_object.frame_rate)
-                                self.field_vxHeader_quantizer.setValue(self.fileEdited_object.quantizer)
-                                self.field_vxHeader_sampleRate.setValue(self.fileEdited_object.audio_sample_rate)
-                                self.field_vxHeader_streamCount.setValue(self.fileEdited_object.audio_streams_qty)
-                                self.field_vxHeader_frameSizeMax.setValue(self.fileEdited_object.frame_data_size_max)
-                                self.field_vxHeader_audioExtraDataOffset.setValue(self.fileEdited_object.audio_extradata_offset)
-                                self.field_vxHeader_seekTableOffset.setValue(self.fileEdited_object.seek_table_offset)
-                                self.field_vxHeader_seekTableEntryCount.setValue(self.fileEdited_object.seek_table_entries_qty)
+                                self.field_vxHeader_length.sb.setValue(self.fileEdited_object.frames_qty)
+                                self.field_vxHeader_width.sb.setValue(self.fileEdited_object.frame_width)
+                                self.field_vxHeader_height.sb.setValue(self.fileEdited_object.frame_height)
+                                self.field_vxHeader_framerate.sb.setValue(self.fileEdited_object.frame_rate)
+                                self.field_vxHeader_quantizer.sb.setValue(self.fileEdited_object.quantizer)
+                                self.field_vxHeader_sampleRate.sb.setValue(self.fileEdited_object.audio_sample_rate)
+                                self.field_vxHeader_streamCount.sb.setValue(self.fileEdited_object.audio_streams_qty)
+                                self.field_vxHeader_frameSizeMax.sb.setValue(self.fileEdited_object.frame_data_size_max)
+                                self.field_vxHeader_audioExtraDataOffset.sb.setValue(self.fileEdited_object.audio_extradata_offset)
+                                self.field_vxHeader_seekTableOffset.sb.setValue(self.fileEdited_object.seek_table_offset)
+                                self.field_vxHeader_seekTableEntryCount.sb.setValue(self.fileEdited_object.seek_table_entries_qty)
                         else:
                             self.widget_set = WidgetSets.EMPTY
                             self.file_content_text.setReadOnly(True)
@@ -5192,17 +5097,17 @@ class MainWindow(QtWidgets.QMainWindow):
                 w.rom.files[file_id][0x0C:0x10] = bytearray(int.to_bytes(int(self.field_font_charCount.sb.value()*i_space), 4, "little"))
 
             elif self.fileDisplayState == "VX":
-                w.rom.files[file_id][0x04:0x08] = bytearray(int.to_bytes(int(self.field_vxHeader_length.value()), 4, "little"))
-                w.rom.files[file_id][0x08:0x0C] = bytearray(int.to_bytes(int(self.field_vxHeader_width.value()), 4, "little"))
-                w.rom.files[file_id][0x0C:0x10] = bytearray(int.to_bytes(int(self.field_vxHeader_height.value()), 4, "little"))
-                w.rom.files[file_id][0x10:0x14] = bytearray(int.to_bytes(int(self.field_vxHeader_framerate.value()*0x10000), 4, "little")) #convert float to 16.16
-                w.rom.files[file_id][0x14:0x18] = bytearray(int.to_bytes(int(self.field_vxHeader_quantizer.value()), 4, "little"))
-                w.rom.files[file_id][0x18:0x1C] = bytearray(int.to_bytes(int(self.field_vxHeader_sampleRate.value()), 4, "little"))
-                w.rom.files[file_id][0x1C:0x20] = bytearray(int.to_bytes(int(self.field_vxHeader_streamCount.value()), 4, "little"))
-                w.rom.files[file_id][0x20:0x24] = bytearray(int.to_bytes(int(self.field_vxHeader_frameSizeMax.value()), 4, "little"))
-                w.rom.files[file_id][0x24:0x28] = bytearray(int.to_bytes(int(self.field_vxHeader_audioExtraDataOffset.value()), 4, "little"))
-                w.rom.files[file_id][0x28:0x2C] = bytearray(int.to_bytes(int(self.field_vxHeader_seekTableOffset.value()), 4, "little"))
-                w.rom.files[file_id][0x2C:0x30] = bytearray(int.to_bytes(int(self.field_vxHeader_seekTableEntryCount.value()), 4, "little"))
+                w.rom.files[file_id][0x04:0x08] = bytearray(int.to_bytes(int(self.field_vxHeader_length.sb.value()), 4, "little"))
+                w.rom.files[file_id][0x08:0x0C] = bytearray(int.to_bytes(int(self.field_vxHeader_width.sb.value()), 4, "little"))
+                w.rom.files[file_id][0x0C:0x10] = bytearray(int.to_bytes(int(self.field_vxHeader_height.sb.value()), 4, "little"))
+                w.rom.files[file_id][0x10:0x14] = bytearray(int.to_bytes(int(self.field_vxHeader_framerate.sb.value()*0x10000), 4, "little")) #convert float to 16.16
+                w.rom.files[file_id][0x14:0x18] = bytearray(int.to_bytes(int(self.field_vxHeader_quantizer.sb.value()), 4, "little"))
+                w.rom.files[file_id][0x18:0x1C] = bytearray(int.to_bytes(int(self.field_vxHeader_sampleRate.sb.value()), 4, "little"))
+                w.rom.files[file_id][0x1C:0x20] = bytearray(int.to_bytes(int(self.field_vxHeader_streamCount.sb.value()), 4, "little"))
+                w.rom.files[file_id][0x20:0x24] = bytearray(int.to_bytes(int(self.field_vxHeader_frameSizeMax.sb.value()), 4, "little"))
+                w.rom.files[file_id][0x24:0x28] = bytearray(int.to_bytes(int(self.field_vxHeader_audioExtraDataOffset.sb.value()), 4, "little"))
+                w.rom.files[file_id][0x28:0x2C] = bytearray(int.to_bytes(int(self.field_vxHeader_seekTableOffset.sb.value()), 4, "little"))
+                w.rom.files[file_id][0x2C:0x30] = bytearray(int.to_bytes(int(self.field_vxHeader_seekTableEntryCount.sb.value()), 4, "little"))
             elif self.fileDisplayState == "Sound":
                 return
         else:
@@ -5582,13 +5487,9 @@ if __name__ == "__main__":
                 w.dropdown_gfx_subindex,
                 w.dropdown_gfx_palette,
                 w.field_tile_width,
-                w.label_tile_width,
                 w.field_tile_height,
-                w.label_tile_height,
                 w.field_tiles_per_row,
-                w.label_tiles_per_row,
                 w.field_tiles_per_column,
-                w.label_tiles_per_column,
                 w.widget_colorpick,
                 w.button_view_save,
                 w.button_view_load
@@ -5615,9 +5516,7 @@ if __name__ == "__main__":
             FONT = enum.auto(), [
                 w.file_content_gfx,
                 w.field_tiles_per_row,
-                w.label_tiles_per_row,
                 w.field_tiles_per_column,
-                w.label_tiles_per_column,
                 w.field_font_charCount,
                 w.field_font_width,
                 w.field_font_height,
@@ -5630,27 +5529,16 @@ if __name__ == "__main__":
             #SOUND = enum.auto(), []
             VX = enum.auto(), [
                 w.field_vxHeader_length,
-                w.label_vxHeader_length,
                 w.field_vxHeader_width,
-                w.label_vxHeader_width,
                 w.field_vxHeader_height,
-                w.label_vxHeader_height,
                 w.field_vxHeader_streamCount,
-                w.label_vxHeader_streamCount,
                 w.field_vxHeader_framerate,
-                w.label_vxHeader_framerate,
                 w.field_vxHeader_sampleRate,
-                w.label_vxHeader_sampleRate,
                 w.field_vxHeader_quantizer,
-                w.label_vxHeader_quantiser,
                 w.field_vxHeader_frameSizeMax,
-                w.label_vxHeader_frameSizeMax,
                 w.field_vxHeader_audioExtraDataOffset,
-                w.label_vxHeader_audioExtraDataOffset,
                 w.field_vxHeader_seekTableOffset,
-                w.label_vxHeader_seekTableOffset,
-                w.field_vxHeader_seekTableEntryCount,
-                w.label_vxHeader_seekTableEntryCount
+                w.field_vxHeader_seekTableEntryCount
                 ]
             MODEL = enum.auto(), [
                 w.dropdown_model_entry,
