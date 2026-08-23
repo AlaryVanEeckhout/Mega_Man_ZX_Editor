@@ -1037,52 +1037,35 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_panm.setSpacing(3)
 
         #Font
-        self.field_font_size = lib.widget.BetterSpinBox(self.page_explorer)
-        self.field_font_size.setFont(self.font_caps)
-        self.field_font_size.setMinimum(0)
-        self.field_font_size.isInt = True
-        self.field_font_size.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
-        self.label_font_size = QtWidgets.QLabel(self.page_explorer)
-        self.label_font_size.setText("file size")
-        self.layout_font_size = QtWidgets.QVBoxLayout()
-        self.layout_font_size.addWidget(self.field_font_size)
-        self.layout_font_size.addWidget(self.label_font_size)
-        self.layout_font_size.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+        self.field_font_charCount = lib.widget.LabeledSpinBox(self.page_explorer, labelText="char count:", Vertical=True)
+        self.field_font_charCount.sb.setFont(self.font_caps)
+        self.field_font_charCount.sb.setMinimum(0)
+        self.field_font_charCount.sb.isInt = True
+        self.field_font_charCount.sb.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_font_charCount.layout().setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
 
-        self.field_font_width = lib.widget.BetterSpinBox(self.page_explorer)
-        self.field_font_width.setFont(self.font_caps)
-        self.field_font_width.setMinimum(0)
-        self.field_font_width.isInt = True
+        self.field_font_width = lib.widget.LabeledSpinBox(self.page_explorer, labelText="char width:", Vertical=True)
+        self.field_font_width.sb.setFont(self.font_caps)
+        self.field_font_width.sb.setMinimum(0)
+        self.field_font_width.sb.isInt = True
         self.field_font_width.setStatusTip("Make sure that this is an even number to prevent the game from crashing")
-        self.field_font_width.valueChanged.connect(lambda: self.treeCall())
-        self.field_font_width.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
-        self.field_font_width.valueChanged.connect(self.file_content_gfx.fitInView2)
-        self.label_font_width = QtWidgets.QLabel(self.page_explorer)
-        self.label_font_width.setText("char width")
-        self.layout_font_width = QtWidgets.QVBoxLayout()
-        self.layout_font_width.addWidget(self.field_font_width)
-        self.layout_font_width.addWidget(self.label_font_width)
-        self.layout_font_width.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+        self.field_font_width.sb.valueChanged.connect(lambda: self.treeCall())
+        self.field_font_width.sb.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_font_width.sb.valueChanged.connect(self.file_content_gfx.fitInView2)
 
-        self.field_font_height = lib.widget.BetterSpinBox(self.page_explorer)
-        self.field_font_height.setFont(self.font_caps)
-        self.field_font_height.setMinimum(0)
-        self.field_font_height.isInt = True
-        self.field_font_height.valueChanged.connect(lambda: self.treeCall())
-        self.field_font_height.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
-        self.field_font_height.valueChanged.connect(self.file_content_gfx.fitInView2)
-        self.label_font_height = QtWidgets.QLabel(self.page_explorer)
-        self.label_font_height.setText("char height")
-        self.layout_font_height = QtWidgets.QVBoxLayout()
-        self.layout_font_height.addWidget(self.field_font_height)
-        self.layout_font_height.addWidget(self.label_font_height)
-        self.layout_font_height.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+        self.field_font_height = lib.widget.LabeledSpinBox(self.page_explorer, labelText="char height:", Vertical=True)
+        self.field_font_height.sb.setFont(self.font_caps)
+        self.field_font_height.sb.setMinimum(0)
+        self.field_font_height.sb.isInt = True
+        self.field_font_height.sb.valueChanged.connect(lambda: self.treeCall())
+        self.field_font_height.sb.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_font_height.sb.valueChanged.connect(self.file_content_gfx.fitInView2)
 
         self.label_font_indexingSpace = QtWidgets.QLabel(self.page_explorer)
         self.label_font_indexingSpace.setText("indexing space: ")
 
-        self.label_font_charCount = QtWidgets.QLabel(self.page_explorer)
-        self.label_font_charCount.setText("char count: ")
+        self.label_font_size = QtWidgets.QLabel(self.page_explorer)
+        self.label_font_size.setText("font size: ")
 
         self.label_font_unusedStr = QtWidgets.QLabel(self.page_explorer)
         self.label_font_unusedStr.setText("unused string: ")
@@ -1099,13 +1082,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_editzone_row1.addItem(self.layout_oam_navigation)
 
         self.layout_editzone_row2.addItem(self.layout_panm)
-        self.layout_editzone_row2.addItem(self.layout_font_size)
-        self.layout_editzone_row2.addItem(self.layout_font_width)
-        self.layout_editzone_row2.addItem(self.layout_font_height)
+        self.layout_editzone_row2.addWidget(self.field_font_charCount)
+        self.layout_editzone_row2.addWidget(self.field_font_width)
+        self.layout_editzone_row2.addWidget(self.field_font_height)
         self.layout_editzone_row2.addWidget(self.tabs_oam)
 
         self.layout_editzone_row3.addWidget(self.label_font_indexingSpace)
-        self.layout_editzone_row3.addWidget(self.label_font_charCount)
+        self.layout_editzone_row3.addWidget(self.label_font_size)
         self.layout_editzone_row3.addWidget(self.label_font_unusedStr)
 
         self.layout_editzone.addItem(self.layout_editzone_row0)
@@ -4114,19 +4097,19 @@ class MainWindow(QtWidgets.QMainWindow):
                             self.dropdown_gfx_depth.setCurrentIndex(0)
                             self.fileEdited_object = lib.font.Font(self.rom.files[current_id])
                             self.relative_address = self.fileEdited_object.CHR_ADDRESS
-                            self.field_font_size.setValue(self.fileEdited_object.file_size)
-                            self.field_font_width.setValue(self.fileEdited_object.char_width)
-                            self.field_font_height.setValue(self.fileEdited_object.char_height)
+                            self.field_font_charCount.sb.setValue(self.fileEdited_object.char_count)
+                            self.field_font_width.sb.setValue(self.fileEdited_object.char_width)
+                            self.field_font_height.sb.setValue(self.fileEdited_object.char_height)
                             self.label_font_indexingSpace.setText("indexing space: " + lib.datconv.numToStr(self.fileEdited_object.indexing_space, self.displayBase, self.displayAlphanumeric))
-                            self.label_font_charCount.setText("char count: " + lib.datconv.numToStr(self.fileEdited_object.char_count, self.displayBase, self.displayAlphanumeric))
+                            self.label_font_size.setText("font size: " + lib.datconv.numToStr(self.fileEdited_object.font_size, self.displayBase, self.displayAlphanumeric))
                             self.label_font_unusedStr.setText("unused string: " + self.fileEdited_object.unused_string)
                             self.setPalette(self.GFX_PALETTES[1])
                             self.field_address.setMinimum(self.base_address+self.fileEdited_object.CHR_ADDRESS)
                         self.file_content_gfx.resetScene()
-                        self.tile_width = math.ceil(self.field_font_width.value()/8)*8
-                        self.tile_height = self.field_font_height.value()
+                        self.tile_width = math.ceil(self.field_font_width.sb.value()/8)*8
+                        self.tile_height = self.field_font_height.sb.value()
                         self.draw_tilesQImage_fromBytes(self.file_content_gfx,
-                                                   self.rom.files[current_id][self.relative_address:self.relative_address+self.fileEdited_object.file_size],
+                                                   self.rom.files[current_id][self.relative_address:self.relative_address+self.fileEdited_object.font_size],
                                                    algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
                                                    grid=True)
                     elif self.fileDisplayState == "Sound":
@@ -5201,15 +5184,13 @@ class MainWindow(QtWidgets.QMainWindow):
                                                 algorithm=lib.datconv.CompressionAlgorithmEnum.ONEBPP,
                                                 tileWidth=self.tile_width, tileHeight=self.tile_height)
                 w.rom.files[file_id][self.relative_address:self.relative_address+len(save_data)] = save_data
-                w.rom.files[file_id][0x00:0x02] = bytearray(int.to_bytes(int(self.field_font_width.value()), 2, "little"))
-                w.rom.files[file_id][0x02:0x04] = bytearray(int.to_bytes(int(self.field_font_height.value()), 2, "little"))
-                i_space = self.field_font_width.value()*self.field_font_height.value()/8
+                w.rom.files[file_id][0x00:0x02] = bytearray(int.to_bytes(int(self.field_font_width.sb.value()), 2, "little"))
+                w.rom.files[file_id][0x02:0x04] = bytearray(int.to_bytes(int(self.field_font_height.sb.value()), 2, "little"))
+                i_space = self.tile_width*self.tile_height/8
                 w.rom.files[file_id][0x04:0x08] = bytearray(int.to_bytes(int(i_space), 4, "little"))
-                if i_space:
-                    w.rom.files[file_id][0x08:0x0C] = bytearray(int.to_bytes(int(self.field_font_size.value()/self.field_font_width.value()*self.field_font_height.value()/8), 4, "little"))
-                else:
-                    w.rom.files[file_id][0x08:0x0C] = bytearray(int.to_bytes(int(0), 4, "little"))
-                w.rom.files[file_id][0x0C:0x10] = bytearray(int.to_bytes(int(self.field_font_size.value()), 4, "little"))
+                w.rom.files[file_id][0x08:0x0C] = bytearray(int.to_bytes(int(self.field_font_charCount.sb.value()), 4, "little"))
+                w.rom.files[file_id][0x0C:0x10] = bytearray(int.to_bytes(int(self.field_font_charCount.sb.value()*i_space), 4, "little"))
+
             elif self.fileDisplayState == "VX":
                 w.rom.files[file_id][0x04:0x08] = bytearray(int.to_bytes(int(self.field_vxHeader_length.value()), 4, "little"))
                 w.rom.files[file_id][0x08:0x0C] = bytearray(int.to_bytes(int(self.field_vxHeader_width.value()), 4, "little"))
@@ -5637,14 +5618,11 @@ if __name__ == "__main__":
                 w.label_tiles_per_row,
                 w.field_tiles_per_column,
                 w.label_tiles_per_column,
-                w.field_font_size,
-                w.label_font_size,
+                w.field_font_charCount,
                 w.field_font_width,
-                w.label_font_width,
                 w.field_font_height,
-                w.label_font_height,
                 w.label_font_indexingSpace,
-                w.label_font_charCount,
+                w.label_font_size,
                 w.label_font_unusedStr,
                 w.widget_colorpick
                 ]

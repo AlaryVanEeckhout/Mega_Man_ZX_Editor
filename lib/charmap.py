@@ -85,7 +85,8 @@ class CharMap:
                                 if map_unicode.split(" ")[0] == search_unicode_name]
             if len(map_unicode_list) == 0:
                 if search_unicode.startswith("├0x"):
-                    found_map_byte = [int(search_unicode[3:-1], 16)]
+                    found_map_byte = [int(search_unicode[3:5], 16)]
+                    found_map_byte.extend([None]*search_unicode.count(" "))
                 else:
                     raise RuntimeError(f"unicode mapping for unicode special command {search_unicode} was not found")
             else:
