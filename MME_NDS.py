@@ -3841,6 +3841,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                                    gfx_viewed,
                                                    algorithm=depth_obj,
                                                    grid=True)
+                        if sender == self.dropdown_gfx_index or sender == self.dropdown_gfx_subindex:
+                            self.file_content_gfx.fitInView2()
                         self.dropdown_gfx_depth.setDisabled(False)
                         self.field_address.setDisabled(False)
                         self.dropdown_gfx_palette.setDisabled(False)
@@ -4538,7 +4540,16 @@ class MainWindow(QtWidgets.QMainWindow):
             depth_obj = lib.datconv.CompressionAlgorithmEnum.FOURBPP
             palette_ref = self.GFX_PALETTES[2]
         gfx_table.padding = 8*depth_obj.depth*0x200
-        gfx_data, gfx_ptrs = gfx_table.joinData_fromindexes(gfx_indexes)
+        if len(gfx_indexes) > 0:
+            gfx_data, gfx_ptrs = gfx_table.joinData_fromindexes(gfx_indexes)
+        else:
+            gfx_indexes = [0, gfx_table.offsetCount-self.buttonGroup_radar_tilesetType.checkedId()]
+            gfx_ptrs = [0, gfx_table.padding]
+            if self.rom.filenames.idOf("elf.bin") != None:
+                # compressed part has redundant tiles at the end
+                gfx_data = ndspy.lz10.decompress(gfx_table.getData(gfx_indexes[0]))[:-0x200]+gfx_table.getData(gfx_indexes[1])
+            else:
+                gfx_data = gfx_table.getData(gfx_indexes[0])[:-0x480]+gfx_table.getData(gfx_indexes[1])[0x240:]
         if len(gfx_data) == 0:
             print("cannot load tileset without gfx")
             return
@@ -4584,7 +4595,7 @@ class MainWindow(QtWidgets.QMainWindow):
             view.scene().addItem(metaTileItem)
             view.metaTiles.append(metaTileItem)
         painter.end()
-        view.fitInView2()
+        view.fitInView(view.frameRect().toRectF())
         print("load tileset end")
 
     def loadTilesets(self, gfx_table: lib.graphic.GraphicsTable, pal_sec: lib.level.PaletteSection, offsets: list[int]=[]):
@@ -4599,7 +4610,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for check in checkbox_list:
             count += (check.isChecked() and check.isEnabled())
         render_mode = bool(count > 1)
-        print(f"set of tilsetOffset values: {[f"{o:04X}" for o in offsets]}")
+        print(f"set of tilsetOffset values: {[f"{o:04X}" for o in offsets if o is not None]}")
         pal_list: list[dict] = []
         pl: dict = {}
         for i in range(pal_sec.palHeaderCount):
@@ -4627,12 +4638,13 @@ class MainWindow(QtWidgets.QMainWindow):
         level = self.levelEdited_object.levels[self.dropdown_level_type.currentIndex()]
         for offset in offsets:
             # Make a list of indexes into the GraphicsTable
-            indexes = [
-                (offset & 0xF000) >> (0xC),
-                (offset & 0x0F00) >> (0x8),
-                (offset & 0x00F0) >> (0x4),
-                (offset & 0x000F) >> (0x0)
-            ]
+            if offset is not None:
+                indexes = [
+                    (offset & 0xF000) >> (0xC),
+                    (offset & 0x0F00) >> (0x8),
+                    (offset & 0x00F0) >> (0x4),
+                    (offset & 0x000F) >> (0x0)
+                ]
             if level == self.levelEdited_object.level:
                 if self.checkbox_level_layout0.isEnabled() and self.checkbox_level_layout0.isChecked():
                     load_tilesetPart(f"{indexes[0]:00X}{indexes[1]:00X}XX", indexes[:2])
@@ -4641,7 +4653,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 if self.checkbox_level_layout3.isEnabled() and self.checkbox_level_layout3.isChecked():
                     load_tilesetPart(f"XXX{indexes[3]:00X}", indexes[3:])
             elif level == self.levelEdited_object.level_radar:
-                load_tilesetPart(f"{offset:04X}", indexes)
+                load_tilesetPart(f"radar{self.buttonGroup_radar_tilesetType.checkedButton().text().replace(" ", "")}", [])
 
     def initScreens(self):
         self.gfx_view_level.tileGroups = []
@@ -4684,9 +4696,10 @@ class MainWindow(QtWidgets.QMainWindow):
                                 offset = self.levelEdited_ovl_object.map_tilesetOffset.layout[i][j]
                         except IndexError:
                             offset = self.levelEdited_ovl_object.map_tilesetOffset.layout[0][0]
+                        offset_name = "X"*slice_start + f"{offset:04X}"[slice_start:slice_end] + "X"*(4-slice_end)
                     else:
-                        offset = 0x0FFF
-                    offset_name = "X"*slice_start + f"{offset:04X}"[slice_start:slice_end] + "X"*(4-slice_end)
+                        offset = None
+                        offset_name = f"radar{self.buttonGroup_radar_tilesetType.checkedButton().text().replace(" ", "")}"
                     self.loadScreen(layout.layout[i][j], j*(16*(8*2)+screenSpacing), i*(12*(8*2)+screenSpacing), offset_name=offset_name)
         self.initScreens()
         if level == file.level:
@@ -4844,21 +4857,13 @@ class MainWindow(QtWidgets.QMainWindow):
         elif level == file.level_radar:
             if self.rom.filenames.idOf("elf.bin") != None: # ZX
                 file_radar = self.rom.files[self.rom.filenames.idOf("elf.bin")]
-                # compressed part has redundant tiles at the end
-                #gfx = lib.graphic.GraphicHeader(
-                #    ndspy.lz10.decompress(gfx_table.getData(0))[:-0x200]+gfx_table.getData(gfx_table.offsetCount-self.buttonGroup_radar_tilesetType.checkedId()),
-                #      start=gfx_table.getAddr(0), end=pointerpal)
             else: # ZXA
                 file_radar = self.rom.files[self.rom.filenames.idOf("ls_map_def.bin")]
-                #gfx = lib.graphic.GraphicHeader(
-                #    gfx_table.getData(0)[:-0x480]+gfx_table.getData(gfx_table.offsetCount-self.buttonGroup_radar_tilesetType.checkedId())[0x240:],
-                #      start=gfx_table.getAddr(0), end=pointerpal)
-                #gfx = lib.graphic.GraphicHeader(file_radar[pointergfx:], start=pointergfx, end=len(file_radar))
             pointergfx = int.from_bytes(file_radar[0x04:0x08], 'little')
             pointerpal = int.from_bytes(file_radar[0x08:0x0C], 'little')
             gfx_table = lib.graphic.GraphicsTable(file_radar[pointergfx:], start=pointergfx, end=pointerpal)
             pal_sec = lib.level.PaletteSection(file_radar[pointerpal:], False)
-            offsets.add(0x0FFF)
+            offsets.add(None) #TILESET_OFFSET_RADAR
         else:
             print("invalid level type!")
             return
@@ -4982,8 +4987,7 @@ class MainWindow(QtWidgets.QMainWindow):
             w.show()
         # case-specific code
         if mode in [WidgetSets.GRAPHICS, WidgetSets.FONT, WidgetSets.PANM]:
-            if self.file_content_gfx.sceneRect().width() != 0: # disallow zero div
-                self.file_content_gfx.fitInView2()
+            self.file_content_gfx.fitInView2()
 
     def load_viewImage(self):
         dialog = QtWidgets.QFileDialog(
