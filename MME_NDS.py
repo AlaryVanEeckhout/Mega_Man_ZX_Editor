@@ -4579,8 +4579,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     pal = pal_list[gfx_index][tile_pal]
                 except:
                     #print("palette error at gfx", gfx_index, "pal", tile_pal)
-                    pal = palette_ref
-                    pal[0] = 0
+                    pal = pal_list[gfx_index][None]
                 gfx_bin = gfx_data[gfx_offset:8*depth_obj.depth*(tileId+1)]
                 if depth_obj == lib.datconv.CompressionAlgorithmEnum.EIGHTBPP: # Optimized method
                     img = QtGui.QImage(gfx_bin, 8, 8, depth_obj.depth, QtGui.QImage.Format.Format_Indexed8).mirrored(flipH, flipV)
@@ -4624,6 +4623,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 )
                 if render_mode:
                     pl[palinfo[0]][0] = 0x00000000 # color 0 as transparency
+            pl[None] = self.GFX_PALETTES[3].copy()
+            if render_mode:
+                pl[None][0] = 0x00000000 # color 0 as transparency
             pal_list.append(pl.copy())
         def load_tilesetPart(offset_name: str, indexes: list[int]):
             if getattr(self, f"gfx_view_tileset_{offset_name}", None) is None:
