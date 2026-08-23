@@ -20,7 +20,8 @@ ARM9_ZX_E = {
     "dialogue box" : 0x000BEC8C,
     "dialogue names jp": 0x000BF5CC,
     "dialogue names en": 0x000BF9EC,
-    "dialogue font": 0x000BFE0C
+    "dialogue font": 0x000BFE0C,
+    "player palettes": 0x000DE584 # pointer to it at 0x00036D34
 }
 ARM9_ZX_J = {
     "entity": 0x000C685C,
@@ -28,7 +29,8 @@ ARM9_ZX_J = {
     "dialogue box" : 0x000BEAD8, # gfx split in two places???
     "dialogue names jp": 0x000BE6B8,
     "dialogue names en": 0,
-    "dialogue font": 0x000BF118
+    "dialogue font": 0x000BF118,
+    "player palettes": 0
 }
 ARM9_ZXA_E = {
     "entity": 0x000FCE94,
@@ -36,7 +38,8 @@ ARM9_ZXA_E = {
     "dialogue box" : 0x000DC52C,
     "dialogue names jp": 0x000DBC2C,
     "dialogue names en": 0x000DC0AC,
-    "dialogue font": 0x000DCF6C
+    "dialogue font": 0x000DCF6C,
+    "player palettes": 0x000E8748
 }
 ARM9_ZXA_J = {
     "entity": 0x000FDC9C,
@@ -44,7 +47,8 @@ ARM9_ZXA_J = {
     "dialogue box" : 0x000DEF28,
     "dialogue names jp": 0x000DEAA8,
     "dialogue names en": 0,
-    "dialogue font": 0x000DF968
+    "dialogue font": 0x000DF968,
+    "player palettes": 0
 }
 CHARMAPS_ZX = {
     "en": dialogue.CHARMAP_DIALOGUE_ZX_EN,

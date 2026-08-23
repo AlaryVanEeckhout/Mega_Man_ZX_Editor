@@ -2824,14 +2824,9 @@ class MainWindow(QtWidgets.QMainWindow):
             print(f"Graphic Header at index {gfxheader_index} of Graphic Section does not exist!")
             return
         gfxheader = gfxsec.graphics[gfxheader_index]
-        depth = 4 # actual depth that will be used to render
-        indexingFactor = 1 # I guess this is changed based on the size of assembled gfx
         # in 4bpp, oam tile id * indexingFactor = vram tile id
         # in 8bpp, oam tile id * indexingFactor // 2 = vram tile id
-        if gfxsec.entry_size == 0x14:
-            depth = gfxsec.graphics[0].depth//2
-        else:
-            print("depth unknown")
+        indexingFactor = 1 # I guess this is changed based on the size of assembled gfx
         obj: lib.oam.Object = objs[obj_index]
 
         if item != None:
@@ -2864,8 +2859,29 @@ class MainWindow(QtWidgets.QMainWindow):
             if len(oamsec.header_items) == 4:
                 pal = oamsec.paletteTable[0]
             else: # palette may be handled dynamically in RAM
-                print(f"palette ram: 0x{gfxheader.ram_palette_offset:04X}")
                 pal = self.GFX_PALETTES[2]
+                if "ZX" in self.rom.name.decode():
+                    if self.gamedat.arm9Addrs["player palettes"] == 0:
+                        print("Player palette could not be loaded because the ARM9 address for this game is missing.")
+                        return
+                    # roughly align the palettes with the entries
+                    if not "ZXA" in self.rom.name.decode() and self.dropdown_oam_entry.currentIndex() in range(342, 400):
+                        arm9_bin = self.arm9_decompressed.save()
+                        index = 0x10 # todo: figure out how those indexes are really determined
+                        if self.dropdown_oam_entry.currentIndex() >= 384:
+                            index += self.dropdown_oam_entry.currentIndex() - 384
+                    elif self.dropdown_oam_entry.currentIndex() in range(368, 406):
+                        arm9_bin = self.arm9_decompressed.save()
+                        index = 0x1A
+                        if self.dropdown_oam_entry.currentIndex() >= 384:
+                            if self.dropdown_oam_entry.currentIndex() in range(384, 388):
+                                index += (self.dropdown_oam_entry.currentIndex() - 384) // 2
+                            else:
+                                index += self.dropdown_oam_entry.currentIndex() - 384 - 2
+                    pal_offs = self.gamedat.arm9Addrs["player palettes"] + 0x20*index
+                    pal = lib.datconv.BGR15_to_ARGB32(arm9_bin[pal_offs:pal_offs+0x20])
+                else:
+                    print(f"palette ram (?): 0x{gfxheader.ram_palette_offset:04X}")
         if palette is not None:
             for i, color in enumerate(palette):
                 if color is None: continue
@@ -2876,6 +2892,11 @@ class MainWindow(QtWidgets.QMainWindow):
         gfxOffset += int(tileId*indexingFactor*32) # 8*8pixels*4bpp/8bits = 32bytes
         #print(f"offset: {gfxOffset:04X}")
         #print(f"tile {tileId:02X}")
+        depth = 4 # actual depth that will be used to render
+        if gfxsec.entry_size == 0x14:
+            depth = gfxsec.graphics[0].depth//2
+        else:
+            print("depth unknown", gfxheader.data.hex(), gfxsec.offset_start)
         depth_obj = lib.datconv.CompressionAlgorithmEnum.FOURBPP
         for member in lib.datconv.CompressionAlgorithmEnum:
             if member.depth == depth:
