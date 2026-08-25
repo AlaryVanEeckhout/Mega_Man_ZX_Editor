@@ -2752,6 +2752,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     if self.gamedat.arm9Addrs["player palettes"] == 0:
                         print("Player palette could not be loaded because the ARM9 address for this game is missing.")
                         return
+                    index = None
                     # roughly align the palettes with the entries
                     if not "ZXA" in self.rom.name.decode() and self.dropdown_oam_entry.currentIndex() in range(342, 400):
                         arm9_bin = self.arm9_decompressed.save()
@@ -2766,8 +2767,9 @@ class MainWindow(QtWidgets.QMainWindow):
                                 index += (self.dropdown_oam_entry.currentIndex() - 384) // 2
                             else:
                                 index += self.dropdown_oam_entry.currentIndex() - 384 - 2
-                    pal_offs = self.gamedat.arm9Addrs["player palettes"] + 0x20*index
-                    pal = lib.datconv.BGR15_to_ARGB32(arm9_bin[pal_offs:pal_offs+0x20])
+                    if index is not None:
+                        pal_offs = self.gamedat.arm9Addrs["player palettes"] + 0x20*index
+                        pal = lib.datconv.BGR15_to_ARGB32(arm9_bin[pal_offs:pal_offs+0x20])
                 else:
                     print(f"palette ram (?): 0x{gfxheader.ram_palette_offset:04X}")
         if palette is not None:
