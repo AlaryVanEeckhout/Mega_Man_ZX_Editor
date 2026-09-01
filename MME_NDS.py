@@ -86,15 +86,23 @@ class MainWindow(QtWidgets.QMainWindow):
         self.widget_set = "Empty" # Empty, Text, Graphics, Font, OAM, Sound, VX, Model
         self.GFX_PALETTES = [
             [0xff000000+((0x0b7421*i)%0x1000000) for i in range(256)], # default
-            [0xff000000, 0xffffffff]*128, # font
-            [0xff639c6b, 0xff426b9c, 0xff42a5c6, 0xff84c6e7, 0xffbdefff, 0xffdeffef, 0xffb58cff, 0xffefc6ff, # generic
-             0xffffdeff, 0xfff70010, 0xfff76310, 0xfff79410, 0xfff7c600, 0xfff7f710, 0xfff7f794, 0xffffffff,
-             0xff7b8463, 0xff102163, 0xff395294, 0xff949cc6, 0xffd6def7, 0xffffffff, 0xff9c0029, 0xfff7394a, # ZX
-             0xffff9484, 0xff108c73, 0xffffce18, 0xffffff8c, 0xffffd6bd, 0xffd68410, 0xff8c4a00, 0xff39e7c6,
-             0xff000000, 0xffc6f7ff, 0xffbdd6ff, 0xffa5adf7, 0xff8c7be7, 0xff7352de, 0xff5a29ce, 0xff4200c6, # PX shield
-             0xff6b10ce, 0xff8c21de, 0xffb531ef, 0xffde4aff, 0xfff763ff, 0xffff9cff, 0xffffd6ff, 0xffffffff,
-             0xff000000, 0xffc6f7ff, 0xffbdd6ff, 0xffa5adf7, 0xff8c7be7, 0xff7352de, 0xff5a29ce, 0xff4200c6, # PX shield
-             0xff6b10ce, 0xff8c21de, 0xffb531ef, 0xffde4aff, 0xfff763ff, 0xffff9cff, 0xffffd6ff, 0xffffffff]*4, # sprites
+            [
+                0xff000000, 0xffffffff,
+                0xff000000, 0xffff7b7b,
+                0xff000000, 0xff7b7bff,
+                0xff000000, 0xff7bff7b,
+                0xff000000, 0xff7b7b7b
+            ]*25 + [0xff000000, 0xffffffff]*3, # font
+            [
+                0xff639c6b, 0xff426b9c, 0xff42a5c6, 0xff84c6e7, 0xffbdefff, 0xffdeffef, 0xffb58cff, 0xffefc6ff, # generic
+                0xffffdeff, 0xfff70010, 0xfff76310, 0xfff79410, 0xfff7c600, 0xfff7f710, 0xfff7f794, 0xffffffff,
+                0xff7b8463, 0xff102163, 0xff395294, 0xff949cc6, 0xffd6def7, 0xffffffff, 0xff9c0029, 0xfff7394a, # ZX
+                0xffff9484, 0xff108c73, 0xffffce18, 0xffffff8c, 0xffffd6bd, 0xffd68410, 0xff8c4a00, 0xff39e7c6,
+                0xff000000, 0xffc6f7ff, 0xffbdd6ff, 0xffa5adf7, 0xff8c7be7, 0xff7352de, 0xff5a29ce, 0xff4200c6, # PX shield
+                0xff6b10ce, 0xff8c21de, 0xffb531ef, 0xffde4aff, 0xfff763ff, 0xffff9cff, 0xffffd6ff, 0xffffffff,
+                0xff000000, 0xffc6f7ff, 0xffbdd6ff, 0xffa5adf7, 0xff8c7be7, 0xff7352de, 0xff5a29ce, 0xff4200c6, # PX shield
+                0xff6b10ce, 0xff8c21de, 0xffb531ef, 0xffde4aff, 0xfff763ff, 0xffff9cff, 0xffffd6ff, 0xffffffff
+            ]*4, # sprites
             [0xff000000+((0x010101*i)%0x1000000) for i in range(256)], # 8bpp
             [0xff000000+((0x010101*i)%0x1000000) if i not in [0,255] else 0xffff00dd if i != 255 else 0xff000000 for i in range(256)], # cutscene
         ]
@@ -565,6 +573,7 @@ class MainWindow(QtWidgets.QMainWindow):
         font.setStyleHint(QtGui.QFont.StyleHint.TypeWriter)
         self.file_content_text.setFont(font)
         self.file_content_text.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.NoContextMenu)
+        self.file_content_text.cursorPositionChanged.connect(lambda: self.updateDialoguePreview())
         self.file_content_text.textChanged.connect(lambda: self.button_file_save.setDisabled(False))
         self.file_content_text.setDisabled(True)
 
@@ -577,8 +586,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.checkbox_textoverwite.setStatusTip("With this enabled, writing text won't change filesize")
         self.checkbox_textoverwite.clicked.connect(lambda: self.file_content_text.setOverwriteMode(not self.file_content_text.overwriteMode()))
 
+        self.checkbox_preview = QtWidgets.QCheckBox("Preview page", self.page_explorer)
+        self.checkbox_preview.setStatusTip("Show how the text looks in-game")
+        self.checkbox_preview.clicked.connect(lambda: self.gfx_view_dialogue.setVisible(self.checkbox_preview.isChecked()))
+        self.checkbox_preview.setChecked(True)
+
+        self.gfx_view_dialogue = lib.widget.View(self.page_explorer)
+        self.gfx_view_dialogue.setMaximumHeight(150)
+        self.gfx_view_dialogue.viewed_text = "" # used to determine if view should be re-drawn
+
         self.layout_editzone_row1.addWidget(self.checkbox_textoverwite)
+        self.layout_editzone_row1.addWidget(self.checkbox_preview)
         self.layout_editzone_row1.addWidget(self.dropdown_textindex)
+        self.layout_editzone_row2.addWidget(self.gfx_view_dialogue)
 
         self.file_content_gfx = lib.widget.GFXView(self.page_explorer)
         self.file_content_gfx.setSizePolicy(QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Expanding)
@@ -2691,6 +2711,84 @@ class MainWindow(QtWidgets.QMainWindow):
         setattr(self, var, val)
         if istreecall:
             self.treeCall()
+
+    def updateDialoguePreview(self):
+        if not self.checkbox_preview.isChecked(): return
+        p = self.file_content_text.textCursor().position()
+        text = self.file_content_text.toPlainText()
+        newpage = self.file_content_text.charmap.dict_byte_to_unicode[(0xfd,)]
+        find = text[p:].find(newpage)
+        rfind = text[:p].rfind(newpage)
+        viewed_text = text[rfind + len(newpage) if rfind != -1 else 0:p+find if find != -1 else len(text)].split(newpage)[0]
+        #print(rfind, find)
+        def draw_char(chr_index: int, draw_index: int):
+            painter.drawImage(
+                (draw_index%chars_per_line)*char_width,
+                (draw_index//chars_per_line)*8,
+                lib.datconv.binToQt(
+                    font_obj.chr_data[chr_index*font_obj.indexing_space:(chr_index+1)*font_obj.indexing_space],
+                    self.GFX_PALETTES[1][color_index*2:],
+                    lib.datconv.CompressionAlgorithmEnum.ONEBPP,
+                    1, 1, char_width, font_obj.char_height
+                )
+            )
+        if viewed_text != self.gfx_view_dialogue.viewed_text:
+            #print(viewed_text)
+            self.gfx_view_dialogue.viewed_text = viewed_text
+            try:
+                self.gfx_view_dialogue.scene().clear()
+                if self.file_content_text.charmap == lib.dialogue.CHARMAP_DIALOGUE_ZX_EN:
+                    font_bin = self.rom.getFileByName("font_pal.bin")
+                elif self.file_content_text.charmap in [lib.dialogue.CHARMAP_DIALOGUE_ZX_JP, lib.dialogue.CHARMAP_DIALOGUE_ZXA_JP]:
+                    font_bin = self.rom.getFileByName("font_jp.bin")
+                else:
+                    font_bin = self.rom.getFileByName("font_ds.bin")
+                font_obj = lib.font.Font(font_bin)
+                # todo: figure out which dimensions the text has for each kind of message box
+                BOX_WIDTH = 185
+                box_height = 49 # different when no mugshot
+                char_width = math.ceil(font_obj.char_width/8)*8
+                chars_per_line = BOX_WIDTH//char_width
+                graphic = QtGui.QPixmap(BOX_WIDTH, box_height)
+                graphic.fill(0)
+                painter = QtGui.QPainter()
+                painter.begin(graphic)
+                painter.setRenderHints(QtGui.QPainter.RenderHint.Antialiasing | QtGui.QPainter.RenderHint.SmoothPixmapTransform, False)
+                painter.setCompositionMode(QtGui.QPainter.CompositionMode.CompositionMode_Source)
+                is_sp = False
+                draw_index = 0
+                color_index = 0
+                for c_i, c in enumerate(viewed_text):
+                    if is_sp:
+                        if c == "┤":
+                            is_sp = False
+                    elif c == "├":
+                        is_sp = True
+                        sp_command = viewed_text[c_i:c_i+viewed_text[c_i:].find("┤")+1]
+                        if sp_command in self.file_content_text.charmap.dict_unicode_to_byte:
+                            chr_index = self.file_content_text.charmap.dict_unicode_to_byte[sp_command][0]
+                            if chr_index < 0xF0:
+                                draw_char(chr_index, draw_index)
+                                draw_index += 1
+                            else:
+                                if sp_command == self.file_content_text.charmap.dict_byte_to_unicode[(0xfc,)]:
+                                    #print(f"newline (({draw_index-1}//{chars_per_line})+2)*{chars_per_line} = {((draw_index//chars_per_line)+2)*chars_per_line}")
+                                    draw_index = (((draw_index-1)//chars_per_line)+2)*chars_per_line
+                        elif viewed_text[c_i:c_i+viewed_text[c_i:].find(" ")] == self.file_content_text.charmap.dict_byte_to_unicode[(0xf1, None)].split(" ")[0]:
+                            color_index = int(viewed_text[c_i+viewed_text[c_i:].find(" "):c_i+viewed_text[c_i:].find("┤")], 0)
+                    else: # draw char
+                        #print(draw_index)
+                        chr_index = self.file_content_text.charmap.dict_unicode_to_byte[c][0]
+                        if len(self.file_content_text.charmap.dict_unicode_to_byte[c]) > 1:
+                            chr_index += self.file_content_text.charmap.dict_unicode_to_byte[c][1]
+                        draw_char(chr_index, draw_index)
+                        draw_index += 1
+                painter.end()
+                self.gfx_view_dialogue.scene().addPixmap(graphic)
+                self.gfx_view_dialogue.fitInView2()
+            except Exception as e: # text was edited in a way that cannot be parsed yet
+                pass
+
 
     def OAM_updateItemGFX(self, obj_index: int, oamsec:lib.oam.OAMSection=None, frameIndex:int=None, gfxsec:lib.graphic.GraphicSection=None, objs:list[lib.oam.Object]=None, item: lib.widget.OAMObjectItem|None=None, palette:list[int]=None):
         # creates and returns an item if none specified
@@ -5479,7 +5577,13 @@ if __name__ == "__main__":
             EMPTY = enum.auto(), [w.file_content_text]
             HEX = enum.auto(), [w.file_content_text, w.checkbox_textoverwite]
             # Associated with file display states
-            DIALOGUE = enum.auto(), [w.file_content_text, w.checkbox_textoverwite, w.dropdown_textindex]
+            DIALOGUE = enum.auto(), [
+                w.file_content_text,
+                w.checkbox_textoverwite,
+                w.checkbox_preview,
+                w.dropdown_textindex,
+                w.gfx_view_dialogue
+            ]
             GRAPHICS = enum.auto(), [
                 w.file_content_gfx,
                 w.checkbox_depthUpdate,

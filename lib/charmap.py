@@ -1,6 +1,6 @@
 class CharMap:
     def __init__(self):
-        self.dict_byte_to_unicode: dict[str, str] = {}
+        self.dict_byte_to_unicode: dict[tuple, str] = {}
         self.dict_unicode_to_byte: dict[str, tuple] = {}
     
     def add_mapping(self, map_byte: tuple[int], map_unicode: str):
