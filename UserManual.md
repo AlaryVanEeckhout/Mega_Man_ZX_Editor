@@ -255,7 +255,7 @@ For instance, 0x1210 means:
 There is also value 0xF, which seems to mean that the graphics will remain untouched (or will be unloaded?).
 
 > [!NOTE]
-> It looks liek the first and second chunks are used for the main layout,  
+> It looks like the first and second chunks are used for the main layout,  
 > and possibly the third and fourth chunk are used for the other layouts,  
 > the fourth one in particular being for the distant background.
 

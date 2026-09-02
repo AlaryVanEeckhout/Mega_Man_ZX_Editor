@@ -6,7 +6,7 @@ from . import dialogue
 I_MUGSHOT = ("face",)
 I_GFX = I_MUGSHOT + ("_fnt",)
 I_GFX_ZX = I_GFX + ("title", "bbom", "dm", "elf", "g_", "game_parm", "lmlevel", "miss", "puzzle", "repair", "sec_disk", "sub")
-I_GFX_ZXA = I_GFX + ("title", "mm_", "dm", "ls_", "sub_")
+I_GFX_ZXA = I_GFX + ("title", "mm", "dm", "ls_", "sub_")
 I_FONT = ("font",)
 I_DIALOGUE = ("talk", "m_")
 I_PANM = ("panm",)
@@ -59,6 +59,7 @@ CHARMAPS_ZX = {
 CHARMAPS_ZXA = {
     "en": dialogue.CHARMAP_DIALOGUE_ZX_EN,
     "jp": dialogue.CHARMAP_DIALOGUE_ZXA_JP,
+    "ds": dialogue.CHARMAP_DIALOGUE_ZXA_DS,
     "names en": dialogue.CHARMAP_DIALOGUENAME_ZX_EN,
     "names jp": dialogue.CHARMAP_DIALOGUENAME_ZX_JP
 }

@@ -2745,46 +2745,79 @@ class MainWindow(QtWidgets.QMainWindow):
                     font_bin = self.rom.getFileByName("font_ds.bin")
                 font_obj = lib.font.Font(font_bin)
                 # todo: figure out which dimensions the text has for each kind of message box
-                BOX_WIDTH = 185
-                box_height = 49 # different when no mugshot
+                line_count = 0
+                if "talk_" in self.fileToEdit_name:
+                    BOX_WIDTH = 185
+                    line_count = 3 # different when no mugshot
+                else:
+                    if "sdisk_" in self.fileToEdit_name and self.dropdown_textindex.currentIndex() >= 2:
+                        if "ZXA" in self.rom.name.decode():
+                            sdisk_condition = bool(not self.dropdown_textindex.currentIndex() % 2 == 0)
+                        else:
+                            sdisk_condition = bool(self.dropdown_textindex.currentIndex() % 2 == 0 and self.dropdown_textindex.currentIndex() < self.dropdown_textindex.count()-1)
+                        if sdisk_condition: # name
+                            BOX_WIDTH = 208
+                            line_count = 1
+                        else: # desc
+                            BOX_WIDTH = 224
+                            line_count = 8
+                    elif "sub_" in self.fileToEdit_name: # ZX ZXA diff needed
+                        if "ZXA" in self.rom.name.decode():
+                            sub_range = range(0, 115)
+                        else:
+                            sub_range = range(71, 130)
+                        if self.dropdown_textindex.currentIndex() in sub_range:
+                            BOX_WIDTH = 120
+                            line_count = 8
+                        else:
+                            BOX_WIDTH = 240
+                            line_count = 2
+                    elif "sys" in self.fileToEdit_name:
+                        BOX_WIDTH = 208
+                        line_count = 1
+                    else: # menu controls
+                        BOX_WIDTH = 240
+                        line_count = 2
+                box_height = 16*line_count
                 char_width = math.ceil(font_obj.char_width/8)*8
                 chars_per_line = BOX_WIDTH//char_width
-                graphic = QtGui.QPixmap(BOX_WIDTH, box_height)
-                graphic.fill(0)
-                painter = QtGui.QPainter()
-                painter.begin(graphic)
-                painter.setRenderHints(QtGui.QPainter.RenderHint.Antialiasing | QtGui.QPainter.RenderHint.SmoothPixmapTransform, False)
-                painter.setCompositionMode(QtGui.QPainter.CompositionMode.CompositionMode_Source)
-                is_sp = False
-                draw_index = 0
-                color_index = 0
-                for c_i, c in enumerate(viewed_text):
-                    if is_sp:
-                        if c == "┤":
-                            is_sp = False
-                    elif c == "├":
-                        is_sp = True
-                        sp_command = viewed_text[c_i:c_i+viewed_text[c_i:].find("┤")+1]
-                        if sp_command in self.file_content_text.charmap.dict_unicode_to_byte:
-                            chr_index = self.file_content_text.charmap.dict_unicode_to_byte[sp_command][0]
-                            if chr_index < 0xF0:
-                                draw_char(chr_index, draw_index)
-                                draw_index += 1
-                            else:
-                                if sp_command == self.file_content_text.charmap.dict_byte_to_unicode[(0xfc,)]:
-                                    #print(f"newline (({draw_index-1}//{chars_per_line})+2)*{chars_per_line} = {((draw_index//chars_per_line)+2)*chars_per_line}")
-                                    draw_index = (((draw_index-1)//chars_per_line)+2)*chars_per_line
-                        elif viewed_text[c_i:c_i+viewed_text[c_i:].find(" ")] == self.file_content_text.charmap.dict_byte_to_unicode[(0xf1, None)].split(" ")[0]:
-                            color_index = int(viewed_text[c_i+viewed_text[c_i:].find(" "):c_i+viewed_text[c_i:].find("┤")], 0)
-                    else: # draw char
-                        #print(draw_index)
-                        chr_index = self.file_content_text.charmap.dict_unicode_to_byte[c][0]
-                        if len(self.file_content_text.charmap.dict_unicode_to_byte[c]) > 1:
-                            chr_index += self.file_content_text.charmap.dict_unicode_to_byte[c][1]
-                        draw_char(chr_index, draw_index)
-                        draw_index += 1
-                painter.end()
-                self.gfx_view_dialogue.scene().addPixmap(graphic)
+                graphic_text = QtGui.QPixmap(BOX_WIDTH, box_height)
+                graphic_text.fill(0)
+                if self.gfx_view_dialogue.viewed_text != "":
+                    painter = QtGui.QPainter()
+                    painter.begin(graphic_text)
+                    painter.setRenderHints(QtGui.QPainter.RenderHint.Antialiasing | QtGui.QPainter.RenderHint.SmoothPixmapTransform, False)
+                    painter.setCompositionMode(QtGui.QPainter.CompositionMode.CompositionMode_Source)
+                    is_sp = False
+                    draw_index = 0
+                    color_index = 0
+                    for c_i, c in enumerate(viewed_text):
+                        if is_sp:
+                            if c == "┤":
+                                is_sp = False
+                        elif c == "├":
+                            is_sp = True
+                            sp_command = viewed_text[c_i:c_i+viewed_text[c_i:].find("┤")+1]
+                            if sp_command in self.file_content_text.charmap.dict_unicode_to_byte:
+                                chr_index = self.file_content_text.charmap.dict_unicode_to_byte[sp_command][0]
+                                if chr_index < 0xF0:
+                                    draw_char(chr_index, draw_index)
+                                    draw_index += 1
+                                else:
+                                    if sp_command == self.file_content_text.charmap.dict_byte_to_unicode[(0xfc,)]:
+                                        #print(f"newline (({draw_index-1}//{chars_per_line})+2)*{chars_per_line} = {((draw_index//chars_per_line)+2)*chars_per_line}")
+                                        draw_index = (((draw_index-1)//chars_per_line)+2)*chars_per_line
+                            elif viewed_text[c_i:c_i+viewed_text[c_i:].find(" ")] == self.file_content_text.charmap.dict_byte_to_unicode[(0xf1, None)].split(" ")[0]:
+                                color_index = int(viewed_text[c_i+viewed_text[c_i:].find(" "):c_i+viewed_text[c_i:].find("┤")], 0)
+                        else: # draw char
+                            #print(draw_index)
+                            chr_index = self.file_content_text.charmap.dict_unicode_to_byte[c][0]
+                            if len(self.file_content_text.charmap.dict_unicode_to_byte[c]) > 1:
+                                chr_index += self.file_content_text.charmap.dict_unicode_to_byte[c][1]
+                            draw_char(chr_index, draw_index)
+                            draw_index += 1
+                    painter.end()
+                self.gfx_view_dialogue.scene().addPixmap(graphic_text)
                 self.gfx_view_dialogue.fitInView2()
             except Exception as e: # text was edited in a way that cannot be parsed yet
                 pass
@@ -3666,7 +3699,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         pass # remain EMPTY
                     if self.fileDisplayState == "Dialogue":
                         if sender in self.FILEOPEN_WIDGETS:
-                            dialogue_lang = current_name.split("_")[-1][:2] # get the two letters that indicate language
+                            dialogue_lang = current_name.split("_")[2][:2] # get the two letters that indicate language
                             try:
                                 self.file_content_text.charmap = self.gamedat.charmaps[dialogue_lang]
                             except KeyError:

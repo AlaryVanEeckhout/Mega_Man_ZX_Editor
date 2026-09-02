@@ -243,6 +243,16 @@ CHARMAP_DIALOGUE_ZX_JP.add_mapping((0xf0, 0x9B), "．")
 CHARMAP_DIALOGUE_ZX_JP.add_mapping((0xf0, 0x9C), "⯈")
 
 CHARMAP_DIALOGUE_ZXA_DS = CharMap()
+CHARMAP_DIALOGUE_ZXA_DS.add_mapping((0x00,), "├BUTTON_A┤")
+CHARMAP_DIALOGUE_ZXA_DS.add_mapping((0x01,), "├BUTTON_B┤")
+CHARMAP_DIALOGUE_ZXA_DS.add_mapping((0x02,), "├BUTTON_X┤")
+CHARMAP_DIALOGUE_ZXA_DS.add_mapping((0x03,), "├BUTTON_Y┤")
+CHARMAP_DIALOGUE_ZXA_DS.add_mapping((0x04,), "├BUTTON_L┤")
+CHARMAP_DIALOGUE_ZXA_DS.add_mapping((0x05,), "├BUTTON_R┤")
+CHARMAP_DIALOGUE_ZXA_DS.add_mapping((0x06,), "├DPAD┤")
+CHARMAP_DIALOGUE_ZXA_DS.add_mapping((0x07,), "├CLOCK┤")
+CHARMAP_DIALOGUE_ZXA_DS.add_mapping((0x28,), "╳")
+CHARMAP_DIALOGUE_ZXA_DS.add_mapping_range((0x30,), " ", 0x5f)
 
 CHARMAP_DIALOGUE_ZXA_JP = CharMap()
 
@@ -434,7 +444,7 @@ for CHARMAP in [CHARMAP_DIALOGUE_ZX_EN, CHARMAP_DIALOGUE_ZX_JP, CHARMAP_DIALOGUE
     CHARMAP.add_mapping((0xf7, None), "├ISOLATE2 0x{0:02X}┤") #same as 0xf4
     CHARMAP.add_mapping((0xf8, None), "├NAME 0x{0:02X}┤")
     CHARMAP.add_mapping((0xf9, None, None), "├VOICELINE 0x{1:02X}{0:02X}┤") #VX voice line id to load
-    CHARMAP.add_mapping((0xfa,), "├PLAYERNAME┤") # writes player name
+    CHARMAP.add_mapping((0xfa,), "├VARIABLE┤") # writes a variable string (where is it set?)
     CHARMAP.add_mapping((0xfb,), "├THREECHOICES┤")
     CHARMAP.add_mapping((0xfc,), "├NEWLINE┤")
     CHARMAP.add_mapping((0xfd,), "├NEWPAGE┤")
