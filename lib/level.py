@@ -443,6 +443,7 @@ class PaletteSection:
         return ndspy.lz10.compress(self.data)
     
 class PaletteHeader:
+    SIZE = 0x0C
     def __init__(self, data: bytes):
         self.data = data
         self.palCount = int.from_bytes(self.data[0x00:0x04], 'little')

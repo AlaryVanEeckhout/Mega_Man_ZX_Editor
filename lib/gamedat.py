@@ -2,6 +2,8 @@
 import enum
 from . import dialogue
 
+MUGSHOT_WIDTH_TILES = 6
+MUGSHOT_HEIGHT_TILES = 7
 # indicators determine what the file most likely contains based on its name
 I_MUGSHOT = ("face",)
 I_GFX = I_MUGSHOT + ("_fnt",)

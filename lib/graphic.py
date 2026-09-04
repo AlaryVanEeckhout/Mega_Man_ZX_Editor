@@ -117,34 +117,34 @@ class GraphicsTable(DataStructure): # possibly the same data structure as what I
 class GraphicSection(DataStructure):
     def _init2(self):
         self.header_size = int.from_bytes(self.data[0x00:0x04], byteorder='little')
-        self.entry_size = 0x14
-        if self.header_size % self.entry_size != 0:
-            print(f"GFX Header size does not match entry size, reducing entry size from 0x{self.entry_size:02X} ", end="")
-            self.entry_size = 0x0C
-            print(f"to 0x{self.entry_size:02X}")
-        print(f"GFX Header size: {self.header_size:02X}", f"Entry size: {self.entry_size:02X}")
-        assert self.header_size % self.entry_size == 0
-        assert self.header_size >= self.entry_size
+        self.graphicHeader_size = 0x14
+        if self.header_size % self.graphicHeader_size != 0:
+            print(f"GFX Header size does not match entry size, reducing entry size from 0x{self.graphicHeader_size:02X} ", end="")
+            self.graphicHeader_size = 0x0C
+            print(f"to 0x{self.graphicHeader_size:02X}")
+        print(f"GFX Header size: {self.header_size:02X}", f"Entry size: {self.graphicHeader_size:02X}")
+        assert self.header_size % self.graphicHeader_size == 0
+        assert self.header_size >= self.graphicHeader_size
         #print(f"header size: {self.header_size}")
-        self.entryCount = self.header_size//self.entry_size
-        self.graphics: list[GraphicHeader] = []
+        self.entryCount = self.header_size//self.graphicHeader_size
+        self.graphicHeaders: list[GraphicHeader] = []
         if self.entryCount > 10000:
             print(f"{self.entryCount} is not a reasonable entry count. aborting...")
             self.entryCount = 0 # prevent editor from actually loading them
-            self.header_size = self.entry_size*self.entryCount
+            self.header_size = self.graphicHeader_size*self.entryCount
             return
         if self.entryCount > 0:
-            if self.entry_size == 0x14:
-                gfx_head = GraphicHeader(self.data[0:0+self.entry_size],
+            if self.graphicHeader_size == 0x14:
+                gfx_head = GraphicHeader(self.data[0:0+self.graphicHeader_size],
                                                 start=self.offset_start+0,
-                                                end=self.offset_start+0+self.entry_size)
+                                                end=self.offset_start+0+self.graphicHeader_size)
                 if not gfx_head.depth//2 in [4, 8]: # is the entry size really the default value?
-                    print(f"Section gave weird results, reducing entry size from 0x{self.entry_size:02X} to 0x0C")
-                    self.entry_size = 0x0C
-            for offset in range(0, self.header_size, self.entry_size):
-                self.graphics.append(GraphicHeader(self.data[offset:offset+self.entry_size],
+                    print(f"Section gave weird results, reducing entry size from 0x{self.graphicHeader_size:02X} to 0x0C")
+                    self.graphicHeader_size = 0x0C
+            for offset in range(0, self.header_size, self.graphicHeader_size):
+                self.graphicHeaders.append(GraphicHeader(self.data[offset:offset+self.graphicHeader_size],
                                                 start=self.offset_start+offset,
-                                                end=self.offset_start+offset+self.entry_size,))
+                                                end=self.offset_start+offset+self.graphicHeader_size))
 
     def fromParent(file: File, index: int):
         #print(f"index: {index}")
@@ -157,6 +157,10 @@ class GraphicSection(DataStructure):
         else:
             offset_end = file.fileSize
         return GraphicSection(file.data[offset_start:offset_end], start=offset_start, end=offset_end)
+
+    def getGraphic(self, index: int):
+        header = self.graphicHeaders[index]
+        return self.data[header.offset_start+header.gfx_offset:header.offset_start+header.gfx_offset+header.gfx_size]
     
 class GraphicHeader(DataStructure):
     def _init2(self):

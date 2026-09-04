@@ -18,6 +18,7 @@ except ImportError:
     pass
 isVXSupported = bool("lib.actimagine.package.actimagine" in sys.modules)
 from lib.common import PATH_ROOT
+from lib.gamedat import MUGSHOT_WIDTH_TILES, MUGSHOT_HEIGHT_TILES
 SPACES_FOLDER = "    "
 
 parser = argparse.ArgumentParser()
@@ -2722,7 +2723,7 @@ class MainWindow(QtWidgets.QMainWindow):
         viewed_text = text[rfind + len(newpage) if rfind != -1 else 0:p+find if find != -1 else len(text)].split(newpage)[0]
         #print(rfind, find)
         def draw_char(chr_index: int, draw_index: int):
-            painter.drawImage(
+            painter_text.drawImage(
                 (draw_index%chars_per_line)*char_width,
                 (draw_index//chars_per_line)*8,
                 lib.datconv.binToQt(
@@ -2744,6 +2745,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 else:
                     font_bin = self.rom.getFileByName("font_ds.bin")
                 font_obj = lib.font.Font(font_bin)
+                mugshot_obj = lib.graphic.GraphicSection(self.rom.getFileByName("face.bin"))
                 # todo: figure out which dimensions the text has for each kind of message box
                 line_count = 0
                 if "talk_" in self.fileToEdit_name:
@@ -2781,13 +2783,15 @@ class MainWindow(QtWidgets.QMainWindow):
                 box_height = 16*line_count
                 char_width = math.ceil(font_obj.char_width/8)*8
                 chars_per_line = BOX_WIDTH//char_width
+                graphic_mugshot = QtGui.QPixmap(8*MUGSHOT_WIDTH_TILES, 8*MUGSHOT_HEIGHT_TILES)
+                graphic_mugshot.fill(0)
                 graphic_text = QtGui.QPixmap(BOX_WIDTH, box_height)
                 graphic_text.fill(0)
                 if self.gfx_view_dialogue.viewed_text != "":
-                    painter = QtGui.QPainter()
-                    painter.begin(graphic_text)
-                    painter.setRenderHints(QtGui.QPainter.RenderHint.Antialiasing | QtGui.QPainter.RenderHint.SmoothPixmapTransform, False)
-                    painter.setCompositionMode(QtGui.QPainter.CompositionMode.CompositionMode_Source)
+                    painter_text = QtGui.QPainter()
+                    painter_text.begin(graphic_text)
+                    painter_text.setRenderHints(QtGui.QPainter.RenderHint.Antialiasing | QtGui.QPainter.RenderHint.SmoothPixmapTransform, False)
+                    painter_text.setCompositionMode(QtGui.QPainter.CompositionMode.CompositionMode_Source)
                     is_sp = False
                     draw_index = 0
                     color_index = 0
@@ -2798,15 +2802,38 @@ class MainWindow(QtWidgets.QMainWindow):
                         elif c == "├":
                             is_sp = True
                             sp_command = viewed_text[c_i:c_i+viewed_text[c_i:].find("┤")+1]
-                            if sp_command in self.file_content_text.charmap.dict_unicode_to_byte:
+                            if sp_command in self.file_content_text.charmap.dict_unicode_to_byte: # argument-less command
                                 chr_index = self.file_content_text.charmap.dict_unicode_to_byte[sp_command][0]
-                                if chr_index < 0xF0:
-                                    draw_char(chr_index, draw_index)
+                                if chr_index < 0xF0: # chars that aren't really special commands but have a special representation (ex.:├DPAD┤)
                                     draw_index += 1
                                 else:
                                     if sp_command == self.file_content_text.charmap.dict_byte_to_unicode[(0xfc,)]:
                                         #print(f"newline (({draw_index-1}//{chars_per_line})+2)*{chars_per_line} = {((draw_index//chars_per_line)+2)*chars_per_line}")
                                         draw_index = (((draw_index-1)//chars_per_line)+2)*chars_per_line
+                            elif viewed_text[c_i:c_i+viewed_text[c_i:].find(" ")] == self.file_content_text.charmap.dict_byte_to_unicode[(0xf3, None)].split(" ")[0]:
+                                mughsot_index = int(viewed_text[c_i+viewed_text[c_i:].find(" "):c_i+viewed_text[c_i:].find("┤")], 0)
+                                if mughsot_index != 0:
+                                    painter_mugshot = QtGui.QPainter()
+                                    painter_mugshot.begin(graphic_mugshot)
+                                    painter_mugshot.setRenderHints(QtGui.QPainter.RenderHint.Antialiasing | QtGui.QPainter.RenderHint.SmoothPixmapTransform, False)
+                                    painter_mugshot.setCompositionMode(QtGui.QPainter.CompositionMode.CompositionMode_Source)
+                                    if "ZXA" in self.rom.name.decode():
+                                        header = mugshot_obj.graphicHeaders[mughsot_index]
+                                        mughot_gfx = mugshot_obj.getGraphic(mughsot_index)
+                                    else:
+                                        header = mugshot_obj.graphicHeaders[mughsot_index-1] # 0 is not in the graphics list fo ZX
+                                        mughot_gfx = mugshot_obj.getGraphic(mughsot_index-1)
+                                    img = lib.datconv.binToQt(
+                                        mughot_gfx,
+                                        [0]*0x10+lib.datconv.BGR15_to_ARGB32(mugshot_obj.data[header.offset_start+0xc+header.palette_offset:header.offset_start+0xc+header.palette_offset+header.palette_size]),
+                                        lib.datconv.CompressionAlgorithmEnum.EIGHTBPP,
+                                        MUGSHOT_WIDTH_TILES, MUGSHOT_HEIGHT_TILES)
+                                    painter_mugshot.drawImage(
+                                        0,
+                                        0,
+                                        img
+                                    )
+                                    painter_mugshot.end()
                             elif viewed_text[c_i:c_i+viewed_text[c_i:].find(" ")] == self.file_content_text.charmap.dict_byte_to_unicode[(0xf1, None)].split(" ")[0]:
                                 color_index = int(viewed_text[c_i+viewed_text[c_i:].find(" "):c_i+viewed_text[c_i:].find("┤")], 0)
                         else: # draw char
@@ -2816,11 +2843,14 @@ class MainWindow(QtWidgets.QMainWindow):
                                 chr_index += self.file_content_text.charmap.dict_unicode_to_byte[c][1]
                             draw_char(chr_index, draw_index)
                             draw_index += 1
-                    painter.end()
-                self.gfx_view_dialogue.scene().addPixmap(graphic_text)
+                    painter_text.end()
+                item_text = self.gfx_view_dialogue.scene().addPixmap(graphic_text)
+                if "talk_" in self.fileToEdit_name:
+                    self.gfx_view_dialogue.scene().addPixmap(graphic_mugshot)
+                    item_text.setPos(6*8, 8)
                 self.gfx_view_dialogue.fitInView2()
             except Exception as e: # text was edited in a way that cannot be parsed yet
-                pass
+                raise e
 
 
     def OAM_updateItemGFX(self, obj_index: int, oamsec:lib.oam.OAMSection=None, frameIndex:int=None, gfxsec:lib.graphic.GraphicSection=None, objs:list[lib.oam.Object]=None, item: lib.widget.OAMObjectItem|None=None, palette:list[int]=None):
@@ -2836,13 +2866,13 @@ class MainWindow(QtWidgets.QMainWindow):
             raise TypeError("Only some arguments are defined")
         frame = oamsec.frameTable[frameIndex]
         gfxheader_index = frame[2]
-        if len(gfxsec.graphics) <= 0:
+        if len(gfxsec.graphicHeaders) <= 0:
             print("no graphics in section!")
             return
-        if gfxheader_index >= len(gfxsec.graphics):
+        if gfxheader_index >= len(gfxsec.graphicHeaders):
             print(f"Graphic Header at index {gfxheader_index} of Graphic Section does not exist!")
             return
-        gfxheader = gfxsec.graphics[gfxheader_index]
+        gfxheader = gfxsec.graphicHeaders[gfxheader_index]
         # in 4bpp, oam tile id * indexingFactor = vram tile id
         # in 8bpp, oam tile id * indexingFactor // 2 = vram tile id
         indexingFactor = 1 # I guess this is changed based on the size of assembled gfx
@@ -2868,7 +2898,7 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             print(f"unhandled tile indexing mode: {gfxheader.oam_tile_indexing:02X}")
         img_offset = gfxheader.offset_start - gfxsec.offset_start
-        if gfxsec.entry_size == 0x14:
+        if gfxsec.graphicHeader_size == 0x14:
             pal_off = img_offset + gfxheader.palette_offset+0xc
             pal = [0xffffffff]*(gfxheader.unk13 & 0xf0)
             pal.extend(lib.datconv.BGR15_to_ARGB32(gfxsec.data[pal_off:pal_off+gfxheader.palette_size]))
@@ -2914,8 +2944,8 @@ class MainWindow(QtWidgets.QMainWindow):
         #print(f"offset: {gfxOffset:04X}")
         #print(f"tile {tileId:02X}")
         depth = 4 # actual depth that will be used to render
-        if gfxsec.entry_size == 0x14:
-            depth = gfxsec.graphics[0].depth//2
+        if gfxsec.graphicHeader_size == 0x14:
+            depth = gfxsec.graphicHeaders[0].depth//2
         else:
             print("depth unknown", gfxheader.data.hex(), gfxsec.offset_start)
         depth_obj = lib.datconv.CompressionAlgorithmEnum.FOURBPP
@@ -3699,9 +3729,10 @@ class MainWindow(QtWidgets.QMainWindow):
                         pass # remain EMPTY
                     if self.fileDisplayState == "Dialogue":
                         if sender in self.FILEOPEN_WIDGETS:
-                            dialogue_lang = current_name.split("_")[2][:2] # get the two letters that indicate language
+                            #dialogue_lang = current_name.split("_")[-1][:2] # get the two letters that indicate language
+                            dialogue_charmap = current_name.split("_")[2][:2] # get the two letters that indicate charmap
                             try:
-                                self.file_content_text.charmap = self.gamedat.charmaps[dialogue_lang]
+                                self.file_content_text.charmap = self.gamedat.charmaps[dialogue_charmap]
                             except KeyError:
                                 self.file_content_text.charmap = lib.dialogue.CharMap()
                             self.dropdown_textindex.setEnabled(True)
@@ -3743,8 +3774,8 @@ class MainWindow(QtWidgets.QMainWindow):
                             self.tile_width = self.field_tile_width.sb.value()
                             self.tile_height = self.field_tile_height.sb.value()
                             if any(indicator in current_name for indicator in indicator_list["Mugshot"]): # for convenience
-                                self.tiles_per_column = 7
-                                self.tiles_per_row = 6
+                                self.tiles_per_column = MUGSHOT_HEIGHT_TILES
+                                self.tiles_per_row = MUGSHOT_WIDTH_TILES
                                 self.field_tiles_per_column.sb.setValue(self.tiles_per_column)
                                 self.field_tiles_per_row.sb.setValue(self.tiles_per_row)
                             elif "dm" in current_name:
@@ -3798,11 +3829,11 @@ class MainWindow(QtWidgets.QMainWindow):
                             if self.dropdown_gfx_subindex.count() > 0:
                                 if sender == self.dropdown_gfx_index or sender == self.dropdown_gfx_subindex or sender in self.FILEOPEN_WIDGETS or sender == self.checkbox_depthUpdate:
                                     header_index = self.dropdown_gfx_subindex.currentIndex()
-                                    gfx_current = gfxsec.graphics[header_index]
-                                    if self.checkbox_depthUpdate.isChecked() and gfxsec.entry_size == 0x14:
+                                    gfx_current = gfxsec.graphicHeaders[header_index]
+                                    if self.checkbox_depthUpdate.isChecked() and gfxsec.graphicHeader_size == 0x14:
                                         if gfx_current.depth//2 == 4:
                                             self.dropdown_gfx_depth.setCurrentIndex(1)
-                                            if gfxsec.entry_size == 0x14 and gfx_current.unk13 & 0x0f:
+                                            if gfxsec.graphicHeader_size == 0x14 and gfx_current.unk13 & 0x0f:
                                                 print("wrong depth guess(?)")
                                         elif gfx_current.depth//2 == 8:
                                             self.dropdown_gfx_depth.setCurrentIndex(2)
@@ -3827,7 +3858,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                         print(f"unk08: {gfx_current.unk08:02X}")
                                     if hasattr(gfx_current, "unk09"):
                                         print(f"unk09: {gfx_current.unk09:02X}")
-                                    if gfxsec.entry_size == 0x14:
+                                    if gfxsec.graphicHeader_size == 0x14:
                                         pal_off = gfx_current.offset_start + gfx_current.palette_offset+0xc
                                         pal_skip = (gfx_current.unk13 & 0xf0)
                                         pal = [0xffffffff]*pal_skip # shift palette
