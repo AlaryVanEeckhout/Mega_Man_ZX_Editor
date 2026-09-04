@@ -441,15 +441,15 @@ class PaletteSection:
     def toBytes(self):
         # convert properties back to bytes
         return ndspy.lz10.compress(self.data)
-    
+
 class PaletteHeader:
-    SIZE = 0x0C
+    ENTRY_SIZE = 0x0C
     def __init__(self, data: bytes):
         self.data = data
         self.palCount = int.from_bytes(self.data[0x00:0x04], 'little')
         self.palettes: list[int, int] = []
         for i in range(self.palCount):
-            self.palettes.append([int.from_bytes(self.data[0x04+i*0x08:i*0x08+0x08], 'little'), # ID?
+            self.palettes.append([int.from_bytes(self.data[0x04+i*0x08:i*0x08+0x08], 'little'), # ID
                                   int.from_bytes(self.data[0x08+i*0x08:i*0x08+0x0C], 'little')]) # Pointer
         self.palEnd = [int.from_bytes(self.data[0x04+self.palCount*0x08:self.palCount*0x08+0x08], 'little'),
                        int.from_bytes(self.data[0x08+self.palCount*0x08:self.palCount*0x08+0x0C], 'little')]

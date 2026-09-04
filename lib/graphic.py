@@ -1,4 +1,5 @@
 from lib import common
+import lib.datconv
 import bisect
 import ndspy.lz10
 
@@ -158,10 +159,21 @@ class GraphicSection(DataStructure):
             offset_end = file.fileSize
         return GraphicSection(file.data[offset_start:offset_end], start=offset_start, end=offset_end)
 
-    def getGraphic(self, index: int):
+    def getGraphic(self, index: int, offsetAdd: int=0):
         header = self.graphicHeaders[index]
-        return self.data[header.offset_start+header.gfx_offset:header.offset_start+header.gfx_offset+header.gfx_size]
-    
+        offset_start = header.offset_start - self.offset_start
+        return self.data[offset_start+header.gfx_offset+offsetAdd:offset_start+header.gfx_offset+offsetAdd+header.gfx_size]
+
+    def getPalette(self, index: int):
+        header = self.graphicHeaders[index]
+        if header.size < 0x14: return []  # empty palette because idk where it is
+        pal = [0xffffffff]*header.getPaletteSkip() # shift palette
+        offset_start = header.offset_start - self.offset_start
+        pal.extend(lib.datconv.BGR15_to_ARGB32(
+            self.data[offset_start+header.palette_offset+0x0C:offset_start+header.palette_offset+0x0C+header.palette_size]
+            )
+        )
+        return pal
 class GraphicHeader(DataStructure):
     def _init2(self):
         #print(type(self.data))
@@ -178,3 +190,6 @@ class GraphicHeader(DataStructure):
         self.palette_size = int.from_bytes(self.data[0x10:0x12], byteorder='little') # in bytes (color count * 2)
         self.depth = int.from_bytes(self.data[0x12:0x13], byteorder='little') # color depth * 2
         self.unk13 = int.from_bytes(self.data[0x13:0x14], byteorder='little') # palette shift?
+
+    def getPaletteSkip(self):
+        return self.unk13 & 0xf0 if self.size >= 0x14 else 0

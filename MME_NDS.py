@@ -2817,15 +2817,11 @@ class MainWindow(QtWidgets.QMainWindow):
                                     painter_mugshot.begin(graphic_mugshot)
                                     painter_mugshot.setRenderHints(QtGui.QPainter.RenderHint.Antialiasing | QtGui.QPainter.RenderHint.SmoothPixmapTransform, False)
                                     painter_mugshot.setCompositionMode(QtGui.QPainter.CompositionMode.CompositionMode_Source)
-                                    if "ZXA" in self.rom.name.decode():
-                                        header = mugshot_obj.graphicHeaders[mughsot_index]
-                                        mughot_gfx = mugshot_obj.getGraphic(mughsot_index)
-                                    else:
-                                        header = mugshot_obj.graphicHeaders[mughsot_index-1] # 0 is not in the graphics list fo ZX
-                                        mughot_gfx = mugshot_obj.getGraphic(mughsot_index-1)
+                                    if not "ZXA" in self.rom.name.decode():
+                                        mughsot_index -= 1
                                     img = lib.datconv.binToQt(
-                                        mughot_gfx,
-                                        [0]*0x10+lib.datconv.BGR15_to_ARGB32(mugshot_obj.data[header.offset_start+0xc+header.palette_offset:header.offset_start+0xc+header.palette_offset+header.palette_size]),
+                                        mugshot_obj.getGraphic(mughsot_index),
+                                        mugshot_obj.getPalette(mughsot_index),
                                         lib.datconv.CompressionAlgorithmEnum.EIGHTBPP,
                                         MUGSHOT_WIDTH_TILES, MUGSHOT_HEIGHT_TILES)
                                     painter_mugshot.drawImage(
@@ -2897,11 +2893,8 @@ class MainWindow(QtWidgets.QMainWindow):
             indexingFactor = 4
         else:
             print(f"unhandled tile indexing mode: {gfxheader.oam_tile_indexing:02X}")
-        img_offset = gfxheader.offset_start - gfxsec.offset_start
         if gfxsec.graphicHeader_size == 0x14:
-            pal_off = img_offset + gfxheader.palette_offset+0xc
-            pal = [0xffffffff]*(gfxheader.unk13 & 0xf0)
-            pal.extend(lib.datconv.BGR15_to_ARGB32(gfxsec.data[pal_off:pal_off+gfxheader.palette_size]))
+            pal = gfxsec.getPalette(gfxheader_index)
         else:
             #print("palette changed")
             #print(oamsec.paletteTable_count, oamsec.paletteTable_shift)
@@ -2938,9 +2931,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 if color is None: continue
                 pal[i] = color
         tileId = gfxheader.oam_tile_offset + obj.tileId
-        gfxOffset = img_offset + gfxheader.gfx_offset
         # multiply oam tile id by indexingFactor(relative to 4bpp) and 4bpp tile size to get vram tile id
-        gfxOffset += int(tileId*indexingFactor*32) # 8*8pixels*4bpp/8bits = 32bytes
+        gfxOffset = int(tileId*indexingFactor*32) # 8*8pixels*4bpp/8bits = 32bytes
         #print(f"offset: {gfxOffset:04X}")
         #print(f"tile {tileId:02X}")
         depth = 4 # actual depth that will be used to render
@@ -2954,13 +2946,13 @@ class MainWindow(QtWidgets.QMainWindow):
                 depth_obj = member
         try: #gfxOffset+img_current.gfx_size
             if isinstance(obj, lib.oam.Object3D):
-                obj_img = lib.datconv.binToQt(gfxsec.data[gfxOffset:], pal,
+                obj_img = lib.datconv.binToQt(gfxsec.getGraphic(gfxheader_index, gfxOffset), pal,
                     depth_obj,
                     1,
                     obj.getHeight(), obj.getTileWidth()
                 )
             else:
-                obj_img = lib.datconv.binToQt(gfxsec.data[gfxOffset:], pal,
+                obj_img = lib.datconv.binToQt(gfxsec.getGraphic(gfxheader_index, gfxOffset), pal,
                     depth_obj,
                     obj.getWidth(),
                     obj.getHeight()
@@ -3859,15 +3851,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                     if hasattr(gfx_current, "unk09"):
                                         print(f"unk09: {gfx_current.unk09:02X}")
                                     if gfxsec.graphicHeader_size == 0x14:
-                                        pal_off = gfx_current.offset_start + gfx_current.palette_offset+0xc
-                                        pal_skip = (gfx_current.unk13 & 0xf0)
-                                        pal = [0xffffffff]*pal_skip # shift palette
-                                        pal.extend(lib.datconv.BGR15_to_ARGB32(self.rom.files[current_id][pal_off:pal_off+gfx_current.palette_size]))
                                         print(f"unk13 & 0F: {gfx_current.unk13 & 0x0f:02X}")
-                                    else:
-                                        pal_skip = 0
-                                        pal = [] # empty palette because idk where it is
-                                    self.setPalette(pal, pal_skip)
+                                    self.setPalette(gfxsec.getPalette(header_index), gfx_current.getPaletteSkip())
                             else:
                                 print(f"{gfxsec.entryCount} graphic sub-entries!")
                                 #print(f"data: {gfxsec.data.hex()}")
