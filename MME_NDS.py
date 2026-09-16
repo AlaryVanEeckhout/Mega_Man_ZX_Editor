@@ -20,6 +20,7 @@ isVXSupported = bool("lib.actimagine.package.actimagine" in sys.modules)
 from lib.common import PATH_ROOT
 from lib.gamedat import MUGSHOT_WIDTH_TILES, MUGSHOT_HEIGHT_TILES
 SPACES_FOLDER = "    "
+PARTITION_REGEX = r".*(_\d+)$"
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-R", "--ROM", help="NDS ROM to open using the editor.", dest="openPath")
@@ -1133,7 +1134,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.button_sdat_tracks_off.pressed.connect(lambda: self.mute_tracks(True))
         self.container_sdat_tracks.layout().addWidget(self.button_sdat_tracks_on, 0, 0, 1, 8)
         self.container_sdat_tracks.layout().addWidget(self.button_sdat_tracks_off, 0, 8, 1, 8)
-        self.buttons_sdat_track = []
+        self.buttons_sdat_track: list[QtWidgets.QPushButton] = []
         for i in range(16):
             setattr(self, f"button_sdat_track_{i}", QtWidgets.QPushButton(str(i), self.dialog_sdat))
             button_sdat_track: QtWidgets.QPushButton = getattr(self, f"button_sdat_track_{i}")
@@ -2405,6 +2406,140 @@ class MainWindow(QtWidgets.QMainWindow):
                         dialog2.setText(f"folder \"{item.text(1)}\" exported!")
                     dialog2.exec()
 
+    def getFileData(self, selectedFiles: list[str], isFolder: bool=False, fileInfo: FileInfo=None, dialog_err: QtWidgets.QMessageBox=None):
+        if dialog_err is None:
+            dialog_err = QtWidgets.QMessageBox()
+            dialog_err.setWindowTitle("Import Status")
+            dialog_err.setWindowIcon(QtGui.QIcon(PATH_ROOT + 'icons/information'))
+            dialog_err.setText("Failed to fetch data from selected files!")
+        file_obj = None
+        if fileInfo is not None and not isFolder and str(selectedFiles[0]).split("/")[-1].split(".")[1] == "txt" and re.search(PARTITION_REGEX, str(selectedFiles[0]).split("/")[-1].split(".")[0]): # fileExt and fileName
+            file_obj = lib.dialogue.DialogueFile(fileInfo.data) # object created before loop to improve performance
+        for file in selectedFiles:
+            try:
+                fileName = str(file).split("/")[-1].split(".")[0]
+                fileExt = str(file).split("/")[-1].split(".")[-1]
+            except IndexError:
+                fileName = ""
+                fileExt = ""
+            if not isFolder:
+                with open(file, 'rb') as f:
+                    fileEdited = f.read()
+                    #print(fileExt)
+                    # find a way to get attr and replace data at correct index.. maybe it's better to just save ROM and patch
+                    #self.rom.files[self.rom.files.index(self.file_fromItem(item).data)]
+                    supported_list = ["txt", "bmp",
+                                        "swar", "sbnk", "ssar", "sseq",
+                                        "cmp", "blz", "lz", "lz10", "lz77", 
+                                        "dec", "declz", "declz10", "declz77", "decblz",
+                                        "bin", "vx", ""]
+                    #print(selectedFiles)
+                    print(f.name)
+                    #print(fileName + "." + fileExt)
+                    if not any(supported == fileExt.lower() for supported in supported_list): # unknown
+                        dialog_err.exec()
+                        return
+                    if fileExt == "txt": # english text file
+                        # match the indicator that the file is a chunk of the original file
+                        if ("en" in fileName or "jp" in fileName) and (re.search(PARTITION_REGEX, fileName) and isinstance(file_obj, lib.dialogue.DialogueFile)):
+                            file_obj.text_list[int(fileName.split("_")[-1])] = fileEdited.decode("utf-8") # add file text to object
+                            if selectedFiles.index(file) == len(selectedFiles)-1: # if at last selected file
+                                data = file_obj.toBytes() # generate final binary to import (done only once to improve performance)
+                        else: #the file was generated in forced dialogue state or in an older version
+                            print("no DialogueFile associated with ", fileName)
+                            try:
+                                if "en" in fileName:
+                                    data = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8"), self.gamedat.charmaps["en"]))
+                                elif "jp" in fileName:
+                                    data = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8"), self.gamedat.charmaps["jp"]))
+                                else:
+                                    data = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8")))
+                            except RuntimeError as e:
+                                print(e)
+                                dialog_err.setText("Unable to properly parse dialogue data!\nIf this file was exported on a previous version of the editor,\nmake sure the special commands like \"COUNTER\" (0xF9) have the updated name.")
+                                dialog_err.exec()
+                                return
+                    elif fileExt == "bmp":
+                        img = QtGui.QImage()
+                        img.load(file)
+                        for member in lib.datconv.CompressionAlgorithmEnum:
+                            if member.depth == img.depth():
+                                algorithm = member
+                        data = lib.datconv.qtToBin(img, algorithm=algorithm)
+                    elif fileExt == "blz":
+                        try:
+                            data = bytearray(ndspy.codeCompression.decompress(fileEdited))
+                        except TypeError as e:
+                            print(e)
+                            QtWidgets.QMessageBox.critical(
+                            self,
+                            "Compression Failed",
+                            str(e + "\nMake sure the file has the correct extension.")
+                            )
+                            print("Aborted file replacement.")
+                            return
+                    elif fileExt == "cmp" or ("lz" in fileExt and not "dec" in fileExt):
+                        try:
+                            data = bytearray(ndspy.lz10.decompress(fileEdited))
+                        except TypeError as e:
+                            print(e)
+                            QtWidgets.QMessageBox.critical(
+                            self,
+                            "Decompression Failed",
+                            str(e + "\nMake sure the file has the correct extension.")
+                            )
+                            print("Aborted file replacement.")
+                            return
+                    elif fileExt == "decblz":
+                        data = bytearray(ndspy.codeCompression.compress(fileEdited))
+                        data += bytearray((-len(data)) & 0xF) # 16-byte padding
+                    elif "dec" in fileExt:
+                        data = bytearray(ndspy.lz10.compress(fileEdited))
+                        data += bytearray((-len(data)) & 3) # 4-byte padding
+                    else: # raw data
+                        data = bytearray(fileEdited)
+            else:
+                print("folder import")
+                if fileExt == "vx":
+                    print("is vx")
+                    if not isVXSupported:
+                        QtWidgets.QMessageBox.critical(
+                            self,
+                            "Unavailable feature",
+                            "The editor cannot perform VX import due to dependency issues.\nMake sure the actimagine library is installed in the appropriate directory."
+                        )
+                        return
+                    self.progressShow()
+                    self.progressUpdate(0, "Loading folder", False)
+                    act = lib.act.ActImagine()
+                    try:
+                        import_vxfolder_iter = act.import_vxfolder(file)
+                    except Exception as e:
+                        print(e)
+                        print("This folder is not formatted properly!")
+                        self.progressHide()
+                        return
+                    self.progressUpdate(0, "Preparing encoding")
+                    for i, _ in enumerate(import_vxfolder_iter):
+                        self.progressUpdate(50, f"Preparing encoding (processing frame {i+1}/???)")
+                    self.progressUpdate(100, "Preparing encoding")
+                    vframe_strategy = lib.actEncVStrats.SimpleKeyframeOnly()
+                    aframe_strategy = lib.actEncAStrats.SimplePulseExtend()
+                    for i, avframe in enumerate(act.avframes):
+                        avframe.encode(avframe.vframe.plane_buffers, vframe_strategy, aframe_strategy)
+                        self.progressUpdate(int(((i+1)/act.frames_qty)*100), f"Encoding VX folder (frame {i+1}/{act.frames_qty})")
+                    data = act.save_vx()
+                    self.progressHide()
+                else:
+                    print("not a special folder")
+                    QtWidgets.QMessageBox.information(
+                        self,
+                        "Unknown Format",
+                        "The editor does not know what to do with this folder.\nIf you want it to be treated as a VX folder, please add \".vx\" at the end of its name."
+                    )
+                    return
+        return data
+
     def replacebynameCall(self):
         if hasattr(w.rom, "name"):
             dialog = QtWidgets.QFileDialog(
@@ -2415,41 +2550,28 @@ class MainWindow(QtWidgets.QMainWindow):
                 options=QtWidgets.QFileDialog.Option.DontUseNativeDialog,
                 )
             dialog.setLabelText(QtWidgets.QFileDialog.DialogLabel.Accept, "Import")
-            dialog.setLabelText(QtWidgets.QFileDialog.DialogLabel.FileName, "ROM file:")
+            dialog.setLabelText(QtWidgets.QFileDialog.DialogLabel.FileName, "ROM filesystem file:")
             if dialog.exec():
                 selectedFiles = dialog.selectedFiles()
                 dialog2 = QtWidgets.QMessageBox()
                 dialog2.setWindowTitle("Import Status")
                 dialog2.setWindowIcon(QtGui.QIcon(PATH_ROOT + 'icons/information'))
                 dialog2.setText("File \"" + str(selectedFiles[0]).split("/")[-1] + "\" imported!")
+                data = self.getFileData(selectedFiles)
+                fileName = str(selectedFiles[0]).split("/")[-1]
                 if str(selectedFiles[0]).split("/")[-1].removesuffix("']") in str(self.rom.filenames): # if file you're trying to replace is in ROM
-                    with open(*selectedFiles, 'rb') as f:
-                        fileEdited = f.read()
-                        w.rom.setFileByName(str(f.name).split("/")[-1], bytearray(fileEdited))
-                    dialog2.exec()
+                    w.rom.setFileByName(fileName, data)
                 elif str(selectedFiles[0]).split("/")[-1].split(".")[0] in [filename[filename.rfind(" ")+1:filename.find(".")] for filename in str(self.rom.filenames).split("\n")]: # if filename of file(without extension) you're trying to replace is in ROM
-                    with open(*selectedFiles, 'rb') as f:
-                        fileEdited = f.read()
-                        if str(f.name).split("/")[-1].split(".")[1] == "txt":
-                            #print(w.rom.filenames.idOf(str(selectedFiles).split("/")[-1].removesuffix("']").replace(".txt", ".bin")))
-                            if "en" in str(f.name):
-                                w.rom.files[w.rom.filenames.idOf(str(f.name).split("/")[-1].replace(".txt", ".bin"))] = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8"), self.gamedat.charmaps["en"]))
-                            elif "jp" in str(f.name):
-                                w.rom.files[w.rom.filenames.idOf(str(f.name).split("/")[-1].replace(".txt", ".bin"))] = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8"), self.gamedat.charmaps["jp"]))
-                            dialog2.exec()
-                        else:
-                            QtWidgets.QMessageBox.critical(
-                            self,
-                            "Format not recognized",
-                            "Please select a file that is supported by the editor."
-                            )
+                    w.rom.files[w.rom.filenames.idOf(fileName+".bin")] = data
                 else:
-                    QtWidgets.QMessageBox.critical(
-                    self,
-                    "File \"" + str(selectedFiles[0]).split("/")[-1].removesuffix("']") + "\" not found in game files",
-                    "Please select a file that has the same name as an existing ROM file."
+                    dialog2.setText(
+                        "File \"" + str(selectedFiles[0]).split("/")[-1].removesuffix("']") + "\" not found in game files.\n"+
+                        "Please select a file that has the same name as an existing file within the ROM."
                     )
                 self.treeCall()
+                dialog2.exec()
+
+    #def addCall
 
     def switch_dialogMode(self, dialog: QtWidgets.QFileDialog):
         nameFilters = dialog.nameFilters()
@@ -2471,7 +2593,6 @@ class MainWindow(QtWidgets.QMainWindow):
             dialog.filterSelected.connect(lambda: self.switch_dialogMode(dialog))
             dialog.setLabelText(QtWidgets.QFileDialog.DialogLabel.Accept, "Import")
             dialog.setLabelText(QtWidgets.QFileDialog.DialogLabel.FileName, "Source:")
-            PARTITION_REGEX = r".*(_\d+)$"
             if dialog.exec(): # if file you're trying to replace is in ROM
                     isFolder = dialog.selectedNameFilter() == "Directories"
                     selectedFiles = dialog.selectedFiles()
@@ -2480,133 +2601,10 @@ class MainWindow(QtWidgets.QMainWindow):
                     dialog2.setWindowIcon(QtGui.QIcon(PATH_ROOT + 'icons/information'))
                     dialog2.setText("File import failed!")
                     fileInfo = self.file_fromItem(item)
-                    if fileInfo is None:
+                    if fileInfo is None or fileInfo.objects[0] is None:
                         dialog2.exec()
                         return
-                    if not isFolder and str(selectedFiles[0]).split("/")[-1].split(".")[1] == "txt" and re.search(PARTITION_REGEX, str(selectedFiles[0]).split("/")[-1].split(".")[0]): # fileExt and fileName
-                        dialogue = lib.dialogue.DialogueFile(fileInfo.data) # object created before loop to improve performance
-                    for file in selectedFiles:
-                        try:
-                            fileName = str(file).split("/")[-1].split(".")[0]
-                            fileExt = str(file).split("/")[-1].split(".")[-1]
-                        except IndexError:
-                            fileName = ""
-                            fileExt = ""
-                        if not isFolder:
-                            with open(file, 'rb') as f:
-                                fileEdited = f.read()
-                                #print(fileExt)
-                                # find a way to get attr and replace data at correct index.. maybe it's better to just save ROM and patch
-                                #self.rom.files[self.rom.files.index(self.file_fromItem(item).data)]
-                                supported_list = ["txt", "bmp",
-                                                  "swar", "sbnk", "ssar", "sseq",
-                                                  "cmp", "blz", "lz", "lz10", "lz77", 
-                                                  "dec", "declz", "declz10", "declz77", "decblz",
-                                                  "bin", "vx", ""]
-                                #print(selectedFiles)
-                                print(f.name)
-                                #print(fileName + "." + fileExt)
-                                if not any(supported == fileExt.lower() for supported in supported_list): # unknown
-                                    dialog2.exec()
-                                    return
-                                elif not isinstance(fileInfo.objects[0], type(None)):
-                                    if fileExt == "txt": # english text file
-                                        # match the indicator that the file is a chunk of the original file
-                                        if ("en" in fileName or "jp" in fileName) and (re.search(PARTITION_REGEX, fileName) and dialogue):
-                                            dialogue.text_list[int(fileName.split("_")[-1])] = fileEdited.decode("utf-8") # add file text to object
-                                            if selectedFiles.index(file) == len(selectedFiles)-1: # if at last selected file
-                                                data = dialogue.toBytes() # generate final binary to import (done only once to improve performance)
-                                        else: #the file was generated in forced dialogue state or in an older version
-                                            print(fileName)
-                                            try:
-                                                data = bytearray(lib.dialogue.DialogueFile.textToBin(fileEdited.decode("utf-8")))
-                                            except RuntimeError as e:
-                                                print(e)
-                                                dialog2.setText("Unable to properly parse dialogue data!\nIf this file was exported on a previous version of the editor,\nmake sure the special commands like \"COUNTER\" (0xF9) have the updated name.")
-                                                dialog2.exec()
-                                                return
-                                    elif fileExt == "bmp":
-                                        img = QtGui.QImage()
-                                        img.load(file)
-                                        for member in lib.datconv.CompressionAlgorithmEnum:
-                                            if member.depth == img.depth():
-                                                algorithm = member
-                                        data = lib.datconv.qtToBin(img, algorithm=algorithm)
-                                    elif fileExt == "blz":
-                                        try:
-                                            data = bytearray(ndspy.codeCompression.decompress(fileEdited))
-                                        except TypeError as e:
-                                            print(e)
-                                            QtWidgets.QMessageBox.critical(
-                                            self,
-                                            "Compression Failed",
-                                            str(e + "\nMake sure the file has the correct extension.")
-                                            )
-                                            print("Aborted file replacement.")
-                                            return
-                                    elif fileExt == "cmp" or ("lz" in fileExt and not "dec" in fileExt):
-                                        try:
-                                            data = bytearray(ndspy.lz10.decompress(fileEdited))
-                                        except TypeError as e:
-                                            print(e)
-                                            QtWidgets.QMessageBox.critical(
-                                            self,
-                                            "Decompression Failed",
-                                            str(e + "\nMake sure the file has the correct extension.")
-                                            )
-                                            print("Aborted file replacement.")
-                                            return
-                                    elif fileExt == "decblz":
-                                        data = bytearray(ndspy.codeCompression.compress(fileEdited))
-                                        data += bytearray((-len(data)) & 0xF) # 16-byte padding
-                                    elif "dec" in fileExt:
-                                        data = bytearray(ndspy.lz10.compress(fileEdited))
-                                        data += bytearray((-len(data)) & 3) # 4-byte padding
-                                    else: # raw data
-                                        data = bytearray(fileEdited)
-                                else:
-                                    dialog2.exec()
-                                    return
-                        else:
-                            print("folder import")
-                            if fileExt == "vx":
-                                print("is vx")
-                                if not isVXSupported:
-                                    QtWidgets.QMessageBox.critical(
-                                        self,
-                                        "Unavailable feature",
-                                        "The editor cannot perform VX import due to dependency issues.\nMake sure the actimagine library is installed in the appropriate directory."
-                                    )
-                                    return
-                                self.progressShow()
-                                self.progressUpdate(0, "Loading folder", False)
-                                act = lib.act.ActImagine()
-                                try:
-                                    import_vxfolder_iter = act.import_vxfolder(file)
-                                except Exception as e:
-                                    print(e)
-                                    print("This folder is not formatted properly!")
-                                    self.progressHide()
-                                    return
-                                self.progressUpdate(0, "Preparing encoding")
-                                for i, _ in enumerate(import_vxfolder_iter):
-                                    self.progressUpdate(50, f"Preparing encoding (processing frame {i+1}/???)")
-                                self.progressUpdate(100, "Preparing encoding")
-                                vframe_strategy = lib.actEncVStrats.SimpleKeyframeOnly()
-                                aframe_strategy = lib.actEncAStrats.SimplePulseExtend()
-                                for i, avframe in enumerate(act.avframes):
-                                    avframe.encode(avframe.vframe.plane_buffers, vframe_strategy, aframe_strategy)
-                                    self.progressUpdate(int(((i+1)/act.frames_qty)*100), f"Encoding VX folder (frame {i+1}/{act.frames_qty})")
-                                data = act.save_vx()
-                                self.progressHide()
-                            else:
-                                print("not a special folder")
-                                QtWidgets.QMessageBox.information(
-                                    self,
-                                    "Unknown Format",
-                                    "The editor does not know what to do with this folder.\nIf you want it to be treated as a VX folder, please add \".vx\" at the end of its name."
-                                )
-                                return
+                    data = self.getFileData(selectedFiles, isFolder, fileInfo, dialog2)
                     if isinstance(fileInfo.objects[0], bytearray): # other
                             data_i = fileInfo.objects[0].index(fileInfo.data)
                             fileInfo.objects[0][data_i:data_i+len(fileInfo.data)] = data
@@ -2621,13 +2619,13 @@ class MainWindow(QtWidgets.QMainWindow):
                             if value == fileInfo.objects[2]:
                                 categoryName = key
                                 break
-                        newName = fileName
+                        newName = selectedFiles[0].split("/")[-1].split(".")[0]
                         if len(fileInfo.objects) > 3: # object listed within object in one of the sdat sections
                             oldObject = fileInfo.objects[-1] # the most specific object
                         else: # if data can only be bytes, this else should be removed, because bytes does not have "fromFile"
                             oldObject = fileInfo.data
                         try:
-                            newObject = type(oldObject).fromFile(f.name)
+                            newObject = type(oldObject).fromFile(selectedFiles[0])
                         except Exception as e:
                             print(e)
                             dialog2.exec()

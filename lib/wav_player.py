@@ -279,6 +279,7 @@ class SSEQPlayer:
 
     def process_events_of_track(self, track_current: int):
         track = self.tracks[track_current]
+        if track is None: return
         is_not_muted = bool(self.trackButtons is None or not self.trackButtons[track_current].isChecked())
         if is_not_muted:
             print(f"track: {track_current} tempo {self.tempo}")
