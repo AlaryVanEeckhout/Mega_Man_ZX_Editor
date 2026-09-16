@@ -9,7 +9,7 @@ import ndspy
 #import ndspy.graphics2D
 #import ndspy.model
 import ndspy.lz10
-import ndspy.rom, ndspy.codeCompression, ndspy.code
+import ndspy.rom, ndspy.codeCompression, ndspy.code, ndspy.fnt
 import ndspy.soundArchive
 import lib
 try:
@@ -216,13 +216,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.replacebynameAction.setStatusTip('Replace with file of same name in binary or converted format')
         self.replacebynameAction.triggered.connect(self.replacebynameCall)
 
+        self.insertfAction = QtGui.QAction(QtGui.QIcon(PATH_ROOT + 'icons/blue-document-import'), '&Insert...', self)        
+        self.insertfAction.setStatusTip('Add file to filesystem in binary or converted format')
+        self.insertfAction.triggered.connect(self.insertCall)
+
         self.menu_bar = self.menuBar()
         self.fileMenu = self.menu_bar.addMenu('&File')
         self.fileMenu.addActions([self.openAction, self.saveAction, self.exportAction])
         self.importSubmenu = self.fileMenu.addMenu('&Import...')
         #self.importSubmenu.setStatusTip('Use external file to replace a file in ROM')
         self.importSubmenu.setIcon(QtGui.QIcon(PATH_ROOT + 'icons/blue-document-import'))
-        self.importSubmenu.addActions([self.replaceAction, self.replacebynameAction])
+        self.importSubmenu.addActions([self.replaceAction, self.replacebynameAction, self.insertfAction])
         self.importSubmenu.setDisabled(True)
 
 
@@ -2571,7 +2575,44 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.treeCall()
                 dialog2.exec()
 
-    #def addCall
+    def insertCall(self):
+        if hasattr(w.rom, "name"):
+            dialog = QtWidgets.QFileDialog(
+                self,
+                "Imoort File",
+                "",
+                "All Files (*)",
+                options=QtWidgets.QFileDialog.Option.DontUseNativeDialog,
+                )
+            dialog.setLabelText(QtWidgets.QFileDialog.DialogLabel.Accept, "Import")
+            dialog.setLabelText(QtWidgets.QFileDialog.DialogLabel.FileName, "file to insert:")
+            if dialog.exec():
+                selectedFiles = dialog.selectedFiles()
+                dialog_settings = QtWidgets.QMessageBox()
+                dialog_settings.setWindowTitle("Import Settings")
+                lineedit_folderName = QtWidgets.QLineEdit(dialog_settings)
+                lineedit_folderName.setPlaceholderText("Folder name")
+                dialog_settings.setLayout(QtWidgets.QGridLayout())
+                dialog_settings.layout().addWidget(lineedit_folderName, 0,0)
+                if dialog_settings.exec():
+                    dialog_err = QtWidgets.QMessageBox()
+                    dialog_err.setWindowTitle("Import Status")
+                    dialog_err.setWindowIcon(QtGui.QIcon(PATH_ROOT + 'icons/information'))
+                    dialog_err.setText("File \"" + str(selectedFiles[0]).split("/")[-1] + "\" imported!")
+                    data = self.getFileData(selectedFiles)
+                    if data is not None:
+                        fileName = str(selectedFiles[0]).split("/")[-1]
+                        self.rom.files.append(data)
+                        folderName = lineedit_folderName.text()
+                        if self.rom.filenames.subfolder(folderName) is None:
+                            self.rom.filenames.folders.append((folderName, ndspy.fnt.Folder(None, [fileName], len(self.rom.files)-1)))
+                        else:
+                            folder = self.rom.filenames.subfolder(folderName)
+                            folder.files.append(fileName)
+                        self.loadFat()
+                        print(len(self.rom.files)-1)
+                        self.treeUpdate()
+                        dialog_err.exec()
 
     def switch_dialogMode(self, dialog: QtWidgets.QFileDialog):
         nameFilters = dialog.nameFilters()
