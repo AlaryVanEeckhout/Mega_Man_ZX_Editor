@@ -2544,24 +2544,33 @@ class MainWindow(QtWidgets.QMainWindow):
                     return
         return data
 
+    def switch_dialogMode(self, dialog: QtWidgets.QFileDialog):
+        nameFilters = dialog.nameFilters()
+        index = nameFilters.index(dialog.selectedNameFilter())
+        dialog.setFileMode([QtWidgets.QFileDialog.FileMode.ExistingFiles, QtWidgets.QFileDialog.FileMode.Directory][index])
+        dialog.setNameFilters([nameFilters[0], nameFilters[1]]) # setting to directory removes non-directory filters, so fix that
+        dialog.selectNameFilter(dialog.nameFilters()[index]) # resetting filters resets selection, so re-select desired option
+
     def replacebynameCall(self):
         if hasattr(w.rom, "name"):
             dialog = QtWidgets.QFileDialog(
                 self,
                 "Import File",
                 "",
-                "All Files (*)",
+                "All Files (*);;Directories",
                 options=QtWidgets.QFileDialog.Option.DontUseNativeDialog,
                 )
+            dialog.filterSelected.connect(lambda: self.switch_dialogMode(dialog))
             dialog.setLabelText(QtWidgets.QFileDialog.DialogLabel.Accept, "Import")
             dialog.setLabelText(QtWidgets.QFileDialog.DialogLabel.FileName, "ROM filesystem file:")
             if dialog.exec():
+                isFolder = dialog.selectedNameFilter() == "Directories"
                 selectedFiles = dialog.selectedFiles()
                 dialog2 = QtWidgets.QMessageBox()
                 dialog2.setWindowTitle("Import Status")
                 dialog2.setWindowIcon(QtGui.QIcon(PATH_ROOT + 'icons/information'))
                 dialog2.setText("File \"" + str(selectedFiles[0]).split("/")[-1] + "\" imported!")
-                data = self.getFileData(selectedFiles)
+                data = self.getFileData(selectedFiles, isFolder)
                 fileName = str(selectedFiles[0]).split("/")[-1]
                 if str(selectedFiles[0]).split("/")[-1].removesuffix("']") in str(self.rom.filenames): # if file you're trying to replace is in ROM
                     w.rom.setFileByName(fileName, data)
@@ -2581,12 +2590,15 @@ class MainWindow(QtWidgets.QMainWindow):
                 self,
                 "Imoort File",
                 "",
-                "All Files (*)",
+                "All Files (*);;Directories",
                 options=QtWidgets.QFileDialog.Option.DontUseNativeDialog,
                 )
+            dialog.setFileMode(QtWidgets.QFileDialog.FileMode.ExistingFiles) # allow more than one file to be selected
+            dialog.filterSelected.connect(lambda: self.switch_dialogMode(dialog))
             dialog.setLabelText(QtWidgets.QFileDialog.DialogLabel.Accept, "Import")
             dialog.setLabelText(QtWidgets.QFileDialog.DialogLabel.FileName, "file to insert:")
             if dialog.exec():
+                isFolder = dialog.selectedNameFilter() == "Directories"
                 selectedFiles = dialog.selectedFiles()
                 dialog_settings = QtWidgets.QMessageBox()
                 dialog_settings.setWindowTitle("Import Settings")
@@ -2599,7 +2611,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     dialog_err.setWindowTitle("Import Status")
                     dialog_err.setWindowIcon(QtGui.QIcon(PATH_ROOT + 'icons/information'))
                     dialog_err.setText("File \"" + str(selectedFiles[0]).split("/")[-1] + "\" imported!")
-                    data = self.getFileData(selectedFiles)
+                    data = self.getFileData(selectedFiles, isFolder)
                     if data is not None:
                         fileName = str(selectedFiles[0]).split("/")[-1]
                         self.rom.files.append(data)
@@ -2613,13 +2625,6 @@ class MainWindow(QtWidgets.QMainWindow):
                         print(len(self.rom.files)-1)
                         self.treeUpdate()
                         dialog_err.exec()
-
-    def switch_dialogMode(self, dialog: QtWidgets.QFileDialog):
-        nameFilters = dialog.nameFilters()
-        index = nameFilters.index(dialog.selectedNameFilter())
-        dialog.setFileMode([QtWidgets.QFileDialog.FileMode.ExistingFiles, QtWidgets.QFileDialog.FileMode.Directory][index])
-        dialog.setNameFilters([nameFilters[0], nameFilters[1]]) # setting to directory removes non-directory filters, so fix that
-        dialog.selectNameFilter(dialog.nameFilters()[index]) # resetting filters resets selection, so re-select desired option
 
     def replaceCall(self, item: QtWidgets.QTreeWidgetItem):
         if hasattr(w.rom, "name"):
@@ -2719,6 +2724,35 @@ class MainWindow(QtWidgets.QMainWindow):
                     dialog2.exec()
                     self.treeCall()
     
+    def deleteCall(self, item: QtWidgets.QTreeWidgetItem):
+        fileInfo = self.file_fromItem(item)
+        if len(fileInfo.objects) == 1:
+            fileID = int(item.text(0))
+            path = self.rom.filenames.filenameOf(fileID)
+            if item.text(2) != "Folder":
+                self.rom.files.pop(fileID)
+                print("removing", path)
+                if "/" in path:
+                    path_folder = path[:path.rfind("/")]
+                    folder = self.rom.filenames.subfolder(path_folder)
+                    folder.files.pop(fileID-folder.firstID)
+                else:
+                    self.rom.filenames.files.pop(fileID-self.rom.filenames.firstID)
+            else:
+                path_folder_parent = "/".join(path.split("/")[:-2])
+                if path_folder_parent != "":
+                    folder_parent = self.rom.filenames.subfolder(path_folder_parent)
+                else:
+                    folder_parent = self.rom.filenames
+                folder_i, string, folder = [(i, string, folder) for i, (string, folder) in enumerate(folder_parent.folders) if folder.firstID == fileID][0]
+                print("removing", string)
+                del self.rom.files[folder.firstID:folder.firstID+len(folder.files)]
+                folder_parent.folders.pop(folder_i)
+            self.loadFat()
+        else:
+            raise NotImplementedError
+        self.treeUpdate()
+
     def switch_theme(self, isupdate=False):
         if isupdate == False:
             self.theme_index = self.dropdown_theme.currentIndex()
@@ -3378,6 +3412,7 @@ class MainWindow(QtWidgets.QMainWindow):
         #print("code")
 
     def treeUpdate(self): # files from filename table (fnt.bin)
+        self.tree.setCurrentItem(None)
         tree_files: list[QtWidgets.QTreeWidgetItem] = []
         try: # convert NDS Py filenames to QTreeWidgetItems
             if self.rom != None and self.rom.files != []:

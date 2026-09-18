@@ -536,6 +536,7 @@ class EditorTree(QtWidgets.QTreeWidget):
             contextName = self.currentItem().text(1) + ("." + self.currentItem().text(2)).replace(".Folder", " and contents")
         exportAction = self.context_menu.addAction("Export " + contextName)
         importAction = self.context_menu.addAction("Replace " + contextName)
+        deleteAction = self.context_menu.addAction("Delete " + contextName)
         if self.currentItem().text(2) == "sdat":
             sdatAction = self.context_menu.addAction("Open Sound Archive")
         action2 = self.context_menu.exec()
@@ -544,6 +545,8 @@ class EditorTree(QtWidgets.QTreeWidget):
                 self.getMainWindow().exportCall(self.currentItem())
             elif action2 == importAction:
                 self.getMainWindow().replaceCall(self.currentItem())
+            elif action2 == deleteAction:
+                self.getMainWindow().deleteCall(self.currentItem())
             elif action2 == sdatAction:
                 self.getMainWindow().dialogOpenCall("dialog_sdat")
                 self.getMainWindow().dropdown_sdat.setCurrentIndex(self.getMainWindow().dropdown_sdat.findText(self.currentItem().text(0), QtCore.Qt.MatchFlag.MatchContains))
