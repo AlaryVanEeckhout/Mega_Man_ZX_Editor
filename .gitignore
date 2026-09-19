@@ -4,6 +4,8 @@
 #cache
 *.tmp
 *.pyc
+#backup
+*.bak
 #init
 *.ini
 #themes
@@ -23,6 +25,7 @@
 *.mp4
 #specific files
 !requirements.txt
+.vscode/*
 ndspy/*
 devtools/*
 export/*

@@ -19,8 +19,9 @@ except ImportError:
 isVXSupported = bool("lib.actimagine.package.actimagine" in sys.modules)
 from lib.common import PATH_ROOT
 from lib.gamedat import MUGSHOT_WIDTH_TILES, MUGSHOT_HEIGHT_TILES
-SPACES_FOLDER = "    "
-PARTITION_REGEX = r".*(_\d+)$"
+REGEX_PARTITION = r".*(_\d+)$"
+REGEX_FAT = r'[^\\/\?"<>\*|:;]+'
+VALIDATOR_FAT = QtGui.QRegularExpressionValidator(QtCore.QRegularExpression(REGEX_FAT))
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-R", "--ROM", help="NDS ROM to open using the editor.", dest="openPath")
@@ -2417,7 +2418,7 @@ class MainWindow(QtWidgets.QMainWindow):
             dialog_err.setWindowIcon(QtGui.QIcon(PATH_ROOT + 'icons/information'))
             dialog_err.setText("Failed to fetch data from selected files!")
         file_obj = None
-        if fileInfo is not None and not isFolder and str(selectedFiles[0]).split("/")[-1].split(".")[1] == "txt" and re.search(PARTITION_REGEX, str(selectedFiles[0]).split("/")[-1].split(".")[0]): # fileExt and fileName
+        if fileInfo is not None and not isFolder and str(selectedFiles[0]).split("/")[-1].split(".")[1] == "txt" and re.search(REGEX_PARTITION, str(selectedFiles[0]).split("/")[-1].split(".")[0]): # fileExt and fileName
             file_obj = lib.dialogue.DialogueFile(fileInfo.data) # object created before loop to improve performance
         for file in selectedFiles:
             try:
@@ -2445,7 +2446,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         return
                     if fileExt == "txt": # english text file
                         # match the indicator that the file is a chunk of the original file
-                        if ("en" in fileName or "jp" in fileName) and (re.search(PARTITION_REGEX, fileName) and isinstance(file_obj, lib.dialogue.DialogueFile)):
+                        if ("en" in fileName or "jp" in fileName) and (re.search(REGEX_PARTITION, fileName) and isinstance(file_obj, lib.dialogue.DialogueFile)):
                             file_obj.text_list[int(fileName.split("_")[-1])] = fileEdited.decode("utf-8") # add file text to object
                             if selectedFiles.index(file) == len(selectedFiles)-1: # if at last selected file
                                 data = file_obj.toBytes() # generate final binary to import (done only once to improve performance)
@@ -2604,6 +2605,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 dialog_settings.setWindowTitle("Import Settings")
                 lineedit_folderName = QtWidgets.QLineEdit(dialog_settings)
                 lineedit_folderName.setPlaceholderText("Folder name")
+                lineedit_folderName.setValidator(VALIDATOR_FAT)
                 dialog_settings.setLayout(QtWidgets.QGridLayout())
                 dialog_settings.layout().addWidget(lineedit_folderName, 0,0)
                 if dialog_settings.exec():
@@ -3413,33 +3415,44 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def treeUpdate(self): # files from filename table (fnt.bin)
         self.tree.setCurrentItem(None)
-        tree_files: list[QtWidgets.QTreeWidgetItem] = []
-        try: # convert NDS Py filenames to QTreeWidgetItems
+        items_root: list[QtWidgets.QTreeWidgetItem] = []
+        try: # convert NDSPy filenames to QTreeWidgetItems
             if self.rom != None and self.rom.files != []:
-                tree_folder_ovlt = QtWidgets.QTreeWidgetItem([f"{0:04}", "ovltable", "Folder"])
-                for i in range(0, len(self.rom.arm9OverlayTable)//0x20):
-                    tree_folder_ovlt.addChild(QtWidgets.QTreeWidgetItem([f"{i:04}", f"overlay9_{i:04}", "bin"]))
-                tree_files.append(tree_folder_ovlt)
-                tree_folder: list[QtWidgets.QTreeWidgetItem] = []
-                for f in str(self.rom.filenames).split("\n"):
-                    if not "/" in f: # if file
-                        if SPACES_FOLDER in f: # if contents of folder
-                            tree_folder[f.count(SPACES_FOLDER) - 1].addChild(QtWidgets.QTreeWidgetItem([f.split(" ")[0], f.split(" ")[-1].split(".")[0], f.split(".")[-1]]))
-                        else:
-                            tree_files.append(QtWidgets.QTreeWidgetItem([f.split(" ")[0], f.split(" ")[-1].split(".")[0], f.split(".")[-1]]))
-                    else: # if folder
-                        if f.count(SPACES_FOLDER) < len(tree_folder):
-                            tree_folder[f.count(SPACES_FOLDER)] = QtWidgets.QTreeWidgetItem([f.split(" ")[0], f.split(" ")[-1].removesuffix("/"), "Folder"])
-                        else:
-                            tree_folder.append(QtWidgets.QTreeWidgetItem([f.split(" ")[0], f.split(" ")[-1].removesuffix("/"), "Folder"]))
-                        if not SPACES_FOLDER in f:
-                            tree_files.append(tree_folder[f.count(SPACES_FOLDER)])
-                        else:
-                            tree_folder[f.count(SPACES_FOLDER) - 1].addChild(tree_folder[f.count(SPACES_FOLDER)])
+                folder_ovlt = QtWidgets.QTreeWidgetItem([f"{0:04}", "ovltable", "Folder"])
+                items_root.append(folder_ovlt)
+                for fileID in range(len(self.rom.files)):
+                    if fileID < len(self.rom.arm9OverlayTable)//0x20:
+                        folder_ovlt.addChild(QtWidgets.QTreeWidgetItem([f"{fileID:04}", f"overlay9_{fileID:04}", "bin"]))
+                    else:
+                        path = self.rom.filenames.filenameOf(fileID)
+                        if path is None:
+                            print("path error with", fileID)
+                            continue
+                        path_list = path.split("/") # to not call the function multiple times
+                        fileName = path_list[-1]
+                        #print(path, fileName)
+                        if not "/" in path: # if in root
+                            items_root.append(QtWidgets.QTreeWidgetItem([str(fileID), fileName.split(".")[0], fileName.split(".")[-1]]))
+                        else: # if in folder
+                            folder_current = self.rom.filenames.subfolder(path_list[0])
+                            if not (items_root[-1].text(1) == path_list[0] and items_root[-1].text(0) == str(folder_current.firstID)): # assumes there cannot be root files after folders
+                                items_root.append(QtWidgets.QTreeWidgetItem([str(folder_current.firstID), path_list[0], "Folder"]))
+                                print("root folder created at", folder_current.firstID)
+                            item_folder_current = items_root[-1]
+                            for d in range(1, len(path_list)-1):
+                                folder_next = self.rom.filenames.subfolder("/".join(path_list[:d+1]))
+                                child_current = item_folder_current.child(item_folder_current.childCount()-1)
+                                if item_folder_current.childCount() == 0 or not (child_current.text(1) == path_list[d] and child_current.text(0) == str(folder_next.firstID)):
+                                    child_current = QtWidgets.QTreeWidgetItem([str(folder_next.firstID), path_list[d], "Folder"])
+                                    item_folder_current.addChild(child_current)
+                                item_folder_current = child_current # pass reference for next iteration
+                            #print(item_folder_current.text(1), fileID)
+                            item_folder_current.addChild(QtWidgets.QTreeWidgetItem([str(fileID), fileName.split(".")[0], fileName.split(".")[-1]])) # add the file
         except Exception as e: # if failed, do nothing
             print("Failed to load filesystem")
+            raise e
         self.tree.clear()
-        self.tree.addTopLevelItems(tree_files)
+        self.tree.addTopLevelItems(items_root)
 
     def treeArm9Update(self):
         self.tree_arm9.clear()

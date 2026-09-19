@@ -6,7 +6,7 @@ MUGSHOT_WIDTH_TILES = 6
 MUGSHOT_HEIGHT_TILES = 7
 # indicators determine what the file most likely contains based on its name
 I_MUGSHOT = ("face",)
-I_GFX = I_MUGSHOT + ("_fnt",)
+I_GFX = I_MUGSHOT + ("_fnt", "boot")
 I_GFX_ZX = I_GFX + ("title", "bbom", "dm", "elf", "g_", "game_parm", "lmlevel", "miss", "puzzle", "repair", "sec_disk", "sub")
 I_GFX_ZXA = I_GFX + ("title", "mm", "dm", "ls_", "sub_")
 I_FONT = ("font",)
