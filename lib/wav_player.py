@@ -25,9 +25,10 @@ class NoteInfo:
         self.current_gain = 0 # adsr volume gain
 
 class NoteModifier:
-    def __init__(self, volume: int=127, expression: int=127, portamento: int=0, vibrato_depth: int=0, vibrato_speed: int=32, vibrato_delay: int=0, vibrato_range: int=1):
+    def __init__(self, volume: int=127, expression: int=127, pan: int=64, portamento: int=0, vibrato_depth: int=0, vibrato_speed: int=32, vibrato_delay: int=0, vibrato_range: int=1):
         self.volume = volume
         self.expression = expression # volume multiplier
+        self.pan = pan # 0=100%left, 127=100%right
         self.portamento = portamento # signed int8 value used as factor for pitch slides
         self.vibrato_depth = vibrato_depth
         self.vibrato_speed = vibrato_speed
@@ -60,10 +61,10 @@ class WAVPlayer:
 
     def callback(self, outdata: numpy.ndarray, frames: int, time, status: sounddevice.CallbackFlags) -> None:
         is_note_end = True
-        mono_outdata_final = numpy.zeros(frames, dtype="int16")
+        mono_outdata_final = numpy.zeros((2, frames), dtype="int16")
         if self.is_paused: # make the player silent while retaining its state for resume
             for i in range(outdata.shape[1]):
-                outdata[:, i] = mono_outdata_final
+                outdata[:, i] = mono_outdata_final[i%2]
             return
         for noteInfo in self.noteInfos:
             # try filling outdata with data
@@ -124,13 +125,17 @@ class WAVPlayer:
                 mono_outdata = numpy.append(mono_outdata, numpy.zeros((frames-mono_outdata.shape[0]), dtype="int16"))
             noteInfo.current_frame += mono_outdata.shape[0]
 
-            mono_outdata_final += mono_outdata
+            if noteInfo.modifier is not None and noteInfo.modifier.pan != 64:
+                mono_outdata_final[0] += numpy.astype(mono_outdata * ((127 - noteInfo.modifier.pan) / 127), numpy.int16) # left
+                mono_outdata_final[1] += numpy.astype(mono_outdata * (noteInfo.modifier.pan / 127), numpy.int16) # right
+            else:
+                mono_outdata_final[:] += numpy.astype(mono_outdata * 0.5, numpy.int16) # even distribution
             is_note_end = False # if at least one note is not finished yet, the player isn't done
 
         #print(mono_outdata)
         # fill stereo outdata
         for i in range(outdata.shape[1]):
-            outdata[:, i] = mono_outdata_final
+            outdata[:, i] = mono_outdata_final[i%2]
         # stop stream if at the end
         if is_note_end and self.stop_on_note_end or not self.stream.active:
             if hasattr(self, "info"):
@@ -169,7 +174,7 @@ class NotePlayer(WAVPlayer):
                 noteInfo.attack_multiplier = 60 * 0.00001 ** exponent
             else:
                 noteInfo.attack_multiplier = 1.0
-        if len(self.noteInfos) < 16:
+        if len(self.noteInfos) < self.POLY_MAX:
             self.noteInfos.append(noteInfo)
             self.slot_next = 0
         else:
@@ -315,6 +320,8 @@ class SSEQPlayer:
             elif event_type is sa.soundSequence.PortamentoSequenceEvent:
                 # event.value is a signed pitch value/factor, with 0 being normal pitch
                 track.note_modifier.portamento = int.from_bytes(bytes([event.value]), signed=True)
+            elif event_type is sa.soundSequence.PanSequenceEvent:
+                track.note_modifier.pan = event.value
             elif event_type is sa.soundSequence.VibratoDepthSequenceEvent:
                 track.note_modifier.vibrato_depth = event.value
             elif event_type is sa.soundSequence.VibratoSpeedSequenceEvent:

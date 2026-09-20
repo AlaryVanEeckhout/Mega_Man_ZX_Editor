@@ -3441,11 +3441,11 @@ class MainWindow(QtWidgets.QMainWindow):
                             item_folder_current = items_root[-1]
                             for d in range(1, len(path_list)-1):
                                 folder_next = self.rom.filenames.subfolder("/".join(path_list[:d+1]))
-                                child_current = item_folder_current.child(item_folder_current.childCount()-1)
-                                if item_folder_current.childCount() == 0 or not (child_current.text(1) == path_list[d] and child_current.text(0) == str(folder_next.firstID)):
-                                    child_current = QtWidgets.QTreeWidgetItem([str(folder_next.firstID), path_list[d], "Folder"])
-                                    item_folder_current.addChild(child_current)
-                                item_folder_current = child_current # pass reference for next iteration
+                                item_child_current = item_folder_current.child(item_folder_current.childCount()-1)
+                                if item_folder_current.childCount() == 0 or not (item_child_current.text(1) == path_list[d] and item_child_current.text(0) == str(folder_next.firstID)):
+                                    item_child_current = QtWidgets.QTreeWidgetItem([str(folder_next.firstID), path_list[d], "Folder"])
+                                    item_folder_current.addChild(item_child_current)
+                                item_folder_current = item_child_current # pass reference for next iteration
                             #print(item_folder_current.text(1), fileID)
                             item_folder_current.addChild(QtWidgets.QTreeWidgetItem([str(fileID), fileName.split(".")[0], fileName.split(".")[-1]])) # add the file
         except Exception as e: # if failed, do nothing
