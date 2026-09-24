@@ -1,5 +1,9 @@
 from pathlib import Path
-PATH_ROOT = str(Path(__file__).resolve().parent.parent) + "/" 
+import sys
+if getattr(sys, 'frozen', False): # Running as a compiled .exe
+    PATH_ROOT = str(Path(sys.executable).resolve().parent) + "/"
+else: # Running as a normal .py script
+    PATH_ROOT = str(Path(__file__).resolve().parent.parent) + "/"
 class File:
     def __init__(self, data: bytes):
         self.data = data

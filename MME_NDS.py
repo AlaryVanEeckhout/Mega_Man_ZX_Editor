@@ -24,7 +24,9 @@ REGEX_FAT = r'[^\\/\?"<>\*|:;]+'
 VALIDATOR_FAT = QtGui.QRegularExpressionValidator(QtCore.QRegularExpression(REGEX_FAT))
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-R", "--ROM", help="NDS ROM to open using the editor.", dest="openPath")
+parser_group = parser.add_mutually_exclusive_group()
+parser_group.add_argument("openPath", nargs='?', help="NDS ROM to open using the editor.", default=argparse.SUPPRESS)
+parser_group.add_argument("-R", "--ROM", help="NDS ROM to open using the editor.", dest="openPath")
 args = parser.parse_args()
 """
 class ThreadSignals(QtCore.QObject): # signals can omly be emmited by QObject
@@ -3437,7 +3439,7 @@ class MainWindow(QtWidgets.QMainWindow):
                             folder_current = self.rom.filenames.subfolder(path_list[0])
                             if not (items_root[-1].text(1) == path_list[0] and items_root[-1].text(0) == str(folder_current.firstID)): # assumes there cannot be root files after folders
                                 items_root.append(QtWidgets.QTreeWidgetItem([str(folder_current.firstID), path_list[0], "Folder"]))
-                                print("root folder created at", folder_current.firstID)
+                                #print("root folder created at", folder_current.firstID)
                             item_folder_current = items_root[-1]
                             for d in range(1, len(path_list)-1):
                                 folder_next = self.rom.filenames.subfolder("/".join(path_list[:d+1]))
