@@ -49,7 +49,7 @@ The editor can edit, export and import english dialogue files and save them to t
 *This feature may not be implemented/is not currently prioritized since I haven't looked into it and/or it looks/is hard to do. 
 ## Setup for usage
 If you are on Windows 11, you can download the [latest binary release](https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/releases/latest).  
-Otherwise, you will want to run the program from source code:
+Otherwise, or if you want the most up-to-date version, you will want to run the program from source code:
 - [Download&Install Python](https://www.python.org/downloads/) (using 3.14.7) <!--- Python 3.10.11 or lower will cause crashes -->
 - Now that you have Python, you can use pip (Package Installer for Python) to install the following modules:
 - [Download&Install NDSPy](https://pypi.org/project/ndspy/) (using 4.2.0)
@@ -63,7 +63,7 @@ Otherwise, you will want to run the program from source code:
 - [Download&Install SciPy](https://pypi.org/project/scipy/) (submodule dependency)
 - This project > Code > Download ZIP
 - Extract the contents of the .zip file wherever you want
-- That's it! Now you can run MME_NDS.py with python (or RunEditor.bat on Windows).
+- That's it! Now you can run MME_NDS.py with python (or you can run RunEditor.bat on Windows).
 ## Credits
 - Nitro filesystem handling: https://ndspy.readthedocs.io/en/latest/
 - GUI (PyQt6): https://www.riverbankcomputing.com/software/pyqt/

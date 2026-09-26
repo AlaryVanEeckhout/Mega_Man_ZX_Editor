@@ -2791,6 +2791,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.treeCall()
 
     def updateDialoguePreview(self):
+        if self.fileDisplayState != "Dialogue": return
         if not self.checkbox_preview.isChecked(): return
         p = self.file_content_text.textCursor().position()
         text = self.file_content_text.toPlainText()
