@@ -2368,8 +2368,7 @@ class MainWindow(QtWidgets.QMainWindow):
             dialog_formatSelect.layout().addWidget(dropdown_compresstypeSelect, 1,1,1,1)
             dialog_formatSelect.layout().addWidget(button_OK, 2,0,1,2)
             dialog_formatSelect.resize(250, 200)
-            dialog_formatSelect.exec()
-            if dialog_formatSelect.result():
+            if dialog_formatSelect.exec():
                 print("Selected: " + dropdown_formatSelect.currentText() + ", " + dropdown_compressSelect.currentText())
                 print("Item: " + item.text(0))
                 if item != None:
@@ -2603,13 +2602,17 @@ class MainWindow(QtWidgets.QMainWindow):
             if dialog.exec():
                 isFolder = dialog.selectedNameFilter() == "Directories"
                 selectedFiles = dialog.selectedFiles()
-                dialog_settings = QtWidgets.QMessageBox()
+                dialog_settings = QtWidgets.QDialog()
                 dialog_settings.setWindowTitle("Import Settings")
+                button_OK = QtWidgets.QPushButton("OK", dialog_settings)
+                button_OK.pressed.connect(lambda: dialog_settings.close())
+                button_OK.pressed.connect(lambda: dialog_settings.setResult(1))
                 lineedit_folderName = QtWidgets.QLineEdit(dialog_settings)
                 lineedit_folderName.setPlaceholderText("Folder name")
-                lineedit_folderName.setValidator(VALIDATOR_FAT)
+                lineedit_folderName.setValidator(QtGui.QRegularExpressionValidator(QtCore.QRegularExpression(REGEX_FAT.replace("/", ""))))
                 dialog_settings.setLayout(QtWidgets.QGridLayout())
                 dialog_settings.layout().addWidget(lineedit_folderName, 0,0)
+                dialog_settings.layout().addWidget(button_OK, 1,0)
                 if dialog_settings.exec():
                     dialog_err = QtWidgets.QMessageBox()
                     dialog_err.setWindowTitle("Import Status")
@@ -2620,11 +2623,19 @@ class MainWindow(QtWidgets.QMainWindow):
                         fileName = str(selectedFiles[0]).split("/")[-1]
                         self.rom.files.append(data)
                         folderName = lineedit_folderName.text()
-                        if self.rom.filenames.subfolder(folderName) is None:
-                            self.rom.filenames.folders.append((folderName, ndspy.fnt.Folder(None, [fileName], len(self.rom.files)-1)))
+                        if folderName == "":
+                            self.rom.filenames.files.append(fileName)
+                        elif self.rom.filenames.subfolder(folderName) is None:
+                            folder_current = self.rom.filenames
+                            for subfolderName in folderName.split("/"): # pass reference
+                                if folder_current.subfolder(subfolderName) is None:
+                                    folder_current.folders.append((subfolderName, ndspy.fnt.Folder(None, None, self.getFolderSize(folder_current))))
+                                folder_current = folder_current.subfolder(subfolderName)
+                            folder_current.files.append(fileName)
                         else:
                             folder = self.rom.filenames.subfolder(folderName)
                             folder.files.append(fileName)
+                        self.updateFolderFirstIDs()
                         self.loadFat()
                         print(len(self.rom.files)-1)
                         self.treeUpdate()
@@ -2727,6 +2738,32 @@ class MainWindow(QtWidgets.QMainWindow):
                     dialog2.setText("File \"" + str(selectedFiles[0]).split("/")[-1] + "\" imported!")
                     dialog2.exec()
                     self.treeCall()
+
+    def updateFolderFirstIDs(self, start_path: str=""): # recursively search for all folders and adjust their firstID
+        if start_path != "": # todo: implement start_path
+            start_folder = self.rom.filenames.subfolder(start_path)
+        else:
+            start_folder = self.rom.filenames
+
+        def recursive_iter(folder: ndspy.fnt.Folder, next_firstID: int):
+            for folder_i, folder_t in enumerate(folder.folders):
+                if folder_i == 0: # for the first folder, firstID is easy to determine
+                    folder_t[1].firstID = folder.firstID+len(folder.files)
+                else: # get the value set earlier
+                    folder_t[1].firstID = next_firstID
+                next_firstID = recursive_iter(folder_t[1], next_firstID)
+            if len(folder.folders) == 0: # if we reached the deepest point
+                next_firstID = folder.firstID+len(folder.files) # set the first ID for the next folder
+                #print("next", next_firstID, folder.files)
+            return next_firstID
+        recursive_iter(start_folder, None)
+
+    def getFolderSize(self, folder: ndspy.fnt.Folder):
+        """Get the amount of files in the given folder from the filename table"""
+        folder_current = folder
+        while len(folder_current.folders) > 0:
+            folder_current = folder_current.folders[-1][1] # get the folder with the highest firstID
+        return (folder_current.firstID-folder.firstID)+len(folder_current.files)  
     
     def deleteCall(self, item: QtWidgets.QTreeWidgetItem):
         fileInfo = self.file_fromItem(item)
@@ -2735,25 +2772,31 @@ class MainWindow(QtWidgets.QMainWindow):
             path = self.rom.filenames.filenameOf(fileID)
             if item.text(2) != "Folder":
                 self.rom.files.pop(fileID)
-                print("removing", path)
-                if "/" in path:
-                    path_folder = path[:path.rfind("/")]
-                    folder = self.rom.filenames.subfolder(path_folder)
-                    folder.files.pop(fileID-folder.firstID)
+                print("removing", end=" ")
+                if path is not None:
+                    print(path)
+                    if "/" in path:
+                        path_folder = path[:path.rfind("/")]
+                        folder = self.rom.filenames.subfolder(path_folder)
+                        folder.files.pop(fileID-folder.firstID)
+                    else:
+                        self.rom.filenames.files.pop(fileID-self.rom.filenames.firstID)
                 else:
-                    self.rom.filenames.files.pop(fileID-self.rom.filenames.firstID)
+                    print(f"overlay9_{fileID:04}")
             else:
-                path_folder_parent = "/".join(path.split("/")[:-2])
+                folderName = item.text(1)
+                path_folder_parent = "/".join(path.split("/")[:path.split("/").index(folderName)])
                 if path_folder_parent != "":
                     folder_parent = self.rom.filenames.subfolder(path_folder_parent)
                 else:
                     folder_parent = self.rom.filenames
                 folder_i, string, folder = [(i, string, folder) for i, (string, folder) in enumerate(folder_parent.folders) if folder.firstID == fileID][0]
                 print("removing", string)
-                del self.rom.files[folder.firstID:folder.firstID+len(folder.files)]
+                del self.rom.files[folder.firstID:folder.firstID+self.getFolderSize(folder)]
                 folder_parent.folders.pop(folder_i)
             self.loadFat()
-        else:
+            self.updateFolderFirstIDs() # to prevent a fileID gap, which causes filename-data misalignment
+        else: # not in self.rom.files
             raise NotImplementedError
         self.treeUpdate()
 
@@ -3423,19 +3466,21 @@ class MainWindow(QtWidgets.QMainWindow):
             if self.rom != None and self.rom.files != []:
                 folder_ovlt = QtWidgets.QTreeWidgetItem([f"{0:04}", "ovltable", "Folder"])
                 items_root.append(folder_ovlt)
+                skip = 0
                 for fileID in range(len(self.rom.files)):
                     if fileID < len(self.rom.arm9OverlayTable)//0x20:
                         folder_ovlt.addChild(QtWidgets.QTreeWidgetItem([f"{fileID:04}", f"overlay9_{fileID:04}", "bin"]))
                     else:
-                        path = self.rom.filenames.filenameOf(fileID)
+                        path = self.rom.filenames.filenameOf(fileID+skip)
                         if path is None:
                             print("path error with", fileID)
-                            continue
+                            skip += 1
+                            path = self.rom.filenames.filenameOf(fileID+skip)
                         path_list = path.split("/") # to not call the function multiple times
                         fileName = path_list[-1]
                         #print(path, fileName)
                         if not "/" in path: # if in root
-                            items_root.append(QtWidgets.QTreeWidgetItem([str(fileID), fileName.split(".")[0], fileName.split(".")[-1]]))
+                            items_root.append(QtWidgets.QTreeWidgetItem([str(fileID+skip), fileName.split(".")[0], fileName.split(".")[-1]]))
                         else: # if in folder
                             folder_current = self.rom.filenames.subfolder(path_list[0])
                             if not (items_root[-1].text(1) == path_list[0] and items_root[-1].text(0) == str(folder_current.firstID)): # assumes there cannot be root files after folders
@@ -3449,8 +3494,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                     item_child_current = QtWidgets.QTreeWidgetItem([str(folder_next.firstID), path_list[d], "Folder"])
                                     item_folder_current.addChild(item_child_current)
                                 item_folder_current = item_child_current # pass reference for next iteration
-                            #print(item_folder_current.text(1), fileID)
-                            item_folder_current.addChild(QtWidgets.QTreeWidgetItem([str(fileID), fileName.split(".")[0], fileName.split(".")[-1]])) # add the file
+                            #print(item_folder_current.text(1), fileID+skip)
+                            item_folder_current.addChild(QtWidgets.QTreeWidgetItem([str(fileID+skip), fileName.split(".")[0], fileName.split(".")[-1]])) # add the file
         except Exception as e: # if failed, do nothing
             print("Failed to load filesystem")
             raise e
