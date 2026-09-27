@@ -2621,23 +2621,27 @@ class MainWindow(QtWidgets.QMainWindow):
                     data = self.getFileData(selectedFiles, isFolder)
                     if data is not None:
                         fileName = str(selectedFiles[0]).split("/")[-1]
-                        self.rom.files.append(data)
                         folderName = lineedit_folderName.text()
+                        fileID = -1
                         if folderName == "":
+                            fileID = self.rom.filenames.firstID+len(self.rom.filenames.files)
                             self.rom.filenames.files.append(fileName)
                         elif self.rom.filenames.subfolder(folderName) is None:
                             folder_current = self.rom.filenames
-                            for subfolderName in folderName.split("/"): # pass reference
+                            for subfolderName in folderName.split("/"):
                                 if folder_current.subfolder(subfolderName) is None:
-                                    folder_current.folders.append((subfolderName, ndspy.fnt.Folder(None, None, self.getFolderSize(folder_current))))
-                                folder_current = folder_current.subfolder(subfolderName)
+                                    folder_current.folders.append((subfolderName, ndspy.fnt.Folder(None, None, folder_current.firstID+self.getFolderSize(folder_current))))
+                                folder_current = folder_current.subfolder(subfolderName) # pass reference for next iteration
+                            fileID = folder_current.firstID+len(folder_current.files)
                             folder_current.files.append(fileName)
                         else:
                             folder = self.rom.filenames.subfolder(folderName)
+                            fileID = folder.firstID+len(folder.files)
                             folder.files.append(fileName)
+                        self.rom.files.insert(fileID, data)
                         self.updateFolderFirstIDs()
                         self.loadFat()
-                        print(len(self.rom.files)-1)
+                        #print(len(self.rom.files), fileID)
                         self.treeUpdate()
                         dialog_err.exec()
 
