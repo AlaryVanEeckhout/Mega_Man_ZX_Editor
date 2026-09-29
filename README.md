@@ -63,6 +63,8 @@ Otherwise, or if you want the most up-to-date version, you will want to run the 
 - [Download&Install SciPy](https://pypi.org/project/scipy/) (submodule dependency)
 - This project > Code > Download ZIP
 - Extract the contents of the .zip file wherever you want
+- [The submodule](https://github.com/CharlesVanEeckhout/actimagine) > Code > Download ZIP
+- Extract the actimagine folder in lib
 - That's it! Now you can run MME_NDS.py with python (or you can run RunEditor.bat on Windows).
 ## Credits
 - Nitro filesystem handling: https://ndspy.readthedocs.io/en/latest/

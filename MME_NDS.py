@@ -2787,17 +2787,24 @@ class MainWindow(QtWidgets.QMainWindow):
                         self.rom.filenames.files.pop(fileID-self.rom.filenames.firstID)
                 else:
                     print(f"overlay9_{fileID:04}")
+                    self.rom.arm9OverlayTable[fileID*0x20:fileID*0x20+0x20] = b''
+                    self.rom.filenames.firstID -= 1
             else:
-                folderName = item.text(1)
-                path_folder_parent = "/".join(path.split("/")[:path.split("/").index(folderName)])
-                if path_folder_parent != "":
-                    folder_parent = self.rom.filenames.subfolder(path_folder_parent)
+                if int(item.text(0)) == 0:
+                    del self.rom.files[:self.rom.filenames.firstID]
+                    self.rom.arm9OverlayTable = b''
+                    self.rom.filenames.firstID = 0
                 else:
-                    folder_parent = self.rom.filenames
-                folder_i, string, folder = [(i, string, folder) for i, (string, folder) in enumerate(folder_parent.folders) if folder.firstID == fileID][0]
-                print("removing", string)
-                del self.rom.files[folder.firstID:folder.firstID+self.getFolderSize(folder)]
-                folder_parent.folders.pop(folder_i)
+                    folderName = item.text(1)
+                    path_folder_parent = "/".join(path.split("/")[:path.split("/").index(folderName)])
+                    if path_folder_parent != "":
+                        folder_parent = self.rom.filenames.subfolder(path_folder_parent)
+                    else:
+                        folder_parent = self.rom.filenames
+                    folder_i, string, folder = [(i, string, folder) for i, (string, folder) in enumerate(folder_parent.folders) if folder.firstID == fileID][0]
+                    print("removing", string)
+                    del self.rom.files[folder.firstID:folder.firstID+self.getFolderSize(folder)]
+                    folder_parent.folders.pop(folder_i)
             self.loadFat()
             self.updateFolderFirstIDs() # to prevent a fileID gap, which causes filename-data misalignment
         else: # not in self.rom.files
