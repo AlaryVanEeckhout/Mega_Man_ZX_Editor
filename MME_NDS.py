@@ -3373,14 +3373,19 @@ class MainWindow(QtWidgets.QMainWindow):
             print("play SWAV")
             snd_data = ndspy.soundArchive.soundWaveArchive.soundWave.SWAV(self.file_fromItem(items[0]).data)
             lib.sdat.playSWAV(snd_data)
-        if snd_type == "Note":
+        if snd_type == "Note" or snd_type == "Instrument":
             print("play Note")
             # Make a small SSEQ object just to play the note with the right instrument at the desired pitch
-            instrument = self.file_fromItem(items[0].parent()).objects[-1]
+            if snd_type == "Instrument":
+                item_instrument = items[0]
+                note_id = 60
+            else:
+                item_instrument = items[0].parent()
+                note_id = int(items[0].text(0))
+            instrument = self.file_fromItem(item_instrument).objects[-1]
             print(instrument)
-            bank_id = int(items[0].parent().parent().text(0))
-            instr_id = int(items[0].parent().text(0))
-            note_id = int(items[0].text(0))
+            bank_id = int(item_instrument.parent().text(0))
+            instr_id = int(item_instrument.text(0))
             sseq = ndspy.soundArchive.soundSequence.SSEQ(bankID=bank_id)
             sseq.events = [
                 ndspy.soundArchive.soundSequence.InstrumentSwitchSequenceEvent(bank_id, instr_id),
@@ -3388,7 +3393,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 ndspy.soundArchive.soundSequence.EndTrackSequenceEvent()
                 ]
             lib.sdat.playSSEQ(sseq, self.sdats[self.dropdown_sdat.currentIndex()], self.buttons_sdat_track)
-        elif snd_type == "SSEQ": # WIP
+        elif snd_type == "SSEQ":
             print("play SSEQ")
             try:
                 sseq = self.sdats[self.dropdown_sdat.currentIndex()].sequences[item_id][1]
