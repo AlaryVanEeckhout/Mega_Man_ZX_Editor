@@ -3425,7 +3425,11 @@ class MainWindow(QtWidgets.QMainWindow):
         elif snd_type == "STRM":
             print("play STRM")
             strm: ndspy.soundArchive.soundStream.STRM = self.sdats[self.dropdown_sdat.currentIndex()].streams[item_id][1]
-            lib.sdat.playSTRM(strm, self.buttons_sdat_track)
+            lib.sdat.playSTRM(strm, trackButtons=self.buttons_sdat_track)
+        elif snd_type == "Channel":
+            print("play STRM Channel")
+            strm: ndspy.soundArchive.soundStream.STRM = self.sdats[self.dropdown_sdat.currentIndex()].streams[int(items[0].parent().text(0))][1]
+            lib.sdat.playSTRM(strm, item_id, trackButtons=self.buttons_sdat_track)
         else: return # Avoid switching to pause icon if not playable
         self.action_playSdat.setIcon(QtGui.QIcon(PATH_ROOT + 'icons/control-pause'))
         self.action_playSdat.setText("Pause Sound")

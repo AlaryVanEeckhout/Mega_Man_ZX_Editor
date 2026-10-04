@@ -267,14 +267,22 @@ try:
         loop = get_loop(strm.loopOffset, strm.isLooped)
         return Sample(pcm_data, loop, strm.sampleRate)
 
-    def playSTRM(strm: sa.soundStream.STRM, trackButtons: list=None):
+    def playSTRM(strm: sa.soundStream.STRM, channel: int=None, trackButtons: list=None):
         global player, player_info
         stopSound()
         print(f"Wave type: {strm.waveType.name}")
         print(f"Sample rate: {strm.sampleRate}")
-        sample = loadSTRMChannel(strm, 0)
-        sample.data //= 5 # reduce sound volume to something reasonable
-        player = wav_player.WAVPlayer([sample])
+        sample0 = loadSTRMChannel(strm, channel if channel is not None else 0)
+        sample0.data //= 5 # reduce sound volume to something reasonable
+        if channel is None and len(strm.channels) > 1:
+            assert len(strm.channels) == 2
+            sample1 = loadSTRMChannel(strm, 1)
+            sample1.data //= 5
+            player = wav_player.WAVPlayer([sample0, sample1])
+            player.noteInfos[0].modifier = wav_player.NoteModifier(pan=0)
+            player.noteInfos[1].modifier = wav_player.NoteModifier(pan=127)
+        else:
+            player = wav_player.WAVPlayer([sample0])
         player.info = player_info
         player.play()
 
