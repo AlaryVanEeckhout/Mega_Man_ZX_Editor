@@ -17,7 +17,8 @@ try:
     import math
     class Sample:
         def __init__(self, data: numpy.ndarray, loop: int, samplerate: int, notedef: sa.soundBank.NoteDefinition=None, pitch_change=True):
-            self.data = data
+            self.data = numpy.ascontiguousarray(data, dtype='int16') # Ensure data is contiguous in memory to maximize performance
+            self.data_view = memoryview(self.data)
             self.loop = loop
             self.samplerate = samplerate
             self.notedef = notedef
@@ -44,23 +45,32 @@ try:
         
         def get_data_range(self, start, end):
             goal_len = end - start
-            out = self.data[start:end]
-            if self.loop is None or (self.data.shape[0]-self.loop) == 0:
-                return numpy.append(out, numpy.zeros((goal_len-out.shape[0]), dtype=out.dtype))
-            if start >= self.data.shape[0]:
+            cursor_start = 0
+            cursor_end = self.data_view.shape[0]-start
+            out = numpy.zeros(goal_len, dtype='int16')
+            if self.data_view[start:end].shape[0] != 0:
+                out[cursor_start:cursor_end] = self.data_view[start:end]
+                cursor_start = cursor_end
+            if self.loop is None or (self.data_view.shape[0]-self.loop) == 0:
+                return out
+            if start >= self.data_view.shape[0]:
                 # starts in loop part, add first loop in loop part
-                # let start == k+x*loop where loop <= k+loop < self.data.shape[0], then start_loop_space = k+loop
-                start_loop_space = (start-self.loop) % (self.data.shape[0]-self.loop) + self.loop
+                # let start == k+x*loop where loop <= k+loop < self.data_view.shape[0], then start_loop_space = k+loop
+                start_loop_space = (start-self.loop) % (self.data_view.shape[0]-self.loop) + self.loop
                 # subtract (x-1)*loop from end
                 end -= start - start_loop_space
-                # from here, end can be either less or greater than self.data.shape[0]
+                # from here, end can be either less or greater than self.data_view.shape[0]
                 # if it is less, it will skip the while
                 # if it is greater, it will enter the while to concatenate the next loops
-                out = numpy.concat((out, self.data[start_loop_space:end]))
+                cursor_end = cursor_start + self.data_view[start_loop_space:end].shape[0]
+                out[cursor_start:cursor_end] = self.data_view[start_loop_space:end]
+                cursor_start = cursor_end
             start = self.loop
             while out.shape[0] < goal_len:
-                end -= self.data.shape[0] - self.loop
-                out = numpy.concat((out, self.data[start:end]))
+                end -= self.data_view.shape[0] - self.loop
+                cursor_end = cursor_start + self.data_view[start:end].shape[0]
+                out[cursor_start:cursor_end] = self.data_view[start:end]
+                cursor_start = cursor_end
             return out
         
         def get_attack_coeff(self):
@@ -264,7 +274,7 @@ try:
         pcm_data = loadWave(strm.channels[channel_idx][0], strm.waveType)
         for index in range(1, len(strm.channels[channel_idx])):
             pcm_data = numpy.append(pcm_data, loadWave(strm.channels[channel_idx][index], strm.waveType))
-        loop = get_loop(strm.loopOffset, strm.isLooped)
+        loop = strm.loopOffset if strm.isLooped else None # STRM loop offset is already in the right format, so no conversion
         return Sample(pcm_data, loop, strm.sampleRate)
 
     def playSTRM(strm: sa.soundStream.STRM, channel: int=None, trackButtons: list=None):

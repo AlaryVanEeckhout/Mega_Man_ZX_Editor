@@ -154,13 +154,7 @@ class WAVPlayer:
     def stop(self):
         self.stream.abort()
         if hasattr(self, "info"):
-            self.info.finished.emit(True)
-        #print("abort")
-        #while self.stream.active:
-        #    self.pause()
-        #    self.stream.abort()
-        #    print(".")
-        #print("complete")
+            self.info.finished.emit(True)            
 
 class NotePlayer(WAVPlayer):
     def __init__(self):
