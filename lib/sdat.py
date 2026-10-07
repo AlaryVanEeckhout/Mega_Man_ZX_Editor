@@ -17,8 +17,8 @@ try:
     import math
     class Sample:
         def __init__(self, data: numpy.ndarray, loop: int, samplerate: int, notedef: sa.soundBank.NoteDefinition=None, pitch_change=True):
-            self.data = numpy.ascontiguousarray(data, dtype='int16') # Ensure data is contiguous in memory to maximize performance
-            self.data_view = memoryview(self.data)
+            self._data = numpy.ascontiguousarray(data, dtype='int16') # Ensure data is contiguous in memory to maximize performance
+            self._data_view = memoryview(self._data)
             self.loop = loop
             self.samplerate = samplerate
             self.notedef = notedef
@@ -28,6 +28,15 @@ try:
                 self.decay_rate = self.get_decay_rate()
                 self.sustain_factor = self.get_sustain_factor()
                 self.release_rate = self.get_release_rate()
+
+        @property
+        def data(self):
+            return self._data
+
+        @data.setter
+        def data(self, value):
+            self._data = value
+            self._data_view = memoryview(self._data)
         
         def __str__(self):
             type_names = {
@@ -46,30 +55,30 @@ try:
         def get_data_range(self, start, end):
             goal_len = end - start
             cursor_start = 0
-            cursor_end = self.data_view.shape[0]-start
+            cursor_end = self._data_view.shape[0]-start
             out = numpy.zeros(goal_len, dtype='int16')
-            if self.data_view[start:end].shape[0] != 0:
-                out[cursor_start:cursor_end] = self.data_view[start:end]
+            if self._data_view[start:end].shape[0] != 0:
+                out[cursor_start:cursor_end] = self._data_view[start:end]
                 cursor_start = cursor_end
-            if self.loop is None or (self.data_view.shape[0]-self.loop) == 0:
+            if self.loop is None or (self._data_view.shape[0]-self.loop) == 0:
                 return out
-            if start >= self.data_view.shape[0]:
+            if start >= self._data_view.shape[0]:
                 # starts in loop part, add first loop in loop part
-                # let start == k+x*loop where loop <= k+loop < self.data_view.shape[0], then start_loop_space = k+loop
-                start_loop_space = (start-self.loop) % (self.data_view.shape[0]-self.loop) + self.loop
+                # let start == k+x*loop where loop <= k+loop < self._data_view.shape[0], then start_loop_space = k+loop
+                start_loop_space = (start-self.loop) % (self._data_view.shape[0]-self.loop) + self.loop
                 # subtract (x-1)*loop from end
                 end -= start - start_loop_space
-                # from here, end can be either less or greater than self.data_view.shape[0]
+                # from here, end can be either less or greater than self._data_view.shape[0]
                 # if it is less, it will skip the while
                 # if it is greater, it will enter the while to concatenate the next loops
-                cursor_end = cursor_start + self.data_view[start_loop_space:end].shape[0]
-                out[cursor_start:cursor_end] = self.data_view[start_loop_space:end]
+                cursor_end = cursor_start + self._data_view[start_loop_space:end].shape[0]
+                out[cursor_start:cursor_end] = self._data_view[start_loop_space:end]
                 cursor_start = cursor_end
             start = self.loop
             while out.shape[0] < goal_len:
-                end -= self.data_view.shape[0] - self.loop
-                cursor_end = cursor_start + self.data_view[start:end].shape[0]
-                out[cursor_start:cursor_end] = self.data_view[start:end]
+                end -= self._data_view.shape[0] - self.loop
+                cursor_end = cursor_start + self._data_view[start:end].shape[0]
+                out[cursor_start:cursor_end] = self._data_view[start:end]
                 cursor_start = cursor_end
             return out
         
@@ -109,7 +118,7 @@ try:
             return 1 if self.notedef is None else (self.notedef.sustain / 127.0) ** 2
         
         def zoom(self, speed_factor):
-            new_data = scipy.ndimage.zoom(self.data, 1 / speed_factor, order=0, mode="grid-constant", grid_mode=True) # speed/pitch adjust
+            new_data = scipy.ndimage.zoom(self._data_view, 1 / speed_factor, order=0, mode="grid-constant", grid_mode=True) # speed/pitch adjust
             new_loop = int(self.loop / speed_factor) if self.loop is not None else None
             new_sample = Sample(new_data, new_loop, self.samplerate, self.notedef, self.pitch_change)
             return new_sample
