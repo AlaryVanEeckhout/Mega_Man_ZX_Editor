@@ -2392,8 +2392,9 @@ class MainWindow(QtWidgets.QMainWindow):
                         print(fileData)
                         if isinstance(fileData, tuple):
                             fileData = fileData[0]
+                    extract_result = False
                     if not "Folder" in item.text(2): # if file
-                        self.extract(fileData, name=name, path=path, format=dropdown_formatSelect.currentText(), compress=[dropdown_compressSelect.currentText(), dropdown_compresstypeSelect.currentText()])
+                        extract_result = self.extract(fileData, name=name, path=path, format=dropdown_formatSelect.currentText(), compress=[dropdown_compressSelect.currentText(), dropdown_compresstypeSelect.currentText()])
                         dialog2.setText(f"file \"{item.text(1)}\" exported!")
                     else: # if folder
                         folder_path = os.path.join(selectedFiles[0]) # here, "file name" specifies folder name instead
@@ -2407,9 +2408,13 @@ class MainWindow(QtWidgets.QMainWindow):
                             print(item.child(i).text(0))
                             # file_fromItem gets the name automatically
                             fileInfo = self.file_fromItem(item.child(i))
-                            self.extract(fileInfo.data, fileInfo.name, path=folder_path, format=dropdown_formatSelect.currentText(), compress=[dropdown_compressSelect.currentText(), dropdown_compresstypeSelect.currentText()])#, w.fileToEdit_name.replace(".Folder", "/")
+                            extract_result_2 = self.extract(fileInfo.data, fileInfo.name, path=folder_path, format=dropdown_formatSelect.currentText(), compress=[dropdown_compressSelect.currentText(), dropdown_compresstypeSelect.currentText()])#, w.fileToEdit_name.replace(".Folder", "/")
+                            if extract_result_2: # if at least one file exported
+                                extract_result = True # consider this successful
                             #str(w.tree.currentItem().child(i).text(1) + "." + w.tree.currentItem().child(i).text(2)), 
                         dialog2.setText(f"folder \"{item.text(1)}\" exported!")
+                    if not extract_result:
+                        dialog2.setText("Export aborted.")
                     dialog2.exec()
 
     def getFileData(self, selectedFiles: list[str], isFolder: bool=False, fileInfo: FileInfo=None, dialog_err: QtWidgets.QMessageBox=None):
@@ -5243,8 +5248,8 @@ class MainWindow(QtWidgets.QMainWindow):
                         section = lib.graphic.GraphicSection.fromParent(self.fileEdited_object, self.dropdown_gfx_index.currentIndex())
                     elif isinstance(self.fileEdited_object, lib.graphic.GraphicSection):
                         section = self.fileEdited_object
-                    offset = section.graphics[header_index].offset_start+0xc+section.graphics[header_index].palette_offset
-                    w.rom.files[file_id][offset:offset+section.graphics[header_index].palette_size] = lib.datconv.ARGB32_to_BGR15(self.gfx_palette[section.graphics[header_index].unk13 & 0xf0:]) # save to ROM
+                    offset = section.graphicHeaders[header_index].offset_start+0xc+section.graphicHeaders[header_index].palette_offset
+                    w.rom.files[file_id][offset:offset+section.graphicHeaders[header_index].palette_size] = lib.datconv.ARGB32_to_BGR15(self.gfx_palette[section.graphicHeaders[header_index].unk13 & 0xf0:]) # save to ROM
             elif self.fileDisplayState == "OAM":
                 if self.tabs_oam.currentWidget()==self.page_oam_frames:
                     if -1 in [self.dropdown_oam_entry.currentIndex(),  self.dropdown_oam_objFrame.currentIndex(),
@@ -5685,10 +5690,11 @@ class MainWindow(QtWidgets.QMainWindow):
             view.createGrid(self.tile_width, self.tile_height)
 
     def extract(self, data: bytes, name="", path="", format="", compress=["", ""]):
+        """Returns whether or not the operation was successful"""
         ext = ""
         if name == "":
             print("Error, tried to extract nameless file!")
-            return
+            return False
         if compress[0] == "decompression":
             try:
                 if compress[1] == "LZ10":
@@ -5703,7 +5709,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 str(e)
                 )
                 print("Aborted file extraction.")
-                return
+                return False
 
         print("file " + name + ": " + format)
         print(data[0x65:0xc5])
@@ -5721,13 +5727,26 @@ class MainWindow(QtWidgets.QMainWindow):
                         data[text_i] = bytes(text, "utf-8")
                 except AssertionError: # not a real dialogue file
                     data = bytes(lib.dialogue.DialogueFile.binToText(data), "utf-8")
-            elif format == "Bitmap": # WIP
+            elif format == "Bitmap":
                 ext = ".bmp"
-                tiles = len(data)//(self.tile_width*self.tile_height)
-                rows = tiles//self.tiles_per_row
+                # round up to ensure data is not lost
+                tiles = math.ceil(len(data)/(self.tile_width*self.tile_height))
+                rows = math.ceil(tiles/self.tiles_per_row)
+                palette = self.gfx_palette
+                if len(self.gfx_palette) != len(set(self.gfx_palette)):
+                    palette_choice = QtWidgets.QMessageBox.warning(
+                        self,
+                        "Lossy palette",
+                        "The currently selected palette has duplicate colors, meaning information may be lost upon export.\nDo you want to use the default palette instead?",
+                        buttons=QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No | QtWidgets.QMessageBox.StandardButton.Cancel
+                    )
+                    if palette_choice == QtWidgets.QMessageBox.StandardButton.Yes:
+                        palette = self.GFX_PALETTES[0]
+                    elif palette_choice == QtWidgets.QMessageBox.StandardButton.Cancel:
+                        return False
                 img = lib.datconv.binToQt(
                     data,
-                    self.gfx_palette,
+                    palette,
                     list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
                     self.tiles_per_row,
                     rows,
@@ -5736,7 +5755,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 )
                 img.save(os.path.join(path + "/" + name.split(".")[0] + ext))
                 print("image extracted!")
-                return
+                return True
             elif format == "VX":
                 ext = ".vx" # even if it is a folder, use extension to know what it contains when importing
                 act = lib.act.ActImagine()
@@ -5748,10 +5767,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 for i, _ in enumerate(export_vx_iter):
                     self.progressUpdate(int(((i+1)/act.frames_qty)*100), f"Exporting VX folder (frame {i+1}/{act.frames_qty})")
                 self.progressHide()
-                return
+                return True
             else:
                 print("could not find method for converting to specified format.")
-                return
+                return False
         if compress[0] == " compression":
             if compress[1] == "LZ10":
                 data = ndspy.lz10.compress(data)
@@ -5767,6 +5786,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 with open(os.path.join(path + "/" + name.split(".")[0] + "_" + str(subdata_i) + ext), 'wb') as f:
                     f.write(subdata)
         print("File extracted!")
+        return True
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
