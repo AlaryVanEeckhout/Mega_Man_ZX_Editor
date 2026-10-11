@@ -2858,11 +2858,16 @@ class MainWindow(QtWidgets.QMainWindow):
         find = text[p:].find(newpage)
         rfind = text[:p].rfind(newpage)
         viewed_text = text[rfind + len(newpage) if rfind != -1 else 0:p+find if find != -1 else len(text)].split(newpage)[0]
+        arm9_bin = self.arm9_decompressed.save()
         #print(rfind, find)
-        def draw_char(chr_index: int, draw_index: int):
+        def get_sp_command_name(*val):
+            return self.file_content_text.charmap.dict_byte_to_unicode[val].split(" ")[0]
+        def draw_char(chr_index: int, draw_index: int, line: int=None):
+            if line is None:
+                line = newline_count
             painter_text.drawImage(
                 (draw_index%chars_per_line)*char_width,
-                (draw_index//chars_per_line)*8,
+                line*16+(draw_index//chars_per_line)*8,
                 lib.datconv.binToQt(
                     font_obj.chr_data[chr_index*font_obj.indexing_space:(chr_index+1)*font_obj.indexing_space],
                     self.GFX_PALETTES[1][color_index*2:],
@@ -2870,6 +2875,33 @@ class MainWindow(QtWidgets.QMainWindow):
                     1, 1, char_width, font_obj.char_height
                 )
             )
+        def draw_namechar(chr_index: int, draw_index: int):
+            painter_name.drawImage(
+                draw_index*8,
+                0,
+                lib.datconv.binToQt(
+                    arm9_bin[self.gamedat.arm9Addrs["dialogue font"]+chr_index*64:self.gamedat.arm9Addrs["dialogue font"]+(chr_index+1)*64],
+                    [0xff000000, 0xff7b7b7b, 0xffffffff],
+                    lib.datconv.CompressionAlgorithmEnum.EIGHTBPP,
+                    1, 1
+                )
+            )
+        def draw_name(name_index: int):
+            key = "dialogue names "
+            gfx_offset_tiles = 0
+            if self.file_content_text.charmap in [lib.dialogue.CHARMAP_DIALOGUE_ZX_JP, lib.dialogue.CHARMAP_DIALOGUE_ZXA_JP]:
+                key += "jp"
+                name_charmap = lib.dialogue.CHARMAP_DIALOGUENAME_ZX_JP
+                gfx_offset_tiles = 0x5D # todo: make this a constant
+            else:
+                key += "en"
+                name_charmap = lib.dialogue.CHARMAP_DIALOGUENAME_ZX_EN
+            addr_namelist = self.gamedat.arm9Addrs[key]
+            name: str = lib.dialogue.DialogueFile.binToText(arm9_bin[addr_namelist+name_index*0x0C:addr_namelist+(name_index+1)*0x0C], name_charmap)
+            name = name[:name.find(name_charmap.dict_byte_to_unicode[(0xFF,)])]
+            #print(name)
+            for char_i, char in enumerate(name):
+                draw_namechar(name_charmap.dict_unicode_to_byte[char][0]+gfx_offset_tiles, char_i)
         if viewed_text != self.gfx_view_dialogue.viewed_text:
             #print(viewed_text)
             self.gfx_view_dialogue.viewed_text = viewed_text
@@ -2922,6 +2954,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 chars_per_line = BOX_WIDTH//char_width
                 graphic_mugshot = QtGui.QPixmap(8*MUGSHOT_WIDTH_TILES, 8*MUGSHOT_HEIGHT_TILES)
                 graphic_mugshot.fill(0)
+                graphic_name = QtGui.QPixmap(BOX_WIDTH, 8)
+                graphic_name.fill(0)
                 graphic_text = QtGui.QPixmap(BOX_WIDTH, box_height)
                 graphic_text.fill(0)
                 if self.gfx_view_dialogue.viewed_text != "":
@@ -2930,8 +2964,12 @@ class MainWindow(QtWidgets.QMainWindow):
                     painter_text.setRenderHints(QtGui.QPainter.RenderHint.Antialiasing | QtGui.QPainter.RenderHint.SmoothPixmapTransform, False)
                     painter_text.setCompositionMode(QtGui.QPainter.CompositionMode.CompositionMode_Source)
                     is_sp = False
-                    draw_index = 0
-                    color_index = 0
+                    draw_index = 0 # cursor position
+                    newline_count = 0
+                    color_index = 0 # color command value
+                    choice_cursor = None # line on which the choice cursor is
+                    placement_bottom = False
+                    placement_right = False
                     for c_i, c in enumerate(viewed_text):
                         if is_sp:
                             if c == "┤":
@@ -2942,33 +2980,50 @@ class MainWindow(QtWidgets.QMainWindow):
                             if sp_command in self.file_content_text.charmap.dict_unicode_to_byte: # argument-less command
                                 chr_index = self.file_content_text.charmap.dict_unicode_to_byte[sp_command][0]
                                 if chr_index < 0xF0: # chars that aren't really special commands but have a special representation (ex.:├DPAD┤)
+                                    chr_index = self.file_content_text.charmap.dict_unicode_to_byte[sp_command][0]
+                                    draw_char(chr_index, draw_index)
                                     draw_index += 1
                                 else:
-                                    if sp_command == self.file_content_text.charmap.dict_byte_to_unicode[(0xfc,)]:
+                                    if sp_command == get_sp_command_name(0xfc,): # newline
                                         #print(f"newline (({draw_index-1}//{chars_per_line})+2)*{chars_per_line} = {((draw_index//chars_per_line)+2)*chars_per_line}")
-                                        draw_index = (((draw_index-1)//chars_per_line)+2)*chars_per_line
-                            elif viewed_text[c_i:c_i+viewed_text[c_i:].find(" ")] == self.file_content_text.charmap.dict_byte_to_unicode[(0xf3, None)].split(" ")[0]:
-                                mughsot_index = int(viewed_text[c_i+viewed_text[c_i:].find(" "):c_i+viewed_text[c_i:].find("┤")], 0)
-                                if mughsot_index != 0:
-                                    painter_mugshot = QtGui.QPainter()
-                                    painter_mugshot.begin(graphic_mugshot)
-                                    painter_mugshot.setRenderHints(QtGui.QPainter.RenderHint.Antialiasing | QtGui.QPainter.RenderHint.SmoothPixmapTransform, False)
-                                    painter_mugshot.setCompositionMode(QtGui.QPainter.CompositionMode.CompositionMode_Source)
-                                    if not "ZXA" in self.rom.name.decode():
-                                        mughsot_index -= 1
-                                    img = lib.datconv.binToQt(
-                                        mugshot_obj.getGraphic(mughsot_index),
-                                        mugshot_obj.getPalette(mughsot_index),
-                                        lib.datconv.CompressionAlgorithmEnum.EIGHTBPP,
-                                        MUGSHOT_WIDTH_TILES, MUGSHOT_HEIGHT_TILES)
-                                    painter_mugshot.drawImage(
-                                        0,
-                                        0,
-                                        img
-                                    )
-                                    painter_mugshot.end()
-                            elif viewed_text[c_i:c_i+viewed_text[c_i:].find(" ")] == self.file_content_text.charmap.dict_byte_to_unicode[(0xf1, None)].split(" ")[0]:
-                                color_index = int(viewed_text[c_i+viewed_text[c_i:].find(" "):c_i+viewed_text[c_i:].find("┤")], 0)
+                                        newline_count += 1
+                                        draw_index = 0#(((draw_index-1)//chars_per_line)+2)*chars_per_line
+                                    elif sp_command == get_sp_command_name(0xfb,): # three choices
+                                        choice_cursor = 0
+                            else:
+                                sp_command_name = viewed_text[c_i:c_i+viewed_text[c_i:].find(" ")]
+                                sp_command_arg = int(viewed_text[c_i+viewed_text[c_i:].find(" "):c_i+viewed_text[c_i:].find("┤")], 0)
+                                if sp_command_name == get_sp_command_name(0xf3, None): # mugshot
+                                    mughsot_index = sp_command_arg
+                                    if mughsot_index != 0:
+                                        painter_mugshot = QtGui.QPainter()
+                                        painter_mugshot.begin(graphic_mugshot)
+                                        painter_mugshot.setRenderHints(QtGui.QPainter.RenderHint.Antialiasing | QtGui.QPainter.RenderHint.SmoothPixmapTransform, False)
+                                        painter_mugshot.setCompositionMode(QtGui.QPainter.CompositionMode.CompositionMode_Source)
+                                        if not "ZXA" in self.rom.name.decode():
+                                            mughsot_index -= 1
+                                        img = lib.datconv.binToQt(
+                                            mugshot_obj.getGraphic(mughsot_index),
+                                            mugshot_obj.getPalette(mughsot_index),
+                                            lib.datconv.CompressionAlgorithmEnum.EIGHTBPP,
+                                            MUGSHOT_WIDTH_TILES, MUGSHOT_HEIGHT_TILES)
+                                        painter_mugshot.drawImage(
+                                            0,
+                                            0,
+                                            img
+                                        )
+                                        painter_mugshot.end()
+                                elif sp_command_name == get_sp_command_name(0xf8, None): # name
+                                    painter_name = QtGui.QPainter()
+                                    painter_name.begin(graphic_name)
+                                    painter_name.setRenderHints(QtGui.QPainter.RenderHint.Antialiasing | QtGui.QPainter.RenderHint.SmoothPixmapTransform, False)
+                                    painter_name.setCompositionMode(QtGui.QPainter.CompositionMode.CompositionMode_Source)
+                                    draw_name(sp_command_arg)
+                                    painter_name.end()
+                                elif sp_command_name == get_sp_command_name(0xf1, None): # color
+                                    color_index = sp_command_arg
+                                elif sp_command_name == get_sp_command_name(0xf6, None): # two choices
+                                    choice_cursor = 1
                         else: # draw char
                             #print(draw_index)
                             chr_index = self.file_content_text.charmap.dict_unicode_to_byte[c][0]
@@ -2976,11 +3031,17 @@ class MainWindow(QtWidgets.QMainWindow):
                                 chr_index += self.file_content_text.charmap.dict_unicode_to_byte[c][1]
                             draw_char(chr_index, draw_index)
                             draw_index += 1
+                    if choice_cursor is not None:
+                        while choice_cursor < 3: # draw all possible cursor positions
+                            draw_char(sum(self.file_content_text.charmap.dict_unicode_to_byte["⯈"]), 0, choice_cursor)
+                            choice_cursor += 1
                     painter_text.end()
                 item_text = self.gfx_view_dialogue.scene().addPixmap(graphic_text)
                 if "talk_" in self.fileToEdit_name:
-                    self.gfx_view_dialogue.scene().addPixmap(graphic_mugshot)
-                    item_text.setPos(6*8, 8)
+                    item_mugshot = self.gfx_view_dialogue.scene().addPixmap(graphic_mugshot)
+                    item_name = self.gfx_view_dialogue.scene().addPixmap(graphic_name)
+                    item_name.setPos(0, -8)
+                    item_mugshot.setPos(BOX_WIDTH+8 if placement_right else -(MUGSHOT_WIDTH_TILES+1)*8, -8)
                 self.gfx_view_dialogue.fitInView2()
             except Exception as e: # text was edited in a way that cannot be parsed yet
                 raise e
@@ -4425,7 +4486,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         arm9_data = self.arm9_decompressed.save()
         addr = self.gamedat.arm9Addrs["dialogue names " + self.dropdown_dialogueNames_lang.currentText()]
-        name = arm9_data[addr+index*0x0C:addr+index*0x0C+0x0C]
+        name = arm9_data[addr+index*0x0C:addr+(index+1)*0x0C]
         self.textEdit_dialogueNames.charmap = self.gamedat.charmaps["names "+self.dropdown_dialogueNames_lang.currentText()]
         self.textEdit_dialogueNames.setPlainText(lib.dialogue.DialogueFile.binToText(name, self.textEdit_dialogueNames.charmap))
         self.textEdit_dialogueNames.blockSignals(False)

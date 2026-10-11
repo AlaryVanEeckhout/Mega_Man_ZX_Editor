@@ -1,7 +1,7 @@
 class CharMap:
     def __init__(self):
-        self.dict_byte_to_unicode: dict[tuple, str] = {}
-        self.dict_unicode_to_byte: dict[str, tuple] = {}
+        self.dict_byte_to_unicode: dict[tuple[int | None], str] = {} # key: tuple(byte, *args); value: unicode char or command string
+        self.dict_unicode_to_byte: dict[str, tuple[int]] = {} # key: unicode char or command string; value: tuple of ints representing bytes
     
     def add_mapping(self, map_byte: tuple[int], map_unicode: str):
         self.add_byte_mapping(map_byte, map_unicode)
