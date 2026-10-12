@@ -4,6 +4,24 @@ from . import dialogue
 
 MUGSHOT_WIDTH_TILES = 6
 MUGSHOT_HEIGHT_TILES = 7
+DIALOGUE_BOX_PALETTE = [
+    0xff000000,
+    0xff848484,
+    0xffffffff,
+    0xff4a4a4a,
+    0xffa59ca5,
+    0xffc6bdc6,
+    0xffd6ced6,
+    0xffcec6ce,
+    0xffded6de,
+    0xffe7dee7,
+    0xffefe7ef,
+    0xfff7f7f7,
+    0xff215a52,
+    0xff4a9c94,
+    0xff6bcec6,
+    0xff7befde
+]
 # indicators determine what the file most likely contains based on its name
 I_MUGSHOT = ("face",)
 I_GFX = I_MUGSHOT + ("_fnt", "boot")
@@ -19,7 +37,8 @@ ARM9_ZX_E = {
     "entity": 0x000C9C7C, #each entry is 0x4*levelOverlayCount bytes
     "level": 0x000CB9D4,
     #"???": 0x000CC6F0, # pointers outside of overlay
-    "dialogue box" : 0x000BEC8C,
+    "dialogue box" : 0x000BEF8C,
+    "dialogue box extra" : 0x000BEC8C,
     "dialogue names jp": 0x000BF5CC,
     "dialogue names en": 0x000BF9EC,
     "dialogue font": 0x000BFE0C,
@@ -29,6 +48,7 @@ ARM9_ZX_J = {
     "entity": 0x000C685C,
     "level": 0x000C7E88,
     "dialogue box" : 0x000BEAD8, # gfx split in two places???
+    "dialogue box extra" : 0x000BE3B8,
     "dialogue names jp": 0x000BE6B8,
     "dialogue names en": 0,
     "dialogue font": 0x000BF118,
@@ -46,7 +66,7 @@ ARM9_ZXA_E = {
 ARM9_ZXA_J = {
     "entity": 0x000FDC9C,
     "level": 0x000FF55C,
-    "dialogue box" : 0x000DEF28,
+    "dialogue box" : 0x000DF508,
     "dialogue names jp": 0x000DEAA8,
     "dialogue names en": 0,
     "dialogue font": 0x000DF968,

@@ -2855,9 +2855,12 @@ class MainWindow(QtWidgets.QMainWindow):
         p = self.file_content_text.textCursor().position()
         text = self.file_content_text.toPlainText()
         newpage = self.file_content_text.charmap.dict_byte_to_unicode[(0xfd,)]
+        is_mugshot = bool(text.find(self.file_content_text.charmap.dict_byte_to_unicode[(0xf3, None)].split(" ")[0]) != -1)
         find = text[p:].find(newpage)
         rfind = text[:p].rfind(newpage)
-        viewed_text = text[rfind + len(newpage) if rfind != -1 else 0:p+find if find != -1 else len(text)].split(newpage)[0]
+        viewed_text = text[rfind + len(newpage) if rfind != -1 else 0:p+find if find != -1 else len(text)]
+        cursor_next = bool(viewed_text.find(newpage) != -1)
+        viewed_text = viewed_text.split(newpage)[0]
         arm9_bin = self.arm9_decompressed.save()
         #print(rfind, find)
         def get_sp_command_name(*val):
@@ -2881,7 +2884,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 0,
                 lib.datconv.binToQt(
                     arm9_bin[self.gamedat.arm9Addrs["dialogue font"]+chr_index*64:self.gamedat.arm9Addrs["dialogue font"]+(chr_index+1)*64],
-                    [0xff000000, 0xff7b7b7b, 0xffffffff],
+                    lib.gamedat.DIALOGUE_BOX_PALETTE,
                     lib.datconv.CompressionAlgorithmEnum.EIGHTBPP,
                     1, 1
                 )
@@ -2892,7 +2895,8 @@ class MainWindow(QtWidgets.QMainWindow):
             if self.file_content_text.charmap in [lib.dialogue.CHARMAP_DIALOGUE_ZX_JP, lib.dialogue.CHARMAP_DIALOGUE_ZXA_JP]:
                 key += "jp"
                 name_charmap = lib.dialogue.CHARMAP_DIALOGUENAME_ZX_JP
-                gfx_offset_tiles = 0x5D # todo: make this a constant
+                if not "ROCKMAN" in self.rom.name.decode():
+                    gfx_offset_tiles = 0x5D # todo: make this a constant
             else:
                 key += "en"
                 name_charmap = lib.dialogue.CHARMAP_DIALOGUENAME_ZX_EN
@@ -2901,10 +2905,137 @@ class MainWindow(QtWidgets.QMainWindow):
             name = name[:name.find(name_charmap.dict_byte_to_unicode[(0xFF,)])]
             #print(name)
             for char_i, char in enumerate(name):
-                draw_namechar(name_charmap.dict_unicode_to_byte[char][0]+gfx_offset_tiles, char_i)
-        if viewed_text != self.gfx_view_dialogue.viewed_text:
+                draw_namechar(name_charmap.dict_unicode_to_byte[char][0]+gfx_offset_tiles, (chars_per_line-len(name)+char_i if placement_right else char_i))
+            return len(name)
+        def draw_box_tile(tile_x: int, tile_y: int, tile_idx: int, flip_h: bool=False, flip_v: bool=False, transparent: bool=False, is_extra: bool=False):
+            arm9_addr = self.gamedat.arm9Addrs["dialogue box extra"] if is_extra else self.gamedat.arm9Addrs["dialogue box"]
+            painter_box.drawImage(
+                tile_x*8,
+                tile_y*8,
+                lib.datconv.binToQt(
+                    arm9_bin[arm9_addr+tile_idx*64:arm9_addr+(tile_idx+1)*64],
+                    [0x00000000]+lib.gamedat.DIALOGUE_BOX_PALETTE[1:] if transparent else lib.gamedat.DIALOGUE_BOX_PALETTE,
+                    lib.datconv.CompressionAlgorithmEnum.EIGHTBPP,
+                    1, 1
+                ).mirrored(flip_h, flip_v)
+            )
+        def draw_box_tile_range(tile_x: int, tile_y: int, length: int, tile_init: int, tile_repeat: int, tile_end: int, vertical: bool = False, flip_h: bool=False, flip_v: bool=False, transparent: bool=False, is_extra: bool=False):
+            length -= 1
+            if vertical:
+                draw_box_tile(tile_x, tile_y, tile_end if flip_v else tile_init, flip_h=flip_h, flip_v=flip_v, transparent=transparent, is_extra=is_extra)
+                for pos in range(tile_y+1, tile_y+1+length):
+                    draw_box_tile(tile_x, pos, tile_repeat, flip_h=flip_h, flip_v=flip_v, transparent=transparent, is_extra=is_extra)
+                draw_box_tile(tile_x, tile_y+length, tile_init if flip_v else tile_end, flip_h=flip_h, flip_v=flip_v, transparent=transparent, is_extra=is_extra)
+            else:
+                draw_box_tile(tile_x, tile_y, tile_end if flip_h else tile_init, flip_h=flip_h, flip_v=flip_v, transparent=transparent, is_extra=is_extra)
+                for pos in range(tile_x+1, tile_x+1+length):
+                    draw_box_tile(pos, tile_y, tile_repeat, flip_h=flip_h, flip_v=flip_v, transparent=transparent, is_extra=is_extra)
+                draw_box_tile(tile_x+length, tile_y, tile_init if flip_h else tile_end, flip_h=flip_h, flip_v=flip_v, transparent=transparent, is_extra=is_extra)
+        def draw_box_ZX():
+            if "talk_" in self.fileToEdit_name:
+                if is_mugshot:
+                    # Mugshot
+                    #top
+                    draw_box_tile_range(
+                        box_width//8+1 if placement_right else 0, 0,
+                        MUGSHOT_WIDTH_TILES+2, 0x0, 0x1, 0x2,
+                        flip_h=placement_right, transparent=True
+                    )
+                    #left
+                    draw_box_tile_range(
+                        box_width//8+MUGSHOT_WIDTH_TILES+2 if placement_right else 0, 1,
+                        MUGSHOT_HEIGHT_TILES-2, 0x7, 0xB, 0xE,
+                        vertical=True, flip_h=placement_right
+                    )
+                    draw_box_tile(
+                        box_width//8+MUGSHOT_WIDTH_TILES+2 if placement_right else 0, MUGSHOT_HEIGHT_TILES-1,
+                        0x10, flip_h=placement_right
+                    )
+                    #bottom
+                    draw_box_tile_range(
+                        box_width//8+1 if placement_right else 0, MUGSHOT_HEIGHT_TILES,
+                        MUGSHOT_WIDTH_TILES+2, 0x13, 0x14, 0x15,
+                        flip_h=placement_right
+                    )
+                    #right
+                    draw_box_tile_range(
+                        box_width//8 + 1 if placement_right else MUGSHOT_WIDTH_TILES+1, 1,
+                        MUGSHOT_HEIGHT_TILES-1, 0x9, 0xC, 0x18 if cursor_next and placement_right else 0x11,
+                        vertical=True, flip_h=placement_right
+                    )
+                    # Nameplate
+                    draw_box_tile_range(
+                        0 if placement_right else MUGSHOT_WIDTH_TILES+2+name_len, 0,
+                        box_width//8-name_len+1, 0x4, 0x5, 0x6,
+                        flip_h=placement_right
+                    )
+                    # Right border
+                    draw_box_tile_range(
+                        0 if placement_right else MUGSHOT_WIDTH_TILES+2+box_width//8, 1,
+                        MUGSHOT_HEIGHT_TILES-2, 0xA, 0xD, 0xF,
+                        vertical=True, flip_h=placement_right
+                    )
+                    draw_box_tile(
+                        0 if placement_right else MUGSHOT_WIDTH_TILES+2+box_width//8, MUGSHOT_HEIGHT_TILES-1,
+                        0x17 if cursor_next and not placement_right else 0x12, flip_h=placement_right
+                    )
+                    # Bottom border
+                    draw_box_tile_range(
+                        0 if placement_right else MUGSHOT_WIDTH_TILES+1, MUGSHOT_HEIGHT_TILES,
+                        box_width//8+2, 0x15, 0x16, 0x13,
+                        flip_h=placement_right
+                    )
+                else:
+                    draw_box_tile(0, 0, 0x0, transparent=True, is_extra=True)
+                    draw_box_tile_range(
+                        1, 0,
+                        box_width//8, 0x1, 0x2, 0x2,
+                        transparent=True, is_extra=True
+                    )
+                    draw_box_tile(box_width//8 + 1, 0, 0x0, transparent=True, is_extra=True)
+
+                    draw_box_tile(0, 1, 0x3, is_extra=True)
+                    draw_box_tile_range(
+                        1, 1,
+                        box_width//8, 0x4, 0x4, 0x4,
+                        transparent=True, is_extra=True
+                    )
+                    draw_box_tile(box_width//8 + 1, 1, 0x5, is_extra=True)
+
+                    draw_box_tile(0, 2, 0x6, is_extra=True)
+                    draw_box_tile_range(
+                        1, 2,
+                        box_width//8, 0x4, 0x4, 0x4,
+                        transparent=True, is_extra=True
+                    )
+                    draw_box_tile(box_width//8 + 1, 2, 0x7, is_extra=True)
+
+                    draw_box_tile(0, 3, 0x8, transparent=True, is_extra=True)
+                    draw_box_tile_range(
+                        1, 3,
+                        box_width//8, 0x9, 0xA, 0xA,
+                        transparent=True, is_extra=True
+                    )
+                    draw_box_tile(box_width//8 + 1, 3, 0x8, transparent=True, is_extra=True)
+        def draw_box_ZXA():
+            if "talk_" in self.fileToEdit_name:
+                # Mugshot
+                #top
+                draw_box_tile_range(
+                    box_width//8+1 if placement_right else 0, 0,
+                    MUGSHOT_WIDTH_TILES+2, 0x0, 0x1, 0x2,
+                    flip_h=placement_right, transparent=True
+                )
+                #left
+                #bottom
+                #right
+                # Nameplate
+                # Right border
+                # Bottom border
+        if viewed_text != self.gfx_view_dialogue.viewed_text or cursor_next != self.gfx_view_dialogue.cursor_next:
             #print(viewed_text)
             self.gfx_view_dialogue.viewed_text = viewed_text
+            self.gfx_view_dialogue.cursor_next = cursor_next
             try:
                 self.gfx_view_dialogue.scene().clear()
                 if self.file_content_text.charmap == lib.dialogue.CHARMAP_DIALOGUE_ZX_EN:
@@ -2918,7 +3049,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 # todo: figure out which dimensions the text has for each kind of message box
                 line_count = 0
                 if "talk_" in self.fileToEdit_name:
-                    BOX_WIDTH = 185
+                    box_width = 184
                     line_count = 3 # different when no mugshot
                 else:
                     if "sdisk_" in self.fileToEdit_name and self.dropdown_textindex.currentIndex() >= 2:
@@ -2927,10 +3058,10 @@ class MainWindow(QtWidgets.QMainWindow):
                         else:
                             sdisk_condition = bool(self.dropdown_textindex.currentIndex() % 2 == 0 and self.dropdown_textindex.currentIndex() < self.dropdown_textindex.count()-1)
                         if sdisk_condition: # name
-                            BOX_WIDTH = 208
+                            box_width = 208
                             line_count = 1
                         else: # desc
-                            BOX_WIDTH = 224
+                            box_width = 224
                             line_count = 8
                     elif "sub_" in self.fileToEdit_name: # ZX ZXA diff needed
                         if "ZXA" in self.rom.name.decode():
@@ -2938,31 +3069,40 @@ class MainWindow(QtWidgets.QMainWindow):
                         else:
                             sub_range = range(71, 130)
                         if self.dropdown_textindex.currentIndex() in sub_range:
-                            BOX_WIDTH = 120
+                            box_width = 120
                             line_count = 8
                         else:
-                            BOX_WIDTH = 240
+                            box_width = 240
                             line_count = 2
                     elif "sys" in self.fileToEdit_name:
-                        BOX_WIDTH = 208
+                        box_width = 208
                         line_count = 1
                     else: # menu controls
-                        BOX_WIDTH = 240
+                        box_width = 240
                         line_count = 2
+                if not is_mugshot:
+                    line_count = 1
+                    box_width = 240
                 box_height = 16*line_count
                 char_width = math.ceil(font_obj.char_width/8)*8
-                chars_per_line = BOX_WIDTH//char_width
+                chars_per_line = box_width//char_width
                 graphic_mugshot = QtGui.QPixmap(8*MUGSHOT_WIDTH_TILES, 8*MUGSHOT_HEIGHT_TILES)
                 graphic_mugshot.fill(0)
-                graphic_name = QtGui.QPixmap(BOX_WIDTH, 8)
+                graphic_name = QtGui.QPixmap(box_width, 8 if line_count == 3 else 0)
                 graphic_name.fill(0)
-                graphic_text = QtGui.QPixmap(BOX_WIDTH, box_height)
+                graphic_text = QtGui.QPixmap(box_width, box_height)
                 graphic_text.fill(0)
+                graphic_box = QtGui.QPixmap(8*MUGSHOT_WIDTH_TILES+box_width+8*3, graphic_text.height()+graphic_name.height()+2+(16 if not is_mugshot else 0))
+                graphic_box.fill(QtCore.Qt.GlobalColor.transparent)
                 if self.gfx_view_dialogue.viewed_text != "":
                     painter_text = QtGui.QPainter()
                     painter_text.begin(graphic_text)
                     painter_text.setRenderHints(QtGui.QPainter.RenderHint.Antialiasing | QtGui.QPainter.RenderHint.SmoothPixmapTransform, False)
                     painter_text.setCompositionMode(QtGui.QPainter.CompositionMode.CompositionMode_Source)
+                    painter_box = QtGui.QPainter()
+                    painter_box.begin(graphic_box)
+                    painter_box.setRenderHints(QtGui.QPainter.RenderHint.Antialiasing | QtGui.QPainter.RenderHint.SmoothPixmapTransform, False)
+                    painter_box.setCompositionMode(QtGui.QPainter.CompositionMode.CompositionMode_Source)
                     is_sp = False
                     draw_index = 0 # cursor position
                     newline_count = 0
@@ -2970,6 +3110,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     choice_cursor = None # line on which the choice cursor is
                     placement_bottom = False
                     placement_right = False
+                    name_len = 0
                     for c_i, c in enumerate(viewed_text):
                         if is_sp:
                             if c == "┤":
@@ -3006,7 +3147,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                             mugshot_obj.getGraphic(mughsot_index),
                                             mugshot_obj.getPalette(mughsot_index),
                                             lib.datconv.CompressionAlgorithmEnum.EIGHTBPP,
-                                            MUGSHOT_WIDTH_TILES, MUGSHOT_HEIGHT_TILES)
+                                            MUGSHOT_WIDTH_TILES, MUGSHOT_HEIGHT_TILES).mirrored(placement_right, False)
                                         painter_mugshot.drawImage(
                                             0,
                                             0,
@@ -3018,10 +3159,15 @@ class MainWindow(QtWidgets.QMainWindow):
                                     painter_name.begin(graphic_name)
                                     painter_name.setRenderHints(QtGui.QPainter.RenderHint.Antialiasing | QtGui.QPainter.RenderHint.SmoothPixmapTransform, False)
                                     painter_name.setCompositionMode(QtGui.QPainter.CompositionMode.CompositionMode_Source)
-                                    draw_name(sp_command_arg)
+                                    name_len = draw_name(sp_command_arg)
                                     painter_name.end()
                                 elif sp_command_name == get_sp_command_name(0xf1, None): # color
                                     color_index = sp_command_arg
+                                elif sp_command_name == get_sp_command_name(0xf2, None): # placement
+                                    if sp_command_arg in [0,1]:
+                                        placement_bottom = bool(sp_command_arg == 1)
+                                    elif sp_command_arg in [2,3]:
+                                        placement_right = bool(sp_command_arg == 3)
                                 elif sp_command_name == get_sp_command_name(0xf6, None): # two choices
                                     choice_cursor = 1
                         else: # draw char
@@ -3036,12 +3182,19 @@ class MainWindow(QtWidgets.QMainWindow):
                             draw_char(sum(self.file_content_text.charmap.dict_unicode_to_byte["⯈"]), 0, choice_cursor)
                             choice_cursor += 1
                     painter_text.end()
+                if not "ZXA" in self.rom.name.decode():
+                    draw_box_ZX()
+                else:
+                    draw_box_ZXA()
+                painter_box.end()
                 item_text = self.gfx_view_dialogue.scene().addPixmap(graphic_text)
-                if "talk_" in self.fileToEdit_name:
+                item_text.setPos(8 if placement_right or not is_mugshot else MUGSHOT_WIDTH_TILES*8+8*2, 8)
+                if is_mugshot:
                     item_mugshot = self.gfx_view_dialogue.scene().addPixmap(graphic_mugshot)
                     item_name = self.gfx_view_dialogue.scene().addPixmap(graphic_name)
-                    item_name.setPos(0, -8)
-                    item_mugshot.setPos(BOX_WIDTH+8 if placement_right else -(MUGSHOT_WIDTH_TILES+1)*8, -8)
+                    item_name.setPos(item_text.pos().x(), 0)
+                    item_mugshot.setPos(box_width+8*2 if placement_right else 8, 0)
+                item_box = self.gfx_view_dialogue.scene().addPixmap(graphic_box)
                 self.gfx_view_dialogue.fitInView2()
             except Exception as e: # text was edited in a way that cannot be parsed yet
                 raise e
