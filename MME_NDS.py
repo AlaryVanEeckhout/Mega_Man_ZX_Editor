@@ -1817,7 +1817,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tabs_level_entities.addTab(self.page_level_entities_coords, "Coordinates")
         self.tabs_level_entities.addTab(self.page_level_entities_slots, "Slot data")
 
-        self.gfx_view_level = lib.widget.LevelView(self.page_leveleditor)
+        self.gfx_view_level = lib.widget.LevelView(self.page_leveleditor, screenSpacing=4)
         self.gfx_view_level.scene().selectionChanged.connect(self.loadEntityProperties)
 
         self.page_leveleditor.layout().addItem(self.layout_level_editpannel)
@@ -5104,7 +5104,7 @@ class MainWindow(QtWidgets.QMainWindow):
             item.tileGroup = self.gfx_view_level.tileGroups[screen_id][metaTile_index]
             #print(item.pos())
 
-    def loadScreens(self, file: lib.level.File, level: lib.level.Level, screenSpacing: int=4):
+    def loadScreens(self, file: lib.level.File, level: lib.level.Level):
         def loadScreen_loop(layout: lib.level.ScreenLayout, slice_start: int=0, slice_end: int=4, radarOverride: bool=False):
             offset = None
             for i in range(layout.height):
@@ -5121,7 +5121,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     else:
                         offset = None
                         offset_name = f"radar{self.buttonGroup_radar_tilesetType.checkedButton().text().replace(" ", "")}"
-                    self.loadScreen(layout.layout[i][j], j*(16*(8*2)+screenSpacing), i*(12*(8*2)+screenSpacing), offset_name=offset_name)
+                    self.loadScreen(layout.layout[i][j], j*(16*(8*2)+self.gfx_view_level.screenSpacing), i*(12*(8*2)+self.gfx_view_level.screenSpacing), offset_name=offset_name)
         self.initScreens()
         if level == file.level:
             # todo: figure out how layouts 1-3 get their Z-position, check what there is at overlay address 0x021944A2
@@ -5181,7 +5181,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.loadScreenLayout(self.levelEdited_ovl_object.map_tilesetOffset, self.page_level_screens_map_offset.widget())
         self.loadScreenLayout(self.levelEdited_ovl_object.map_behavior, self.page_level_screens_map_behavior.widget())
 
-    def loadEntities(self, screenSpacing:int=0):
+    def loadEntities(self):
         if not self.checkbox_entities_enable.isChecked(): return
         isGFX = self.checkbox_entities_gfxEnable.isChecked()
         entities = self.levelEdited_ovl_object.entities
@@ -5232,14 +5232,14 @@ class MainWindow(QtWidgets.QMainWindow):
                     print(f"Invalid enemy graphics requested by entity {i}")
             self.gfx_view_level.scene().addItem(
                 lib.widget.LevelEntityItem(
-                coordIndex=i,
-                coord=entityCoord,
-                slot=entitySlot,
-                slotnames=entitySlot_names,
-                screenSpacing=screenSpacing,
-                displayBase=self.displayBase,
-                alphanumeric=self.displayAlphanumeric,
-                graphicItems=self.OAM_processFrame(["obj_dat.bin", oam_index], 0)["items"] if isGFX else []
+                    parentView=self.gfx_view_level,
+                    coordIndex=i,
+                    coord=entityCoord,
+                    slot=entitySlot,
+                    slotnames=entitySlot_names,
+                    displayBase=self.displayBase,
+                    alphanumeric=self.displayAlphanumeric,
+                    graphicItems=self.OAM_processFrame(["obj_dat.bin", oam_index], 0)["items"] if isGFX else []
                 )
             )
 
@@ -5292,9 +5292,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.gfx_view_level.scene().clear()
         #if self.gfx_view_tileset.metaTiles == []:
         #    return
-        screenSpacing = 4
-        self.loadScreens(file, level, screenSpacing)
-        self.loadEntities(screenSpacing)
+        self.loadScreens(file, level)
+        self.loadEntities()
         if self.checkbox_level_fitInView.isChecked():
             self.gfx_view_level.fitInView2()
 

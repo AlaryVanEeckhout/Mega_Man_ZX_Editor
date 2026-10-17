@@ -44,17 +44,17 @@ class LevelTileItem(PixmapItem):
         self.id = view.metaTiles.index(item)
 
 class LevelEntityItem(QtWidgets.QGraphicsItemGroup):
-    def __init__(self, *args, coordIndex:int=0, coord:dict[str]={}, slot:dict[str]={}, slotnames:dict[str]={}, screenSpacing:int=0, displayBase:int=10, alphanumeric=False, graphicItems:list[PixmapItem]=[], **kwargs):
+    def __init__(self, *args, parentView: LevelView=None, coordIndex:int=0, coord:dict[str]={}, slot:dict[str]={}, slotnames:dict[str]={}, displayBase:int=10, alphanumeric=False, graphicItems:list[PixmapItem]=[], **kwargs):
         super().__init__(*args, **kwargs)
+        self.parentView = parentView
         self.coordIndex = coordIndex # Entities are ordered from top to bottom, left to right
         self.displayBase = displayBase
         self.alphanumeric = alphanumeric
         #self._coord = coord
         #self._slot = slot
         #self._slotnames = slotnames
-        self.screenSpacing = screenSpacing
-        x = self.getSceneX(coord["x"])
-        y = self.getSceneY(coord["y"])
+        x = self.parentView.getSceneX(coord["x"])
+        y = self.parentView.getSceneY(coord["y"])
         self.setPos(x, y)
         self._item_rect = QtWidgets.QGraphicsRectItem(-8, -8, 16, 16, self)
         self._item_rect.setZValue(1)
@@ -92,26 +92,15 @@ class LevelEntityItem(QtWidgets.QGraphicsItemGroup):
                                 \nunk9: {slotnames["unk9"]}\
                                 \nunkA: {slotnames["unkA"]}\
                                 \nunkB: {slotnames["unkB"]}""")
-
-    def getSceneX(self, x:int):
-        return x+self.screenSpacing*(x//lib.level.SCREEN_WIDTH)
-
-    def getTrueX(self, x:int):
-        return x-self.screenSpacing*(x//lib.level.SCREEN_WIDTH)
-    
-    def getSceneY(self, y:int):
-        return y+self.screenSpacing*(y//lib.level.SCREEN_HEIGHT)
-
-    def getTrueY(self, y:int):
-        return y-self.screenSpacing*(y//lib.level.SCREEN_HEIGHT)
         
     def itemChange(self, change: QtWidgets.QGraphicsPixmapItem.GraphicsItemChange, value: QtCore.QVariant):
         if change == QtWidgets.QGraphicsPixmapItem.GraphicsItemChange.ItemPositionChange and self.scene() and self.isUnderMouse():
             if QtWidgets.QApplication.mouseButtons() == QtCore.Qt.MouseButton.LeftButton:
-                x = min(max(0, value.x()), self.getSceneX(0xFFFFFFFF))
-                y = min(max(0, value.y()), self.getSceneY(0xFFFF))
-                self.getWindow().field_level_entities_coords_x.sb.setValue(self.getTrueX(x))
-                self.getWindow().field_level_entities_coords_y.sb.setValue(self.getTrueY(y))
+                print(type())
+                x = min(max(0, value.x()), self.parentView.getSceneX(0xFFFFFFFF))
+                y = min(max(0, value.y()), self.parentView.getSceneY(0xFFFF))
+                self.getWindow().field_level_entities_coords_x.sb.setValue(self.parentView.getTrueX(x))
+                self.getWindow().field_level_entities_coords_y.sb.setValue(self.parentView.getTrueY(y))
                 return QtCore.QPointF(int(x), int(y))
             else:
                 return value
@@ -119,7 +108,9 @@ class LevelEntityItem(QtWidgets.QGraphicsItemGroup):
             return super().itemChange(change, value)
     
     def getWindow(self):
-        if self.scene():
+        if self.parentView is not None:
+            return self.parentView.window()
+        elif self.scene():
             return self.scene().parent().window()
 
 class OAMObjectItem(PixmapItem):
@@ -402,10 +393,27 @@ class TilesetView(View):
             self.item_first = self.scene().selectedItems()[0]
 
 class LevelView(View):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args,  screenSpacing: int=0, **kwargs):
         super().__init__(*args, **kwargs)
         self.tileGroups: list[list[list[LevelTileItem]]] = []
+        self.screenSpacing = screenSpacing
 
+    def getSceneX(self, x:int):
+        """Convert X pos to scene X pos, which takes spacing into account"""
+        return x+self.screenSpacing*(x//lib.level.SCREEN_WIDTH)
+    
+    def getTrueX(self, x:int):
+        """Convert scene X pos to normal X pos"""
+        return x-self.screenSpacing*(x//lib.level.SCREEN_WIDTH)
+    
+    def getSceneY(self, y:int):
+        """Convert Y pos to scene Y pos, which takes spacing into account"""
+        return y+self.screenSpacing*(y//lib.level.SCREEN_HEIGHT)
+
+    def getTrueY(self, y:int):
+        """Convert scene Y pos to normal Y pos"""
+        return y-self.screenSpacing*(y//lib.level.SCREEN_HEIGHT)
+    
     def addItem(self, item: LevelTileItem):
         if self.window().checkbox_noLevelItemCache.isChecked():
             item.setCacheMode(QtWidgets.QGraphicsPixmapItem.CacheMode.NoCache)
