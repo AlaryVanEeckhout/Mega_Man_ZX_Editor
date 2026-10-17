@@ -51,6 +51,7 @@ A check box labeled "Overwrite existing text" is also present to the left of the
 > For more information on special commands, see [the wiki section on it](https://github.com/AlaryVanEeckhout/Mega_Man_ZX_Editor/wiki/Mega-Man-ZX-(USA)-Dialogue-chars-table)
 
 ## Graphic Files
+
 Graphics are generally structured with a header with pointers to all the relevant data, the graphics data and the palettes.  
 Each of those structures are referred to as "images", whereas a set of images is called an "entry", since it is pointed to by the pointer table at the start of the file.
 
@@ -129,6 +130,7 @@ The first dropdown allows you to select the model entry to view.
 The second dropdown allows you to select the model to view.
 
 ### Camera Controls
+
 Rotation around the model: WASD  
 Zoom in/out: E/Q, respectively  
 Preview initial view: R
@@ -147,14 +149,20 @@ In this window, a dropdown allows you to choose an SDAT to view from the list of
 ### Playback
 
 The toolbar contains a Play/Pause button, a Stop button, and a Plot button.
+>[!WARNING]
+>Playing a sound effect in a SSAR that has blank entries will make it impossible for the editor to properly save the sound data archive. This is because the SSAR needs to be parsed by ndspy to play sounds, but because of the incorrectly identified entries, it cannot be saved back to binary format.
 
 ### SSEQ Modification
 
+This is still an experimental feature, but if you double click on an event in an SSEQ or SSAR, you can modify its parameters.
+
 #### Events
+
 For SSEQs or SSARs, if you expand them, you will see a list of events.  
 Double-clicking or pressing Enter on those events will open an input dialog.
 
 #### Full Replacement
+
 An SSEQ file relies on a SBNK, which in turn relies on one (or more) SWAR(s) containing SWAVs.  
 To properly replace a music, you must therefore replace all three (or more) files.
 
@@ -162,10 +170,12 @@ If you hover your cursor over the ID of a SSEQ, you will see the ID of the SBNK 
 If you hover your cursor over the ID of a SBNK, you will see the ID(s) of the SWAR(s) it uses.  
 
 ## VX Files
+
 Those files use the Actimagine video codec to encode videos and sound effects.
 
 The right panel only allows you to see the file's header.  
 To properly see the contents of this kind of file, you need to export it.
+While exporting, make sure to select VX as the format.
 
 # Exporting a File
 

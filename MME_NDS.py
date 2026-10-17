@@ -2863,7 +2863,7 @@ class MainWindow(QtWidgets.QMainWindow):
         viewed_text = viewed_text.split(newpage)[0]
         arm9_bin = self.arm9_decompressed.save()
         #print(rfind, find)
-        def get_sp_command_name(*val):
+        def get_sp_command_name(*val: int | None):
             return self.file_content_text.charmap.dict_byte_to_unicode[val].split(" ")[0]
         def draw_char(chr_index: int, draw_index: int, line: int=None):
             if line is None:
@@ -2890,6 +2890,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 )
             )
         def draw_name(name_index: int):
+            """Returns the name length"""
             key = "dialogue names "
             gfx_offset_tiles = 0
             if self.file_content_text.charmap in [lib.dialogue.CHARMAP_DIALOGUE_ZX_JP, lib.dialogue.CHARMAP_DIALOGUE_ZXA_JP]:
@@ -2985,7 +2986,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         box_width//8+2, 0x15, 0x16, 0x13,
                         flip_h=placement_right
                     )
-                else:
+                else: # one-line dialogue box
                     draw_box_tile(0, 0, 0x0, transparent=True, is_extra=True)
                     draw_box_tile_range(
                         1, 0,
@@ -3469,7 +3470,15 @@ class MainWindow(QtWidgets.QMainWindow):
                     
     def saveSDATs(self):
         for sdat in self.sdats:
-            self.rom.files[sdat.fileID] = sdat.save()
+            try:
+                self.rom.files[sdat.fileID] = sdat.save()
+            except Exception as e:
+                print(e)
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    f"Failed to save SDAT with ID {sdat.fileID}",
+                    "There is likely a problem with a parsed SSAR having empty entries.\nTo fix: do not interact with those SSARs."
+                )
 
     def saveToFile(self, name):
         self.saveSDATs()
@@ -3478,13 +3487,12 @@ class MainWindow(QtWidgets.QMainWindow):
     def saveCall(self): #Save to external ROM
         save_buttons = [self.button_file_save, self.button_level_save, self.button_dialogueNames_save, self.button_patches_apply]
         if any(b.isEnabled() for b in save_buttons):
-            save_choice = QtWidgets.QMessageBox.warning(
+            if QtWidgets.QMessageBox.warning(
                 self,
                 "Unsaved Changes",
                 f"Looks like you are trying to save your ROM to disk despite not having saved all your modifications.\nIgnore unsaved changes and proceed?\n\nButtons reporting unsaved changes:\n{[b.text() for b in save_buttons if b.isEnabled()]}",
-                QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No
-            )
-            if save_choice == QtWidgets.QMessageBox.StandardButton.No:
+                QtWidgets.QMessageBox.StandardButton.Ignore | QtWidgets.QMessageBox.StandardButton.Cancel
+            ) == QtWidgets.QMessageBox.StandardButton.Cancel:
                 return # abort save
         dialog = QtWidgets.QFileDialog(
                 self,
@@ -4904,8 +4912,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 self,
                 "Unsaved changes",
                 "You are attempting to leave the level with unsaved changes!\nDiscard changes and switch to new level?",
-                QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No
-            ) == QtWidgets.QMessageBox.StandardButton.No:
+                QtWidgets.QMessageBox.StandardButton.Discard | QtWidgets.QMessageBox.StandardButton.Cancel
+            ) == QtWidgets.QMessageBox.StandardButton.Cancel:
             self.dropdown_level_area.blockSignals(True)
             self.dropdown_level_area.setCurrentIndex(self.levelEdited_ovlTable["level"].index(self.levelEdited_ovl_object.struct_RAMAddress)) # go back to level index
             self.dropdown_level_area.blockSignals(False)
