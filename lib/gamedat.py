@@ -330,6 +330,7 @@ ENTITYKINDS_ZX = {
             0x07: ("1UP Panel", {}),
             0x08: ("Apple", {}),
             0x0A: ("Computer Chip", {}),
+            0x0E: ("Miracle Flower", {})
         }),
         0x01: ("Secret Disk", {
             0x00: ("Bosses (B)", {}),

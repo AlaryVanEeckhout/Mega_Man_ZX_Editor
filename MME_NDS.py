@@ -1646,7 +1646,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                                                 len(self.gfx_view_level.scene().selectedItems()) and isinstance(self.gfx_view_level.scene().selectedItems()[0], lib.widget.LevelEntityItem) else None,
                                                                 "x",
                                                                 self.field_level_entities_coords_x.sb.value()))
-        self.field_level_entities_coords_x.sb.valueChanged.connect(lambda: self.gfx_view_level.scene().selectedItems()[0].setX(self.gfx_view_level.scene().selectedItems()[0].getSceneX(self.field_level_entities_coords_x.sb.value())) if
+        self.field_level_entities_coords_x.sb.valueChanged.connect(lambda: self.gfx_view_level.scene().selectedItems()[0].setX(self.gfx_view_level.getSceneX(self.field_level_entities_coords_x.sb.value())) if
                                                                 len(self.gfx_view_level.scene().selectedItems()) and isinstance(self.gfx_view_level.scene().selectedItems()[0], lib.widget.LevelEntityItem) else None)
         self.field_level_entities_coords_y = lib.widget.LabeledSpinBox(self.page_level_entities_coords, labelText="Y:", Vertical=True)
         self.field_level_entities_coords_y.setDisabled(True)
@@ -1659,7 +1659,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                                                 len(self.gfx_view_level.scene().selectedItems()) and isinstance(self.gfx_view_level.scene().selectedItems()[0], lib.widget.LevelEntityItem) else None,
                                                                 "y",
                                                                 self.field_level_entities_coords_y.sb.value()))
-        self.field_level_entities_coords_y.sb.valueChanged.connect(lambda: self.gfx_view_level.scene().selectedItems()[0].setY(self.gfx_view_level.scene().selectedItems()[0].getSceneY(self.field_level_entities_coords_y.sb.value())) if
+        self.field_level_entities_coords_y.sb.valueChanged.connect(lambda: self.gfx_view_level.scene().selectedItems()[0].setY(self.gfx_view_level.getSceneY(self.field_level_entities_coords_y.sb.value())) if
                                                                 len(self.gfx_view_level.scene().selectedItems()) and isinstance(self.gfx_view_level.scene().selectedItems()[0], lib.widget.LevelEntityItem) else None)
         self.field_level_entities_coords_slot = lib.widget.LabeledSpinBox(self.page_level_entities_coords, labelText="Slot:", Vertical=True)
         self.field_level_entities_coords_slot.setDisabled(True)

@@ -96,7 +96,6 @@ class LevelEntityItem(QtWidgets.QGraphicsItemGroup):
     def itemChange(self, change: QtWidgets.QGraphicsPixmapItem.GraphicsItemChange, value: QtCore.QVariant):
         if change == QtWidgets.QGraphicsPixmapItem.GraphicsItemChange.ItemPositionChange and self.scene() and self.isUnderMouse():
             if QtWidgets.QApplication.mouseButtons() == QtCore.Qt.MouseButton.LeftButton:
-                print(type())
                 x = min(max(0, value.x()), self.parentView.getSceneX(0xFFFFFFFF))
                 y = min(max(0, value.y()), self.parentView.getSceneY(0xFFFF))
                 self.getWindow().field_level_entities_coords_x.sb.setValue(self.parentView.getTrueX(x))
