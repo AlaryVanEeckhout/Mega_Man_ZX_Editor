@@ -2869,13 +2869,13 @@ class MainWindow(QtWidgets.QMainWindow):
             if line is None:
                 line = newline_count
             painter_text.drawImage(
-                (draw_index%chars_per_line)*char_width,
+                (draw_index%chars_per_line)*font_obj.char_width,
                 line*16+(draw_index//chars_per_line)*8,
                 lib.datconv.binToQt(
                     font_obj.chr_data[chr_index*font_obj.indexing_space:(chr_index+1)*font_obj.indexing_space],
                     self.GFX_PALETTES[1][color_index*2:],
                     lib.datconv.CompressionAlgorithmEnum.ONEBPP,
-                    1, 1, char_width, font_obj.char_height
+                    1, 1, math.ceil(font_obj.char_width/8)*8, font_obj.char_height
                 )
             )
         def draw_namechar(chr_index: int, draw_index: int):
@@ -2906,7 +2906,7 @@ class MainWindow(QtWidgets.QMainWindow):
             name = name[:name.find(name_charmap.dict_byte_to_unicode[(0xFF,)])]
             #print(name)
             for char_i, char in enumerate(name):
-                draw_namechar(name_charmap.dict_unicode_to_byte[char][0]+gfx_offset_tiles, (chars_per_line-len(name)+char_i if placement_right else char_i))
+                draw_namechar(name_charmap.dict_unicode_to_byte[char][0]+gfx_offset_tiles, ((box_width//8)-len(name)+char_i if placement_right else char_i))
             return len(name)
         def draw_box_tile(tile_x: int, tile_y: int, tile_idx: int, flip_h: bool=False, flip_v: bool=False, transparent: bool=False, is_extra: bool=False):
             arm9_addr = self.gamedat.arm9Addrs["dialogue box extra"] if is_extra else self.gamedat.arm9Addrs["dialogue box"]
@@ -3085,8 +3085,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     line_count = 1
                     box_width = 240
                 box_height = 16*line_count
-                char_width = math.ceil(font_obj.char_width/8)*8
-                chars_per_line = box_width//char_width
+                chars_per_line = box_width//font_obj.char_width
                 graphic_mugshot = QtGui.QPixmap(8*MUGSHOT_WIDTH_TILES, 8*MUGSHOT_HEIGHT_TILES)
                 graphic_mugshot.fill(0)
                 graphic_name = QtGui.QPixmap(box_width, 8 if line_count == 3 else 0)

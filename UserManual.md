@@ -71,6 +71,7 @@ The spinbox labeled "char height" changes the height in pixels of each character
 
 > [!NOTE]
 > The application currently only shows tile widths divisible by eight, since this works to render the fonts in ZX and ZXA. However, having another width value has a peculiar effect.
+> It seems to be that the font characters themselves assume a tile width divisible by eight, while the true width value is taken into consideration when actually drawing the character next to another.
 
 ## OAM Files
 
