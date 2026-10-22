@@ -5066,12 +5066,17 @@ class MainWindow(QtWidgets.QMainWindow):
                     (offset & 0x000F) >> (0x0)
                 ]
             if level == self.levelEdited_object.level:
-                if self.checkbox_level_layout0.isEnabled() and self.checkbox_level_layout0.isChecked():
-                    load_tilesetPart(f"{indexes[0]:00X}{indexes[1]:00X}XX", indexes[:2])
-                if (self.checkbox_level_layout1.isEnabled() and self.checkbox_level_layout1.isChecked()) or (self.checkbox_level_layout2.isEnabled() and self.checkbox_level_layout2.isChecked()):
-                    load_tilesetPart(f"XX{indexes[2]:00X}X", indexes[2:3])
-                if self.checkbox_level_layout3.isEnabled() and self.checkbox_level_layout3.isChecked():
-                    load_tilesetPart(f"XXX{indexes[3]:00X}", indexes[3:])
+                for check_i, check in enumerate(checkbox_list):
+                    if check.isEnabled() and check.isChecked():
+                        if self.levelEdited_ovl_object.layout_offset_list[check_i] == 0x00:
+                            load_tilesetPart(f"{indexes[0]:00X}{indexes[1]:00X}XX", indexes[:2])
+                        elif self.levelEdited_ovl_object.layout_offset_list[check_i] == 0x10:
+                            load_tilesetPart(f"XX{indexes[2]:00X}X", indexes[2:3])
+                        elif self.levelEdited_ovl_object.layout_offset_list[check_i] == 0x20:
+                            load_tilesetPart(f"XXX{indexes[3]:00X}", indexes[3:])
+                        else:
+                            print(f"Unknown tilset offset 0x{self.levelEdited_ovl_object.layout_offset_list[check_i]:02X}")
+                            load_tilesetPart(f"{indexes[0]:00X}{indexes[1]:00X}{indexes[2]:00X}{indexes[3]:00X}", indexes[:])
             elif level == self.levelEdited_object.level_radar:
                 load_tilesetPart(f"radar{self.buttonGroup_radar_tilesetType.checkedButton().text().replace(" ", "")}", [])
 
@@ -5083,7 +5088,7 @@ class MainWindow(QtWidgets.QMainWindow):
             for metaTile_index in range(len(level.screens[screen_index])):
                 self.gfx_view_level.tileGroups[screen_index].append([])
 
-    def loadScreen(self, screen_id: int, x: float=0, y: float=0, z: float=0, offset_name: str=None):
+    def loadScreen(self, screen_id: int, x: float=0, y: float=0, z: float=0, opacity: float=1, offset_name: str=None):
         #print(f"screen {screen_id}")
         view: lib.widget.TilesetView = getattr(self, f"gfx_view_tileset_{offset_name}")
         if view.metaTiles == []:
@@ -5098,13 +5103,14 @@ class MainWindow(QtWidgets.QMainWindow):
             item.setPixmap(view.metaTiles[metaTile].pixmap())
             item.setPos(x + 16*(metaTile_index%16),y + 16*(metaTile_index//16))
             item.setZValue(z)
+            item.setOpacity(opacity)
             self.gfx_view_level.addItem(item)
             self.gfx_view_level.tileGroups[screen_id][metaTile_index].append(item)
             item.tileGroup = self.gfx_view_level.tileGroups[screen_id][metaTile_index]
             #print(item.pos())
 
     def loadScreens(self, file: lib.level.File, level: lib.level.Level):
-        def loadScreen_loop(layout: lib.level.ScreenLayout, slice_start: int=0, slice_end: int=4, radarOverride: bool=False):
+        def loadScreen_loop(layout: lib.level.ScreenLayout, slice_start: int=0, slice_end: int=4, z:int=0, opacity: float=1, radarOverride: bool=False):
             offset = None
             for i in range(layout.height):
                 for j in range(layout.realWidth):
@@ -5120,18 +5126,43 @@ class MainWindow(QtWidgets.QMainWindow):
                     else:
                         offset = None
                         offset_name = f"radar{self.buttonGroup_radar_tilesetType.checkedButton().text().replace(" ", "")}"
-                    self.loadScreen(layout.layout[i][j], j*(16*(8*2)+self.gfx_view_level.screenSpacing), i*(12*(8*2)+self.gfx_view_level.screenSpacing), offset_name=offset_name)
+                    self.loadScreen(layout.layout[i][j], j*(16*(8*2)+self.gfx_view_level.screenSpacing), i*(12*(8*2)+self.gfx_view_level.screenSpacing), z=z, opacity=opacity, offset_name=offset_name)
         self.initScreens()
+        def get_slice(val: int):
+            if val == 0x00:
+                return (0, 2)
+            elif val == 0x10:
+                return (2, 3)
+            elif val == 0x20:
+                return (3, 4)
+            else:
+                return (0, 4)
         if level == file.level:
             # todo: figure out how layouts 1-3 get their Z-position, check what there is at overlay address 0x021944A2
-            if self.checkbox_level_layout2.isEnabled() and self.checkbox_level_layout2.isChecked():
-                loadScreen_loop(self.levelEdited_ovl_object.screenLayout2, 2, 3)
-            if self.checkbox_level_layout1.isEnabled() and self.checkbox_level_layout1.isChecked():
-                loadScreen_loop(self.levelEdited_ovl_object.screenLayout1, 2, 3)
-            if self.checkbox_level_layout0.isEnabled() and self.checkbox_level_layout0.isChecked():
-                loadScreen_loop(self.levelEdited_ovl_object.screenLayout0, 0, 2)
             if self.checkbox_level_layout3.isEnabled() and self.checkbox_level_layout3.isChecked():
-                loadScreen_loop(self.levelEdited_ovl_object.screenLayout3, 3, 4)
+                loadScreen_loop(
+                    self.levelEdited_ovl_object.screenLayout3,
+                    *get_slice(self.levelEdited_ovl_object.layout_offset_list[3]),
+                    -self.levelEdited_ovl_object.layout_depth_list[3]
+                )
+            if self.checkbox_level_layout2.isEnabled() and self.checkbox_level_layout2.isChecked():
+                loadScreen_loop(
+                    self.levelEdited_ovl_object.screenLayout2,
+                    *get_slice(self.levelEdited_ovl_object.layout_offset_list[2]),
+                    -self.levelEdited_ovl_object.layout_depth_list[2]
+                )
+            if self.checkbox_level_layout1.isEnabled() and self.checkbox_level_layout1.isChecked():
+                loadScreen_loop(
+                    self.levelEdited_ovl_object.screenLayout1,
+                    *get_slice(self.levelEdited_ovl_object.layout_offset_list[1]),
+                    -self.levelEdited_ovl_object.layout_depth_list[1]
+                )
+            if self.checkbox_level_layout0.isEnabled() and self.checkbox_level_layout0.isChecked():
+                loadScreen_loop(
+                    self.levelEdited_ovl_object.screenLayout0,
+                    *get_slice(self.levelEdited_ovl_object.layout_offset_list[0]),
+                    -self.levelEdited_ovl_object.layout_depth_list[0]
+                )
         elif level == file.level_radar:
             loadScreen_loop(self.levelEdited_ovl_object.screenLayout_radar, radarOverride=True)
 

@@ -66,8 +66,9 @@ class Overlay:
         self.entitySlot_address = self.getFileAddress(self.entitySlot_RAMAddress)
 
 
-        print(f"0x{self.struct_RAMAddress:08X}")
+        print(f"Level overlay at 0x{self.struct_RAMAddress:08X}")
 
+        self.subarea_id = int.from_bytes(self.data[self.struct_address+0x00:self.struct_address+0x04], byteorder='little')
         self.firstTable_RAMAddress = int.from_bytes(self.data[self.struct_address+0x04:self.struct_address+0x08], byteorder='little')
         self.tilesetName_RAMAddress = int.from_bytes(self.data[self.struct_address+0x08:self.struct_address+0x10], byteorder='little')
         self.tilesetName_address = self.getFileAddress(self.tilesetName_RAMAddress)
@@ -85,14 +86,36 @@ class Overlay:
         self.screenLayout3_address = self.getFileAddress(self.screenLayout3_RAMAddress)
         self.screenLayout_radar_RAMAddress = int.from_bytes(self.data[self.struct_address+0x20:self.struct_address+0x24], byteorder='little')
         self.screenLayout_radar_address = self.getFileAddress(self.screenLayout_radar_RAMAddress)
+        #self.unk_stuff = self.data[self.struct_address+0x28:self.struct_address+0x34]
+        self.layout_bg_list = [ # 01 12 24 38 = BGs 0-3 (?)
+            int.from_bytes(self.data[self.struct_address+0x28:self.struct_address+0x2C], byteorder='little'),
+            int.from_bytes(self.data[self.struct_address+0x2C:self.struct_address+0x30], byteorder='little'),
+            int.from_bytes(self.data[self.struct_address+0x30:self.struct_address+0x34], byteorder='little'),
+            int.from_bytes(self.data[self.struct_address+0x34:self.struct_address+0x38], byteorder='little')
+        ]
+        self.layout_depth_list = [ # 1 = foreground, 2 = main, 3 = background
+            int.from_bytes(self.data[self.struct_address+0x38:self.struct_address+0x3C], byteorder='little'),
+            int.from_bytes(self.data[self.struct_address+0x3C:self.struct_address+0x40], byteorder='little'),
+            int.from_bytes(self.data[self.struct_address+0x40:self.struct_address+0x44], byteorder='little'),
+            int.from_bytes(self.data[self.struct_address+0x44:self.struct_address+0x48], byteorder='little')
+        ]
+        self.layout_offset_list = [ # 00 = XX--,  10 = --X-, 20 = ---X, 30 = ??? (?)
+            int.from_bytes(self.data[self.struct_address+0x48:self.struct_address+0x4C], byteorder='little'),
+            int.from_bytes(self.data[self.struct_address+0x4C:self.struct_address+0x50], byteorder='little'),
+            int.from_bytes(self.data[self.struct_address+0x50:self.struct_address+0x54], byteorder='little'),
+            int.from_bytes(self.data[self.struct_address+0x54:self.struct_address+0x58], byteorder='little')
+        ]
+        self.unk_offset0 = int.from_bytes(self.data[self.struct_address+0xC0:self.struct_address+0xC4], byteorder='little', signed=True)
+        self.unk_offset1 = int.from_bytes(self.data[self.struct_address+0xC4:self.struct_address+0xC8], byteorder='little', signed=True)
         self.map_tilesetOffset_RAMAddress = int.from_bytes(self.data[self.struct_address+0xC8:self.struct_address+0xCC], byteorder='little') # looks like tileset offset slot IDs or something
         self.map_tilesetOffset_address = self.getFileAddress(self.map_tilesetOffset_RAMAddress)
-        self.unk_RAMAddress = int.from_bytes(self.data[self.struct_address+0xEC:self.struct_address+0xF0], byteorder='little')
+        self.tableEC_RAMAddress = int.from_bytes(self.data[self.struct_address+0xEC:self.struct_address+0xF0], byteorder='little')
         self.map_behavior_RAMAddress = int.from_bytes(self.data[self.struct_address+0xF0:self.struct_address+0xF4], byteorder='little') # maybe?
         self.map_behavior_address = self.getFileAddress(self.map_behavior_RAMAddress)
         self.screenLayout_camera_RAMAddress = int.from_bytes(self.data[self.struct_address+0xF4:self.struct_address+0xF8], byteorder='little')
         self.screenLayout_camera_address = self.getFileAddress(self.screenLayout_camera_RAMAddress)
 
+        print(f"Sub-area ID: {self.subarea_id:00X}")
         print(f"0x{self.screenLayout0_RAMAddress:08X}: layout0")
         self.screenLayout0 = ScreenLayout(self.data, self.screenLayout0_address)
         print(f"0x{self.screenLayout1_RAMAddress:08X}: layout1")
@@ -105,6 +128,7 @@ class Overlay:
         self.screenLayout_radar = ScreenLayout(self.data, self.screenLayout_radar_address)
         print(f"0x{self.map_tilesetOffset_RAMAddress:08X}: map tilesetOffset")
         self.map_tilesetOffset = ScreenMap(self.data, self.map_tilesetOffset_address)
+        print(f"0x{self.tableEC_RAMAddress:08X}: table with pointer to static data")
         print(f"0x{self.map_behavior_RAMAddress:08X}: map behavior (?)")
         self.map_behavior = ScreenMap(self.data, self.map_behavior_address)
         print(f"0x{self.screenLayout_camera_RAMAddress:08X}: layout camera")
@@ -116,6 +140,10 @@ class Overlay:
         print(f"slot: 0x{self.entitySlot_RAMAddress:08X}")
 
         self.entities = Entities(self.data, self.entityPrel_address, self.entitySlot_address, self.entityCoord_address, entitynamedict)
+        print(f"Layout BG list: {self.layout_bg_list}")
+        print(f"Layout depth list: {self.layout_depth_list}")
+        print(f"Layout offset list: {self.layout_offset_list}")
+        print(f"unk: {self.unk_offset0, self.unk_offset1}")
 
     def getFileAddress(self, RAMAddress: int):
         return RAMAddress - self.RAMAddress
@@ -239,7 +267,7 @@ class EntityPreloads:
         self.startOffset = address
         self.endOffset = self.startOffset + data[self.startOffset:].find(bytes.fromhex("FFFFFFFFFFFF0000"))+0x08
         self.data = data[self.startOffset:self.endOffset]
-        #print(data[self.startOffset:self.endOffset].hex())
+        print(data[self.startOffset:self.endOffset].hex())
 
         self.entityList: list[dict] = []
         if self.startOffset == 0: return
