@@ -1,6 +1,15 @@
 from __future__ import annotations
+__lazy_modules__ = [
+    "ast", "platform", "re", "bisect",
+    "pyplt",
+    "ndspy.lz10", "ndspy.codeCompression", "ndspy.code"
+]
+import sys
+if getattr(sys, 'frozen', False): # Running as a compiled .exe
+    import pyi_splash
+    pyi_splash.update_text("Importing libraries...")
 from PyQt6 import QtGui, QtWidgets, QtCore#, QtMultimedia Qt6, Qt6.qsci
-import sys, os, platform, re, math, enum
+import os, platform, re, math, enum
 import ast
 import argparse
 import bisect
@@ -16,6 +25,8 @@ try:
     import matplotlib.pyplot as pyplt#, matplotlib.backends.backend_qtagg as qtagg
 except ImportError:
     pass
+if getattr(sys, 'frozen', False): # Running as a compiled .exe
+    pyi_splash.update_text("Initializing Objects...")
 isVXSupported = bool("lib.actimagine.package.actimagine" in sys.modules)
 from lib.common import PATH_ROOT
 from lib.gamedat import MUGSHOT_WIDTH_TILES, MUGSHOT_HEIGHT_TILES
@@ -125,11 +136,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.firstLaunch = True
         self.noOAMItemCache = False
         self.noLevelItemCache = False
+        if getattr(sys, 'frozen', False): # Running as a compiled .exe
+            pyi_splash.update_text("Loading Preferences...")
         self.load_preferences()
+        if getattr(sys, 'frozen', False): # Running as a compiled .exe
+            pyi_splash.update_text("Loading UI...")
         self.UiComponents()
 
     def _post_init(self): # called when window is ready to be presented (after WidgetSets has been defined)
         self.file_editor_show(WidgetSets.EMPTY) # must be done before show to not deform the window from overload of widgets
+        if getattr(sys, 'frozen', False): # Running as a compiled .exe
+            pyi_splash.close()
         self.show()
         if args.openPath != None:
             self.loadROM(args.openPath)
@@ -6042,6 +6059,8 @@ class MainWindow(QtWidgets.QMainWindow):
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     w = MainWindow()
+    if getattr(sys, 'frozen', False): # Running as a compiled .exe
+        pyi_splash.update_text("Finalizing...")
 
     # Contents of widget sets, used in file_editor_show
     # Associates each mode with a set of widgets to show or hide

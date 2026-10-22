@@ -1,3 +1,7 @@
+__lazy_modules__ = [
+    "font", "oam", "panim", "level", "sdat", "model",
+    "actEncVStrats", "actEncAStrats"
+]
 from . import datconv, dialogue, ini_rw, gamedat, font, graphic, oam, panim, level, widget, sdat, model
 try:
     from .actimagine.package import actimagine as act, vframe_encoder_strategies as actEncVStrats
