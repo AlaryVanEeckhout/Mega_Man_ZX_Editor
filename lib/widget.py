@@ -27,13 +27,47 @@ class TilesetItem(PixmapItem):
         super().__init__(*args, **kwargs)
         self.setFlags(QtWidgets.QGraphicsPixmapItem.GraphicsItemFlag.ItemIsSelectable)
         self.pixmaps = [] # depending on tileset offset
+        self._selection_pens = [
+            QtGui.QPen(0x000000, 2, QtCore.Qt.PenStyle.SolidLine, join=QtCore.Qt.PenJoinStyle.MiterJoin),
+            QtGui.QPen(0xffffff, 2, QtCore.Qt.PenStyle.DotLine, join=QtCore.Qt.PenJoinStyle.MiterJoin)
+        ]
+        self._selection_rects = [None]*len(self._selection_pens)
+        self.selectionPaint_update()
+        
+
+    def selectionPaint_update(self):
+        for pen_i, pen in enumerate(self._selection_pens):
+            self._selection_rects[pen_i] = self.boundingRect().toRect().adjusted(
+                1+pen.width()//2, 
+                1+pen.width()//2, 
+                -pen.width()//2, 
+                -pen.width()//2
+            )
+        
+
+    def paint(self, painter, option, widget):
+        is_selected = option.state & QtWidgets.QStyle.StateFlag.State_Selected
+        option.state &= ~QtWidgets.QStyle.StateFlag.State_Selected # mask out the default selection box
+    
+        super().paint(painter, option, widget)
+    
+        # Custom selection color border
+        if is_selected:
+            painter.save() # back up old configuration
+            painter.setRenderHints(painter.RenderHint.Antialiasing, False)
+
+            for i in range(len(self._selection_pens)):
+                painter.setPen(self._selection_pens[i])
+                painter.drawRect(self._selection_rects[i])
+            painter.restore() # return to expected configuration
 
 class LevelTileItem(PixmapItem):
-    def __init__(self, *args, index=0, id=0, screen=0, **kwargs):
+    def __init__(self, *args, index: int=0, id: int=0, screen: int=0, offset_name: str=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.index = index
         self.id = id
         self.screen = screen
+        self.offset_name = offset_name
         self.tileGroup: list[LevelTileItem] = None
 
     def tileReplace(self, item: QtWidgets.QGraphicsPixmapItem):
@@ -462,13 +496,15 @@ class LevelView(View):
                 self.getMainWindow().levelEdited_object.levels[self.getMainWindow().dropdown_level_type.currentIndex()].screens[item_target.screen][item_target.index] = item_target.id
         
     def tilePick(self, pos: QtCore.QPoint, keepSelection=False):
-        view: lib.widget.TilesetView = self.getMainWindow().tabs_level_tileset.currentWidget().children()[0]
         item_target = self.itemAt(pos)
+        if not isinstance(item_target, LevelTileItem): return
+        view: lib.widget.TilesetView = self.getMainWindow().tabs_level_tileset.findChild(QtWidgets.QWidget, item_target.offset_name).children()[0]
+        self.getMainWindow().tabs_level_tileset.setCurrentWidget(view.parent()) # move to the appropriate tileset for this screen
         if not keepSelection:
             for item in view.scene().selectedItems():
                 item.setSelected(False)
-        if isinstance(item_target, LevelTileItem):
-            view.metaTiles[item_target.id].setSelected(True)
+        view.metaTiles[item_target.id].setSelected(True)
+        view.centerOn(view.metaTiles[item_target.id]) # ensure the selected tile is visible
 
 class GridLayout(QtWidgets.QGridLayout):
     def __init__(self, *args, **kwargs):

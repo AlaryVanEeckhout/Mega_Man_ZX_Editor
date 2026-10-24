@@ -161,12 +161,10 @@ class Overlay:
         print(tilesetName_bin)
         self.data[self.tilesetName_address:self.tilesetName_address+0x08] = tilesetName_bin
         # Layout lists
-        print("before", self.data[self.struct_address+0x88:self.struct_address+0xA8].hex())
         for index, offset in enumerate(range(0x88, 0xA8, 0x4)):
             print(index, hex(offset))
             print(self.layout_parallax_list[index//2][index%2])
             self.data[self.struct_address+offset:self.struct_address+offset+0x4] = int.to_bytes(self.layout_parallax_list[index//2][index%2], 0x4, 'little')
-        print("after", self.data[self.struct_address+0x88:self.struct_address+0xA8].hex())
         # Layouts
         screenLayout0_bin = self.screenLayout0.data
         self.data[self.screenLayout0_address:self.screenLayout0_address+len(screenLayout0_bin)] = self.screenLayout0.toBytes()
@@ -207,7 +205,7 @@ class ScreenLayout:
         self.size_data = self.loadWidth*self.height
         self.size = self.size_header+self.size_data
         self.data = data[address:address+self.size]
-        self.id = id
+        self.id = id # to distinguish layouts 0-3
         self.layout: list[list[int]] = []
         layoutRow = []
         print(self.realWidth, self.skip, self.width, self.height)

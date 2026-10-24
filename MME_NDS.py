@@ -4693,6 +4693,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if len(view.scene().selectedItems()) == 1:
             metaTile_index = view.metaTiles.index(*view.scene().selectedItems())
+            self.group_metaTile_gfx.setTitle(f"Meta Tile {metaTile_index:04X} Graphics")
             attr = level.collision[metaTile_index][1]
             attr_shape = (level.collision[metaTile_index][0] & 0xF0) >> 4
             self.dropdown_metaTile_collisionShape.setCurrentIndex(level.collision[metaTile_index][0] & 0x0F)
@@ -4715,6 +4716,7 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             attr = 0x00
             attr_shape = 0x0
+            self.group_metaTile_gfx.setTitle(f"Meta Tile Graphics - {len(view.scene().selectedItems())} selected")
             self.dropdown_metaTile_collisionShape.setCurrentIndex(0)
             self.field_metaTile_topLeft_id.setValue(0)
             self.field_metaTile_topRight_id.setValue(0)
@@ -5071,6 +5073,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 view.scene().selectionChanged.connect(self.loadTileProperties)
                 page.setLayout(QtWidgets.QGridLayout())
                 page.layout().addWidget(view)
+                page.setObjectName(offset_name)
                 self.loadTileset(view, gfx_table, pal_list, indexes)
         level = self.levelEdited_object.levels[self.dropdown_level_type.currentIndex()]
         for offset in offsets:
@@ -5113,8 +5116,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         screen = self.levelEdited_object.levels[self.dropdown_level_type.currentIndex()].screens[screen_id]
         for metaTile_index, metaTile in enumerate(screen):
-            item = lib.widget.LevelTileItem(index=metaTile_index, id=metaTile, screen=screen_id)
-            # todo: add logic for TilesetOffsetMap
+            item = lib.widget.LevelTileItem(index=metaTile_index, id=metaTile, screen=screen_id, offset_name=offset_name)
             if metaTile > len(view.metaTiles):
                 print("crash", metaTile, view.metaTiles, offset_name)
             item.setPixmap(view.metaTiles[metaTile].pixmap())
