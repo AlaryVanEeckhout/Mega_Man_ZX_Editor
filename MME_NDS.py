@@ -5199,6 +5199,28 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def loadScreenLayout(self, screenLayout: lib.level.ScreenLayout | lib.level.ScreenMap, parent: QtWidgets.QWidget):
         self.unloadScreenLayout(parent)
+        if screenLayout.id is not None:
+            row_len = len(screenLayout.layout[0])
+            widget_parallax_x = lib.widget.BetterSpinBox(parent)
+            widget_parallax_x.isInt = True
+            widget_parallax_x.setMinimumWidth(50)
+            widget_parallax_x.set_numfill(8)
+            widget_parallax_x.setRange(0x00000000, 0xFFFFFFFF)
+            widget_parallax_x.setValue(self.levelEdited_ovl_object.layout_parallax_list[screenLayout.id][0])
+            widget_parallax_x.setToolTip("Parallax X")
+            widget_parallax_x.valueChanged.connect(lambda value: self.levelEdited_ovl_object.layout_parallax_list[screenLayout.id].__setitem__(0, int(value)))
+            widget_parallax_x.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+            widget_parallax_y = lib.widget.BetterSpinBox(parent)
+            widget_parallax_y.isInt = True
+            widget_parallax_y.setMinimumWidth(50)
+            widget_parallax_y.set_numfill(8)
+            widget_parallax_y.setRange(0x00000000, 0xFFFFFFFF)
+            widget_parallax_y.setValue(self.levelEdited_ovl_object.layout_parallax_list[screenLayout.id][1])
+            widget_parallax_y.setToolTip("Parallax Y")
+            widget_parallax_y.valueChanged.connect(lambda value: self.levelEdited_ovl_object.layout_parallax_list[screenLayout.id].__setitem__(1, int(value)))
+            widget_parallax_y.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+            parent.layout().addWidget(widget_parallax_x, 0, 0, 1, row_len//2)
+            parent.layout().addWidget(widget_parallax_y, 0, row_len//2, 1, row_len//2)
         for row_i, row in enumerate(screenLayout.layout):
             for col_i, col in enumerate(row):
                 widget = lib.widget.BetterSpinBox(parent)
@@ -5216,7 +5238,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 widget.valueChanged.connect(lambda value, r=row_i, c=col_i: screenLayout.layout[r].__setitem__(c, int(value)))
                 #widget.valueChanged.connect(lambda value, r=row_i, c=col_i: print(screenLayout.layout, screenLayout.layout[r], value, sep="\n"))
                 widget.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
-                parent.layout().addWidget(widget, row_i, col_i)
+                parent.layout().addWidget(widget, row_i+1, col_i)
 
     def loadScreenLayouts(self):
         self.loadScreenLayout(self.levelEdited_ovl_object.screenLayout0, self.page_level_screens_layout0.widget())

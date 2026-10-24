@@ -105,6 +105,12 @@ class Overlay:
             int.from_bytes(self.data[self.struct_address+0x50:self.struct_address+0x54], byteorder='little'),
             int.from_bytes(self.data[self.struct_address+0x54:self.struct_address+0x58], byteorder='little')
         ]
+        self.layout_parallax_list = [ # list of (x, y) int32: amount of pixels/256 the camera moves by for an entire screen
+            [int.from_bytes(self.data[self.struct_address+0x88:self.struct_address+0x8C], byteorder='little'), int.from_bytes(self.data[self.struct_address+0x8C:self.struct_address+0x90], byteorder='little')],
+            [int.from_bytes(self.data[self.struct_address+0x90:self.struct_address+0x94], byteorder='little'), int.from_bytes(self.data[self.struct_address+0x94:self.struct_address+0x98], byteorder='little')],
+            [int.from_bytes(self.data[self.struct_address+0x98:self.struct_address+0x9C], byteorder='little'), int.from_bytes(self.data[self.struct_address+0x9C:self.struct_address+0xA0], byteorder='little')],
+            [int.from_bytes(self.data[self.struct_address+0xA0:self.struct_address+0xA4], byteorder='little'), int.from_bytes(self.data[self.struct_address+0xA4:self.struct_address+0xA8], byteorder='little')]
+        ]
         self.unk_offset0 = int.from_bytes(self.data[self.struct_address+0xC0:self.struct_address+0xC4], byteorder='little', signed=True)
         self.unk_offset1 = int.from_bytes(self.data[self.struct_address+0xC4:self.struct_address+0xC8], byteorder='little', signed=True)
         self.map_tilesetOffset_RAMAddress = int.from_bytes(self.data[self.struct_address+0xC8:self.struct_address+0xCC], byteorder='little') # looks like tileset offset slot IDs or something
@@ -117,13 +123,13 @@ class Overlay:
 
         print(f"Sub-area ID: {self.subarea_id:00X}")
         print(f"0x{self.screenLayout0_RAMAddress:08X}: layout0")
-        self.screenLayout0 = ScreenLayout(self.data, self.screenLayout0_address)
+        self.screenLayout0 = ScreenLayout(self.data, self.screenLayout0_address, id=0)
         print(f"0x{self.screenLayout1_RAMAddress:08X}: layout1")
-        self.screenLayout1 = ScreenLayout(self.data, self.screenLayout1_address)
+        self.screenLayout1 = ScreenLayout(self.data, self.screenLayout1_address, id=1)
         print(f"0x{self.screenLayout2_RAMAddress:08X}: layout2")
-        self.screenLayout2 = ScreenLayout(self.data, self.screenLayout2_address)
+        self.screenLayout2 = ScreenLayout(self.data, self.screenLayout2_address, id=2)
         print(f"0x{self.screenLayout3_RAMAddress:08X}: layout3")
-        self.screenLayout3 = ScreenLayout(self.data, self.screenLayout3_address)
+        self.screenLayout3 = ScreenLayout(self.data, self.screenLayout3_address, id=3)
         print(f"0x{self.screenLayout_radar_RAMAddress:08X}: layout radar")
         self.screenLayout_radar = ScreenLayout(self.data, self.screenLayout_radar_address)
         print(f"0x{self.map_tilesetOffset_RAMAddress:08X}: map tilesetOffset")
@@ -149,10 +155,18 @@ class Overlay:
         return RAMAddress - self.RAMAddress
     
     def toBytes(self):
+        # Table
         tilesetName_bin = self.tilesetName.encode()
         tilesetName_bin += bytes(0x08-len(tilesetName_bin))
         print(tilesetName_bin)
         self.data[self.tilesetName_address:self.tilesetName_address+0x08] = tilesetName_bin
+        # Layout lists
+        print("before", self.data[self.struct_address+0x88:self.struct_address+0xA8].hex())
+        for index, offset in enumerate(range(0x88, 0xA8, 0x4)):
+            print(index, hex(offset))
+            print(self.layout_parallax_list[index//2][index%2])
+            self.data[self.struct_address+offset:self.struct_address+offset+0x4] = int.to_bytes(self.layout_parallax_list[index//2][index%2], 0x4, 'little')
+        print("after", self.data[self.struct_address+0x88:self.struct_address+0xA8].hex())
         # Layouts
         screenLayout0_bin = self.screenLayout0.data
         self.data[self.screenLayout0_address:self.screenLayout0_address+len(screenLayout0_bin)] = self.screenLayout0.toBytes()
@@ -183,7 +197,7 @@ class Overlay:
         
 
 class ScreenLayout:
-    def __init__(self, data: bytes, address: int, loadReal: bool=True):
+    def __init__(self, data: bytes, address: int, loadReal: bool=True, id: int=None):
         self.realWidth = int.from_bytes(data[address:address+0x01], byteorder='little') # width used to load screens with correct alignment
         self.skip = int.from_bytes(data[address+0x01:address+0x02], byteorder='little') # for tilesetOffset?
         self.width = int.from_bytes(data[address+0x02:address+0x03], byteorder='little') # width of used portion of layout
@@ -193,6 +207,7 @@ class ScreenLayout:
         self.size_data = self.loadWidth*self.height
         self.size = self.size_header+self.size_data
         self.data = data[address:address+self.size]
+        self.id = id
         self.layout: list[list[int]] = []
         layoutRow = []
         print(self.realWidth, self.skip, self.width, self.height)
@@ -216,7 +231,7 @@ class ScreenLayout:
         return new_data
 
 class ScreenMap:
-    def __init__(self, data: bytes, address: int, loadReal: bool=False):
+    def __init__(self, data: bytes, address: int, loadReal: bool=False, id: int=None):
         self.realWidth = int.from_bytes(data[address:address+0x02], byteorder='little') # width used to define effective screen space
         self.skip = int.from_bytes(data[address+0x02:address+0x04], byteorder='little') # for the layout it applies to?
         self.width = int.from_bytes(data[address+0x04:address+0x06], byteorder='little') # width used to load all screens (?)
@@ -226,6 +241,7 @@ class ScreenMap:
         self.size_data = self.loadWidth*self.height*0x02
         self.size = self.size_header+self.size_data
         self.data = data[address:address+self.size]
+        self.id = id
         self.layout: list[list[int]] = []
         layoutRow = []
         print(self.realWidth, self.skip, self.width, self.height)

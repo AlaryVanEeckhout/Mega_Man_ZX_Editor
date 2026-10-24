@@ -636,7 +636,7 @@ class PlayButton(QtWidgets.QPushButton):
         self.counter = 0
         self.setIcon(self.icon_play)
     
-class BetterSpinBox(QtWidgets.QDoubleSpinBox):
+class BetterSpinBox(QtWidgets.QDoubleSpinBox): # todo: fix valueChanged emiting value as a float
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.dynamic_base = True
