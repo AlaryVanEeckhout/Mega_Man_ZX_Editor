@@ -1379,10 +1379,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.page_level_entities = QtWidgets.QWidget(self.tabs_level)
         self.page_level_entities.setLayout(QtWidgets.QVBoxLayout())
         self.page_level_entities.layout().setContentsMargins(10,0,0,0)
+        self.page_level_view = QtWidgets.QWidget(self.tabs_level)
+        self.page_level_view.setLayout(QtWidgets.QVBoxLayout())
+        self.page_level_view.layout().setContentsMargins(10,0,0,0)
 
         self.tabs_level.addTab(self.page_level_tileset, "Tileset")
         self.tabs_level.addTab(self.page_level_screens, "Screens")
         self.tabs_level.addTab(self.page_level_entities, "Entities")
+        self.tabs_level.addTab(self.page_level_view, "View")
 
         self.dropdown_metaTile_collisionShape = QtWidgets.QComboBox(self.page_level_tileset)
         self.dropdown_metaTile_collisionShape.setToolTip("Choose collision geometry to apply")
@@ -1611,11 +1615,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.checkbox_tileset_loadAll.setChecked(True)
         self.checkbox_tileset_loadAll.hide()
 
+        #Screens
         self.tabs_level_screens = QtWidgets.QTabWidget(self.page_level_screens)
         self.page_level_screens_layout0 = QtWidgets.QScrollArea(self.tabs_level_screens)
+        self.page_level_screens_layout0.setObjectName("0")
         self.page_level_screens_layout1 = QtWidgets.QScrollArea(self.tabs_level_screens)
+        self.page_level_screens_layout1.setObjectName("1")
         self.page_level_screens_layout2 = QtWidgets.QScrollArea(self.tabs_level_screens)
+        self.page_level_screens_layout2.setObjectName("2")
         self.page_level_screens_layout3 = QtWidgets.QScrollArea(self.tabs_level_screens)
+        self.page_level_screens_layout3.setObjectName("3")
         self.page_level_screens_layout_camera = QtWidgets.QScrollArea(self.tabs_level_screens)
         self.page_level_screens_layout_camera.setStatusTip("0=Free range; 2-D=Sticky if delta>2; E=Sky; F=Killzone")
         self.page_level_screens_layout_radar = QtWidgets.QScrollArea(self.tabs_level_screens)
@@ -1637,6 +1646,7 @@ class MainWindow(QtWidgets.QMainWindow):
             tab.widget().layout().setSpacing(0)
             tab.widget().layout().setContentsMargins(0,0,0,0)
 
+        #Entities
         self.checkbox_entities_enable = QtWidgets.QCheckBox(self.page_level_entities)
         self.checkbox_entities_enable.setChecked(True)
         self.checkbox_entities_enable.setText("Load Entities")
@@ -1833,6 +1843,42 @@ class MainWindow(QtWidgets.QMainWindow):
         self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_unkB, 7, 1)
         self.tabs_level_entities.addTab(self.page_level_entities_coords, "Coordinates")
         self.tabs_level_entities.addTab(self.page_level_entities_slots, "Slot data")
+
+        #View parameters
+        # todo: add option to choose on what layer graphics are drawn
+        self.group_view_focus = QtWidgets.QGroupBox(self.page_level_view)
+        self.group_view_focus.setLayout(QtWidgets.QVBoxLayout())
+        self.buttonGroup_view_focus = QtWidgets.QButtonGroup(self.page_level_view)
+        self.group_view_focus.setTitle("Layout Focus")
+        self.radio_view_focusAny = QtWidgets.QRadioButton(self.page_level_view)
+        self.radio_view_focusAny.setText("Any layout")
+        self.radio_view_focusAny.setChecked(True)
+        self.radio_view_focus0 = QtWidgets.QRadioButton(self.page_level_view)
+        self.radio_view_focus0.setText("Layout 0")
+        self.radio_view_focus1 = QtWidgets.QRadioButton(self.page_level_view)
+        self.radio_view_focus1.setText("Layout 1")
+        self.radio_view_focus2 = QtWidgets.QRadioButton(self.page_level_view)
+        self.radio_view_focus2.setText("Layout 2")
+        self.radio_view_focus3 = QtWidgets.QRadioButton(self.page_level_view)
+        self.radio_view_focus3.setText("Layout 3")
+        self.buttonGroup_view_focus.addButton(self.radio_view_focusAny) # id will be automatically assigned a negative value besides -1
+        self.buttonGroup_view_focus.addButton(self.radio_view_focus0, 0)
+        self.buttonGroup_view_focus.addButton(self.radio_view_focus1, 1)
+        self.buttonGroup_view_focus.addButton(self.radio_view_focus2, 2)
+        self.buttonGroup_view_focus.addButton(self.radio_view_focus3, 3)
+        self.group_view_focus.layout().addWidget(self.radio_view_focusAny)
+        self.group_view_focus.layout().addWidget(self.radio_view_focus0)
+        self.group_view_focus.layout().addWidget(self.radio_view_focus1)
+        self.group_view_focus.layout().addWidget(self.radio_view_focus2)
+        self.group_view_focus.layout().addWidget(self.radio_view_focus3)
+        # todo: add option to hide or show any loaded layout
+        self.group_view_hide = QtWidgets.QGroupBox(self.page_level_view)
+        self.group_view_hide.setLayout(QtWidgets.QVBoxLayout())
+        self.group_view_hide.setTitle("Show Layouts")
+
+        self.page_level_view.layout().addWidget(self.group_view_focus)
+        self.page_level_view.layout().addWidget(self.group_view_hide)
+
 
         self.gfx_view_level = lib.widget.LevelView(self.page_leveleditor, screenSpacing=4)
         self.gfx_view_level.scene().selectionChanged.connect(self.loadEntityProperties)
@@ -5108,7 +5154,7 @@ class MainWindow(QtWidgets.QMainWindow):
             for metaTile_index in range(len(level.screens[screen_index])):
                 self.gfx_view_level.tileGroups[screen_index].append([])
 
-    def loadScreen(self, screen_id: int, x: float=0, y: float=0, z: float=0, opacity: float=1, offset_name: str=None):
+    def loadScreen(self, layout_id: int, screen_id: int, x: float=0, y: float=0, z: float=0, opacity: float=1, offset_name: str=None):
         #print(f"screen {screen_id}")
         view: lib.widget.TilesetView = getattr(self, f"gfx_view_tileset_{offset_name}")
         if view.metaTiles == []:
@@ -5116,7 +5162,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         screen = self.levelEdited_object.levels[self.dropdown_level_type.currentIndex()].screens[screen_id]
         for metaTile_index, metaTile in enumerate(screen):
-            item = lib.widget.LevelTileItem(index=metaTile_index, id=metaTile, screen=screen_id, offset_name=offset_name)
+            item = lib.widget.LevelTileItem(index=metaTile_index, id=metaTile, screen=screen_id, layout=layout_id, offset_name=offset_name)
             if metaTile > len(view.metaTiles):
                 print("crash", metaTile, view.metaTiles, offset_name)
             item.setPixmap(view.metaTiles[metaTile].pixmap())
@@ -5139,13 +5185,14 @@ class MainWindow(QtWidgets.QMainWindow):
                         try:
                             if self.levelEdited_ovl_object.map_tilesetOffset.layout[i][j] != 0xFFFF:
                                 offset = self.levelEdited_ovl_object.map_tilesetOffset.layout[i][j]
-                        except IndexError:
+                        except IndexError as e:
+                            print("offset index error", e)
                             offset = self.levelEdited_ovl_object.map_tilesetOffset.layout[0][0]
                         offset_name = "X"*slice_start + f"{offset:04X}"[slice_start:slice_end] + "X"*(4-slice_end)
                     else:
                         offset = None
                         offset_name = f"radar{self.buttonGroup_radar_tilesetType.checkedButton().text().replace(" ", "")}"
-                    self.loadScreen(layout.layout[i][j], j*(16*(8*2)+self.gfx_view_level.screenSpacing), i*(12*(8*2)+self.gfx_view_level.screenSpacing), z=z, opacity=opacity, offset_name=offset_name)
+                    self.loadScreen(layout.id, layout.layout[i][j], j*(16*(8*2)+self.gfx_view_level.screenSpacing), i*(12*(8*2)+self.gfx_view_level.screenSpacing), z=z, opacity=opacity, offset_name=offset_name)
         self.initScreens()
         def get_slice(val: int):
             if val == 0x00:
@@ -5186,6 +5233,10 @@ class MainWindow(QtWidgets.QMainWindow):
             loadScreen_loop(self.levelEdited_ovl_object.screenLayout_radar, radarOverride=True)
 
     def unloadScreenLayout(self, parent: QtWidgets.QWidget):
+        scrollArea = parent.parent().parent()
+        widget_hide = self.group_view_hide.findChild(QtWidgets.QCheckBox, f"Layout {scrollArea.objectName()}")
+        if widget_hide is not None:
+            widget_hide.deleteLater()
         for widget in parent.findChildren(lib.widget.BetterSpinBox):
             widget.deleteLater() # delete previously generated widgets
 
@@ -5202,6 +5253,18 @@ class MainWindow(QtWidgets.QMainWindow):
     def loadScreenLayout(self, screenLayout: lib.level.ScreenLayout | lib.level.ScreenMap, parent: QtWidgets.QWidget):
         self.unloadScreenLayout(parent)
         if screenLayout.id is not None:
+            checkbox_list = [
+                self.checkbox_level_layout0,
+                self.checkbox_level_layout1,
+                self.checkbox_level_layout2,
+                self.checkbox_level_layout3
+            ]
+            if checkbox_list[screenLayout.id].isChecked():
+                widget_layout_hide = QtWidgets.QCheckBox(f"Layout {screenLayout.id}", self.page_level_view)
+                widget_layout_hide.setObjectName(f"Layout {screenLayout.id}")
+                widget_layout_hide.setChecked(True)
+                widget_layout_hide.toggled.connect(lambda: self.showScreenLayout(screenLayout.id, widget_layout_hide.isChecked()))
+                self.group_view_hide.layout().addWidget(widget_layout_hide)
             row_len = len(screenLayout.layout[0])
             widget_parallax_x = lib.widget.BetterSpinBox(parent)
             widget_parallax_x.isInt = True
@@ -5251,6 +5314,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.loadScreenLayout(self.levelEdited_ovl_object.screenLayout_radar, self.page_level_screens_layout_radar.widget())
         self.loadScreenLayout(self.levelEdited_ovl_object.map_tilesetOffset, self.page_level_screens_map_offset.widget())
         self.loadScreenLayout(self.levelEdited_ovl_object.map_behavior, self.page_level_screens_map_behavior.widget())
+
+    def showScreenLayout(self, layout_id, visible: bool=True):
+        for item in self.gfx_view_level.scene().items():
+            if isinstance(item, lib.widget.LevelTileItem) and item.layout == layout_id:
+                item.setOpacity(visible)
 
     def loadEntities(self):
         if not self.checkbox_entities_enable.isChecked(): return

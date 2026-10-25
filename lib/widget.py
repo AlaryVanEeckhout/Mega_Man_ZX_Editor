@@ -62,11 +62,12 @@ class TilesetItem(PixmapItem):
             painter.restore() # return to expected configuration
 
 class LevelTileItem(PixmapItem):
-    def __init__(self, *args, index: int=0, id: int=0, screen: int=0, offset_name: str=None, **kwargs):
+    def __init__(self, *args, index: int=0, id: int=0, screen: int=0, layout: int=0, offset_name: str=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.index = index
         self.id = id
         self.screen = screen
+        self.layout = layout
         self.offset_name = offset_name
         self.tileGroup: list[LevelTileItem] = None
 
@@ -488,7 +489,8 @@ class LevelView(View):
             sItem_delta_spacing = QtCore.QPoint(sItem_delta.x()//16, sItem_delta.y()//16)
             sItem_delta_transformed = (sItem_delta-sItem_delta_spacing)*self.getMainWindow().gfx_view_level.transform().m11()
             item_target = self.itemAt(pos+sItem_delta_transformed)
-            if isinstance(item_target, LevelTileItem):
+            active_layer = self.getMainWindow().buttonGroup_view_focus.checkedId()
+            if isinstance(item_target, LevelTileItem) and (active_layer < 0 or item_target.layout == active_layer):
                 for item in item_target.tileGroup:
                     if item != sItem:
                         item.tileReplace(sItem)
