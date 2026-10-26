@@ -1866,6 +1866,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.buttonGroup_view_focus.addButton(self.radio_view_focus1, 1)
         self.buttonGroup_view_focus.addButton(self.radio_view_focus2, 2)
         self.buttonGroup_view_focus.addButton(self.radio_view_focus3, 3)
+        self.buttonGroup_view_focus.idToggled.connect(self.setScreenLayoutInteractible)
         self.group_view_focus.layout().addWidget(self.radio_view_focusAny)
         self.group_view_focus.layout().addWidget(self.radio_view_focus0)
         self.group_view_focus.layout().addWidget(self.radio_view_focus1)
@@ -5231,6 +5232,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 )
         elif level == file.level_radar:
             loadScreen_loop(self.levelEdited_ovl_object.screenLayout_radar, radarOverride=True)
+        self.setScreenLayoutInteractible(self.buttonGroup_view_focus.checkedId())
 
     def unloadScreenLayout(self, parent: QtWidgets.QWidget):
         scrollArea = parent.parent().parent()
@@ -5319,6 +5321,12 @@ class MainWindow(QtWidgets.QMainWindow):
         for item in self.gfx_view_level.scene().items():
             if isinstance(item, lib.widget.LevelTileItem) and item.layout == layout_id:
                 item.setOpacity(visible)
+
+    def setScreenLayoutInteractible(self, layout_id: int):
+        for item in self.gfx_view_level.scene().items():
+            if isinstance(item, lib.widget.LevelTileItem):
+                item.setInteractible(layout_id < 0 or item.layout == layout_id)
+                item.setTrueShape(layout_id < 0)
 
     def loadEntities(self):
         if not self.checkbox_entities_enable.isChecked(): return

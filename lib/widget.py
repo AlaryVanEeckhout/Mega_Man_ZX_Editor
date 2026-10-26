@@ -15,12 +15,32 @@ class Toolbar(QtWidgets.QToolBar):
 class PixmapItem(QtWidgets.QGraphicsPixmapItem):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._interactible = True
+        self._shapeIncludesTransparency = True
         # fix unwanted gaps between items when scaling, at the cost of performance
         self.setCacheMode(QtWidgets.QGraphicsPixmapItem.CacheMode.ItemCoordinateCache)
+
+    def shape(self):
+        if self._interactible:
+                # Normal selection behavior using the base class shape
+            if self._shapeIncludesTransparency:
+                path = QtGui.QPainterPath()
+                path.addRect(self.boundingRect())
+                return path
+            else:
+                return super().shape()
+        # itemAt() passes right through to items underneath
+        return QtGui.QPainterPath()
 
     def getWindow(self):
         if self.scene():
             return self.scene().parent().window()
+
+    def setInteractible(self, enabled: bool):
+        self._interactible = enabled
+    
+    def setTrueShape(self, enabled: bool):
+        self._shapeIncludesTransparency = not enabled
 
 class TilesetItem(PixmapItem):
     def __init__(self, *args, **kwargs):
@@ -150,6 +170,7 @@ class LevelEntityItem(QtWidgets.QGraphicsItemGroup):
 class OAMObjectItem(PixmapItem):
     def __init__(self, *args, id=0, editable=False, **kwargs):
         super().__init__(*args, **kwargs)
+        self._shapeIncludesTransparency = False
         self.obj_id = id
         self.editable = editable
         if editable:
