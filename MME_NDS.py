@@ -3092,11 +3092,53 @@ class MainWindow(QtWidgets.QMainWindow):
                     flip_h=placement_right, transparent=True
                 )
                 #left
+                draw_box_tile(box_width//8+MUGSHOT_WIDTH_TILES+2 if placement_right else 0, 1, 0x9, flip_h=placement_right)
+                draw_box_tile(box_width//8+MUGSHOT_WIDTH_TILES+2 if placement_right else 0, 2, 0xD, flip_h=placement_right)
+                draw_box_tile(box_width//8+MUGSHOT_WIDTH_TILES+2 if placement_right else 0, 3, 0x10, flip_h=placement_right)
+                draw_box_tile(box_width//8+MUGSHOT_WIDTH_TILES+2 if placement_right else 0, 4, 0x13, flip_h=placement_right)
+                draw_box_tile(box_width//8+MUGSHOT_WIDTH_TILES+2 if placement_right else 0, 5, 0x15, flip_h=placement_right)
+                draw_box_tile(box_width//8+MUGSHOT_WIDTH_TILES+2 if placement_right else 0, 6, 0x17, flip_h=placement_right)
                 #bottom
+                draw_box_tile_range(
+                    box_width//8+1 if placement_right else 0, 7,
+                    MUGSHOT_WIDTH_TILES+2, 0x1B, 0x1C, 0x1D,
+                    flip_h=placement_right
+                )
                 #right
+                draw_box_tile_range(
+                    box_width//8+1 if placement_right else MUGSHOT_WIDTH_TILES+1, 1,
+                    3, 0xB, 0xE, 0x11,
+                    vertical=True, flip_h=placement_right
+                )
+                draw_box_tile_range(
+                    box_width//8+1 if placement_right else MUGSHOT_WIDTH_TILES+1, 4,
+                    3, 0xE, 0xE, 0xE,
+                    vertical=True, flip_h=placement_right
+                )
                 # Nameplate
+                draw_box_tile_range(
+                    box_width//8-name_len+1-2 if placement_right else MUGSHOT_WIDTH_TILES+2+name_len, 0,
+                    2, 0x4, 0x4, 0x5,
+                    flip_h=placement_right
+                )
+                draw_box_tile_range(
+                    0 if placement_right else MUGSHOT_WIDTH_TILES+2+name_len+2, 0,
+                    box_width//8-name_len+1-2, 0x6, 0x7, 0x8,
+                    flip_h=placement_right
+                )
                 # Right border
+                draw_box_tile(0 if placement_right else MUGSHOT_WIDTH_TILES+2+box_width//8, 1, 0xC, flip_h=placement_right)
+                draw_box_tile(0 if placement_right else MUGSHOT_WIDTH_TILES+2+box_width//8, 2, 0xF, flip_h=placement_right)
+                draw_box_tile(0 if placement_right else MUGSHOT_WIDTH_TILES+2+box_width//8, 3, 0x12, flip_h=placement_right)
+                draw_box_tile(0 if placement_right else MUGSHOT_WIDTH_TILES+2+box_width//8, 4, 0x14, flip_h=placement_right)
+                draw_box_tile(0 if placement_right else MUGSHOT_WIDTH_TILES+2+box_width//8, 5, 0x16, flip_h=placement_right)
+                draw_box_tile(0 if placement_right else MUGSHOT_WIDTH_TILES+2+box_width//8, 6, 0x1A, flip_h=placement_right)
                 # Bottom border
+                draw_box_tile_range(
+                    0 if placement_right else MUGSHOT_WIDTH_TILES+2, 7,
+                    box_width//8+1, 0x1C, 0x1C, 0x1E,
+                    flip_h=placement_right
+                )
         if viewed_text != self.gfx_view_dialogue.viewed_text or cursor_next != self.gfx_view_dialogue.cursor_next:
             #print(viewed_text)
             self.gfx_view_dialogue.viewed_text = viewed_text
@@ -3116,6 +3158,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 if "talk_" in self.fileToEdit_name:
                     box_width = 184
                     line_count = 3 # different when no mugshot
+                    if not is_mugshot:
+                        line_count = 1
+                        box_width = 240
                 else:
                     if "sdisk_" in self.fileToEdit_name and self.dropdown_textindex.currentIndex() >= 2:
                         if "ZXA" in self.rom.name.decode():
@@ -3145,9 +3190,6 @@ class MainWindow(QtWidgets.QMainWindow):
                     else: # menu controls
                         box_width = 240
                         line_count = 2
-                if not is_mugshot:
-                    line_count = 1
-                    box_width = 240
                 box_height = 16*line_count
                 chars_per_line = box_width//font_obj.char_width
                 graphic_mugshot = QtGui.QPixmap(8*MUGSHOT_WIDTH_TILES, 8*MUGSHOT_HEIGHT_TILES)
@@ -3246,11 +3288,11 @@ class MainWindow(QtWidgets.QMainWindow):
                             draw_char(sum(self.file_content_text.charmap.dict_unicode_to_byte["⯈"]), 0, choice_cursor)
                             choice_cursor += 1
                     painter_text.end()
-                if not "ZXA" in self.rom.name.decode():
-                    draw_box_ZX()
-                else:
-                    draw_box_ZXA()
-                painter_box.end()
+                    if not "ZXA" in self.rom.name.decode():
+                        draw_box_ZX()
+                    else:
+                        draw_box_ZXA()
+                    painter_box.end()
                 item_text = self.gfx_view_dialogue.scene().addPixmap(graphic_text)
                 item_text.setPos(8 if placement_right or not is_mugshot else MUGSHOT_WIDTH_TILES*8+8*2, 8)
                 if is_mugshot:
