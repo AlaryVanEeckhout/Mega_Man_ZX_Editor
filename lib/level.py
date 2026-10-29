@@ -69,7 +69,7 @@ class Overlay:
         print(f"Level overlay at 0x{self.struct_RAMAddress:08X}")
 
         self.subarea_id = int.from_bytes(self.data[self.struct_address+0x00:self.struct_address+0x04], byteorder='little')
-        self.firstTable_RAMAddress = int.from_bytes(self.data[self.struct_address+0x04:self.struct_address+0x08], byteorder='little')
+        self.routineTable_RAMAddress = int.from_bytes(self.data[self.struct_address+0x04:self.struct_address+0x08], byteorder='little')
         self.tilesetName_RAMAddress = int.from_bytes(self.data[self.struct_address+0x08:self.struct_address+0x10], byteorder='little')
         self.tilesetName_address = self.getFileAddress(self.tilesetName_RAMAddress)
         if self.tilesetName_RAMAddress != 0:
@@ -93,19 +93,23 @@ class Overlay:
             int.from_bytes(self.data[self.struct_address+0x30:self.struct_address+0x34], byteorder='little'),
             int.from_bytes(self.data[self.struct_address+0x34:self.struct_address+0x38], byteorder='little')
         ]
-        self.layout_depth_list = [ # 1 = foreground, 2 = main, 3 = background
+        for value in self.layout_bg_list:
+            assert value in [0x01, 0x12, 0x24, 0x38]
+        self.layout_depth_list = [ # 1 = foreground, 2 = main, 3 = background; a.k.a. background priority
             int.from_bytes(self.data[self.struct_address+0x38:self.struct_address+0x3C], byteorder='little'),
             int.from_bytes(self.data[self.struct_address+0x3C:self.struct_address+0x40], byteorder='little'),
             int.from_bytes(self.data[self.struct_address+0x40:self.struct_address+0x44], byteorder='little'),
             int.from_bytes(self.data[self.struct_address+0x44:self.struct_address+0x48], byteorder='little')
         ]
+        for value in self.layout_depth_list:
+            assert value <= 3
         self.layout_offset_list = [ # 00 = XX--,  10 = --X-, 20 = ---X, 30 = ??? (?)
             int.from_bytes(self.data[self.struct_address+0x48:self.struct_address+0x4C], byteorder='little'),
             int.from_bytes(self.data[self.struct_address+0x4C:self.struct_address+0x50], byteorder='little'),
             int.from_bytes(self.data[self.struct_address+0x50:self.struct_address+0x54], byteorder='little'),
             int.from_bytes(self.data[self.struct_address+0x54:self.struct_address+0x58], byteorder='little')
         ]
-        self.layout_parallax_list = [ # list of (x, y) int32: amount of pixels/256 the camera moves by for an entire screen
+        self.layout_parallax_list = [ # list of (x, y) 16.16 fixed point int: scroll factor
             [int.from_bytes(self.data[self.struct_address+0x88:self.struct_address+0x8C], byteorder='little'), int.from_bytes(self.data[self.struct_address+0x8C:self.struct_address+0x90], byteorder='little')],
             [int.from_bytes(self.data[self.struct_address+0x90:self.struct_address+0x94], byteorder='little'), int.from_bytes(self.data[self.struct_address+0x94:self.struct_address+0x98], byteorder='little')],
             [int.from_bytes(self.data[self.struct_address+0x98:self.struct_address+0x9C], byteorder='little'), int.from_bytes(self.data[self.struct_address+0x9C:self.struct_address+0xA0], byteorder='little')],
@@ -136,7 +140,7 @@ class Overlay:
         self.map_tilesetOffset = ScreenMap(self.data, self.map_tilesetOffset_address)
         print(f"0x{self.tableEC_RAMAddress:08X}: table with pointer to static data")
         print(f"0x{self.map_behavior_RAMAddress:08X}: map behavior (?)")
-        self.map_behavior = ScreenMap(self.data, self.map_behavior_address)
+        self.map_behavior = ScreenMap(self.data, self.map_behavior_address) # for each value : 0 = invisible, 1 = on, 2 = wrap around?, 3= keep(used for sky map)
         print(f"0x{self.screenLayout_camera_RAMAddress:08X}: layout camera")
         self.screenLayout_camera = ScreenLayout(self.data, self.screenLayout_camera_address, loadReal=False) # width > realWidth for some reason
 
@@ -146,7 +150,7 @@ class Overlay:
         print(f"slot: 0x{self.entitySlot_RAMAddress:08X}")
 
         self.entities = Entities(self.data, self.entityPrel_address, self.entitySlot_address, self.entityCoord_address, entitynamedict)
-        print(f"Layout BG list: {self.layout_bg_list}")
+        print(f"Layout BG list: {[hex(v) for v in self.layout_bg_list]}")
         print(f"Layout depth list: {self.layout_depth_list}")
         print(f"Layout offset list: {self.layout_offset_list}")
         print(f"unk: {self.unk_offset0, self.unk_offset1}")
@@ -198,7 +202,7 @@ class ScreenLayout:
     def __init__(self, data: bytes, address: int, loadReal: bool=True, id: int=None):
         self.realWidth = int.from_bytes(data[address:address+0x01], byteorder='little') # width used to load screens with correct alignment
         self.skip = int.from_bytes(data[address+0x01:address+0x02], byteorder='little') # for tilesetOffset?
-        self.width = int.from_bytes(data[address+0x02:address+0x03], byteorder='little') # width of used portion of layout
+        self.width = int.from_bytes(data[address+0x02:address+0x03], byteorder='little') # width of used portion of layout (effective screen space)
         self.height = int.from_bytes(data[address+0x03:address+0x04], byteorder='little')
         self.loadWidth = self.realWidth if loadReal else self.width
         self.size_header = 0x04
@@ -229,32 +233,31 @@ class ScreenLayout:
         return new_data
 
 class ScreenMap:
-    def __init__(self, data: bytes, address: int, loadReal: bool=False, id: int=None):
-        self.realWidth = int.from_bytes(data[address:address+0x02], byteorder='little') # width used to define effective screen space
-        self.skip = int.from_bytes(data[address+0x02:address+0x04], byteorder='little') # for the layout it applies to?
-        self.width = int.from_bytes(data[address+0x04:address+0x06], byteorder='little') # width used to load all screens (?)
+    def __init__(self, data: bytes, address: int, id: int=None):
+        self.SIZE_HEADER = 0x08
+        self.shift = int.from_bytes(data[address:address+0x02], byteorder='little') # a value, generally 2-6, ??
+        self.mask = int.from_bytes(data[address+0x02:address+0x04], byteorder='little') # for the layout it applies to?
+        self.width = int.from_bytes(data[address+0x04:address+0x06], byteorder='little') # matches screen layout width
         self.height = int.from_bytes(data[address+0x06:address+0x08], byteorder='little')
-        self.loadWidth = self.realWidth if loadReal else self.width
-        self.size_header = 0x08
-        self.size_data = self.loadWidth*self.height*0x02
-        self.size = self.size_header+self.size_data
+        self.size_data = self.width*self.height*0x02
+        self.size = self.SIZE_HEADER+self.size_data
         self.data = data[address:address+self.size]
         self.id = id
         self.layout: list[list[int]] = []
         layoutRow = []
-        print(self.realWidth, self.skip, self.width, self.height)
+        print(self.shift, self.mask, self.width, self.height)
 
-        for i in range(self.size_header, self.size, 0x02):
+        for i in range(self.SIZE_HEADER, self.size, 0x02):
             layoutRow.append(int.from_bytes(self.data[i:i+0x02], byteorder='little'))
-            if len(layoutRow) == self.loadWidth:
+            if len(layoutRow) == self.width:
                 self.layout.append(layoutRow.copy())
                 layoutRow.clear()
         #print([[f"{screenID:04X}" for screenID in row] for row in self.layout])
     
     def toBytes(self):
         new_data = bytearray()
-        new_data += int.to_bytes(self.realWidth, 2, 'little')
-        new_data += int.to_bytes(self.skip, 2, 'little')
+        new_data += int.to_bytes(self.shift, 2, 'little')
+        new_data += int.to_bytes(self.mask, 2, 'little')
         new_data += int.to_bytes(self.width, 2, 'little')
         new_data += int.to_bytes(self.height, 2, 'little')
         for row in self.layout:

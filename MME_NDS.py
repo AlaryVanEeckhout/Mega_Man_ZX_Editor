@@ -5252,25 +5252,25 @@ class MainWindow(QtWidgets.QMainWindow):
                 loadScreen_loop(
                     self.levelEdited_ovl_object.screenLayout3,
                     *get_slice(self.levelEdited_ovl_object.layout_offset_list[3]),
-                    -self.levelEdited_ovl_object.layout_depth_list[3]
+                    -self.levelEdited_ovl_object.layout_depth_list[3]*10-((self.levelEdited_ovl_object.layout_bg_list[3] & 0xF0) >> 4)
                 )
             if self.checkbox_level_layout2.isEnabled() and self.checkbox_level_layout2.isChecked():
                 loadScreen_loop(
                     self.levelEdited_ovl_object.screenLayout2,
                     *get_slice(self.levelEdited_ovl_object.layout_offset_list[2]),
-                    -self.levelEdited_ovl_object.layout_depth_list[2]
+                    -self.levelEdited_ovl_object.layout_depth_list[2]*10-((self.levelEdited_ovl_object.layout_bg_list[2] & 0xF0) >> 4)
                 )
             if self.checkbox_level_layout1.isEnabled() and self.checkbox_level_layout1.isChecked():
                 loadScreen_loop(
                     self.levelEdited_ovl_object.screenLayout1,
                     *get_slice(self.levelEdited_ovl_object.layout_offset_list[1]),
-                    -self.levelEdited_ovl_object.layout_depth_list[1]
+                    -self.levelEdited_ovl_object.layout_depth_list[1]*10-((self.levelEdited_ovl_object.layout_bg_list[1] & 0xF0) >> 4)
                 )
             if self.checkbox_level_layout0.isEnabled() and self.checkbox_level_layout0.isChecked():
                 loadScreen_loop(
                     self.levelEdited_ovl_object.screenLayout0,
                     *get_slice(self.levelEdited_ovl_object.layout_offset_list[0]),
-                    -self.levelEdited_ovl_object.layout_depth_list[0]
+                    -self.levelEdited_ovl_object.layout_depth_list[0]*10-((self.levelEdited_ovl_object.layout_bg_list[0] & 0xF0) >> 4)
                 )
         elif level == file.level_radar:
             loadScreen_loop(self.levelEdited_ovl_object.screenLayout_radar, radarOverride=True)
