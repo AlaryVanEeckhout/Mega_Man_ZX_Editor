@@ -6289,10 +6289,10 @@ if __name__ == "__main__":
             ]
     w._post_init() # finalize now that WidgetSets exists
 
-    def handle_exception(exc_type, exc_value, exc_tb):
+    def handle_exception(exc_type, exc_value: BaseException, exc_tb):
         result = QtWidgets.QMessageBox.critical(
             None,
-            "Critical Error",
+            exc_type.__name__,
             str(exc_value),
             QtWidgets.QMessageBox.StandardButton.Ignore, QtWidgets.QMessageBox.StandardButton.Abort)
         if result == QtWidgets.QMessageBox.StandardButton.Abort:
