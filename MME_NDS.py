@@ -5928,6 +5928,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                     compressedSize=overlay_og.compressedSize,#lib.datconv.strToNum(self.tree_arm9Ovltable.topLevelItem(fileID_overlay).text(3), self.displayBase),#
                                     flags=0)
         self.rom.files[fileID_overlay] = overlay.save(compress=True)
+        self.rom.arm9OverlayTable[fileID_overlay*0x20:(fileID_overlay+1)*0x20] = ndspy.code.saveOverlayTable({fileID_overlay: overlay}) # update table with new compressed overlay size
         print(f"Level data {self.dropdown_level_area.currentText()} has been saved!")
         self.levelEdited_object = lib.level.File(self.rom.files[fileID_tileset]) # update data
         #self.levelEdited_ovl_object = lib.level.Overlay(self.rom.files[fileID_overlay])
