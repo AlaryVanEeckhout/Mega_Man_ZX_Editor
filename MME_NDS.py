@@ -1708,15 +1708,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.page_level_entities_slots.setLayout(QtWidgets.QGridLayout())
         self.label_level_entities_slots_id = QtWidgets.QLabel("Slot Index: ", self.page_level_entities_slots)
         self.label_level_entities_slots_id.setMaximumHeight(50)
-        self.field_level_entities_slots_attr = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Attributes(?):", Vertical=True)
+        self.field_level_entities_slots_attr = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Flags:", Vertical=True)
         self.field_level_entities_slots_attr.setDisabled(True)
         self.field_level_entities_slots_attr.sb.isInt = True
         self.field_level_entities_slots_attr.sb.setRange(0, 0xFF)
-        self.field_level_entities_slots_attr.setToolTip("Attributes(?)")
+        self.field_level_entities_slots_attr.setToolTip("Flags")
         self.field_level_entities_slots_attr.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
         self.field_level_entities_slots_attr.sb.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
                                                                 self.field_level_entities_coords_slot.sb.value(),
-                                                                "attr",
+                                                                "flag",
                                                                 self.field_level_entities_slots_attr.sb.value()))
         self.field_level_entities_slots_kind = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Kind:", Vertical=True)
         self.field_level_entities_slots_kind.setDisabled(True)
@@ -4905,7 +4905,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         slot = entities.coords.entityList[item.coordIndex]["slot"]
         self.label_level_entities_slots_id.setText(f"Slot Index: {lib.datconv.numToStr(slot, self.displayBase, self.displayAlphanumeric)}")
-        self.field_level_entities_slots_attr.sb.setValue(entities.slots.entityList[slot]["attr"])
+        self.field_level_entities_slots_attr.sb.setValue(entities.slots.entityList[slot]["flag"])
         self.field_level_entities_slots_kind.sb.setValue(entities.slots.entityList[slot]["kind"])
         self.field_level_entities_slots_subkind.sb.setValue(entities.slots.entityList[slot]["subkind"])
         self.field_level_entities_slots_role.sb.setValue(entities.slots.entityList[slot]["role"])
@@ -4991,11 +4991,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.unloadTilesets()
         self.unloadScreenLayouts()
         ovlID = int(self.dropdown_level_area.currentText())
-        self.levelEdited_ovl_object = lib.level.Overlay(self.rom.loadArm9Overlays([ovlID])[ovlID].data,
-                                                        lib.datconv.strToNum(self.tree_arm9Ovltable.topLevelItem(ovlID).text(1), self.displayBase),
-                                                        self.levelEdited_ovlTable,
-                                                        self.dropdown_level_area.currentIndex(),
-                                                        self.gamedat.entityNames)
+        try:
+            self.levelEdited_ovl_object = lib.level.Overlay(self.rom.loadArm9Overlays([ovlID])[ovlID].data,
+                                                            lib.datconv.strToNum(self.tree_arm9Ovltable.topLevelItem(ovlID).text(1), self.displayBase),
+                                                            self.levelEdited_ovlTable,
+                                                            self.dropdown_level_area.currentIndex(),
+                                                            self.gamedat.entityNames)
+        except AssertionError:
+            print("This overlay has invalid data")
+            self.levelEdited_ovl_object = None
+            return 1
         self.checkbox_entities_enable.setEnabled(hasattr(self.levelEdited_ovl_object.entities, "coords"))
         self.checkbox_entities_gfxEnable.setEnabled(hasattr(self.levelEdited_ovl_object.entities, "coords"))
         try:
@@ -5026,9 +5031,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self.dropdown_level_area.blockSignals(False)
             return
         self.openLevel()
-        self.lineedit_level_tilesetName.blockSignals(True)
-        self.lineedit_level_tilesetName.setText(self.levelEdited_ovl_object.tilesetName)
-        self.lineedit_level_tilesetName.blockSignals(False)
         self.buttonGroup_radar_tilesetType.blockSignals(True)
         self.radio_radar_PX.setChecked(True)
         self.buttonGroup_radar_tilesetType.blockSignals(False)
@@ -5038,11 +5040,17 @@ class MainWindow(QtWidgets.QMainWindow):
             self.dropdown_level_type.addItem("Radar Level")
         self.dropdown_level_type.setCurrentIndex(0)
         self.dropdown_level_type.setEnabled(self.dropdown_level_area.currentIndex() != -1)
+        self.lineedit_level_tilesetName.blockSignals(True)
         if self.levelEdited_ovl_object is not None:
+            self.lineedit_level_tilesetName.setText(self.levelEdited_ovl_object.tilesetName)
             self.checkbox_level_layout0.setEnabled(self.levelEdited_ovl_object.screenLayout0.size > self.levelEdited_ovl_object.screenLayout0.size_header)
             self.checkbox_level_layout1.setEnabled(self.levelEdited_ovl_object.screenLayout1.size > self.levelEdited_ovl_object.screenLayout1.size_header)
             self.checkbox_level_layout2.setEnabled(self.levelEdited_ovl_object.screenLayout2.size > self.levelEdited_ovl_object.screenLayout2.size_header)
             self.checkbox_level_layout3.setEnabled(self.levelEdited_ovl_object.screenLayout3.size > self.levelEdited_ovl_object.screenLayout3.size_header)
+        else:
+            self.lineedit_level_tilesetName.setText("N/A")
+        self.lineedit_level_tilesetName.blockSignals(False)
+
 
     def unloadTilesets(self):
         self.unloadTileProperties()
@@ -5391,7 +5399,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 entitySlot_names = entities.slots.nameList[entityCoord["slot"]]
             except IndexError as e:
                 entitySlot_names = {
-                "attr": "Undefined",
+                "flag": "Undefined",
                 "kind": "Undefined",
                 "subkind": "Undefined",
                 "role": "Undefined",
@@ -5445,6 +5453,9 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.levelEdited_object == None:
             if self.openLevel() == 1:
                 return
+        if self.levelEdited_ovl_object == None:
+            print("cannot load empty level data!")
+            return
         self.loadScreenLayouts()
         self.lineedit_level_tilesetName.setEnabled(True)
         file = self.levelEdited_object

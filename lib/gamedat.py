@@ -191,10 +191,15 @@ ENTITYKINDS_ZX = {
                 0x03: ("Purple", {}),
                 0x04: ("Yellow", {}),
                 0x05: ("Green", {}),
+                0x06: ("Boss", {}),
+                0x07: ("Red(2)", {}),
                 0x08: ("Area D", {}),
                 0x0A: ("Power Plant", {}),
                 0x0B: ("Area F", {}),
-                0x0C: ("Boss", {})
+                0x10: ("Area K", {}),
+                0x11: ("Grand Nuage", {}),
+                0x12: ("Town", {}),
+                0x14: ("Area N", {})
             }),
         }),
         0x13: ("Fade out/in door", {
@@ -205,10 +210,15 @@ ENTITYKINDS_ZX = {
                 0x03: ("Purple", {}),
                 0x04: ("Yellow", {}),
                 0x05: ("Green", {}),
+                0x06: ("Boss", {}),
+                0x07: ("Red(2)", {}),
                 0x08: ("Area D", {}),
                 0x0A: ("Power Plant", {}),
                 0x0B: ("Area F", {}),
-                0x0C: ("Boss", {})
+                0x10: ("Area K", {}),
+                0x11: ("Grand Nuage", {}),
+                0x12: ("Town", {}),
+                0x14: ("Area N", {})
             }),
         }),
         0x14: ("Punchable Tree", {}),
@@ -219,6 +229,10 @@ ENTITYKINDS_ZX = {
         0x19: ("Dynamic Background", {
             0x02: ("Crumble bridge", {}),
             0x03: ("Slither Inc. door", {}) # maybe?
+        }),
+        0x1A: ("Geyser", {
+                    0x00: ("Normal", {}),
+                    0x01: ("Platform", {})
         }),
         0x1B: ("Bridge switch", {}),
         0x1C: ("Transerver", {

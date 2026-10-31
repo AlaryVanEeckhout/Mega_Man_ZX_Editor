@@ -315,7 +315,7 @@ class EntitySlots:
                 print(entity_data.hex())
                 break
             self.entityList.append({
-                "attr": entity_data[0], # might be some kind of bitmask: 0x02 for collectibles(?), 0x40 is used sometimes...
+                "flag": entity_data[0], # might be some kind of bitmask: 0x01 respawns, 0x02 for collectibles(?), 0x40 is used sometimes...
                 "kind": entity_data[1],
                 "subkind": entity_data[2],
                 "role": entity_data[3],
@@ -361,7 +361,7 @@ class EntitySlots:
                 dict_current = {}
 
         self.nameList[list_index] = {
-            "attr": f"0x{entity_data[0]:02X}", # might be some kind of bitmask: 0x02 for collectibles(?), 0x40 is used sometimes...
+            "flag": f"0x{entity_data[0]:02X}", # might be some kind of bitmask: 0x02 for collectibles(?), 0x40 is used sometimes...
             "kind": param_list[0],
             "subkind": param_list[1],
             "role": param_list[2],

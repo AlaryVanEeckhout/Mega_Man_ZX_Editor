@@ -135,7 +135,7 @@ class LevelEntityItem(QtWidgets.QGraphicsItemGroup):
                                 \nX: {lib.datconv.numToStr(coord["x"], self.displayBase, self.alphanumeric)}\
                                 \nY: {lib.datconv.numToStr(coord["y"], self.displayBase, self.alphanumeric)}\
                                 \nSlot: {lib.datconv.numToStr(coord["slot"], self.displayBase, self.alphanumeric)}\
-                                \nAttributes(?): {slotnames["attr"]}\
+                                \nFlags: {slotnames["flag"]}\
                                 \nKind: {slotnames["kind"]}\
                                 \nSub-Kind: {slotnames["subkind"]}\
                                 \nRole: {slotnames["role"]}\
