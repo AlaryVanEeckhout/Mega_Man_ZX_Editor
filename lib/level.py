@@ -109,11 +109,11 @@ class Overlay:
             int.from_bytes(self.data[self.struct_address+0x50:self.struct_address+0x54], byteorder='little'),
             int.from_bytes(self.data[self.struct_address+0x54:self.struct_address+0x58], byteorder='little')
         ]
-        self.layout_parallax_list = [ # list of (x, y) 16.16 fixed point int: scroll factor
-            [int.from_bytes(self.data[self.struct_address+0x88:self.struct_address+0x8C], byteorder='little'), int.from_bytes(self.data[self.struct_address+0x8C:self.struct_address+0x90], byteorder='little')],
-            [int.from_bytes(self.data[self.struct_address+0x90:self.struct_address+0x94], byteorder='little'), int.from_bytes(self.data[self.struct_address+0x94:self.struct_address+0x98], byteorder='little')],
-            [int.from_bytes(self.data[self.struct_address+0x98:self.struct_address+0x9C], byteorder='little'), int.from_bytes(self.data[self.struct_address+0x9C:self.struct_address+0xA0], byteorder='little')],
-            [int.from_bytes(self.data[self.struct_address+0xA0:self.struct_address+0xA4], byteorder='little'), int.from_bytes(self.data[self.struct_address+0xA4:self.struct_address+0xA8], byteorder='little')]
+        self.layout_parallax_list = [ # int32: amount of pixels/256 the camera moves by for an entire screen
+            [int.from_bytes(self.data[self.struct_address+0x88:self.struct_address+0x8C], byteorder='little', signed=True), int.from_bytes(self.data[self.struct_address+0x8C:self.struct_address+0x90], byteorder='little', signed=True)],
+            [int.from_bytes(self.data[self.struct_address+0x90:self.struct_address+0x94], byteorder='little', signed=True), int.from_bytes(self.data[self.struct_address+0x94:self.struct_address+0x98], byteorder='little', signed=True)],
+            [int.from_bytes(self.data[self.struct_address+0x98:self.struct_address+0x9C], byteorder='little', signed=True), int.from_bytes(self.data[self.struct_address+0x9C:self.struct_address+0xA0], byteorder='little', signed=True)],
+            [int.from_bytes(self.data[self.struct_address+0xA0:self.struct_address+0xA4], byteorder='little', signed=True), int.from_bytes(self.data[self.struct_address+0xA4:self.struct_address+0xA8], byteorder='little', signed=True)]
         ]
         self.unk_offset0 = int.from_bytes(self.data[self.struct_address+0xC0:self.struct_address+0xC4], byteorder='little', signed=True)
         self.unk_offset1 = int.from_bytes(self.data[self.struct_address+0xC4:self.struct_address+0xC8], byteorder='little', signed=True)
@@ -168,7 +168,7 @@ class Overlay:
         for index, offset in enumerate(range(0x88, 0xA8, 0x4)):
             print(index, hex(offset))
             print(self.layout_parallax_list[index//2][index%2])
-            self.data[self.struct_address+offset:self.struct_address+offset+0x4] = int.to_bytes(self.layout_parallax_list[index//2][index%2], 0x4, 'little')
+            self.data[self.struct_address+offset:self.struct_address+offset+0x4] = int.to_bytes(self.layout_parallax_list[index//2][index%2], 0x4, 'little', signed=True)
         # Layouts
         screenLayout0_bin = self.screenLayout0.data
         self.data[self.screenLayout0_address:self.screenLayout0_address+len(screenLayout0_bin)] = self.screenLayout0.toBytes()

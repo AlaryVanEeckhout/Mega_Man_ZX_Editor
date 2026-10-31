@@ -33,6 +33,7 @@ from lib.gamedat import MUGSHOT_WIDTH_TILES, MUGSHOT_HEIGHT_TILES
 REGEX_PARTITION = r".*(_\d+)$"
 REGEX_FAT = r'[^\\/\?"<>\*|:;]+'
 VALIDATOR_FAT = QtGui.QRegularExpressionValidator(QtCore.QRegularExpression(REGEX_FAT))
+MAX_1616 = 65535.9999847412109375 # ffff.ffff
 
 parser = argparse.ArgumentParser()
 parser_group = parser.add_mutually_exclusive_group()
@@ -1183,7 +1184,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.field_vxHeader_framerate = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Frame rate: ", Vertical=True)
         self.field_vxHeader_framerate.sb.setDecimals(16) # increase precision to allow spinbox to respect range
-        self.field_vxHeader_framerate.sb.setRange(0x00000000,65535.9999847412109375) # prevent impossible values (max is ffff.ffff)
+        self.field_vxHeader_framerate.sb.setRange(0x00000000,MAX_1616) # prevent impossible values (max is ffff.ffff)
         #self.field_vxHeader_framerate.sb.set_numfill(8)
         self.field_vxHeader_framerate.sb.textChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
@@ -5319,22 +5320,18 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.group_view_hide.layout().addWidget(widget_layout_hide)
             row_len = len(screenLayout.layout[0])
             widget_parallax_x = lib.widget.BetterSpinBox(parent)
-            widget_parallax_x.isInt = True
             widget_parallax_x.setMinimumWidth(50)
-            widget_parallax_x.set_numfill(8)
-            widget_parallax_x.setRange(0x00000000, 0xFFFFFFFF)
-            widget_parallax_x.setValue(self.levelEdited_ovl_object.layout_parallax_list[screenLayout.id][0])
+            widget_parallax_x.setRange(-0x800000, 0x7FFFFF + 0xFF/0x100)
+            widget_parallax_x.setValue(self.levelEdited_ovl_object.layout_parallax_list[screenLayout.id][0] / 256)
             widget_parallax_x.setToolTip("Parallax X")
-            widget_parallax_x.valueChanged.connect(lambda value: self.levelEdited_ovl_object.layout_parallax_list[screenLayout.id].__setitem__(0, int(value)))
+            widget_parallax_x.valueChanged.connect(lambda value: self.levelEdited_ovl_object.layout_parallax_list[screenLayout.id].__setitem__(0, int(value*256)))
             widget_parallax_x.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
             widget_parallax_y = lib.widget.BetterSpinBox(parent)
-            widget_parallax_y.isInt = True
             widget_parallax_y.setMinimumWidth(50)
-            widget_parallax_y.set_numfill(8)
-            widget_parallax_y.setRange(0x00000000, 0xFFFFFFFF)
-            widget_parallax_y.setValue(self.levelEdited_ovl_object.layout_parallax_list[screenLayout.id][1])
+            widget_parallax_y.setRange(-0x800000, 0x7FFFFF + 0xFF/0x100)
+            widget_parallax_y.setValue(self.levelEdited_ovl_object.layout_parallax_list[screenLayout.id][1] / 256)
             widget_parallax_y.setToolTip("Parallax Y")
-            widget_parallax_y.valueChanged.connect(lambda value: self.levelEdited_ovl_object.layout_parallax_list[screenLayout.id].__setitem__(1, int(value)))
+            widget_parallax_y.valueChanged.connect(lambda value: self.levelEdited_ovl_object.layout_parallax_list[screenLayout.id].__setitem__(1, int(value*256)))
             widget_parallax_y.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
             parent.layout().addWidget(widget_parallax_x, 0, 0, 1, row_len//2)
             parent.layout().addWidget(widget_parallax_y, 0, row_len//2, 1, row_len//2)
