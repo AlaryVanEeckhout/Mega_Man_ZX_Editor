@@ -565,6 +565,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # File explorer
         self.tree = lib.widget.EditorTree(self.page_explorer)
         self.tree.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+        self.page_explorer.layout().setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
         self.page_explorer.layout().addWidget(self.tree, 0)
         self.tree.setMaximumWidth(450)
         self.tree.setColumnCount(3)
@@ -1048,7 +1049,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_panm.addWidget(self.label_panm_colorSlots, 3, 0)
         self.layout_panm.addWidget(self.field_panm_colorSlot0, 4, 0)
         self.layout_panm.addWidget(self.field_panm_colorSlot1, 5, 0)
-        self.layout_panm.addWidget(self.gfx_view_panm, 6, 0, 1, 2)
+        self.file_content.addWidget(self.gfx_view_panm)
         self.layout_panm.setSpacing(3)
 
         #Font
