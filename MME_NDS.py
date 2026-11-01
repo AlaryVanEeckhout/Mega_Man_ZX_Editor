@@ -669,46 +669,42 @@ class MainWindow(QtWidgets.QMainWindow):
 
         #Tile Width
         self.tile_width = 8
-        self.field_tile_width = lib.widget.LabeledSpinBox(self.page_explorer, labelText="width:", Vertical=True)
+        self.field_tile_width = lib.widget.LabeledSpinBox(self.page_explorer, labelText="width:", Vertical=True, isInt=True)
         self.field_tile_width.setStatusTip(f"Set tile width to {lib.datconv.numToStr(16, self.displayBase, self.displayAlphanumeric)}, {lib.datconv.numToStr(32, self.displayBase, self.displayAlphanumeric)} or {lib.datconv.numToStr(64, self.displayBase, self.displayAlphanumeric)} for some ZXA sprites")
-        self.field_tile_width.sb.setFont(self.font_caps)
-        self.field_tile_width.sb.setValue(self.tile_width)
-        self.field_tile_width.sb.setMinimum(1)
-        self.field_tile_width.sb.isInt = True
-        self.field_tile_width.sb.valueChanged.connect(lambda: self.value_update_Call("tile_width", int(self.field_tile_width.sb.value()), True))
-        self.field_tile_width.sb.valueChanged.connect(self.file_content_gfx.fitInView2)
+        self.field_tile_width.setFont(self.font_caps)
+        self.field_tile_width.setValue(self.tile_width)
+        self.field_tile_width.setMinimum(1)
+        self.field_tile_width.valueChanged.connect(lambda: self.value_update_Call("tile_width", int(self.field_tile_width.value()), True))
+        self.field_tile_width.valueChanged.connect(self.file_content_gfx.fitInView2)
 
         #Tile Height
         self.tile_height = 8
-        self.field_tile_height = lib.widget.LabeledSpinBox(self.page_explorer, labelText="height:", Vertical=True)
-        self.field_tile_height.sb.setFont(self.font_caps)
-        self.field_tile_height.sb.setValue(self.tile_height)
-        self.field_tile_height.sb.setMinimum(1)
-        self.field_tile_height.sb.isInt = True
-        self.field_tile_height.sb.valueChanged.connect(lambda: self.value_update_Call("tile_height", int(self.field_tile_height.sb.value()), True)) 
-        self.field_tile_height.sb.valueChanged.connect(self.file_content_gfx.fitInView2)
+        self.field_tile_height = lib.widget.LabeledSpinBox(self.page_explorer, labelText="height:", Vertical=True, isInt=True)
+        self.field_tile_height.setFont(self.font_caps)
+        self.field_tile_height.setValue(self.tile_height)
+        self.field_tile_height.setMinimum(1)
+        self.field_tile_height.valueChanged.connect(lambda: self.value_update_Call("tile_height", int(self.field_tile_height.value()), True)) 
+        self.field_tile_height.valueChanged.connect(self.file_content_gfx.fitInView2)
 
         #Tiles Per row
         self.tiles_per_row = 8
-        self.field_tiles_per_row = lib.widget.LabeledSpinBox(self.page_explorer, labelText="columns:", Vertical=True)
+        self.field_tiles_per_row = lib.widget.LabeledSpinBox(self.page_explorer, labelText="columns:", Vertical=True, isInt=True)
         self.field_tiles_per_row.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Fixed)
-        self.field_tiles_per_row.sb.setFont(self.font_caps)
-        self.field_tiles_per_row.sb.setValue(self.tiles_per_row)
-        self.field_tiles_per_row.sb.setMinimum(1)
-        self.field_tiles_per_row.sb.isInt = True
-        self.field_tiles_per_row.sb.valueChanged.connect(lambda: self.value_update_Call("tiles_per_row", int(self.field_tiles_per_row.sb.value()), True))
-        self.field_tiles_per_row.sb.valueChanged.connect(self.file_content_gfx.fitInView2)
+        self.field_tiles_per_row.setFont(self.font_caps)
+        self.field_tiles_per_row.setValue(self.tiles_per_row)
+        self.field_tiles_per_row.setMinimum(1)
+        self.field_tiles_per_row.valueChanged.connect(lambda: self.value_update_Call("tiles_per_row", int(self.field_tiles_per_row.value()), True))
+        self.field_tiles_per_row.valueChanged.connect(self.file_content_gfx.fitInView2)
 
         #Tiles Per Column
         self.tiles_per_column = 8
-        self.field_tiles_per_column = lib.widget.LabeledSpinBox(self.page_explorer, labelText="rows:", Vertical=True)
+        self.field_tiles_per_column = lib.widget.LabeledSpinBox(self.page_explorer, labelText="rows:", Vertical=True, isInt=True)
         self.field_tiles_per_column.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Fixed)
-        self.field_tiles_per_column.sb.setFont(self.font_caps)
-        self.field_tiles_per_column.sb.setValue(self.tiles_per_column)
-        self.field_tiles_per_column.sb.setMinimum(1)
-        self.field_tiles_per_column.sb.isInt = True
-        self.field_tiles_per_column.sb.valueChanged.connect(lambda: self.value_update_Call("tiles_per_column", int(self.field_tiles_per_column.sb.value()), True))
-        self.field_tiles_per_column.sb.valueChanged.connect(self.file_content_gfx.fitInView2)
+        self.field_tiles_per_column.setFont(self.font_caps)
+        self.field_tiles_per_column.setValue(self.tiles_per_column)
+        self.field_tiles_per_column.setMinimum(1)
+        self.field_tiles_per_column.valueChanged.connect(lambda: self.value_update_Call("tiles_per_column", int(self.field_tiles_per_column.value()), True))
+        self.field_tiles_per_column.valueChanged.connect(self.file_content_gfx.fitInView2)
 
         self.layout_tile_settings = QtWidgets.QHBoxLayout()
         self.layout_tile_settings.addWidget(self.field_tile_width)
@@ -1056,28 +1052,25 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_panm.setSpacing(3)
 
         #Font
-        self.field_font_charCount = lib.widget.LabeledSpinBox(self.page_explorer, labelText="char count:", Vertical=True)
-        self.field_font_charCount.sb.setFont(self.font_caps)
-        self.field_font_charCount.sb.setMinimum(0)
-        self.field_font_charCount.sb.isInt = True
-        self.field_font_charCount.sb.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_font_charCount = lib.widget.LabeledSpinBox(self.page_explorer, labelText="char count:", Vertical=True, isInt=True)
+        self.field_font_charCount.setFont(self.font_caps)
+        self.field_font_charCount.setMinimum(0)
+        self.field_font_charCount.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
-        self.field_font_width = lib.widget.LabeledSpinBox(self.page_explorer, labelText="char width:", Vertical=True)
-        self.field_font_width.sb.setFont(self.font_caps)
-        self.field_font_width.sb.setMinimum(0)
-        self.field_font_width.sb.isInt = True
+        self.field_font_width = lib.widget.LabeledSpinBox(self.page_explorer, labelText="char width:", Vertical=True, isInt=True)
+        self.field_font_width.setFont(self.font_caps)
+        self.field_font_width.setMinimum(0)
         self.field_font_width.setStatusTip("Make sure that this is an even number to prevent the game from crashing")
-        self.field_font_width.sb.valueChanged.connect(lambda: self.treeCall())
-        self.field_font_width.sb.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
-        self.field_font_width.sb.valueChanged.connect(self.file_content_gfx.fitInView2)
+        self.field_font_width.valueChanged.connect(lambda: self.treeCall())
+        self.field_font_width.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_font_width.valueChanged.connect(self.file_content_gfx.fitInView2)
 
-        self.field_font_height = lib.widget.LabeledSpinBox(self.page_explorer, labelText="char height:", Vertical=True)
-        self.field_font_height.sb.setFont(self.font_caps)
-        self.field_font_height.sb.setMinimum(0)
-        self.field_font_height.sb.isInt = True
-        self.field_font_height.sb.valueChanged.connect(lambda: self.treeCall())
-        self.field_font_height.sb.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
-        self.field_font_height.sb.valueChanged.connect(self.file_content_gfx.fitInView2)
+        self.field_font_height = lib.widget.LabeledSpinBox(self.page_explorer, labelText="char height:", Vertical=True, isInt=True)
+        self.field_font_height.setFont(self.font_caps)
+        self.field_font_height.setMinimum(0)
+        self.field_font_height.valueChanged.connect(lambda: self.treeCall())
+        self.field_font_height.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_font_height.valueChanged.connect(self.file_content_gfx.fitInView2)
 
         self.label_font_indexingSpace = QtWidgets.QLabel(self.page_explorer)
         self.label_font_indexingSpace.setText("indexing space: ")
@@ -1175,95 +1168,85 @@ class MainWindow(QtWidgets.QMainWindow):
         self.trees_sdat: list[lib.widget.EditorTree] = []
 
         #VX
-        self.field_vxHeader_length = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Duration (frames): ", Vertical=True)
-        self.field_vxHeader_length.sb.setFont(self.font_caps)
-        self.field_vxHeader_length.sb.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_length.sb.set_numfill(8)
-        self.field_vxHeader_length.sb.isInt = True
-        self.field_vxHeader_length.sb.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_vxHeader_length = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Duration (frames): ", Vertical=True, isInt=True)
+        self.field_vxHeader_length.setFont(self.font_caps)
+        self.field_vxHeader_length.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_length.set_numfill(8)
+        self.field_vxHeader_length.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
-        self.field_vxHeader_framerate = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Frame rate: ", Vertical=True)
-        self.field_vxHeader_framerate.sb.setDecimals(16) # increase precision to allow spinbox to respect range
-        self.field_vxHeader_framerate.sb.setRange(0x00000000,MAX_1616) # prevent impossible values (max is ffff.ffff)
-        #self.field_vxHeader_framerate.sb.set_numfill(8)
-        self.field_vxHeader_framerate.sb.textChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_vxHeader_framerate = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Frame rate: ", Vertical=True, isInt=True)
+        self.field_vxHeader_framerate.setDecimals(16) # increase precision to allow spinbox to respect range
+        self.field_vxHeader_framerate.setRange(0x00000000,MAX_1616) # prevent impossible values (max is ffff.ffff)
+        #self.field_vxHeader_framerate.set_numfill(8)
+        self.field_vxHeader_framerate.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
-        self.field_vxHeader_frameSizeMax = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Maximal frame data size: ", Vertical=True)
-        self.field_vxHeader_frameSizeMax.sb.setFont(self.font_caps)
-        self.field_vxHeader_frameSizeMax.sb.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_frameSizeMax.sb.set_numfill(8)
-        self.field_vxHeader_frameSizeMax.sb.isInt = True
-        self.field_vxHeader_frameSizeMax.sb.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_vxHeader_frameSizeMax = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Maximal frame data size: ", Vertical=True, isInt=True)
+        self.field_vxHeader_frameSizeMax.setFont(self.font_caps)
+        self.field_vxHeader_frameSizeMax.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_frameSizeMax.set_numfill(8)
+        self.field_vxHeader_frameSizeMax.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
         self.layout_vx_framesHeader = QtWidgets.QHBoxLayout()
         self.layout_vx_framesHeader.addWidget(self.field_vxHeader_length)
         self.layout_vx_framesHeader.addWidget(self.field_vxHeader_framerate)
         self.layout_vx_framesHeader.addWidget(self.field_vxHeader_frameSizeMax)
 
-        self.field_vxHeader_streamCount = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Audio stream count: ", Vertical=True)
-        self.field_vxHeader_streamCount.sb.setFont(self.font_caps)
-        self.field_vxHeader_streamCount.sb.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_streamCount.sb.set_numfill(8)
-        self.field_vxHeader_streamCount.sb.isInt = True
-        self.field_vxHeader_streamCount.sb.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_vxHeader_streamCount = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Audio stream count: ", Vertical=True, isInt=True)
+        self.field_vxHeader_streamCount.setFont(self.font_caps)
+        self.field_vxHeader_streamCount.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_streamCount.set_numfill(8)
+        self.field_vxHeader_streamCount.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
-        self.field_vxHeader_sampleRate = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Sound sample rate (Hz): ", Vertical=True)
-        self.field_vxHeader_sampleRate.sb.setFont(self.font_caps)
-        self.field_vxHeader_sampleRate.sb.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_sampleRate.sb.set_numfill(8)
-        self.field_vxHeader_sampleRate.sb.isInt = True
-        self.field_vxHeader_sampleRate.sb.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_vxHeader_sampleRate = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Sound sample rate (Hz): ", Vertical=True, isInt=True)
+        self.field_vxHeader_sampleRate.setFont(self.font_caps)
+        self.field_vxHeader_sampleRate.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_sampleRate.set_numfill(8)
+        self.field_vxHeader_sampleRate.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
-        self.field_vxHeader_audioExtraDataOffset = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Extra audio data offset: ", Vertical=True)
-        self.field_vxHeader_audioExtraDataOffset.sb.setFont(self.font_caps)
-        self.field_vxHeader_audioExtraDataOffset.sb.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_audioExtraDataOffset.sb.set_numfill(8)
-        self.field_vxHeader_audioExtraDataOffset.sb.isInt = True
-        self.field_vxHeader_audioExtraDataOffset.sb.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_vxHeader_audioExtraDataOffset = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Extra audio data offset: ", Vertical=True, isInt=True)
+        self.field_vxHeader_audioExtraDataOffset.setFont(self.font_caps)
+        self.field_vxHeader_audioExtraDataOffset.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_audioExtraDataOffset.set_numfill(8)
+        self.field_vxHeader_audioExtraDataOffset.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
         self.layout_vx_soundHeader = QtWidgets.QHBoxLayout()
         self.layout_vx_soundHeader.addWidget(self.field_vxHeader_streamCount)
         self.layout_vx_soundHeader.addWidget(self.field_vxHeader_sampleRate)
         self.layout_vx_soundHeader.addWidget(self.field_vxHeader_audioExtraDataOffset)
 
-        self.field_vxHeader_width = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Frame width (pixels): ", Vertical=True)
-        self.field_vxHeader_width.sb.setFont(self.font_caps)
-        self.field_vxHeader_width.sb.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_width.sb.set_numfill(8)
-        self.field_vxHeader_width.sb.isInt = True
-        self.field_vxHeader_width.sb.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_vxHeader_width = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Frame width (pixels): ", Vertical=True, isInt=True)
+        self.field_vxHeader_width.setFont(self.font_caps)
+        self.field_vxHeader_width.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_width.set_numfill(8)
+        self.field_vxHeader_width.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
-        self.field_vxHeader_height = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Frame height (pixels): ", Vertical=True)
-        self.field_vxHeader_height.sb.setFont(self.font_caps)
-        self.field_vxHeader_height.sb.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_height.sb.set_numfill(8)
-        self.field_vxHeader_height.sb.isInt = True
-        self.field_vxHeader_height.sb.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_vxHeader_height = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Frame height (pixels): ", Vertical=True, isInt=True)
+        self.field_vxHeader_height.setFont(self.font_caps)
+        self.field_vxHeader_height.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_height.set_numfill(8)
+        self.field_vxHeader_height.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
         self.layout_vx_frameSize = QtWidgets.QHBoxLayout()
         self.layout_vx_frameSize.addWidget(self.field_vxHeader_width)
         self.layout_vx_frameSize.addWidget(self.field_vxHeader_height)
 
-        self.field_vxHeader_quantizer = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Quantiser: ", Vertical=True)
-        self.field_vxHeader_quantizer.sb.setFont(self.font_caps)
-        self.field_vxHeader_quantizer.sb.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_quantizer.sb.set_numfill(8)
-        self.field_vxHeader_quantizer.sb.isInt = True
-        self.field_vxHeader_quantizer.sb.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_vxHeader_quantizer = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Quantiser: ", Vertical=True, isInt=True)
+        self.field_vxHeader_quantizer.setFont(self.font_caps)
+        self.field_vxHeader_quantizer.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_quantizer.set_numfill(8)
+        self.field_vxHeader_quantizer.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
-        self.field_vxHeader_seekTableOffset = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Seek table offset: ", Vertical=True)
-        self.field_vxHeader_seekTableOffset.sb.setFont(self.font_caps)
-        self.field_vxHeader_seekTableOffset.sb.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_seekTableOffset.sb.set_numfill(8)
-        self.field_vxHeader_seekTableOffset.sb.isInt = True
-        self.field_vxHeader_seekTableOffset.sb.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_vxHeader_seekTableOffset = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Seek table offset: ", Vertical=True, isInt=True)
+        self.field_vxHeader_seekTableOffset.setFont(self.font_caps)
+        self.field_vxHeader_seekTableOffset.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_seekTableOffset.set_numfill(8)
+        self.field_vxHeader_seekTableOffset.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
-        self.field_vxHeader_seekTableEntryCount = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Seek table entry count: ", Vertical=True)
-        self.field_vxHeader_seekTableEntryCount.sb.setFont(self.font_caps)
-        self.field_vxHeader_seekTableEntryCount.sb.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
-        self.field_vxHeader_seekTableEntryCount.sb.set_numfill(8)
-        self.field_vxHeader_seekTableEntryCount.sb.isInt = True
-        self.field_vxHeader_seekTableEntryCount.sb.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
+        self.field_vxHeader_seekTableEntryCount = lib.widget.LabeledSpinBox(self.page_explorer, labelText="Seek table entry count: ", Vertical=True, isInt=True)
+        self.field_vxHeader_seekTableEntryCount.setFont(self.font_caps)
+        self.field_vxHeader_seekTableEntryCount.setRange(0x00000000, 0xFFFFFFFF) # prevent impossible values
+        self.field_vxHeader_seekTableEntryCount.set_numfill(8)
+        self.field_vxHeader_seekTableEntryCount.valueChanged.connect(lambda: self.button_file_save.setEnabled(True))
 
         self.layout_vx_seekTable = QtWidgets.QHBoxLayout()
         self.layout_vx_seekTable.addWidget(self.field_vxHeader_seekTableOffset)
@@ -1663,44 +1646,41 @@ class MainWindow(QtWidgets.QMainWindow):
         self.page_level_entities_coords.setLayout(QtWidgets.QGridLayout())
         self.label_level_entities_coords_id = QtWidgets.QLabel("Entity Index: ", self.page_level_entities_coords)
         self.label_level_entities_coords_id.setMaximumHeight(50)
-        self.field_level_entities_coords_x = lib.widget.LabeledSpinBox(self.page_level_entities_coords, labelText="X:", Vertical=True)
+        self.field_level_entities_coords_x = lib.widget.LabeledSpinBox(self.page_level_entities_coords, labelText="X:", Vertical=True, isInt=True)
         self.field_level_entities_coords_x.setDisabled(True)
-        self.field_level_entities_coords_x.sb.isInt = True
-        self.field_level_entities_coords_x.sb.setRange(0, 0xFFFFFF)
+        self.field_level_entities_coords_x.setRange(0, 0xFFFFFF)
         self.field_level_entities_coords_x.setToolTip("X")
-        self.field_level_entities_coords_x.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
-        self.field_level_entities_coords_x.sb.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.coords.entityList,
+        self.field_level_entities_coords_x.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_coords_x.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.coords.entityList,
                                                                 self.gfx_view_level.scene().selectedItems()[0].coordIndex if
                                                                 len(self.gfx_view_level.scene().selectedItems()) and isinstance(self.gfx_view_level.scene().selectedItems()[0], lib.widget.LevelEntityItem) else None,
                                                                 "x",
-                                                                self.field_level_entities_coords_x.sb.value()))
-        self.field_level_entities_coords_x.sb.valueChanged.connect(lambda: self.gfx_view_level.scene().selectedItems()[0].setX(self.gfx_view_level.getSceneX(self.field_level_entities_coords_x.sb.value())) if
-                                                                len(self.gfx_view_level.scene().selectedItems()) and isinstance(self.gfx_view_level.scene().selectedItems()[0], lib.widget.LevelEntityItem) else None)
-        self.field_level_entities_coords_y = lib.widget.LabeledSpinBox(self.page_level_entities_coords, labelText="Y:", Vertical=True)
+                                                                self.field_level_entities_coords_x.value()))
+        self.field_level_entities_coords_x.valueChanged.connect(lambda: self.gfx_view_level.scene().selectedItems()[0].setX(self.gfx_view_level.getSceneX(self.field_level_entities_coords_x.value())) if
+                                                                not self.field_level_entities_coords_x.sb.isValueChangedAuto and len(self.gfx_view_level.scene().selectedItems()) and isinstance(self.gfx_view_level.scene().selectedItems()[0], lib.widget.LevelEntityItem) else None)
+        self.field_level_entities_coords_y = lib.widget.LabeledSpinBox(self.page_level_entities_coords, labelText="Y:", Vertical=True, isInt=True)
         self.field_level_entities_coords_y.setDisabled(True)
-        self.field_level_entities_coords_y.sb.isInt = True
-        self.field_level_entities_coords_y.sb.setRange(0, 0xFFFF)
+        self.field_level_entities_coords_y.setRange(0, 0xFFFF)
         self.field_level_entities_coords_y.setToolTip("Y")
-        self.field_level_entities_coords_y.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
-        self.field_level_entities_coords_y.sb.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.coords.entityList,
+        self.field_level_entities_coords_y.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_coords_y.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.coords.entityList,
                                                                 self.gfx_view_level.scene().selectedItems()[0].coordIndex if
                                                                 len(self.gfx_view_level.scene().selectedItems()) and isinstance(self.gfx_view_level.scene().selectedItems()[0], lib.widget.LevelEntityItem) else None,
                                                                 "y",
-                                                                self.field_level_entities_coords_y.sb.value()))
-        self.field_level_entities_coords_y.sb.valueChanged.connect(lambda: self.gfx_view_level.scene().selectedItems()[0].setY(self.gfx_view_level.getSceneY(self.field_level_entities_coords_y.sb.value())) if
-                                                                len(self.gfx_view_level.scene().selectedItems()) and isinstance(self.gfx_view_level.scene().selectedItems()[0], lib.widget.LevelEntityItem) else None)
-        self.field_level_entities_coords_slot = lib.widget.LabeledSpinBox(self.page_level_entities_coords, labelText="Slot:", Vertical=True)
+                                                                self.field_level_entities_coords_y.value()))
+        self.field_level_entities_coords_y.valueChanged.connect(lambda: self.gfx_view_level.scene().selectedItems()[0].setY(self.gfx_view_level.getSceneY(self.field_level_entities_coords_y.value())) if
+                                                                not self.field_level_entities_coords_y.sb.isValueChangedAuto and len(self.gfx_view_level.scene().selectedItems()) and isinstance(self.gfx_view_level.scene().selectedItems()[0], lib.widget.LevelEntityItem) else None)
+        self.field_level_entities_coords_slot = lib.widget.LabeledSpinBox(self.page_level_entities_coords, labelText="Slot:", Vertical=True, isInt=True)
         self.field_level_entities_coords_slot.setDisabled(True)
-        self.field_level_entities_coords_slot.sb.isInt = True
-        self.field_level_entities_coords_slot.sb.setRange(0, 0xFFFF)
+        self.field_level_entities_coords_slot.setRange(0, 0xFFFF)
         self.field_level_entities_coords_slot.setToolTip("Slot ID")
-        self.field_level_entities_coords_slot.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
-        self.field_level_entities_coords_slot.sb.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.coords.entityList,
+        self.field_level_entities_coords_slot.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_coords_slot.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.coords.entityList,
                                                                 self.gfx_view_level.scene().selectedItems()[0].coordIndex if
                                                                 len(self.gfx_view_level.scene().selectedItems()) and isinstance(self.gfx_view_level.scene().selectedItems()[0], lib.widget.LevelEntityItem) else None,
                                                                 "slot",
-                                                                self.field_level_entities_coords_slot.sb.value()))
-        self.field_level_entities_coords_slot.sb.valueChanged.connect(lambda: self.loadEntityProperties())
+                                                                self.field_level_entities_coords_slot.value()))
+        self.field_level_entities_coords_slot.valueChanged.connect(lambda: self.loadEntityProperties())
         self.page_level_entities_coords.layout().addWidget(self.label_level_entities_coords_id, 0, 0, 1, 2)
         self.page_level_entities_coords.layout().addWidget(self.field_level_entities_coords_x, 1, 0)
         self.page_level_entities_coords.layout().addWidget(self.field_level_entities_coords_y, 1, 1)
@@ -1709,126 +1689,114 @@ class MainWindow(QtWidgets.QMainWindow):
         self.page_level_entities_slots.setLayout(QtWidgets.QGridLayout())
         self.label_level_entities_slots_id = QtWidgets.QLabel("Slot Index: ", self.page_level_entities_slots)
         self.label_level_entities_slots_id.setMaximumHeight(50)
-        self.field_level_entities_slots_attr = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Flags:", Vertical=True)
+        self.field_level_entities_slots_attr = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Flags:", Vertical=True, isInt=True)
         self.field_level_entities_slots_attr.setDisabled(True)
-        self.field_level_entities_slots_attr.sb.isInt = True
-        self.field_level_entities_slots_attr.sb.setRange(0, 0xFF)
+        self.field_level_entities_slots_attr.setRange(0, 0xFF)
         self.field_level_entities_slots_attr.setToolTip("Flags")
-        self.field_level_entities_slots_attr.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
-        self.field_level_entities_slots_attr.sb.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
-                                                                self.field_level_entities_coords_slot.sb.value(),
+        self.field_level_entities_slots_attr.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_slots_attr.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
+                                                                self.field_level_entities_coords_slot.value(),
                                                                 "flag",
-                                                                self.field_level_entities_slots_attr.sb.value()))
-        self.field_level_entities_slots_kind = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Kind:", Vertical=True)
+                                                                self.field_level_entities_slots_attr.value()))
+        self.field_level_entities_slots_kind = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Kind:", Vertical=True, isInt=True)
         self.field_level_entities_slots_kind.setDisabled(True)
-        self.field_level_entities_slots_kind.sb.isInt = True
-        self.field_level_entities_slots_kind.sb.setRange(0, 0xFF)
+        self.field_level_entities_slots_kind.setRange(0, 0xFF)
         self.field_level_entities_slots_kind.setToolTip("Kind")
-        self.field_level_entities_slots_kind.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
-        self.field_level_entities_slots_kind.sb.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
-                                                                self.field_level_entities_coords_slot.sb.value(),
+        self.field_level_entities_slots_kind.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_slots_kind.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
+                                                                self.field_level_entities_coords_slot.value(),
                                                                 "kind",
-                                                                self.field_level_entities_slots_kind.sb.value()))
-        self.field_level_entities_slots_subkind = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Sub-kind:", Vertical=True)
+                                                                self.field_level_entities_slots_kind.value()))
+        self.field_level_entities_slots_subkind = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Sub-kind:", Vertical=True, isInt=True)
         self.field_level_entities_slots_subkind.setDisabled(True)
-        self.field_level_entities_slots_subkind.sb.isInt = True
-        self.field_level_entities_slots_subkind.sb.setRange(0, 0xFF)
+        self.field_level_entities_slots_subkind.setRange(0, 0xFF)
         self.field_level_entities_slots_subkind.setToolTip("Sub kind")
-        self.field_level_entities_slots_subkind.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
-        self.field_level_entities_slots_subkind.sb.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
-                                                                self.field_level_entities_coords_slot.sb.value(),
+        self.field_level_entities_slots_subkind.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_slots_subkind.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
+                                                                self.field_level_entities_coords_slot.value(),
                                                                 "subkind",
-                                                                self.field_level_entities_slots_subkind.sb.value()))
-        self.field_level_entities_slots_role = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Role:", Vertical=True)
+                                                                self.field_level_entities_slots_subkind.value()))
+        self.field_level_entities_slots_role = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Role:", Vertical=True, isInt=True)
         self.field_level_entities_slots_role.setDisabled(True)
-        self.field_level_entities_slots_role.sb.isInt = True
-        self.field_level_entities_slots_role.sb.setRange(0, 0xFF)
+        self.field_level_entities_slots_role.setRange(0, 0xFF)
         self.field_level_entities_slots_role.setToolTip("Role")
-        self.field_level_entities_slots_role.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
-        self.field_level_entities_slots_role.sb.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
-                                                                self.field_level_entities_coords_slot.sb.value(),
+        self.field_level_entities_slots_role.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_slots_role.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
+                                                                self.field_level_entities_coords_slot.value(),
                                                                 "role",
-                                                                self.field_level_entities_slots_role.sb.value()))
-        self.field_level_entities_slots_modifier = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Modifier:", Vertical=True)
+                                                                self.field_level_entities_slots_role.value()))
+        self.field_level_entities_slots_modifier = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Modifier:", Vertical=True, isInt=True)
         self.field_level_entities_slots_modifier.setDisabled(True)
-        self.field_level_entities_slots_modifier.sb.isInt = True
-        self.field_level_entities_slots_modifier.sb.setRange(0, 0xFF)
+        self.field_level_entities_slots_modifier.setRange(0, 0xFF)
         self.field_level_entities_slots_modifier.setToolTip("Modifier")
-        self.field_level_entities_slots_modifier.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
-        self.field_level_entities_slots_modifier.sb.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
-                                                                self.field_level_entities_coords_slot.sb.value(),
+        self.field_level_entities_slots_modifier.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_slots_modifier.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
+                                                                self.field_level_entities_coords_slot.value(),
                                                                 "modifier",
-                                                                self.field_level_entities_slots_modifier.sb.value()))
-        self.field_level_entities_slots_unk5 = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Unknown(0x5):", Vertical=True)
+                                                                self.field_level_entities_slots_modifier.value()))
+        self.field_level_entities_slots_unk5 = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Unknown(0x5):", Vertical=True, isInt=True)
         self.field_level_entities_slots_unk5.setDisabled(True)
-        self.field_level_entities_slots_unk5.sb.isInt = True
-        self.field_level_entities_slots_unk5.sb.setRange(0, 0xFF)
+        self.field_level_entities_slots_unk5.setRange(0, 0xFF)
         self.field_level_entities_slots_unk5.setToolTip("5")
-        self.field_level_entities_slots_unk5.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
-        self.field_level_entities_slots_unk5.sb.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
-                                                                self.field_level_entities_coords_slot.sb.value(),
+        self.field_level_entities_slots_unk5.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_slots_unk5.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
+                                                                self.field_level_entities_coords_slot.value(),
                                                                 "unk5",
-                                                                self.field_level_entities_slots_unk5.sb.value()))
-        self.field_level_entities_slots_unk6 = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Unknown(0x6):", Vertical=True)
+                                                                self.field_level_entities_slots_unk5.value()))
+        self.field_level_entities_slots_unk6 = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Unknown(0x6):", Vertical=True, isInt=True)
         self.field_level_entities_slots_unk6.setDisabled(True)
-        self.field_level_entities_slots_unk6.sb.isInt = True
-        self.field_level_entities_slots_unk6.sb.setRange(0, 0xFF)
+        self.field_level_entities_slots_unk6.setRange(0, 0xFF)
         self.field_level_entities_slots_unk6.setToolTip("6")
-        self.field_level_entities_slots_unk6.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
-        self.field_level_entities_slots_unk6.sb.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
-                                                                self.field_level_entities_coords_slot.sb.value(),
+        self.field_level_entities_slots_unk6.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_slots_unk6.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
+                                                                self.field_level_entities_coords_slot.value(),
                                                                 "unk6",
-                                                                self.field_level_entities_slots_unk6.sb.value()))
-        self.field_level_entities_slots_unk7 = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Unknown(0x7):", Vertical=True)
+                                                                self.field_level_entities_slots_unk6.value()))
+        self.field_level_entities_slots_unk7 = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Unknown(0x7):", Vertical=True, isInt=True)
         self.field_level_entities_slots_unk7.setDisabled(True)
-        self.field_level_entities_slots_unk7.sb.isInt = True
-        self.field_level_entities_slots_unk7.sb.setRange(0, 0xFF)
+        self.field_level_entities_slots_unk7.setRange(0, 0xFF)
         self.field_level_entities_slots_unk7.setToolTip("7")
-        self.field_level_entities_slots_unk7.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
-        self.field_level_entities_slots_unk7.sb.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
-                                                                self.field_level_entities_coords_slot.sb.value(),
+        self.field_level_entities_slots_unk7.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_slots_unk7.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
+                                                                self.field_level_entities_coords_slot.value(),
                                                                 "unk7",
-                                                                self.field_level_entities_slots_unk7.sb.value()))
-        self.field_level_entities_slots_unk8 = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Unknown(0x8):", Vertical=True)
+                                                                self.field_level_entities_slots_unk7.value()))
+        self.field_level_entities_slots_unk8 = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Unknown(0x8):", Vertical=True, isInt=True)
         self.field_level_entities_slots_unk8.setDisabled(True)
-        self.field_level_entities_slots_unk8.sb.isInt = True
-        self.field_level_entities_slots_unk8.sb.setRange(0, 0xFF)
+        self.field_level_entities_slots_unk8.setRange(0, 0xFF)
         self.field_level_entities_slots_unk8.setToolTip("8")
-        self.field_level_entities_slots_unk8.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
-        self.field_level_entities_slots_unk8.sb.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
-                                                                self.field_level_entities_coords_slot.sb.value(),
+        self.field_level_entities_slots_unk8.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_slots_unk8.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
+                                                                self.field_level_entities_coords_slot.value(),
                                                                 "unk8",
-                                                                self.field_level_entities_slots_unk8.sb.value()))
-        self.field_level_entities_slots_unk9 = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Unknown(0x9):", Vertical=True)
+                                                                self.field_level_entities_slots_unk8.value()))
+        self.field_level_entities_slots_unk9 = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Unknown(0x9):", Vertical=True, isInt=True)
         self.field_level_entities_slots_unk9.setDisabled(True)
-        self.field_level_entities_slots_unk9.sb.isInt = True
-        self.field_level_entities_slots_unk9.sb.setRange(0, 0xFF)
+        self.field_level_entities_slots_unk9.setRange(0, 0xFF)
         self.field_level_entities_slots_unk9.setToolTip("9")
-        self.field_level_entities_slots_unk9.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
-        self.field_level_entities_slots_unk9.sb.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
-                                                                self.field_level_entities_coords_slot.sb.value(),
+        self.field_level_entities_slots_unk9.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_slots_unk9.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
+                                                                self.field_level_entities_coords_slot.value(),
                                                                 "unk9",
-                                                                self.field_level_entities_slots_unk9.sb.value()))
-        self.field_level_entities_slots_unkA = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Unknown(0xA):", Vertical=True)
+                                                                self.field_level_entities_slots_unk9.value()))
+        self.field_level_entities_slots_unkA = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Unknown(0xA):", Vertical=True, isInt=True)
         self.field_level_entities_slots_unkA.setDisabled(True)
-        self.field_level_entities_slots_unkA.sb.isInt = True
-        self.field_level_entities_slots_unkA.sb.setRange(0, 0xFF)
+        self.field_level_entities_slots_unkA.setRange(0, 0xFF)
         self.field_level_entities_slots_unkA.setToolTip("A")
-        self.field_level_entities_slots_unkA.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
-        self.field_level_entities_slots_unkA.sb.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
-                                                                self.field_level_entities_coords_slot.sb.value(),
+        self.field_level_entities_slots_unkA.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_slots_unkA.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
+                                                                self.field_level_entities_coords_slot.value(),
                                                                 "unkA",
-                                                                self.field_level_entities_slots_unkA.sb.value()))
-        self.field_level_entities_slots_unkB = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Unknown(0xB):", Vertical=True)
+                                                                self.field_level_entities_slots_unkA.value()))
+        self.field_level_entities_slots_unkB = lib.widget.LabeledSpinBox(self.page_level_entities_slots, labelText="Unknown(0xB):", Vertical=True, isInt=True)
         self.field_level_entities_slots_unkB.setDisabled(True)
-        self.field_level_entities_slots_unkB.sb.isInt = True
-        self.field_level_entities_slots_unkB.sb.setRange(0, 0xFF)
+        self.field_level_entities_slots_unkB.setRange(0, 0xFF)
         self.field_level_entities_slots_unkB.setToolTip("B")
-        self.field_level_entities_slots_unkB.sb.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
-        self.field_level_entities_slots_unkB.sb.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
-                                                                self.field_level_entities_coords_slot.sb.value(),
+        self.field_level_entities_slots_unkB.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
+        self.field_level_entities_slots_unkB.valueChanged.connect(lambda: self.changeEntityAttribute(self.levelEdited_ovl_object.entities.slots.entityList,
+                                                                self.field_level_entities_coords_slot.value(),
                                                                 "unkB",
-                                                                self.field_level_entities_slots_unkB.sb.value()))
+                                                                self.field_level_entities_slots_unkB.value()))
         self.page_level_entities_slots.layout().addWidget(self.label_level_entities_slots_id, 0, 0, 1, 2)
         self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_attr, 1, 0)
         self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_kind, 2, 0)
@@ -4251,16 +4219,16 @@ class MainWindow(QtWidgets.QMainWindow):
                         if sender in self.FILEOPEN_WIDGETS:
                             self.layout_colorpick.rearrange(16, 16)
                             # reset from viewing font
-                            self.tile_width = self.field_tile_width.sb.value()
-                            self.tile_height = self.field_tile_height.sb.value()
+                            self.tile_width = self.field_tile_width.value()
+                            self.tile_height = self.field_tile_height.value()
                             if any(indicator in current_name for indicator in indicator_list["Mugshot"]): # for convenience
                                 self.tiles_per_column = MUGSHOT_HEIGHT_TILES
                                 self.tiles_per_row = MUGSHOT_WIDTH_TILES
-                                self.field_tiles_per_column.sb.setValue(self.tiles_per_column)
-                                self.field_tiles_per_row.sb.setValue(self.tiles_per_row)
+                                self.field_tiles_per_column.setValue(self.tiles_per_column)
+                                self.field_tiles_per_row.setValue(self.tiles_per_row)
                             elif "dm" in current_name:
                                 self.tiles_per_row = 0x20
-                                self.field_tiles_per_row.sb.setValue(self.tiles_per_row)
+                                self.field_tiles_per_row.setValue(self.tiles_per_row)
                                 self.dropdown_gfx_depth.setCurrentIndex(2)
                                 self.setPalette(self.GFX_PALETTES[3])
                             if current_ext == "nbfc":
@@ -4639,17 +4607,17 @@ class MainWindow(QtWidgets.QMainWindow):
                             self.dropdown_gfx_depth.setCurrentIndex(0)
                             self.fileEdited_object = lib.font.Font(self.rom.files[current_id])
                             self.relative_address = self.fileEdited_object.CHR_ADDRESS
-                            self.field_font_charCount.sb.setValue(self.fileEdited_object.char_count)
-                            self.field_font_width.sb.setValue(self.fileEdited_object.char_width)
-                            self.field_font_height.sb.setValue(self.fileEdited_object.char_height)
+                            self.field_font_charCount.setValue(self.fileEdited_object.char_count)
+                            self.field_font_width.setValue(self.fileEdited_object.char_width)
+                            self.field_font_height.setValue(self.fileEdited_object.char_height)
                             self.label_font_indexingSpace.setText("indexing space: " + lib.datconv.numToStr(self.fileEdited_object.indexing_space, self.displayBase, self.displayAlphanumeric))
                             self.label_font_size.setText("font size: " + lib.datconv.numToStr(self.fileEdited_object.font_size, self.displayBase, self.displayAlphanumeric))
                             self.label_font_unusedStr.setText("unused string: " + self.fileEdited_object.unused_string)
                             self.setPalette(self.GFX_PALETTES[1])
                             self.field_address.setMinimum(self.base_address+self.fileEdited_object.CHR_ADDRESS)
                         self.file_content_gfx.resetScene()
-                        self.tile_width = math.ceil(self.field_font_width.sb.value()/8)*8
-                        self.tile_height = self.field_font_height.sb.value()
+                        self.tile_width = math.ceil(self.field_font_width.value()/8)*8
+                        self.tile_height = self.field_font_height.value()
                         self.draw_tilesQImage_fromBytes(self.file_content_gfx,
                                                    self.rom.files[current_id][self.relative_address:self.relative_address+self.fileEdited_object.font_size],
                                                    algorithm=list(lib.datconv.CompressionAlgorithmEnum)[self.dropdown_gfx_depth.currentIndex()],
@@ -4665,17 +4633,17 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.fileEdited_object = lib.act.ActImagine()
                                 self.fileEdited_object.load_vx(self.rom.files[current_id])
                                 #print(self.rom.files[current_id][5:6].hex()+self.rom.files[current_id][4:5].hex())
-                                self.field_vxHeader_length.sb.setValue(self.fileEdited_object.frames_qty)
-                                self.field_vxHeader_width.sb.setValue(self.fileEdited_object.frame_width)
-                                self.field_vxHeader_height.sb.setValue(self.fileEdited_object.frame_height)
-                                self.field_vxHeader_framerate.sb.setValue(self.fileEdited_object.frame_rate)
-                                self.field_vxHeader_quantizer.sb.setValue(self.fileEdited_object.quantizer)
-                                self.field_vxHeader_sampleRate.sb.setValue(self.fileEdited_object.audio_sample_rate)
-                                self.field_vxHeader_streamCount.sb.setValue(self.fileEdited_object.audio_streams_qty)
-                                self.field_vxHeader_frameSizeMax.sb.setValue(self.fileEdited_object.frame_data_size_max)
-                                self.field_vxHeader_audioExtraDataOffset.sb.setValue(self.fileEdited_object.audio_extradata_offset)
-                                self.field_vxHeader_seekTableOffset.sb.setValue(self.fileEdited_object.seek_table_offset)
-                                self.field_vxHeader_seekTableEntryCount.sb.setValue(self.fileEdited_object.seek_table_entries_qty)
+                                self.field_vxHeader_length.setValue(self.fileEdited_object.frames_qty)
+                                self.field_vxHeader_width.setValue(self.fileEdited_object.frame_width)
+                                self.field_vxHeader_height.setValue(self.fileEdited_object.frame_height)
+                                self.field_vxHeader_framerate.setValue(self.fileEdited_object.frame_rate)
+                                self.field_vxHeader_quantizer.setValue(self.fileEdited_object.quantizer)
+                                self.field_vxHeader_sampleRate.setValue(self.fileEdited_object.audio_sample_rate)
+                                self.field_vxHeader_streamCount.setValue(self.fileEdited_object.audio_streams_qty)
+                                self.field_vxHeader_frameSizeMax.setValue(self.fileEdited_object.frame_data_size_max)
+                                self.field_vxHeader_audioExtraDataOffset.setValue(self.fileEdited_object.audio_extradata_offset)
+                                self.field_vxHeader_seekTableOffset.setValue(self.fileEdited_object.seek_table_offset)
+                                self.field_vxHeader_seekTableEntryCount.setValue(self.fileEdited_object.seek_table_entries_qty)
                         else:
                             self.widget_set = WidgetSets.EMPTY
                             self.file_content_text.setReadOnly(True)
@@ -4900,24 +4868,24 @@ class MainWindow(QtWidgets.QMainWindow):
         entities = self.levelEdited_ovl_object.entities
 
         self.label_level_entities_coords_id.setText(f"Entity Index: {lib.datconv.numToStr(item.coordIndex, self.displayBase, self.displayAlphanumeric)}")
-        self.field_level_entities_coords_x.sb.setValue(entities.coords.entityList[item.coordIndex]["x"])
-        self.field_level_entities_coords_y.sb.setValue(entities.coords.entityList[item.coordIndex]["y"])
-        self.field_level_entities_coords_slot.sb.setValue(entities.coords.entityList[item.coordIndex]["slot"])
+        self.field_level_entities_coords_x.setValue(entities.coords.entityList[item.coordIndex]["x"])
+        self.field_level_entities_coords_y.setValue(entities.coords.entityList[item.coordIndex]["y"])
+        self.field_level_entities_coords_slot.setValue(entities.coords.entityList[item.coordIndex]["slot"])
 
         slot = entities.coords.entityList[item.coordIndex]["slot"]
         self.label_level_entities_slots_id.setText(f"Slot Index: {lib.datconv.numToStr(slot, self.displayBase, self.displayAlphanumeric)}")
-        self.field_level_entities_slots_attr.sb.setValue(entities.slots.entityList[slot]["flag"])
-        self.field_level_entities_slots_kind.sb.setValue(entities.slots.entityList[slot]["kind"])
-        self.field_level_entities_slots_subkind.sb.setValue(entities.slots.entityList[slot]["subkind"])
-        self.field_level_entities_slots_role.sb.setValue(entities.slots.entityList[slot]["role"])
-        self.field_level_entities_slots_modifier.sb.setValue(entities.slots.entityList[slot]["modifier"])
-        self.field_level_entities_slots_unk5.sb.setValue(entities.slots.entityList[slot]["unk5"])
-        self.field_level_entities_slots_unk6.sb.setValue(entities.slots.entityList[slot]["unk6"])
-        self.field_level_entities_slots_unk7.sb.setValue(entities.slots.entityList[slot]["unk7"])
-        self.field_level_entities_slots_unk8.sb.setValue(entities.slots.entityList[slot]["unk8"])
-        self.field_level_entities_slots_unk9.sb.setValue(entities.slots.entityList[slot]["unk9"])
-        self.field_level_entities_slots_unkA.sb.setValue(entities.slots.entityList[slot]["unkA"])
-        self.field_level_entities_slots_unkB.sb.setValue(entities.slots.entityList[slot]["unkB"])
+        self.field_level_entities_slots_attr.setValue(entities.slots.entityList[slot]["flag"])
+        self.field_level_entities_slots_kind.setValue(entities.slots.entityList[slot]["kind"])
+        self.field_level_entities_slots_subkind.setValue(entities.slots.entityList[slot]["subkind"])
+        self.field_level_entities_slots_role.setValue(entities.slots.entityList[slot]["role"])
+        self.field_level_entities_slots_modifier.setValue(entities.slots.entityList[slot]["modifier"])
+        self.field_level_entities_slots_unk5.setValue(entities.slots.entityList[slot]["unk5"])
+        self.field_level_entities_slots_unk6.setValue(entities.slots.entityList[slot]["unk6"])
+        self.field_level_entities_slots_unk7.setValue(entities.slots.entityList[slot]["unk7"])
+        self.field_level_entities_slots_unk8.setValue(entities.slots.entityList[slot]["unk8"])
+        self.field_level_entities_slots_unk9.setValue(entities.slots.entityList[slot]["unk9"])
+        self.field_level_entities_slots_unkA.setValue(entities.slots.entityList[slot]["unkA"])
+        self.field_level_entities_slots_unkB.setValue(entities.slots.entityList[slot]["unkB"])
 
         for w in self.page_level_entities_coords.findChildren(lib.widget.BetterSpinBox):
             w.blockSignals(False)
@@ -4928,10 +4896,10 @@ class MainWindow(QtWidgets.QMainWindow):
         if dict_index is None: return
         dict_list[dict_index][dict_key] = value
         if len(self.gfx_view_level.scene().selectedItems()) and isinstance(self.gfx_view_level.scene().selectedItems()[0], lib.widget.LevelEntityItem):
-            self.levelEdited_ovl_object.entities.slots.updateName(self.field_level_entities_coords_slot.sb.value(), fromDict=True)
+            self.levelEdited_ovl_object.entities.slots.updateName(self.field_level_entities_coords_slot.value(), fromDict=True)
             self.gfx_view_level.scene().selectedItems()[0].updateInfo(
                 self.levelEdited_ovl_object.entities.coords.entityList[self.gfx_view_level.scene().selectedItems()[0].coordIndex],
-                self.levelEdited_ovl_object.entities.slots.nameList[self.field_level_entities_coords_slot.sb.value()]
+                self.levelEdited_ovl_object.entities.slots.nameList[self.field_level_entities_coords_slot.value()]
             ) 
 
     def loadOvelrayStructAddressTable(self): # called on ROM load
@@ -5380,7 +5348,7 @@ class MainWindow(QtWidgets.QMainWindow):
         isGFX = self.checkbox_entities_gfxEnable.isChecked()
         entities = self.levelEdited_ovl_object.entities
         if not hasattr(entities, "coords"): return
-        self.field_level_entities_coords_slot.sb.setRange(0, len(entities.slots.entityList)-1) # prevent using inexistant slots
+        self.field_level_entities_coords_slot.setRange(0, len(entities.slots.entityList)-1) # prevent using inexistant slots
         
         entityPrels_enemy = [] # list of enemy preloads
         if isGFX:
@@ -5507,14 +5475,13 @@ class MainWindow(QtWidgets.QMainWindow):
                 tweak_data = self.gamedat.tweaks[category][tweak]
                 field_name = f"field_{category}_{tweak}"
                 bitCount = tweak_data[1]*8
-                setattr(self, field_name, lib.widget.LabeledSpinBox(field_parent, labelText=f"{tweak.split("_")[-1]} ({"" if tweak_data[2] else "u"}int{bitCount})"))
+                setattr(self, field_name, lib.widget.LabeledSpinBox(field_parent, labelText=f"{tweak.split("_")[-1]} ({"" if tweak_data[2] else "u"}int{bitCount})", isInt=True))
                 field: lib.widget.LabeledSpinBox = getattr(self, field_name)
-                field.sb.isInt = True
-                field.sb.set_numfill(tweak_data[1]*2)
+                field.set_numfill(tweak_data[1]*2)
                 if tweak_data[2]:
-                    field.sb.setRange(-(2**(bitCount-1)), 2**(bitCount-1)-1)
+                    field.setRange(-(2**(bitCount-1)), 2**(bitCount-1)-1)
                 else:
-                    field.sb.setRange(0, 2**(bitCount))
+                    field.setRange(0, 2**(bitCount))
                 field.isMainCode = tweak_data[0] < self.rom.arm9RamAddress+len(arm9_bin)
                 field.model = None if field.isMainCode else tweak.split("_")[0]
                 if field.isMainCode:
@@ -5524,7 +5491,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     overlay = self.rom.loadArm9Overlays([tweak_data[3]])[tweak_data[3]]
                     tweak_addr = tweak_data[0] - overlay.ramAddress
                     tweak_val = int.from_bytes(overlay.data[tweak_addr:tweak_addr+tweak_data[1]], 'little', signed=tweak_data[2])
-                field.sb.setValue(tweak_val)
+                field.setValue(tweak_val)
                 field.hide()
                 field_parent.layout().addWidget(field)
 
@@ -5816,25 +5783,25 @@ class MainWindow(QtWidgets.QMainWindow):
                                                 algorithm=lib.datconv.CompressionAlgorithmEnum.ONEBPP,
                                                 tileWidth=self.tile_width, tileHeight=self.tile_height)
                 w.rom.files[file_id][self.relative_address:self.relative_address+len(save_data)] = save_data
-                w.rom.files[file_id][0x00:0x02] = bytearray(int.to_bytes(int(self.field_font_width.sb.value()), 2, "little"))
-                w.rom.files[file_id][0x02:0x04] = bytearray(int.to_bytes(int(self.field_font_height.sb.value()), 2, "little"))
+                w.rom.files[file_id][0x00:0x02] = bytearray(int.to_bytes(int(self.field_font_width.value()), 2, "little"))
+                w.rom.files[file_id][0x02:0x04] = bytearray(int.to_bytes(int(self.field_font_height.value()), 2, "little"))
                 i_space = self.tile_width*self.tile_height/8
                 w.rom.files[file_id][0x04:0x08] = bytearray(int.to_bytes(int(i_space), 4, "little"))
-                w.rom.files[file_id][0x08:0x0C] = bytearray(int.to_bytes(int(self.field_font_charCount.sb.value()), 4, "little"))
-                w.rom.files[file_id][0x0C:0x10] = bytearray(int.to_bytes(int(self.field_font_charCount.sb.value()*i_space), 4, "little"))
+                w.rom.files[file_id][0x08:0x0C] = bytearray(int.to_bytes(int(self.field_font_charCount.value()), 4, "little"))
+                w.rom.files[file_id][0x0C:0x10] = bytearray(int.to_bytes(int(self.field_font_charCount.value()*i_space), 4, "little"))
 
             elif self.fileDisplayState == "VX":
-                w.rom.files[file_id][0x04:0x08] = bytearray(int.to_bytes(int(self.field_vxHeader_length.sb.value()), 4, "little"))
-                w.rom.files[file_id][0x08:0x0C] = bytearray(int.to_bytes(int(self.field_vxHeader_width.sb.value()), 4, "little"))
-                w.rom.files[file_id][0x0C:0x10] = bytearray(int.to_bytes(int(self.field_vxHeader_height.sb.value()), 4, "little"))
-                w.rom.files[file_id][0x10:0x14] = bytearray(int.to_bytes(int(self.field_vxHeader_framerate.sb.value()*0x10000), 4, "little")) #convert float to 16.16
-                w.rom.files[file_id][0x14:0x18] = bytearray(int.to_bytes(int(self.field_vxHeader_quantizer.sb.value()), 4, "little"))
-                w.rom.files[file_id][0x18:0x1C] = bytearray(int.to_bytes(int(self.field_vxHeader_sampleRate.sb.value()), 4, "little"))
-                w.rom.files[file_id][0x1C:0x20] = bytearray(int.to_bytes(int(self.field_vxHeader_streamCount.sb.value()), 4, "little"))
-                w.rom.files[file_id][0x20:0x24] = bytearray(int.to_bytes(int(self.field_vxHeader_frameSizeMax.sb.value()), 4, "little"))
-                w.rom.files[file_id][0x24:0x28] = bytearray(int.to_bytes(int(self.field_vxHeader_audioExtraDataOffset.sb.value()), 4, "little"))
-                w.rom.files[file_id][0x28:0x2C] = bytearray(int.to_bytes(int(self.field_vxHeader_seekTableOffset.sb.value()), 4, "little"))
-                w.rom.files[file_id][0x2C:0x30] = bytearray(int.to_bytes(int(self.field_vxHeader_seekTableEntryCount.sb.value()), 4, "little"))
+                w.rom.files[file_id][0x04:0x08] = bytearray(int.to_bytes(int(self.field_vxHeader_length.value()), 4, "little"))
+                w.rom.files[file_id][0x08:0x0C] = bytearray(int.to_bytes(int(self.field_vxHeader_width.value()), 4, "little"))
+                w.rom.files[file_id][0x0C:0x10] = bytearray(int.to_bytes(int(self.field_vxHeader_height.value()), 4, "little"))
+                w.rom.files[file_id][0x10:0x14] = bytearray(int.to_bytes(int(self.field_vxHeader_framerate.value()*0x10000), 4, "little")) #convert float to 16.16
+                w.rom.files[file_id][0x14:0x18] = bytearray(int.to_bytes(int(self.field_vxHeader_quantizer.value()), 4, "little"))
+                w.rom.files[file_id][0x18:0x1C] = bytearray(int.to_bytes(int(self.field_vxHeader_sampleRate.value()), 4, "little"))
+                w.rom.files[file_id][0x1C:0x20] = bytearray(int.to_bytes(int(self.field_vxHeader_streamCount.value()), 4, "little"))
+                w.rom.files[file_id][0x20:0x24] = bytearray(int.to_bytes(int(self.field_vxHeader_frameSizeMax.value()), 4, "little"))
+                w.rom.files[file_id][0x24:0x28] = bytearray(int.to_bytes(int(self.field_vxHeader_audioExtraDataOffset.value()), 4, "little"))
+                w.rom.files[file_id][0x28:0x2C] = bytearray(int.to_bytes(int(self.field_vxHeader_seekTableOffset.value()), 4, "little"))
+                w.rom.files[file_id][0x2C:0x30] = bytearray(int.to_bytes(int(self.field_vxHeader_seekTableEntryCount.value()), 4, "little"))
             elif self.fileDisplayState == "Sound":
                 return
         else:
@@ -5959,7 +5926,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 tweak_val: int = None
                 field_name = f"field_{category}_{tweak}"
                 field: lib.widget.LabeledSpinBox = getattr(self, field_name)
-                tweak_val = field.sb.value()
+                tweak_val = field.value()
                 if tweak_val is not None:
                     if field.isMainCode:
                         tweak_addr = tweak_data[0] - self.rom.arm9RamAddress

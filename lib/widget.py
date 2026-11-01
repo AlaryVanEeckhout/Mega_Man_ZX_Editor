@@ -151,11 +151,13 @@ class LevelEntityItem(QtWidgets.QGraphicsItemGroup):
     def itemChange(self, change: QtWidgets.QGraphicsPixmapItem.GraphicsItemChange, value: QtCore.QVariant):
         if change == QtWidgets.QGraphicsPixmapItem.GraphicsItemChange.ItemPositionChange and self.scene() and self.isUnderMouse():
             if QtWidgets.QApplication.mouseButtons() == QtCore.Qt.MouseButton.LeftButton:
-                x = min(max(0, value.x()), self.parentView.getSceneX(0xFFFFFFFF))
-                y = min(max(0, value.y()), self.parentView.getSceneY(0xFFFF))
-                self.getWindow().field_level_entities_coords_x.sb.setValue(self.parentView.getTrueX(x))
-                self.getWindow().field_level_entities_coords_y.sb.setValue(self.parentView.getTrueY(y))
-                return QtCore.QPointF(int(x), int(y))
+                cursor_pos = self.scene().parent().mapToScene(self.scene().parent().mapFromGlobal(self.cursor().pos().toPointF()).toPoint())
+                #print(value, cursor_pos)
+                x = min(max(0, self.parentView.getTrueX(cursor_pos.x())), 0xFFFFFFFF)
+                y = min(max(0, self.parentView.getTrueY(cursor_pos.y())), 0xFFFF)
+                self.getWindow().field_level_entities_coords_x.setValue(x)
+                self.getWindow().field_level_entities_coords_y.setValue(y)
+                return QtCore.QPointF(self.parentView.getSceneX(x), self.parentView.getSceneY(y))
             else:
                 return value
         else:
@@ -455,19 +457,19 @@ class LevelView(View):
 
     def getSceneX(self, x:int):
         """Convert X pos to scene X pos, which takes spacing into account"""
-        return x+self.screenSpacing*(x//lib.level.SCREEN_WIDTH)
+        return int(x+self.screenSpacing*(x//lib.level.SCREEN_WIDTH))
     
     def getTrueX(self, x:int):
         """Convert scene X pos to normal X pos"""
-        return x-self.screenSpacing*(x//lib.level.SCREEN_WIDTH)
+        return int(x-self.screenSpacing*(x//lib.level.SCREEN_WIDTH))
     
     def getSceneY(self, y:int):
         """Convert Y pos to scene Y pos, which takes spacing into account"""
-        return y+self.screenSpacing*(y//lib.level.SCREEN_HEIGHT)
+        return int(y+self.screenSpacing*(y//lib.level.SCREEN_HEIGHT))
 
     def getTrueY(self, y:int):
         """Convert scene Y pos to normal Y pos"""
-        return y-self.screenSpacing*(y//lib.level.SCREEN_HEIGHT)
+        return int(y-self.screenSpacing*(y//lib.level.SCREEN_HEIGHT))
     
     def addItem(self, item: LevelTileItem):
         if self.window().checkbox_noLevelItemCache.isChecked():
@@ -707,6 +709,7 @@ class BetterSpinBox(QtWidgets.QDoubleSpinBox): # todo: fix valueChanged emiting 
         self._numfill = 0
         self._fill_max_val = None
         self.isInt = False
+        self.isValueChangedAuto = False # Whether or not the user directly modified the spinbox using the UI
         self.acceptedSymbols = ["-", "{", "}", *lib.datconv.symbols]
         #self.setCorrectionMode(self.CorrectionMode.CorrectToNearestValue)
         if self.dynamic_base:
@@ -756,6 +759,12 @@ class BetterSpinBox(QtWidgets.QDoubleSpinBox): # todo: fix valueChanged emiting 
 
     def maximum(self):
         return int(super().maximum()) if self.isInt else super().maximum()
+
+    def setValue(self, val: float | int):
+        self.isValueChangedAuto = True
+        super().setValue(val)
+        self.isValueChangedAuto = False
+
     
     def getMainWindow(self):
         if hasattr(self.window(), "rom"):
@@ -784,9 +793,11 @@ class BetterSpinBox(QtWidgets.QDoubleSpinBox): # todo: fix valueChanged emiting 
         #print(f"BetterSpinBox {self.text()} repaint {self.getMainWindow(), self.getMainWindow().displayBase}")
 
 class LabeledSpinBox(QtWidgets.QWidget):
-    def __init__(self, *args, labelText=None, labelFirst=True, Vertical=False, **kwargs):
+    def __init__(self, *args, labelText=None, labelFirst=True, Vertical=False, isInt=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.sb = BetterSpinBox(self.getMainWindow())
+        self.valueChanged = self.sb.valueChanged
+        self.sb.isInt = isInt
         if Vertical:
                 self.setLayout(QtWidgets.QVBoxLayout())
         else:
@@ -812,6 +823,35 @@ class LabeledSpinBox(QtWidgets.QWidget):
                 self.layout().addWidget(self.label)
         else:
             self.layout().addWidget(self.sb)
+
+    def setDecimals(self, prec: int):
+        self.sb.setDecimals(prec)
+
+    def setFont(self, a0: QtGui.QFont):
+        self.sb.setFont(a0)
+        return super().setFont(a0)
+
+    def setMaximum(self, max: float):
+        self.sb.setMaximum(max)
+
+    def setMinimum(self, min: float):
+        self.sb.setMinimum(min)
+
+    def setRange(self, min: float, max: float):
+        self.sb.setRange(min, max)
+
+    def setValue(self, value: float | int):
+        self.sb.setValue(value)
+    
+    def set_numfill(self, fill: int, base: int=16, update: bool=False):
+        self.sb.set_numfill(fill, base=base, update=update)
+
+    def value(self):
+        return self.sb.value()
+
+    def blockSignals(self, b):
+        self.sb.blockSignals(b)
+        return super().blockSignals(b)
         
     def getMainWindow(self):
         if hasattr(self.window(), "rom"):
