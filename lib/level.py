@@ -336,7 +336,7 @@ class EntityPreloads:
     def toBytes(self):
         raise NotImplementedError
 
-# EntityTemplate of rmz3 decomp
+# EntityTemplate/SpawnTemplate of rmz3 decomp
 class EntitySlots:
     def __init__(self, data: bytes, address: int, namedict: dict[str, dict]):
         self._address = address
@@ -423,7 +423,7 @@ class EntitySlots:
             data += self.entityToBytes(entity)
         return data
 
-# EntityTemplateCoord of rmz3 decomp
+# EntityTemplateCoord/SpawnPoint of rmz3 decomp
 class EntityCoordinates:
     def __init__(self, data: bytes, address: int):
         self.startOffset = address

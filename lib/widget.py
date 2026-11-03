@@ -250,7 +250,7 @@ class View(QtWidgets.QGraphicsView):
         self.fitInView(self.sceneRect(), QtCore.Qt.AspectRatioMode.KeepAspectRatio if scale else QtCore.Qt.AspectRatioMode.KeepAspectRatioByExpanding)
     
     def mouseMoveEvent(self, event):
-        self.scene().update()
+        self.viewport().update() # prevent leftover graphics from previous render frame
         return super().mouseMoveEvent(event)
     
     def mousePressEvent(self, event):
@@ -258,7 +258,7 @@ class View(QtWidgets.QGraphicsView):
         self.mousePressed = True
         self.mouseLeftPressed = (event.button() == QtCore.Qt.MouseButton.LeftButton)
         self.mouseRightPressed = (event.button() == QtCore.Qt.MouseButton.RightButton)
-        self.scene().update()
+        self.viewport().update()
         return super().mousePressEvent(event)
     
     def mouseReleaseEvent(self, event):
@@ -442,7 +442,7 @@ class TilesetView(View):
                 item.setSelected(True)
         else:
             super().mousePressEvent(event)
-        self.scene().update()
+        self.viewport().update()
     
     def selectionChange(self):
         #print(self.scene().selectedItems())
@@ -454,6 +454,38 @@ class LevelView(View):
         super().__init__(*args, **kwargs)
         self.tileGroups: list[list[list[LevelTileItem]]] = []
         self.screenSpacing = screenSpacing
+
+    def drawForeground(self, painter, rect):
+        if self.getMainWindow().tabs_level_tileset.currentWidget() is not None:
+            view: lib.widget.TilesetView = self.getMainWindow().tabs_level_tileset.currentWidget().children()[0]
+            if len(view.scene().selectedItems()) > 0:
+                min_x = float('inf')
+                min_y = float('inf')
+                max_x = float('-inf')
+                max_y = float('-inf')
+                for item in view.scene().selectedItems():
+                    pos = item.scenePos() 
+                    if pos.x() < min_x: min_x = pos.x()
+                    if pos.y() < min_y: min_y = pos.y()
+                    if pos.x() > max_x: max_x = pos.x()
+                    if pos.y() > max_y: max_y = pos.y()
+                true_width = ((max_x - min_x)//(16+view.item_spacing) + 1)*16
+                true_height = ((max_y - min_y)//(16+view.item_spacing) + 1)*16
+                scene_pos = self.mapToScene(self.mapFromGlobal(self.cursor().pos()))
+
+                x = ((self.getTrueX(scene_pos.x()-0.25)//16)*16)
+                y = ((self.getTrueY(scene_pos.y()-0.25)//16)*16)
+                delta_x = ((min_x - view.item_first.x())//(16+view.item_spacing)) * 16 # get offset of first item from selection origin
+                delta_y = ((min_y - view.item_first.y())//(16+view.item_spacing)) * 16
+                final_width = self.getSceneX(x+delta_x+true_width-1)-self.getSceneX(x+delta_x)+1 # -1 and +1 to prevent extending size by screenSpacing on edge
+                final_height = self.getSceneY(y+delta_y+true_height-1)-self.getSceneY(y+delta_y)+1
+
+                painter.save()
+                painter.setPen(QtGui.QPen(QtGui.QColor.fromRgba(0xA0FF0000), 2))
+                painter.setBrush(QtGui.QColor.fromRgba(0x60FF0000))
+                painter.drawRect(QtCore.QRectF(self.getSceneX(x+delta_x), self.getSceneY(y+delta_y), final_width, final_height))
+                painter.restore()
+        return super().drawForeground(painter, rect)
 
     def getSceneX(self, x:int):
         """Convert X pos to scene X pos, which takes spacing into account"""
@@ -476,15 +508,17 @@ class LevelView(View):
             item.setCacheMode(QtWidgets.QGraphicsPixmapItem.CacheMode.NoCache)
         self.scene().addItem(item)
 
+    def scrollContentsBy(self, dx, dy):
+        self.viewport().update()
+        return super().scrollContentsBy(dx, dy)
+
     def mousePressEvent(self, event):
         super().mousePressEvent(event)
         self.levelInteract(event)
-       # self.scene().update()
 
     def mouseMoveEvent(self, event):
         super().mouseMoveEvent(event)
         self.levelInteract(event)
-        #self.scene().update() # prevent leftover graphics from previous render frame
 
     def levelInteract(self, event: QtGui.QMouseEvent):
         if not self.mousePressed: return
@@ -494,7 +528,7 @@ class LevelView(View):
             if self.mouseLeftPressed:
                 self.tileDraw(event.pos())
             elif self.mouseRightPressed:
-                self.tilePick(event.pos(), event.modifiers() == QtCore.Qt.KeyboardModifier.ShiftModifier)
+                self.tilePick(event.pos(), event.modifiers() in [QtCore.Qt.KeyboardModifier.ShiftModifier, QtCore.Qt.KeyboardModifier.ControlModifier])
         else:
             item_target = self.itemAt(event.pos())
             if isinstance(item_target, LevelTileItem):
@@ -503,7 +537,7 @@ class LevelView(View):
                     print("screen swap")
                 elif event.button() == QtCore.Qt.MouseButton.RightButton:
                     # bring up contextual menu to modify screen in room layout
-                    print(f"screen ID: 0x{item_target.screen:02X}")
+                    print(f"layout{item_target.layout}, screen ID: 0x{item_target.screen:02X}")
 
     def tileDraw(self, pos: QtCore.QPoint):
         view: lib.widget.TilesetView = self.getMainWindow().tabs_level_tileset.currentWidget().children()[0]
