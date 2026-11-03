@@ -105,7 +105,7 @@ class Overlay:
             int.from_bytes(self.data[self.struct_address+0x34:self.struct_address+0x38], byteorder='little')
         ]
         for value in self.layout_bg_list:
-            assert value in [0x01, 0x12, 0x24, 0x38]
+            assert value in [0x01, 0x12, 0x24, 0x38], "Invalid Background layer IDs"
         self.layout_depth_list = [ # 1 = foreground, 2 = main, 3 = background; a.k.a. background priority
             int.from_bytes(self.data[self.struct_address+0x38:self.struct_address+0x3C], byteorder='little'),
             int.from_bytes(self.data[self.struct_address+0x3C:self.struct_address+0x40], byteorder='little'),
@@ -113,7 +113,7 @@ class Overlay:
             int.from_bytes(self.data[self.struct_address+0x44:self.struct_address+0x48], byteorder='little')
         ]
         for value in self.layout_depth_list:
-            assert value <= 3
+            assert value <= 3, "Invalid Background priority values"
         self.layout_offset_list = [ # 00 = XX--,  10 = --X-, 20 = ---X, 30 = ??? (?)
             int.from_bytes(self.data[self.struct_address+0x48:self.struct_address+0x4C], byteorder='little'),
             int.from_bytes(self.data[self.struct_address+0x4C:self.struct_address+0x50], byteorder='little'),
@@ -213,8 +213,9 @@ class Overlay:
         self.data[self.screenLayout2_address:self.screenLayout2_address+len(screenLayout2_bin)] = self.screenLayout2.toBytes()
         screenLayout3_bin = self.screenLayout3.data
         self.data[self.screenLayout3_address:self.screenLayout3_address+len(screenLayout3_bin)] = self.screenLayout3.toBytes()
-        screenLayout_radar_bin = self.screenLayout_radar.data
-        self.data[self.screenLayout_radar_address:self.screenLayout_radar_address+len(screenLayout_radar_bin)] = self.screenLayout_radar.toBytes()
+        if self.screenLayout_radar_RAMAddress > 0: # debug room doesn't have one
+            screenLayout_radar_bin = self.screenLayout_radar.data
+            self.data[self.screenLayout_radar_address:self.screenLayout_radar_address+len(screenLayout_radar_bin)] = self.screenLayout_radar.toBytes()
         screenLayout_camera_bin = self.screenLayout_camera.data
         self.data[self.screenLayout_camera_address:self.screenLayout_camera_address+len(screenLayout_camera_bin)] = self.screenLayout_camera.toBytes()
         map_tilesetOffset_bin = self.map_tilesetOffset.data
