@@ -6,7 +6,7 @@ __lazy_modules__ = [
 ]
 import sys
 if getattr(sys, 'frozen', False): # Running as a compiled .exe
-    import pyi_splash
+    import pyi_splash # type: ignore
     pyi_splash.update_text("Importing libraries...")
 from PyQt6 import QtGui, QtWidgets, QtCore#, QtMultimedia Qt6, Qt6.qsci
 import os, platform, re, math, enum
@@ -453,7 +453,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.page_tweaks = QtWidgets.QWidget(self.tabs)
         self.page_tweaks.setLayout(QtWidgets.QVBoxLayout())
-        self.page_tweaks.layout().setContentsMargins(0,0,0,0)
+        self.page_tweaks.layout().setContentsMargins(0,9,0,0)
 
         self.page_patches = QtWidgets.QWidget(self.tabs)
         self.page_patches.setLayout(QtWidgets.QGridLayout())
@@ -1364,13 +1364,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.page_level_entities = QtWidgets.QWidget(self.tabs_level)
         self.page_level_entities.setLayout(QtWidgets.QVBoxLayout())
         self.page_level_entities.layout().setContentsMargins(10,0,0,0)
+        self.page_level_routines = QtWidgets.QWidget(self.tabs_level)
+        self.page_level_routines.setLayout(QtWidgets.QVBoxLayout())
+        self.page_level_routines.layout().setContentsMargins(10,0,0,0)
         self.page_level_view = QtWidgets.QWidget(self.tabs_level)
         self.page_level_view.setLayout(QtWidgets.QVBoxLayout())
         self.page_level_view.layout().setContentsMargins(10,0,0,0)
 
         self.tabs_level.addTab(self.page_level_tileset, "Tileset")
-        self.tabs_level.addTab(self.page_level_screens, "Screens")
+        self.tabs_level.addTab(self.page_level_screens, "Screen Layouts")
         self.tabs_level.addTab(self.page_level_entities, "Entities")
+        self.tabs_level.addTab(self.page_level_routines, "Subroutines")
         self.tabs_level.addTab(self.page_level_view, "View")
 
         self.dropdown_metaTile_collisionShape = QtWidgets.QComboBox(self.page_level_tileset)
@@ -1615,12 +1619,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.page_level_screens_layout_radar = QtWidgets.QScrollArea(self.tabs_level_screens)
         self.page_level_screens_map_offset = QtWidgets.QScrollArea(self.tabs_level_screens)
         self.page_level_screens_map_behavior = QtWidgets.QScrollArea(self.tabs_level_screens)
-        self.tabs_level_screens.addTab(self.page_level_screens_layout0, "Layout 0")
-        self.tabs_level_screens.addTab(self.page_level_screens_layout1, "Layout 1")
-        self.tabs_level_screens.addTab(self.page_level_screens_layout2, "Layout 2")
-        self.tabs_level_screens.addTab(self.page_level_screens_layout3, "Layout 3")
-        self.tabs_level_screens.addTab(self.page_level_screens_layout_camera, "Camera Scroll Layout")
-        self.tabs_level_screens.addTab(self.page_level_screens_layout_radar, "Radar Scope Layout")
+        self.tabs_level_screens.addTab(self.page_level_screens_layout0, "0")
+        self.tabs_level_screens.addTab(self.page_level_screens_layout1, "1")
+        self.tabs_level_screens.addTab(self.page_level_screens_layout2, "2")
+        self.tabs_level_screens.addTab(self.page_level_screens_layout3, "3")
+        self.tabs_level_screens.addTab(self.page_level_screens_layout_camera, "Camera Scroll")
+        self.tabs_level_screens.addTab(self.page_level_screens_layout_radar, "Radar Scope")
         self.tabs_level_screens.addTab(self.page_level_screens_map_offset, "Tileset Offset Map")
         self.tabs_level_screens.addTab(self.page_level_screens_map_behavior, "Behavior Map")
         for tab_i in range(self.tabs_level_screens.count()):
@@ -1811,8 +1815,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_unk9, 5, 1)
         self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_unkA, 6, 1)
         self.page_level_entities_slots.layout().addWidget(self.field_level_entities_slots_unkB, 7, 1)
+        self.page_level_entities_preload = QtWidgets.QWidget(self.tabs_level_entities)
+        self.page_level_entities_preload.setLayout(QtWidgets.QGridLayout())
         self.tabs_level_entities.addTab(self.page_level_entities_coords, "Coordinates")
         self.tabs_level_entities.addTab(self.page_level_entities_slots, "Slot data")
+        self.tabs_level_entities.addTab(self.page_level_entities_preload, "Preload data")
 
         #View parameters
         # todo: add option to choose on what layer graphics are drawn
@@ -4908,7 +4915,7 @@ class MainWindow(QtWidgets.QMainWindow):
         arm9_bin = self.arm9_decompressed.save()
         entityt_size = arm9_bin[self.gamedat.arm9Addrs["entity"]+0x04:].find(bytes(4))+0x04
         #print(f"calculated overlay table size: 0x{entityt_size:02X}", "vs expected (ZX/ZXA) 0x120/0x10C")
-        #addr_entityunkt = self.gamedat.arm9Addrs["entity"]+0*entityt_size # 4 bytes of data, usually at 0x01 after start of overlay?
+        #addr_entityunkt = self.gamedat.arm9Addrs["entity"]+0*entityt_size # main routine pointer? 4 bytes of data, usually at 0x01 after start of overlay?
         addr_entityPrelt = self.gamedat.arm9Addrs["entity"]+1*entityt_size # Preload Entity?
         addr_entityCoordt = self.gamedat.arm9Addrs["entity"]+2*entityt_size # coordinates
         addr_entitySlott = self.gamedat.arm9Addrs["entity"]+3*entityt_size # slot defs
@@ -4966,10 +4973,17 @@ class MainWindow(QtWidgets.QMainWindow):
                                                             lib.datconv.strToNum(self.tree_arm9Ovltable.topLevelItem(ovlID).text(1), self.displayBase),
                                                             self.levelEdited_ovlTable,
                                                             self.dropdown_level_area.currentIndex(),
-                                                            self.gamedat.entityNames)
-        except AssertionError:
-            print("This overlay has invalid data")
+                                                            self.gamedat.entityNames,
+                                                            self.gamedat.ramAddrs)
+        except AssertionError as e:
+            print("This overlay has invalid data", e)
             self.levelEdited_ovl_object = None
+            return 1
+        if self.levelEdited_ovl_object.struct_RAMAddress == 0:
+            self.checkbox_entities_enable.setEnabled(False)
+            self.checkbox_entities_gfxEnable.setEnabled(False)
+            self.levelEdited_ovl_object = None
+            print("Empty overlay")
             return 1
         self.checkbox_entities_enable.setEnabled(hasattr(self.levelEdited_ovl_object.entities, "coords"))
         self.checkbox_entities_gfxEnable.setEnabled(hasattr(self.levelEdited_ovl_object.entities, "coords"))
@@ -5208,7 +5222,11 @@ class MainWindow(QtWidgets.QMainWindow):
                                 offset = self.levelEdited_ovl_object.map_tilesetOffset.layout[i][j]
                         except IndexError as e:
                             print("offset index error", e)
-                            offset = self.levelEdited_ovl_object.map_tilesetOffset.layout[0][0]
+                            print(i, j, "vs", len(self.levelEdited_ovl_object.map_tilesetOffset.layout), len(self.levelEdited_ovl_object.map_tilesetOffset.layout[0]))
+                            try:
+                                offset = self.levelEdited_ovl_object.map_tilesetOffset.layout[min(i, len(self.levelEdited_ovl_object.map_tilesetOffset.layout)-1)][min(j, len(self.levelEdited_ovl_object.map_tilesetOffset.layout[0])-1)]
+                            except IndexError as e:
+                                offset = self.levelEdited_ovl_object.map_tilesetOffset.layout[0][0]
                         offset_name = "X"*slice_start + f"{offset:04X}"[slice_start:slice_end] + "X"*(4-slice_end)
                     else:
                         offset = None
@@ -5230,25 +5248,29 @@ class MainWindow(QtWidgets.QMainWindow):
                 loadScreen_loop(
                     self.levelEdited_ovl_object.screenLayout3,
                     *get_slice(self.levelEdited_ovl_object.layout_offset_list[3]),
-                    -self.levelEdited_ovl_object.layout_depth_list[3]*10-((self.levelEdited_ovl_object.layout_bg_list[3] & 0xF0) >> 4)
+                    -self.levelEdited_ovl_object.layout_depth_list[3]*10-(self.levelEdited_ovl_object.getBGLayer(3)),
+                    self.levelEdited_ovl_object.getLayoutAlpha(3)
                 )
             if self.checkbox_level_layout2.isEnabled() and self.checkbox_level_layout2.isChecked():
                 loadScreen_loop(
                     self.levelEdited_ovl_object.screenLayout2,
                     *get_slice(self.levelEdited_ovl_object.layout_offset_list[2]),
-                    -self.levelEdited_ovl_object.layout_depth_list[2]*10-((self.levelEdited_ovl_object.layout_bg_list[2] & 0xF0) >> 4)
+                    -self.levelEdited_ovl_object.layout_depth_list[2]*10-(self.levelEdited_ovl_object.getBGLayer(2)),
+                    self.levelEdited_ovl_object.getLayoutAlpha(2)
                 )
             if self.checkbox_level_layout1.isEnabled() and self.checkbox_level_layout1.isChecked():
                 loadScreen_loop(
                     self.levelEdited_ovl_object.screenLayout1,
                     *get_slice(self.levelEdited_ovl_object.layout_offset_list[1]),
-                    -self.levelEdited_ovl_object.layout_depth_list[1]*10-((self.levelEdited_ovl_object.layout_bg_list[1] & 0xF0) >> 4)
+                    -self.levelEdited_ovl_object.layout_depth_list[1]*10-(self.levelEdited_ovl_object.getBGLayer(1)),
+                    self.levelEdited_ovl_object.getLayoutAlpha(1)
                 )
             if self.checkbox_level_layout0.isEnabled() and self.checkbox_level_layout0.isChecked():
                 loadScreen_loop(
                     self.levelEdited_ovl_object.screenLayout0,
                     *get_slice(self.levelEdited_ovl_object.layout_offset_list[0]),
-                    -self.levelEdited_ovl_object.layout_depth_list[0]*10-((self.levelEdited_ovl_object.layout_bg_list[0] & 0xF0) >> 4)
+                    -self.levelEdited_ovl_object.layout_depth_list[0]*10-(self.levelEdited_ovl_object.getBGLayer(0)),
+                    self.levelEdited_ovl_object.getLayoutAlpha(0)
                 )
         elif level == file.level_radar:
             loadScreen_loop(self.levelEdited_ovl_object.screenLayout_radar, radarOverride=True)
@@ -5336,7 +5358,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def showScreenLayout(self, layout_id, visible: bool=True):
         for item in self.gfx_view_level.scene().items():
             if isinstance(item, lib.widget.LevelTileItem) and item.layout == layout_id:
-                item.setOpacity(visible)
+                item.setOpacity(visible*self.levelEdited_ovl_object.getLayoutAlpha(layout_id))
 
     def setScreenLayoutInteractible(self, layout_id: int):
         for item in self.gfx_view_level.scene().items():

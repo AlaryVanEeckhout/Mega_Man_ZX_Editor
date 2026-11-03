@@ -52,7 +52,7 @@ class File(common.File):
         return bytes(self.data)
 
 class Overlay:
-    def __init__(self, data: bytes, baseRAMAddress: int, RAMAddressDict: dict[str, list[int]], RAMAddressDictIndex: int, entitynamedict: dict[str, dict]):
+    def __init__(self, data: bytes, baseRAMAddress: int, RAMAddressDict: dict[str, list[int]], RAMAddressDictIndex: int, entitynamedict: dict[str, dict]={}, extraRAMAddressDict: dict[str, int]={}):
         self.data = data
         self.RAMAddress = baseRAMAddress
 
@@ -67,9 +67,20 @@ class Overlay:
 
 
         print(f"Level overlay at 0x{self.struct_RAMAddress:08X}")
+        if self.struct_RAMAddress == 0: return
 
         self.subarea_id = int.from_bytes(self.data[self.struct_address+0x00:self.struct_address+0x04], byteorder='little')
         self.routineTable_RAMAddress = int.from_bytes(self.data[self.struct_address+0x04:self.struct_address+0x08], byteorder='little')
+        self.routineTable_address = self.getFileAddress(self.routineTable_RAMAddress)
+        self.routine_RAMAddressTable = [
+            int.from_bytes(self.data[self.routineTable_address+0x00:self.routineTable_address+0x04], byteorder='little'),
+            int.from_bytes(self.data[self.routineTable_address+0x04:self.routineTable_address+0x08], byteorder='little'),
+            int.from_bytes(self.data[self.routineTable_address+0x08:self.routineTable_address+0x0C], byteorder='little'),
+            int.from_bytes(self.data[self.routineTable_address+0x0C:self.routineTable_address+0x10], byteorder='little')
+        ]
+        self.offset_bldalpha = self.data.find(bytes(0x2)+(extraRAMAddressDict["level alpha"]+0x2).to_bytes(0x4, 'little')) - 0x2
+        self.offset_bldcnt = self.data[:self.offset_bldalpha].rfind(bytes(0x2)+extraRAMAddressDict["level alpha"].to_bytes(0x4, 'little')) - 0x2
+        self.alpha_blending = bool(self.data[self.offset_bldcnt] & 0x40)
         self.tilesetName_RAMAddress = int.from_bytes(self.data[self.struct_address+0x08:self.struct_address+0x10], byteorder='little')
         self.tilesetName_address = self.getFileAddress(self.tilesetName_RAMAddress)
         if self.tilesetName_RAMAddress != 0:
@@ -126,6 +137,7 @@ class Overlay:
         self.screenLayout_camera_address = self.getFileAddress(self.screenLayout_camera_RAMAddress)
 
         print(f"Sub-area ID: {self.subarea_id:00X}")
+        print(f"Routine table: {[f"{addr:08X}" for addr in self.routine_RAMAddressTable]}")
         print(f"0x{self.screenLayout0_RAMAddress:08X}: layout0")
         self.screenLayout0 = ScreenLayout(self.data, self.screenLayout0_address, id=0)
         print(f"0x{self.screenLayout1_RAMAddress:08X}: layout1")
@@ -154,9 +166,32 @@ class Overlay:
         print(f"Layout depth list: {self.layout_depth_list}")
         print(f"Layout offset list: {self.layout_offset_list}")
         print(f"unk: {self.unk_offset0, self.unk_offset1}")
+        print(f"cnt: {self.offset_bldcnt:08X}, alpha: {self.offset_bldalpha:08X}")
+        print(f"cnt: {self.data[self.offset_bldcnt:self.offset_bldcnt+0x08].hex()}, alpha: {self.data[self.offset_bldalpha:self.offset_bldalpha+0x08].hex()}")
 
     def getFileAddress(self, RAMAddress: int):
         return RAMAddress - self.RAMAddress
+
+    def getBGLayer(self, layout_id: int):
+        return (self.layout_bg_list[layout_id] & 0xF0) >> 4
+
+    def isLayoutAlpha(self, layout_id: int):
+        return bool(self.alpha_blending and self.data[self.offset_bldcnt] & (1 << self.getBGLayer(layout_id)))
+
+    def isLayoutAlphaBack(self, layout_id: int):
+        return bool(self.alpha_blending and self.data[self.offset_bldcnt+1] & (1 << self.getBGLayer(layout_id)))
+
+    def getLayoutAlpha(self, layout_id: int):
+        if self.isLayoutAlpha(layout_id):
+            return self.data[self.offset_bldalpha]/0x10
+        else:
+            return 1.0
+
+    def getLayoutAlphaBack(self, layout_id: int):
+            if self.isLayoutAlphaBack(layout_id):
+                return self.data[self.offset_bldalpha+1]/0x10
+            else:
+                return 1.0
     
     def toBytes(self):
         # Table
@@ -274,7 +309,7 @@ class Entities:
             print(self.prels.entityList)
         if entityCoordAddress > 0:
             self.coords = EntityCoordinates(self.data, entityCoordAddress)
-            print(self.coords.entityList)
+            #print(self.coords.entityList)
         if entitySlotAddress > 0:
             self.slots = EntitySlots(self.data, entitySlotAddress, namedict)
             print(self.slots.entityList)
@@ -312,7 +347,7 @@ class EntitySlots:
         while True:
             entity_data = data[self._address+index*0x0C:self._address+index*0x0C+0x0C]
             if  len(entity_data) != 0x0C or entity_data[0] not in [0x01, 0x02, 0x04, 0x10, 0x11, 0x12, 0x41, 0x50]: # todo: find the correct way to detect structure end
-                print(entity_data.hex())
+                print("slot data ends before:", entity_data.hex())
                 break
             self.entityList.append({
                 "flag": entity_data[0], # might be some kind of bitmask: 0x01 respawns, 0x02 for collectibles(?), 0x40 is used sometimes...

@@ -488,6 +488,7 @@ class LevelView(View):
 
     def levelInteract(self, event: QtGui.QMouseEvent):
         if not self.mousePressed: return
+        if self.getMainWindow().tabs_level_tileset.currentWidget() is None: return
         view: lib.widget.TilesetView = self.getMainWindow().tabs_level_tileset.currentWidget().children()[0]
         if len(view.scene().selectedItems()) > 0:
             if self.mouseLeftPressed:

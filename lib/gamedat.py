@@ -36,7 +36,7 @@ I_MODEL_ZXA = ("mdl_dat",)
 ARM9_ZX_E = {
     "entity": 0x000C9C7C, #each entry is 0x4*levelOverlayCount bytes
     "level": 0x000CB9D4,
-    #"???": 0x000CC6F0, # pointers outside of overlay
+    #"???": 0x000CC6F0, # pointers to main ARM9 Thumb code
     "dialogue box" : 0x000BEF8C,
     "dialogue box extra" : 0x000BEC8C,
     "dialogue names jp": 0x000BF5CC,
@@ -72,6 +72,18 @@ ARM9_ZXA_J = {
     "dialogue font": 0x000DF968,
     "player palettes": 0
 }
+RAM_ZX_E = {
+    "level alpha": 0x020F7298
+}
+RAM_ZX_J = {
+    "level alpha": 0
+}
+RAM_ZXA_E = {
+    "level alpha": 0
+}
+RAM_ZXA_J = {
+    "level alpha": 0
+}
 CHARMAPS_ZX = {
     "en": dialogue.CHARMAP_DIALOGUE_ZX_EN,
     "jp": dialogue.CHARMAP_DIALOGUE_ZX_JP,
@@ -85,6 +97,7 @@ CHARMAPS_ZXA = {
     "names en": dialogue.CHARMAP_DIALOGUENAME_ZX_EN,
     "names jp": dialogue.CHARMAP_DIALOGUENAME_ZX_JP
 }
+
 ENTITYKINDS_ZX = {
     0x01: ("Boss", {}),
     0x02: ("Enemy", {
@@ -398,16 +411,17 @@ ENTITYKINDS_ZXA = {
 
 class GameEnum(enum.Enum):
 
-    def __init__(self, id: enum.auto, arm9Addrs: int, charmaps: dict[str, dialogue.CharMap], fileIndicators: dict[str, tuple], entityNames: dict[str, dict], tweaks: dict[str, dict], patches: tuple[str|int|tuple]):
+    def __init__(self, id: enum.auto, arm9Addrs: dict[str, int], ramAddrs: dict[str, int], charmaps: dict[str, dialogue.CharMap], fileIndicators: dict[str, tuple], entityNames: dict[str, dict], tweaks: dict[str, dict], patches: tuple[str|int|tuple]):
         self.id = id
         self.arm9Addrs = arm9Addrs
+        self.ramAddrs = ramAddrs
         self.charmaps = charmaps
         self.fileIndicators = fileIndicators
         self.entityNames = entityNames
         self.tweaks = tweaks
         self.patches = patches
 
-    ROCKMANZX = enum.auto(), ARM9_ZX_J, CHARMAPS_ZX, {
+    ROCKMANZX = enum.auto(), ARM9_ZX_J, RAM_ZX_J, CHARMAPS_ZX, {
                             "Graphics" : I_GFX_ZX,
                             "Font" : I_FONT,
                             "Dialogue" : I_DIALOGUE,
@@ -415,7 +429,7 @@ class GameEnum(enum.Enum):
                             "Mugshot" : I_MUGSHOT,
                             "Model": I_MODEL_ZX
                             }, ENTITYKINDS_ZX, {}, ()
-    MEGAMANZX = enum.auto(), ARM9_ZX_E, CHARMAPS_ZX, {
+    MEGAMANZX = enum.auto(), ARM9_ZX_E, RAM_ZX_E, CHARMAPS_ZX, {
                             "Graphics" : I_GFX_ZX,
                             "Font" : I_FONT,
                             "Dialogue" : I_DIALOGUE,
@@ -467,7 +481,7 @@ class GameEnum(enum.Enum):
                                 (0x021AE600, "overwiting patch test", "text", 'f1', '20')
                             )
 
-    ROCKMANZXA = enum.auto(), ARM9_ZXA_J, CHARMAPS_ZXA, {
+    ROCKMANZXA = enum.auto(), ARM9_ZXA_J, RAM_ZXA_J, CHARMAPS_ZXA, {
                              "Graphics" : I_GFX_ZXA,
                              "Font" : I_FONT,
                              "Dialogue" : I_DIALOGUE,
@@ -475,7 +489,7 @@ class GameEnum(enum.Enum):
                              "Mugshot" : I_MUGSHOT,
                              "Model": I_MODEL_ZXA
                              }, ENTITYKINDS_ZXA, {}, ()
-    MEGAMANZXA = enum.auto(), ARM9_ZXA_E, CHARMAPS_ZXA, {
+    MEGAMANZXA = enum.auto(), ARM9_ZXA_E, RAM_ZX_J, CHARMAPS_ZXA, {
                              "Graphics" : I_GFX_ZXA,
                              "Font" : I_FONT,
                              "Dialogue" : I_DIALOGUE,
@@ -484,18 +498,23 @@ class GameEnum(enum.Enum):
                              "Model": I_MODEL_ZXA
                              }, ENTITYKINDS_ZXA, {}, ()
     # wildcard so that the keys in the fileIndicators dict can still be accessed for unsupported games
-    UNSUPPORTED = enum.auto(), {"entity": 0,
-                              "level": 0,
-                              "dialogue box" : 0,
-                              "dialogue names jp": 0,
-                              "dialogue names en": 0,
-                              "dialogue font": 0
-                         }, CHARMAPS_ZX, {"Graphics" : I_GFX,
+    UNSUPPORTED = enum.auto(), {
+                            "entity": 0,
+                            "level": 0,
+                            "dialogue box" : 0,
+                            "dialogue names jp": 0,
+                            "dialogue names en": 0,
+                            "dialogue font": 0
+                            }, {
+                            "level alpha": 0
+                            }, CHARMAPS_ZX, {
+                             "Graphics" : I_GFX,
                              "Font" : I_FONT,
                              "Dialogue" : I_DIALOGUE,
                              "Palette Animation" : I_PANM,
                              "Mugshot" : I_MUGSHOT,
-                             "Model": ()}, ENTITYKINDS_ZX, {}, ()
+                             "Model": ()
+                             }, {}, {}, ()
 
 # Notes:
 # format 1 = [Address, Name, Type, OGData, NewData]
