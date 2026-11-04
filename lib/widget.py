@@ -82,14 +82,19 @@ class TilesetItem(PixmapItem):
             painter.restore() # return to expected configuration
 
 class LevelTileItem(PixmapItem):
-    def __init__(self, *args, index: int=0, id: int=0, screen: int=0, layout: int=0, offset_name: str=None, **kwargs):
+    def __init__(self, *args, index: int=0, id: int=0, screen_pos: tuple[int]=(0,0), layout: lib.level.ScreenLayout, offset_name: str=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.index = index
         self.id = id
-        self.screen = screen
+        self.screen_pos = screen_pos
         self.layout = layout
         self.offset_name = offset_name
         self.tileGroup: list[LevelTileItem] = None
+        self.setToolTip(f"Layout {layout.id}\nScreen (row {screen_pos[0]}, col {screen_pos[1]}): \nID 0x{self.screen_id:02X}")
+
+    @property
+    def screen_id(self):
+        return self.layout.layout[self.screen_pos[0]][self.screen_pos[1]]
 
     def tileReplace(self, item: QtWidgets.QGraphicsPixmapItem):
         if item == None: return
@@ -537,7 +542,18 @@ class LevelView(View):
                     print("screen swap")
                 elif event.button() == QtCore.Qt.MouseButton.RightButton:
                     # bring up contextual menu to modify screen in room layout
-                    print(f"layout{item_target.layout}, screen ID: 0x{item_target.screen:02X}")
+                    #print(f"layout{item_target.layout.id}, screen ID: 0x{item_target.screen_id:02X}")
+                    self.getMainWindow().tabs_level.setCurrentWidget(self.getMainWindow().page_level_screens)
+                    self.getMainWindow().tabs_level_screens.setCurrentIndex(item_target.layout.id)
+                    scroll_area: QtWidgets.QScrollArea = self.getMainWindow().tabs_level_screens.currentWidget()
+                    target_sb: BetterSpinBox = scroll_area.widget().findChild(BetterSpinBox, f"{item_target.screen_pos}")
+                    for widget in scroll_area.widget().findChildren(BetterSpinBox):
+                        if widget == target_sb: # target_sb is therefore not None
+                            target_sb.selectAll()
+                            scroll_area.ensureVisible(target_sb.pos().x(), target_sb.pos().y())
+                        else:
+                            widget.lineEdit().deselect()
+                        
 
     def tileDraw(self, pos: QtCore.QPoint):
         view: lib.widget.TilesetView = self.getMainWindow().tabs_level_tileset.currentWidget().children()[0]
@@ -548,12 +564,12 @@ class LevelView(View):
             sItem_delta_transformed = (sItem_delta-sItem_delta_spacing)*self.getMainWindow().gfx_view_level.transform().m11()
             item_target = self.itemAt(pos+sItem_delta_transformed)
             active_layer = self.getMainWindow().buttonGroup_view_focus.checkedId()
-            if isinstance(item_target, LevelTileItem) and (active_layer < 0 or item_target.layout == active_layer):
+            if isinstance(item_target, LevelTileItem) and (active_layer < 0 or item_target.layout.id == active_layer):
                 for item in item_target.tileGroup:
                     if item != sItem:
                         item.tileReplace(sItem)
                         self.getMainWindow().button_level_save.setEnabled(True)
-                self.getMainWindow().levelEdited_object.levels[self.getMainWindow().dropdown_level_type.currentIndex()].screens[item_target.screen][item_target.index] = item_target.id
+                self.getMainWindow().levelEdited_object.levels[self.getMainWindow().dropdown_level_type.currentIndex()].screens[item_target.screen_id][item_target.index] = item_target.id
         
     def tilePick(self, pos: QtCore.QPoint, keepSelection=False):
         item_target = self.itemAt(pos)

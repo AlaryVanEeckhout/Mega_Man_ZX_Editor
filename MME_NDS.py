@@ -5189,15 +5189,16 @@ class MainWindow(QtWidgets.QMainWindow):
             for metaTile_index in range(len(level.screens[screen_index])):
                 self.gfx_view_level.tileGroups[screen_index].append([])
 
-    def loadScreen(self, layout_id: int, screen_id: int, x: float=0, y: float=0, z: float=0, opacity: float=1, offset_name: str=None):
+    def loadScreen(self, layout: lib.level.ScreenLayout, screen_pos: tuple[int], x: float=0, y: float=0, z: float=0, opacity: float=1, offset_name: str=None):
         #print(f"screen {screen_id}")
         view: lib.widget.TilesetView = getattr(self, f"gfx_view_tileset_{offset_name}")
+        screen_id = layout.layout[screen_pos[0]][screen_pos[1]]
         if view.metaTiles == []:
             print(f"Screen {screen_id} could not load: The tileset {offset_name} has no tiles!")
             return
         screen = self.levelEdited_object.levels[self.dropdown_level_type.currentIndex()].screens[screen_id]
         for metaTile_index, metaTile in enumerate(screen):
-            item = lib.widget.LevelTileItem(index=metaTile_index, id=metaTile, screen=screen_id, layout=layout_id, offset_name=offset_name)
+            item = lib.widget.LevelTileItem(index=metaTile_index, id=metaTile, screen_pos=screen_pos, layout=layout, offset_name=offset_name)
             if metaTile > len(view.metaTiles):
                 print("crash", metaTile, view.metaTiles, offset_name)
             item.setPixmap(view.metaTiles[metaTile].pixmap())
@@ -5231,7 +5232,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     else:
                         offset = None
                         offset_name = f"radar{self.buttonGroup_radar_tilesetType.checkedButton().text().replace(" ", "")}"
-                    self.loadScreen(layout.id, layout.layout[i][j], j*(16*(8*2)+self.gfx_view_level.screenSpacing), i*(12*(8*2)+self.gfx_view_level.screenSpacing), z=z, opacity=opacity, offset_name=offset_name)
+                    self.loadScreen(layout, (i,j), j*(16*(8*2)+self.gfx_view_level.screenSpacing), i*(12*(8*2)+self.gfx_view_level.screenSpacing), z=z, opacity=opacity, offset_name=offset_name)
         self.initScreens()
         def get_slice(val: int):
             if val == 0x00:
@@ -5330,6 +5331,7 @@ class MainWindow(QtWidgets.QMainWindow):
             for col_i, col in enumerate(row):
                 widget = lib.widget.BetterSpinBox(parent)
                 widget.isInt = True
+                widget.setObjectName(f"({row_i}, {col_i})")
                 widget.setToolTip(f"row {row_i}\ncolumn {col_i}")
                 if isinstance(screenLayout, lib.level.ScreenMap):
                     widget.setMinimumWidth(50)
@@ -5357,13 +5359,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def showScreenLayout(self, layout_id, visible: bool=True):
         for item in self.gfx_view_level.scene().items():
-            if isinstance(item, lib.widget.LevelTileItem) and item.layout == layout_id:
+            if isinstance(item, lib.widget.LevelTileItem) and item.layout.id == layout_id:
                 item.setOpacity(visible*self.levelEdited_ovl_object.getLayoutAlpha(layout_id))
 
     def setScreenLayoutInteractible(self, layout_id: int):
         for item in self.gfx_view_level.scene().items():
             if isinstance(item, lib.widget.LevelTileItem):
-                item.setInteractible(layout_id < 0 or item.layout == layout_id)
+                item.setInteractible(layout_id < 0 or item.layout.id == layout_id)
                 item.setTrueShape(layout_id < 0)
 
     def loadEntities(self):
