@@ -5342,6 +5342,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     widget.set_numfill(2)
                     widget.setRange(0x00, 0xFF)
                 widget.setValue(col)
+                widget.valueChanged.connect(lambda: self.replaceScreen())
                 widget.valueChanged.connect(lambda value, r=row_i, c=col_i: screenLayout.layout[r].__setitem__(c, int(value)))
                 #widget.valueChanged.connect(lambda value, r=row_i, c=col_i: print(screenLayout.layout, screenLayout.layout[r], value, sep="\n"))
                 widget.valueChanged.connect(lambda: self.button_level_save.setEnabled(True))
@@ -5357,6 +5358,24 @@ class MainWindow(QtWidgets.QMainWindow):
         self.loadScreenLayout(self.levelEdited_ovl_object.map_tilesetOffset, self.page_level_screens_map_offset.widget())
         self.loadScreenLayout(self.levelEdited_ovl_object.map_behavior, self.page_level_screens_map_behavior.widget())
 
+    def replaceScreen(self):
+        spinbox: lib.widget.BetterSpinBox = self.sender()
+        scroll_area: QtWidgets.QScrollArea = spinbox.parent().parent().parent()
+        layout_id = int(scroll_area.objectName())
+        screen_pos = ast.literal_eval(spinbox.objectName())
+        screen_id_new: int = spinbox.value()
+        screen_new = self.levelEdited_object.level.screens[screen_id_new]
+        view: lib.widget.TilesetView = self.tabs_level_tileset.currentWidget().children()[0]
+        for item in self.gfx_view_level.scene().items():
+            if isinstance(item, lib.widget.LevelTileItem):
+                if item.layout.id == layout_id and item.screen_pos == screen_pos:
+                    self.gfx_view_level.tileGroups[item.screen_id][item.index].remove(item)
+                    self.gfx_view_level.tileGroups[screen_id_new][item.index].append(item)
+                    item.tileReplace(view.metaTiles[screen_new[item.index]])
+                    item.updateToolTip()
+                    item.tileGroup = self.gfx_view_level.tileGroups[screen_id_new][item.index]
+
+    
     def showScreenLayout(self, layout_id, visible: bool=True):
         for item in self.gfx_view_level.scene().items():
             if isinstance(item, lib.widget.LevelTileItem) and item.layout.id == layout_id:

@@ -172,6 +172,10 @@ class Overlay:
     def getFileAddress(self, RAMAddress: int):
         return RAMAddress - self.RAMAddress
 
+    def layoutFromID(self, id: int):
+        layout_list = [self.screenLayout0, self.screenLayout1, self.screenLayout2, self.screenLayout3]
+        return layout_list[id]
+
     def getBGLayer(self, layout_id: int):
         return (self.layout_bg_list[layout_id] & 0xF0) >> 4
 

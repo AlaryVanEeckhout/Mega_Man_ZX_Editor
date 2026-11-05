@@ -90,7 +90,10 @@ class LevelTileItem(PixmapItem):
         self.layout = layout
         self.offset_name = offset_name
         self.tileGroup: list[LevelTileItem] = None
-        self.setToolTip(f"Layout {layout.id}\nScreen (row {screen_pos[0]}, col {screen_pos[1]}): \nID 0x{self.screen_id:02X}")
+        self.updateToolTip()
+
+    def updateToolTip(self):
+        self.setToolTip(f"Layout {self.layout.id}\nScreen (row {self.screen_pos[0]}, col {self.screen_pos[1]}): \nID 0x{self.screen_id:02X}")
 
     @property
     def screen_id(self):
