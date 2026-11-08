@@ -1,0 +1,26 @@
+[project]
+name = "mega-man-zx-editor"
+description = "This is an attempt at creating a tool dedicated to Mega Man ZX ROM hacking."
+readme = "README.md"
+authors = [
+    { name = "AlaryVanEeckhout", email = "alary.vaneeckhout@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "audioop-lts>=0.2.2",
+    "matplotlib>=3.11.2",
+    "ndspy==4.2.0",
+    "numpy>=2.5.4",
+    "pillow>=13.0.0",
+    "pyopengl>=3.1.10",
+    "pyqt6==6.12.0",
+    "pyqt6-sip==13.13.0",
+    "scipy>=1.18.1",
+    "sounddevice>=0.5.6",
+]
+
+[project.scripts]
+mega-man-zx-editor = "mega_man_zx_editor:main"
+
+[tool.uv]
+package = false
