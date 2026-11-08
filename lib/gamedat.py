@@ -1,4 +1,4 @@
-# patches database
+# game database
 import enum
 from . import dialogue
 
@@ -121,7 +121,7 @@ ENTITYKINDS_ZX = {
         0x19: ("Remettaur", {
             0x00: ("Normal", {}),
             0x01: ("Glasses", {}),
-            0x01: ("Cross eyes", {})
+            0x02: ("Cross eyes", {})
         }),
         0x1A: ("Pattrolaur", {}),
         0x1B: ("Warp Prism", {}),

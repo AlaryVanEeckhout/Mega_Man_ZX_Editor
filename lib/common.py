@@ -1,5 +1,5 @@
-from pathlib import Path
 import sys
+from pathlib import Path
 if getattr(sys, 'frozen', False): # Running as a compiled .exe
     PATH_ROOT = str(Path(sys.executable).resolve().parent) + "/"
 else: # Running as a normal .py script

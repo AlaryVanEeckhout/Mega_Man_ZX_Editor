@@ -1,6 +1,6 @@
 
-from lib import common
 import ndspy.lz10
+from lib import common
 
 SCREEN_WIDTH = 256
 SCREEN_HEIGHT = 192

@@ -1,6 +1,7 @@
+from PyQt6 import QtCore
 global player, player_info
 player = None
-from PyQt6 import QtCore
+
 class GlobalPlayerInfo(QtCore.QObject):
     finished = QtCore.pyqtSignal(bool)
     def __init__(self):

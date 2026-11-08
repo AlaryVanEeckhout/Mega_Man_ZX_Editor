@@ -1,5 +1,5 @@
-from lib import common, datconv
 import bisect
+from lib import common, datconv
 
 SPRITE_WIDTHS = ((1,2,4,8),(2,4,4,8),(1,1,2,4), (1,1,1,1)) # in tiles
 SPRITE_HEIGHTS = ((1,2,4,8),(1,1,2,4),(2,4,4,8), (1,1,1,1))

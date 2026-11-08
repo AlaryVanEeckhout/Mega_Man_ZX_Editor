@@ -1,10 +1,10 @@
 # data converter for numeric bases and for graphics
 #import os.path
+import enum
+#import io
 #import numpy
 #import PIL, PIL.Image
 from PyQt6 import QtGui, QtCore
-#import io
-import enum
 
 def ceildiv(a, b):
     return -(a // -b)

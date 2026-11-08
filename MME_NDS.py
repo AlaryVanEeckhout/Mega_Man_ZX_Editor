@@ -8,12 +8,12 @@ import sys
 if getattr(sys, 'frozen', False): # Running as a compiled .exe
     import pyi_splash # type: ignore
     pyi_splash.update_text("Importing libraries...")
-from PyQt6 import QtGui, QtWidgets, QtCore#, QtMultimedia Qt6, Qt6.qsci
 import os, platform, re, math, enum
 import ast
 import argparse
 import bisect
 #import logging, time, random
+from PyQt6 import QtGui, QtWidgets, QtCore#, QtMultimedia Qt6, Qt6.qsci
 import ndspy
 #import ndspy.graphics2D
 #import ndspy.model
@@ -5112,7 +5112,7 @@ class MainWindow(QtWidgets.QMainWindow):
             view.scene().addItem(metaTileItem)
             view.metaTiles.append(metaTileItem)
         painter.end()
-        view.fitInView(view.frameRect().toRectF())
+        view.fitInView(view.frameRect().toRectF(), QtCore.Qt.AspectRatioMode.KeepAspectRatio)
         print("load tileset end")
 
     def loadTilesets(self, gfx_table: lib.graphic.GraphicsTable, pal_sec: lib.level.PaletteSection, offsets: list[int]=[]):

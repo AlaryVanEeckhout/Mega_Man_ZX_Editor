@@ -3,11 +3,11 @@ try:
 except OSError:
     print("PortAudio library not found")
     raise ImportError # trigger the except block from sdat instead of actually crashing
-import numpy
-import ndspy.soundArchive as sa
 from timeit import default_timer as timer
 import sched
 import threading
+import numpy
+import ndspy.soundArchive as sa
 from .sdat import Sample
 from .sdat import BPM_TICK_FACTOR, SSEQ_CLOCK_FREQ
 

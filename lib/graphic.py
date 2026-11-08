@@ -1,7 +1,7 @@
-from lib import common
-import lib.datconv
 import bisect
 import ndspy.lz10
+from lib import common
+import lib.datconv
 
 class File(common.File):
     def __init__(self, *args, **kwargs):
