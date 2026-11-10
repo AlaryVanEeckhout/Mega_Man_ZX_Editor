@@ -80,8 +80,8 @@ class MainWindow(QtWidgets.QMainWindow):
         super().__init__()
         # expected module versions
         self.VERSION_EDITOR = "0.4.6" # objective, feature, WIP
-        self.VERSION_PYTHON = "3.14.3"
-        self.VERSION_PYQT = "6.11.0"
+        self.VERSION_PYTHON = "3.15.1"
+        self.VERSION_PYQT = "6.12.0"
         self.VERSION_NDSPY = "4.2.0"
         self.window_width = 1024
         self.window_height = 720
@@ -449,6 +449,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.page_leveleditor = QtWidgets.QWidget(self.tabs)
         self.page_leveleditor.setLayout(QtWidgets.QHBoxLayout())
+        self.page_leveleditor.layout().setSpacing(1)
         self.page_leveleditor.layout().setContentsMargins(0,0,0,0)
 
         self.page_tweaks = QtWidgets.QWidget(self.tabs)
@@ -1272,42 +1273,43 @@ class MainWindow(QtWidgets.QMainWindow):
         self.FILEOPEN_WIDGETS: list[QtWidgets.QWidget] = [self.tree, *self.viewFormatsGroup.actions(), self.displayConvAction]
 
         # Level Editor(WIP)
-        self.layout_level_editpannel = QtWidgets.QVBoxLayout()
-        self.layout_level_editpannel.setContentsMargins(0,0,0,0)
+        self.level_editpannel = QtWidgets.QWidget(self.page_leveleditor)
+        self.level_editpannel.setSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Preferred)
+        self.level_editpannel.setLayout(QtWidgets.QVBoxLayout())
+        self.level_editpannel.layout().setContentsMargins(0,0,0,0)
+        self.level_editpannel.layout().setSpacing(0)
 
-        self.button_level_save = QtWidgets.QPushButton("Save level", self.page_leveleditor)
+        self.button_level_save = QtWidgets.QPushButton("Save level", self.level_editpannel)
         self.button_level_save.setMaximumWidth(75)
         self.button_level_save.setToolTip("Save this level's changes")
         self.button_level_save.pressed.connect(self.save_level)
         self.button_level_save.setDisabled(True)
 
-        self.button_level_load = QtWidgets.QPushButton("Load level", self.page_leveleditor)
+        self.button_level_load = QtWidgets.QPushButton("Load level", self.level_editpannel)
         self.button_level_load.setMaximumWidth(75)
         self.button_level_load.setToolTip("Load tileset(s) and layout. May take some time")
         self.button_level_load.pressed.connect(self.loadLevel)
         self.button_level_load.setDisabled(True)
 
-        self.checkbox_level_fitInView = QtWidgets.QCheckBox("Reset view", self.page_leveleditor)
-        self.checkbox_level_fitInView.setChecked(True)
-
-        self.dropdown_level_area = QtWidgets.QComboBox(self.page_leveleditor)
+        self.dropdown_level_area = QtWidgets.QComboBox(self.level_editpannel)
         self.dropdown_level_area.setPlaceholderText("Select...")
         self.dropdown_level_area.setToolTip("Choose an overlay to load")
         self.dropdown_level_area.currentIndexChanged.connect(self.updateLevelareaUI)
         self.dropdown_level_area.setDisabled(True)
 
-        self.lineedit_level_tilesetName = QtWidgets.QLineEdit("N/A", self.page_leveleditor)
+        self.lineedit_level_tilesetName = QtWidgets.QLineEdit("N/A", self.level_editpannel)
         self.lineedit_level_tilesetName.setToolTip("The name of the asset file that is used")
         self.lineedit_level_tilesetName.setMaxLength(8)
+        self.lineedit_level_tilesetName.setMaximumWidth(self.lineedit_level_tilesetName.fontMetrics().averageCharWidth()*self.lineedit_level_tilesetName.maxLength())
         self.lineedit_level_tilesetName.textChanged.connect(lambda: self.button_level_save.setEnabled(True))
         self.lineedit_level_tilesetName.setDisabled(True)
 
         self.layout_level_type = QtWidgets.QVBoxLayout()
         self.layout_level_type.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
         self.layout_level_type.setContentsMargins(0,24,0,0)
-        self.dropdown_level_type = QtWidgets.QComboBox(self.page_leveleditor)
+        self.dropdown_level_type = QtWidgets.QComboBox(self.level_editpannel)
         self.dropdown_level_type.setPlaceholderText("N/A")
-        self.dropdown_level_type.setMinimumWidth(100)
+        self.dropdown_level_type.setMaximumWidth(100)
         self.dropdown_level_type.setToolTip("Choose between normal level and scanner map (if applicable)")
         self.dropdown_level_type.currentIndexChanged.connect(lambda: self.group_radar_tilesetType.setEnabled(self.dropdown_level_type.currentIndex() == 1))
         self.dropdown_level_type.currentIndexChanged.connect(lambda: self.checkbox_level_layout0.setEnabled(self.dropdown_level_type.currentIndex() == 0))
@@ -1317,17 +1319,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_level_type.setDisabled(True)
 
         self.layout_level_layouts = QtWidgets.QHBoxLayout()
-        self.checkbox_level_layout0 = QtWidgets.QCheckBox("0", self.page_leveleditor)
+        self.checkbox_level_layout0 = QtWidgets.QCheckBox("0", self.level_editpannel)
         self.checkbox_level_layout0.setToolTip("Load Layout 0")
         self.checkbox_level_layout0.setChecked(True)
         self.checkbox_level_layout0.setDisabled(True)
-        self.checkbox_level_layout1 = QtWidgets.QCheckBox("1", self.page_leveleditor)
+        self.checkbox_level_layout1 = QtWidgets.QCheckBox("1", self.level_editpannel)
         self.checkbox_level_layout1.setToolTip("Load Layout 1")
         self.checkbox_level_layout1.setDisabled(True)
-        self.checkbox_level_layout2 = QtWidgets.QCheckBox("2", self.page_leveleditor)
+        self.checkbox_level_layout2 = QtWidgets.QCheckBox("2", self.level_editpannel)
         self.checkbox_level_layout2.setToolTip("Load Layout 2")
         self.checkbox_level_layout2.setDisabled(True)
-        self.checkbox_level_layout3 = QtWidgets.QCheckBox("3", self.page_leveleditor)
+        self.checkbox_level_layout3 = QtWidgets.QCheckBox("3", self.level_editpannel)
         self.checkbox_level_layout3.setToolTip("Load Layout 3")
         self.checkbox_level_layout3.setDisabled(True)
         self.layout_level_layouts.addWidget(self.checkbox_level_layout0)
@@ -1338,25 +1340,28 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_level_type.addWidget(self.dropdown_level_type)
         self.layout_level_type.addItem(self.layout_level_layouts)
 
-        self.radio_radar_LX = QtWidgets.QRadioButton(self.page_leveleditor)
+        self.radio_radar_LX = QtWidgets.QRadioButton(self.level_editpannel)
         self.radio_radar_LX.setText("Model LX")
-        self.radio_radar_PX = QtWidgets.QRadioButton(self.page_leveleditor)
+        self.radio_radar_PX = QtWidgets.QRadioButton(self.level_editpannel)
         self.radio_radar_PX.setText("Model PX")
         self.buttonGroup_radar_tilesetType = QtWidgets.QButtonGroup()
         self.buttonGroup_radar_tilesetType.addButton(self.radio_radar_LX, 2) # rindex to getData
         self.buttonGroup_radar_tilesetType.addButton(self.radio_radar_PX, 1)
         #self.buttonGroup_radar_tilesetType.idReleased.connect(self.loadLevel)
-        self.group_radar_tilesetType = QtWidgets.QGroupBox(self.page_leveleditor)
-        self.group_radar_tilesetType.setMaximumHeight(70)
+        self.group_radar_tilesetType = QtWidgets.QGroupBox(self.level_editpannel)
+        self.group_radar_tilesetType.setSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Maximum)
         self.group_radar_tilesetType.setTitle("Radar mode")
         self.group_radar_tilesetType.setLayout(QtWidgets.QVBoxLayout())
+        self.group_radar_tilesetType.layout().setSpacing(0)
         self.group_radar_tilesetType.layout().addWidget(self.radio_radar_LX)
         self.group_radar_tilesetType.layout().addWidget(self.radio_radar_PX)
         self.group_radar_tilesetType.setDisabled(True)
 
-        self.tabs_level = QtWidgets.QTabWidget(self.page_leveleditor)
+        self.tabs_level = QtWidgets.QTabWidget(self.level_editpannel)
+        self.tabs_level.setContentsMargins(0,0,0,0)
         self.page_level_tileset = QtWidgets.QWidget(self.tabs_level)
         self.page_level_tileset.setLayout(QtWidgets.QVBoxLayout())
+        self.page_level_tileset.layout().setSpacing(0)
         self.page_level_tileset.layout().setContentsMargins(10,0,0,0)
         self.page_level_screens = QtWidgets.QWidget(self.tabs_level)
         self.page_level_screens.setLayout(QtWidgets.QVBoxLayout())
@@ -1399,8 +1404,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dropdown_metaTile_collisionShape.setDisabled(True)
 
         self.group_metaTile_gfx = QtWidgets.QGroupBox(self.page_level_tileset)
+        self.group_metaTile_gfx.setSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Maximum)
         self.group_metaTile_gfx.setTitle("Meta Tile Graphics")
         self.group_metaTile_gfx.setLayout(QtWidgets.QGridLayout())
+        self.group_metaTile_gfx.layout().setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.group_metaTile_gfx.layout().setSpacing(0)
         self.group_metaTile_gfx.setDisabled(True)
 
         self.field_metaTile_topLeft_id = lib.widget.BetterSpinBox(self.page_level_tileset)
@@ -1548,7 +1556,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.buttonGroup_metaTile_attrConvey.addButton(self.radio_metaTile_attrConveyL, 2)
         self.buttonGroup_metaTile_attrConvey.addButton(self.radio_metaTile_attrIce, 3)
         self.buttonGroup_metaTile_attrConvey.idReleased.connect(lambda: self.changeTileAttr("10011111", self.buttonGroup_metaTile_attrConvey.checkedId()))
+        self.layout_metaTile_attrConvey = QtWidgets.QGridLayout()
         self.group_metaTile_attrConvey = QtWidgets.QGroupBox(self.page_level_tileset)
+        self.group_metaTile_attrConvey.setSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Minimum)
         self.group_metaTile_attrConvey.setTitle("Floor type")
         self.group_metaTile_attrConvey.setLayout(QtWidgets.QVBoxLayout())
         self.group_metaTile_attrConvey.layout().addWidget(self.radio_metaTile_attrNone)
@@ -1556,6 +1566,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.group_metaTile_attrConvey.layout().addWidget(self.radio_metaTile_attrConveyL)
         self.group_metaTile_attrConvey.layout().addWidget(self.radio_metaTile_attrIce)
         self.group_metaTile_attrConvey.setDisabled(True)
+        self.layout_metaTile_attrConvey.addWidget(self.group_metaTile_attrConvey)
         self.checkbox_metaTile_attrPlat = QtWidgets.QCheckBox(self.page_level_tileset)
         self.checkbox_metaTile_attrPlat.setText("Platform")
         self.checkbox_metaTile_attrPlat.setStatusTip("Has only top collision and allows to drop through it with Down+Jump. Model P can hang from it and climb it.")
@@ -1566,19 +1577,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_metaTile_shape.addWidget(self.dropdown_metaTile_collisionShape)
         self.layout_metaTile_shape.addWidget(self.group_metaTile_gfx)
 
-        self.layout_metaTile_attr = QtWidgets.QGridLayout()
-        self.layout_metaTile_attr.setContentsMargins(10, 0, 0, 0)
-        self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrRospark, 0, 0)
-        self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrWaterfall, 1, 0)
-        self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrUnk2, 2, 0)
-        self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrMetal, 3, 0)
-        self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrSpike, 4, 0)
-        self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrWater, 5, 0)
-        self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrNoCeilHang, 6, 0)
-        self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrNoWalljump, 7, 0)
-        self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrSand, 8, 0)
-        self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrPlat, 9, 0)
-        self.layout_metaTile_attr.addWidget(self.group_metaTile_attrConvey, 0, 2, 10, 1)
+        self.layout_metaTile_attr = QtWidgets.QVBoxLayout()
+        self.layout_metaTile_attr.setSpacing(0)
+        self.layout_metaTile_attr.setContentsMargins(0, 0, 0, 0)
+        self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrRospark)
+        self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrWaterfall)
+        self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrUnk2)
+        self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrMetal)
+        self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrSpike)
+        self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrWater)
+        self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrNoCeilHang)
+        self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrNoWalljump)
+        self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrSand)
+        self.layout_metaTile_attr.addWidget(self.checkbox_metaTile_attrPlat)
 
         self.layout_level_areaName = QtWidgets.QVBoxLayout()
         self.layout_level_areaName.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
@@ -1589,15 +1600,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout_level_area = QtWidgets.QHBoxLayout()
         self.layout_level_area.addWidget(self.button_level_save)
         self.layout_level_area.addWidget(self.button_level_load)
-        self.layout_level_area.addWidget(self.checkbox_level_fitInView)
         self.layout_level_area.addItem(self.layout_level_areaName)
         self.layout_level_area.addItem(self.layout_level_type)
         self.layout_level_area.addWidget(self.group_radar_tilesetType)
 
         self.layout_metaTile_properties = QtWidgets.QHBoxLayout()
+        self.layout_metaTile_properties.setSpacing(10)
         self.layout_metaTile_properties.addItem(self.layout_metaTile_shape)
         self.layout_metaTile_properties.addItem(self.layout_metaTile_attr)
+        self.layout_metaTile_properties.addItem(self.layout_metaTile_attrConvey)
         self.tabs_level_tileset = QtWidgets.QTabWidget(self.page_level_tileset)
+        self.tabs_level_tileset.setContentsMargins(0,0,0,0)
 
         self.checkbox_tileset_loadAll = QtWidgets.QCheckBox("Load all tilesets", self.page_level_tileset)
         self.checkbox_tileset_loadAll.setStatusTip("Whether or not all used tilesets should be loaded. Disable if you want levels to load faster and don't need to see the graphics.")
@@ -1822,6 +1835,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tabs_level_entities.addTab(self.page_level_entities_preload, "Preload data")
 
         #View parameters
+
+        self.checkbox_level_fitInView = QtWidgets.QCheckBox("Reset view", self.page_level_view)
+        self.checkbox_level_fitInView.setChecked(True)
         # todo: add option to choose on what layer graphics are drawn
         self.group_view_focus = QtWidgets.QGroupBox(self.page_level_view)
         self.group_view_focus.setLayout(QtWidgets.QVBoxLayout())
@@ -1854,6 +1870,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.group_view_hide.setLayout(QtWidgets.QVBoxLayout())
         self.group_view_hide.setTitle("Show Layouts")
 
+        self.page_level_view.layout().addWidget(self.checkbox_level_fitInView)
         self.page_level_view.layout().addWidget(self.group_view_focus)
         self.page_level_view.layout().addWidget(self.group_view_hide)
 
@@ -1861,9 +1878,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.gfx_view_level = lib.widget.LevelView(self.page_leveleditor, screenSpacing=4)
         self.gfx_view_level.scene().selectionChanged.connect(self.loadEntityProperties)
 
-        self.page_leveleditor.layout().addItem(self.layout_level_editpannel)
-        self.layout_level_editpannel.addItem(self.layout_level_area)
-        self.layout_level_editpannel.addWidget(self.tabs_level)
+        self.page_leveleditor.layout().addWidget(self.level_editpannel)
+        self.level_editpannel.layout().addItem(self.layout_level_area)
+        self.level_editpannel.layout().addWidget(self.tabs_level)
         self.page_level_tileset.layout().addWidget(self.checkbox_tileset_loadAll)
         self.page_level_tileset.layout().addItem(self.layout_metaTile_properties)
         self.page_level_tileset.layout().addWidget(self.tabs_level_tileset)
@@ -5153,6 +5170,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 view: lib.widget.TilesetView = getattr(self, f"gfx_view_tileset_{offset_name}")
                 view.scene().selectionChanged.connect(self.loadTileProperties)
                 page.setLayout(QtWidgets.QGridLayout())
+                page.layout().setContentsMargins(0,0,0,0)
                 page.layout().addWidget(view)
                 page.setObjectName(offset_name)
                 self.loadTileset(view, gfx_table, pal_list, indexes)
